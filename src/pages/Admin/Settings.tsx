@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Save, Settings as SettingsIcon, DollarSign, DownloadCloud, AlertTriangle, X, CheckCircle2, Rocket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
@@ -206,8 +207,10 @@ export default function AdminSettings() {
                         发布时间: {new Date(updateInfo.publishedAt).toLocaleString()}
                       </p>
                       
-                      <div className="bg-black/10 backdrop-blur-md rounded-xl p-4 text-sm text-blue-50 mb-5 whitespace-pre-wrap max-h-48 overflow-y-auto border border-white/10 shadow-inner">
-                        {updateInfo.releaseNotes || '暂无更新说明'}
+                      <div className="bg-white/60 rounded-lg p-3 text-sm text-slate-700 mb-4 overflow-y-auto max-h-40 border border-blue-100 prose prose-sm max-w-none">
+                        <ReactMarkdown>
+                          {updateInfo.releaseNotes || '暂无更新说明'}
+                        </ReactMarkdown>
                       </div>
                       
                       <button
@@ -416,8 +419,10 @@ export default function AdminSettings() {
                   <h3 className="text-lg font-semibold text-slate-800">更新日志 (Release Notes)</h3>
                 </div>
                 
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm font-mono text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
-                  {updateInfo.releaseNotes || '本次更新没有提供详细的日志说明。'}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-sm text-slate-600 leading-relaxed prose max-w-none">
+                  <ReactMarkdown>
+                    {updateInfo.releaseNotes || '本次更新没有提供详细的日志说明。'}
+                  </ReactMarkdown>
                 </div>
 
                 <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start space-x-3 text-amber-800">
