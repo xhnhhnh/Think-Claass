@@ -1,0 +1,5 @@
+- [x] `vite.config.ts` 中不再包含 `vite-plugin-trae-solo-badge`
+- [x] `package.json` 中不再包含 `vite-plugin-trae-solo-badge`
+- [x] `api/routes/admin.ts` 中的 `fetch` 包含了 `User-Agent` 请求头
+- [x] `api/routes/admin.ts` 执行更新脚本时使用了 `os.tmpdir()` 中的临时副本
+- [x] `src/pages/Admin/Settings.tsx` 的“系统升级”模块具有全新的、高品质的前端设计视觉效果
