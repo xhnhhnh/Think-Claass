@@ -41,6 +41,9 @@ collect_inputs() {
     read -p "请输入超级后台管理员密码 (默认: wx951004): " SUPERADMIN_PASSWORD
     SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-wx951004}
 
+    read -p "是否为您自动安装并配置 Nginx 反向代理 (直接通过域名访问，无需加端口)? (y/n, 默认: y): " SETUP_NGINX
+    SETUP_NGINX=${SETUP_NGINX:-y}
+
     echo ""
     echo "即将开始安装，配置如下："
     echo "目标安装目录: $INSTALL_DIR"
@@ -48,6 +51,7 @@ collect_inputs() {
     echo "超级后台路径: $ADMIN_PATH"
     echo "超级管理员账号: $SUPERADMIN_USERNAME"
     echo "超级管理员密码: $SUPERADMIN_PASSWORD"
+    echo "自动配置 Nginx: $SETUP_NGINX"
     echo "================================================="
     read -p "按回车键继续，或按 Ctrl+C 取消..."
 }
@@ -192,6 +196,59 @@ start_service() {
     sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME || true
 }
 
+# --- 配置 Nginx 反向代理 ---
+setup_nginx() {
+    if [[ "${SETUP_NGINX,,}" == "y" ]]; then
+        echo ">> 正在检查并安装 Nginx..."
+        if ! command -v nginx &> /dev/null; then
+            if command -v apt-get &> /dev/null; then
+                sudo apt-get update && sudo apt-get install -y nginx
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y epel-release && sudo yum install -y nginx
+            else
+                echo ">> [警告] 无法自动安装 Nginx，请手动配置反向代理。"
+                return
+            fi
+        fi
+
+        echo ">> 正在配置 Nginx 反向代理 ($USER_DOMAIN -> 127.0.0.1:$PORT)..."
+        local NGINX_CONF="/etc/nginx/conf.d/${APP_NAME}.conf"
+        
+        # 兼容 Ubuntu/Debian 的 sites-available
+        if [ -d "/etc/nginx/sites-available" ]; then
+            NGINX_CONF="/etc/nginx/sites-available/${APP_NAME}.conf"
+        fi
+
+        sudo bash -c "cat > $NGINX_CONF" <<EOF
+server {
+    listen 80;
+    server_name $USER_DOMAIN;
+
+    location / {
+        proxy_pass http://127.0.0.1:$PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+        if [ -d "/etc/nginx/sites-available" ]; then
+            sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/
+        fi
+
+        # 测试配置并重启
+        if sudo nginx -t &> /dev/null; then
+            sudo systemctl restart nginx
+            sudo systemctl enable nginx
+            echo ">> Nginx 反向代理配置成功！"
+        else
+            echo ">> [警告] Nginx 配置测试失败，请手动检查 $NGINX_CONF"
+        fi
+    fi
+}
+
 # --- 打印成功信息 ---
 print_success() {
     echo "================================================="
@@ -200,12 +257,21 @@ print_success() {
     echo " 后端服务已运行在 $PORT 端口。"
     echo " 项目目录: $INSTALL_DIR"
     echo " 当前版本: ${LATEST_TAG:-未知}"
-    echo " 访问地址: http://$USER_DOMAIN:$PORT"
-    echo " 超级后台: http://$USER_DOMAIN:$PORT${ADMIN_PATH}/login"
+    if [[ "${SETUP_NGINX,,}" == "y" ]]; then
+        echo " 访问地址: http://$USER_DOMAIN"
+        echo " 超级后台: http://$USER_DOMAIN${ADMIN_PATH}/login"
+    else
+        echo " 访问地址: http://$USER_DOMAIN:$PORT"
+        echo " 超级后台: http://$USER_DOMAIN:$PORT${ADMIN_PATH}/login"
+    fi
     echo " 超管账号: $SUPERADMIN_USERNAME"
     echo " 超管密码: $SUPERADMIN_PASSWORD"
     echo "-------------------------------------------------"
-    echo "提示：如果您使用 Nginx，请配置反向代理指向 127.0.0.1:$PORT"
+    if [[ "${SETUP_NGINX,,}" != "y" ]]; then
+        echo "提示：如果您后续使用 Nginx，请配置反向代理指向 127.0.0.1:$PORT"
+    else
+        echo "提示：已为您自动配置了 Nginx 反向代理，您可以直接使用域名访问了！"
+    fi
     echo "================================================="
 }
 
@@ -221,6 +287,7 @@ main() {
     generate_env
     build_project
     start_service
+    setup_nginx
     print_success
 }
 
