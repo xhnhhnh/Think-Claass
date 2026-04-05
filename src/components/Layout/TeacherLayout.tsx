@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { Users, ClipboardList, LogOut, Award, Store, Settings, MonitorPlay, BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, Gavel, GitBranch, Swords, Map } from "lucide-react";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 
 export default function TeacherLayout() {
@@ -10,9 +10,68 @@ export default function TeacherLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [features, setFeatures] = useState({
+    enableShop: true,
+    enablePets: true,
+    enableRecords: true,
+  });
+
+  const fetchFeatures = async () => {
+    try {
+      const response = await fetch('/api/classes');
+      const data = await response.json();
+      
+      let enableShop = false;
+      let enablePets = false;
+      let enableRecords = false;
+
+      if (data.success && data.classes && Array.isArray(data.classes)) {
+        if (data.classes.length === 0) {
+          enableShop = true;
+          enablePets = true;
+          enableRecords = true;
+        } else {
+          data.classes.forEach((cls: any) => {
+            if (cls.settings) {
+              try {
+                const settings = typeof cls.settings === 'string' ? JSON.parse(cls.settings) : cls.settings;
+                if (settings.enableShop) enableShop = true;
+                if (settings.enablePets) enablePets = true;
+                if (settings.enableRecords) enableRecords = true;
+              } catch (e) {
+                console.error('Failed to parse class settings', e);
+              }
+            } else {
+              // If any class has no settings, assume default true
+              enableShop = true;
+              enablePets = true;
+              enableRecords = true;
+            }
+          });
+        }
+      }
+
+      setFeatures({
+        enableShop,
+        enablePets,
+        enableRecords,
+      });
+    } catch (error) {
+      console.error('Failed to fetch class features:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user || user.role !== 'teacher') {
       navigate('/login');
+    }
+    
+    if (user && user.role === 'teacher') {
+      fetchFeatures();
+      window.addEventListener('featuresUpdated', fetchFeatures);
+      return () => {
+        window.removeEventListener('featuresUpdated', fetchFeatures);
+      };
     }
   }, [user, navigate]);
 
@@ -74,24 +133,17 @@ export default function TeacherLayout() {
             <Target className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/team-quests' ? 'text-indigo-600' : 'text-gray-400'}`} />
             团队任务
           </button>
-          <button
-            onClick={() => navigate('/teacher/pets')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/pets' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Sparkles className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/pets' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            精灵管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/brawl')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/brawl' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Swords className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/brawl' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            跨班大乱斗
-          </button>
+          {features.enablePets && (
+            <button
+              onClick={() => navigate('/teacher/pets')}
+              className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                location.pathname === '/teacher/pets' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <Sparkles className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/pets' ? 'text-indigo-600' : 'text-gray-400'}`} />
+              精灵管理
+            </button>
+          )}
           <button
             onClick={() => navigate('/teacher/brawl')}
             className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
@@ -110,15 +162,17 @@ export default function TeacherLayout() {
             <Map className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/territory' ? 'text-indigo-600' : 'text-gray-400'}`} />
             领土扩张
           </button>
-          <button
-            onClick={() => navigate('/teacher/records')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/records' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <ClipboardList className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/records' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            积分与兑换记录
-          </button>
+          {features.enableRecords && (
+            <button
+              onClick={() => navigate('/teacher/records')}
+              className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                location.pathname === '/teacher/records' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardList className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/records' ? 'text-indigo-600' : 'text-gray-400'}`} />
+              积分与兑换记录
+            </button>
+          )}
           <button
             onClick={() => navigate('/teacher/certificates')}
             className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
@@ -128,15 +182,17 @@ export default function TeacherLayout() {
             <Award className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/certificates' ? 'text-indigo-600' : 'text-gray-400'}`} />
             荣誉奖状
           </button>
-          <button
-            onClick={() => navigate('/teacher/shop')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/shop' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Store className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/shop' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            商品管理
-          </button>
+          {features.enableShop && (
+            <button
+              onClick={() => navigate('/teacher/shop')}
+              className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                location.pathname === '/teacher/shop' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <Store className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/shop' ? 'text-indigo-600' : 'text-gray-400'}`} />
+              商品管理
+            </button>
+          )}
           <button
             onClick={() => navigate('/teacher/auction')}
             className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
