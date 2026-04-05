@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { ADMIN_PATH } from "@/constants";
 
 export default function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -14,7 +15,7 @@ export default function ThemeWrapper({ children }: { children: React.ReactNode }
     // 根据路径添加对应的主题类
     if (path.startsWith('/student')) {
       root.classList.add('theme-student');
-    } else if (path.startsWith('/beiadmin')) {
+    } else if (path.startsWith(ADMIN_PATH)) {
       root.classList.add('theme-admin');
     } else if (path.startsWith('/parent')) {
       root.classList.add('theme-parent');

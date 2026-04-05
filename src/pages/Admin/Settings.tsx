@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Save, Settings as SettingsIcon, DollarSign } from 'lucide-react';
+import { Save, Settings as SettingsIcon, DollarSign, DownloadCloud, AlertTriangle } from 'lucide-react';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [formData, setFormData] = useState({
     site_title: '',
     site_favicon: '',
@@ -36,8 +39,53 @@ export default function AdminSettings() {
     }
   };
 
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const res = await fetch('/api/admin/system/update/check');
+      const data = await res.json();
+      if (data.success) {
+        setUpdateInfo(data.data);
+        if (data.data.hasUpdate) {
+          toast.success(`发现新版本: ${data.data.latestVersion}`);
+        } else {
+          toast.info('当前已是最新版本');
+        }
+      } else {
+        toast.error(data.message || '检查更新失败');
+      }
+    } catch (error) {
+      toast.error('网络错误，无法检查更新');
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handleExecuteUpdate = async () => {
+    if (!confirm('更新过程中系统将会自动重启，是否确认更新？')) return;
+    setUpdating(true);
+    try {
+      const res = await fetch('/api/admin/system/update/execute', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || '更新已在后台触发，请稍后刷新页面');
+        // Let the user manually refresh after a while, or auto refresh after 10s
+        setTimeout(() => {
+          window.location.reload();
+        }, 10000);
+      } else {
+        toast.error(data.message || '触发更新失败');
+        setUpdating(false);
+      }
+    } catch (error) {
+      toast.error('网络错误，无法执行更新');
+      setUpdating(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
+    handleCheckUpdate();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,11 +124,78 @@ export default function AdminSettings() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden max-w-3xl">
-          <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center">
-            <SettingsIcon className="w-5 h-5 text-slate-500 mr-2" />
-            <h3 className="font-medium text-slate-700">基础设置</h3>
+        <div className="space-y-6">
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden max-w-3xl">
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center">
+                <DownloadCloud className="w-5 h-5 text-blue-500 mr-2" />
+                <h3 className="font-medium text-slate-700">系统升级</h3>
+              </div>
+              <button
+                onClick={handleCheckUpdate}
+                disabled={checkingUpdate || updating}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                {checkingUpdate ? '检查中...' : '检查更新'}
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between items-center bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div>
+                  <p className="text-sm text-slate-500 mb-1">当前系统版本</p>
+                  <p className="text-lg font-bold text-slate-800">
+                    {updateInfo ? updateInfo.currentVersion : '获取中...'}
+                  </p>
+                </div>
+                {updateInfo && (
+                  <div className="text-right">
+                    <p className="text-sm text-slate-500 mb-1">最新发布版本</p>
+                    <p className={`text-lg font-bold ${updateInfo.hasUpdate ? 'text-blue-600' : 'text-emerald-600'}`}>
+                      {updateInfo.latestVersion}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {updateInfo?.hasUpdate && (
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mt-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900">发现新版本可用</h4>
+                      <p className="text-sm text-blue-700 mt-1 mb-4">
+                        发布时间: {new Date(updateInfo.publishedAt).toLocaleString()}
+                      </p>
+                      
+                      <div className="bg-white/60 rounded-lg p-3 text-sm text-slate-700 mb-4 whitespace-pre-wrap max-h-40 overflow-y-auto border border-blue-100">
+                        {updateInfo.releaseNotes || '暂无更新说明'}
+                      </div>
+                      
+                      <button
+                        onClick={handleExecuteUpdate}
+                        disabled={updating}
+                        className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                        {updating ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            正在后台更新...
+                          </>
+                        ) : '一键更新并重启'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden max-w-3xl">
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center">
+              <SettingsIcon className="w-5 h-5 text-slate-500 mr-2" />
+              <h3 className="font-medium text-slate-700">基础设置</h3>
+            </div>
           
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             <div>
@@ -213,6 +328,7 @@ export default function AdminSettings() {
               </button>
             </div>
           </form>
+        </div>
         </div>
       )}
     </div>

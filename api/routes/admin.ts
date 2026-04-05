@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
+import { spawn } from 'child_process';
 import multer from 'multer';
 import db from '../db.js';
 import { closeDb, initDb } from '../db.js';
@@ -483,6 +484,64 @@ router.post('/codes', (req: any, res) => {
   } catch (error) {
     console.error('生成激活码失败:', error);
     res.status(500).json({ success: false, message: '生成激活码失败' });
+  }
+});
+
+// ==========================
+// System Update Routes
+// ==========================
+router.get('/system/update/check', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const currentVersion = process.env.CURRENT_VERSION || '未知版本';
+    const response = await fetch('https://api.github.com/repos/xhnhhnh/Think-Claass/releases/latest');
+    const release = await response.json();
+    
+    if (!release || !release.tag_name) {
+      res.status(500).json({ success: false, message: '无法获取最新版本信息' });
+      return;
+    }
+    
+    const latestVersion = release.tag_name;
+    const hasUpdate = latestVersion !== currentVersion;
+    
+    res.json({
+      success: true,
+      data: {
+        currentVersion,
+        latestVersion,
+        hasUpdate,
+        releaseNotes: release.body,
+        publishedAt: release.published_at
+      }
+    });
+  } catch (error) {
+    console.error('Update check error:', error);
+    res.status(500).json({ success: false, message: '检查更新失败' });
+  }
+});
+
+router.post('/system/update/execute', (req: Request, res: Response): void => {
+  try {
+    const updateScriptPath = path.join(process.cwd(), 'update.sh');
+    
+    if (!fs.existsSync(updateScriptPath)) {
+      res.status(404).json({ success: false, message: '找不到 update.sh 脚本' });
+      return;
+    }
+    
+    // Spawn the update script in the background
+    const updateProcess = spawn('bash', [updateScriptPath], {
+      cwd: process.cwd(),
+      detached: true,
+      stdio: 'ignore'
+    });
+    
+    updateProcess.unref();
+    
+    res.json({ success: true, message: '系统正在后台更新并重启，请稍后刷新页面' });
+  } catch (error) {
+    console.error('Update execution error:', error);
+    res.status(500).json({ success: false, message: '触发更新失败' });
   }
 });
 

@@ -116,6 +116,8 @@ import AdminSettings from "@/pages/Admin/Settings";
 import AdminOpenApi from "@/pages/Admin/OpenApi";
 import AdminCodes from "@/pages/Admin/Codes";
 
+import { ADMIN_PATH } from "@/constants";
+
 import HomeAbout from "@/pages/Home/About";
 import HomeContact from "@/pages/Home/Contact";
 import HomeNews from "@/pages/Home/News";
@@ -198,8 +200,8 @@ export default function App() {
               <Route path="assignments" element={<ParentAssignments />} />
             </Route>
 
-            <Route path="/beiadmin/login" element={<AdminLogin />} />
-            <Route path="/beiadmin" element={<AdminLayout />}>
+            <Route path={`${ADMIN_PATH}/login`} element={<AdminLogin />} />
+            <Route path={ADMIN_PATH} element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="announcements" element={<AdminAnnouncements />} />
               <Route path="articles" element={<AdminArticles />} />

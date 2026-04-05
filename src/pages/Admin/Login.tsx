@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { Settings, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ADMIN_PATH } from "@/constants";
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -27,7 +28,7 @@ export default function AdminLogin() {
       
       if (data.success) {
         setUser(data.user);
-        navigate('/beiadmin');
+        navigate(ADMIN_PATH);
       } else {
         setError(data.message || '登录失败');
       }
