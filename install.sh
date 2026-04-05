@@ -78,7 +78,20 @@ else
     rm think-class-release.zip
 fi
 
-# 3. 检查并安装 Node.js (v18+)
+# 3. 检查并安装 Node.js (v18+) 及编译依赖
+echo ">> 检查编译依赖 (make, g++, python3)..."
+if ! command -v make &> /dev/null || ! command -v g++ &> /dev/null || ! command -v python3 &> /dev/null; then
+    echo ">> 未检测到完整的编译依赖，正在为您安装..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y build-essential python3
+    elif command -v yum &> /dev/null; then
+        sudo yum groupinstall -y "Development Tools"
+        sudo yum install -y python3
+    else
+        echo ">> [警告] 无法自动安装编译依赖，后续如果 npm install (如 better-sqlite3) 报错，请手动安装 make, gcc 和 python3。"
+    fi
+fi
+
 if ! command -v node &> /dev/null; then
     echo ">> 未检测到 Node.js，正在自动安装 Node.js v18..."
     if command -v apt-get &> /dev/null; then
