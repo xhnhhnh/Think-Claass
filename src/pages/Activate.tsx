@@ -5,6 +5,8 @@ import { Key, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
+import { apiPost } from "@/lib/api";
+
 export default function Activate() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,12 +23,7 @@ export default function Activate() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim(), userId: user?.id })
-      });
-      const data = await res.json();
+      const data = await apiPost('/api/auth/activate', { code: code.trim(), userId: user?.id });
 
       if (data.success) {
         toast.success('激活成功！欢迎加入 Think-Class');

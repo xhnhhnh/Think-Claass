@@ -5,6 +5,8 @@ import { Gavel, Clock, Coins, Flame, AlertCircle, ArrowUpRight, SearchX, Zap, Ch
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Auction {
   id: number;
   item_name: string;
@@ -27,13 +29,10 @@ export default function StudentAuction() {
   const fetchData = async () => {
     if (!user?.studentId) return;
     try {
-      const [resAuctions, resStudents] = await Promise.all([
-        fetch('/api/shop/auctions'),
-        fetch('/api/students')
-      ]);
-      
-      const dataAuctions = await resAuctions.json();
-      const dataStudents = await resStudents.json();
+      const [dataAuctions, dataStudents] = await Promise.all([
+          apiGet('/api/shop/auctions'),
+          apiGet('/api/students')
+        ]);
 
       if (dataAuctions.success) {
         setAuctions(dataAuctions.auctions.filter((a: Auction) => a.status === 'active' && new Date(a.end_time) > new Date()));
@@ -75,13 +74,11 @@ export default function StudentAuction() {
 
     setBidding(auction.id);
     try {
-      const res = await fetch(`/api/shop/auctions/${auction.id}/bid`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId, bid_amount: amount }),
-      });
-      const data = await res.json();
-      
+      const data = await apiPost(
+        `/api/shop/auctions/${auction.id}/bid`,
+        { studentId: user?.studentId, bid_amount: amount }
+      );
+
       if (data.success) {
         toast.success(`成功出价 ${amount} 积分！`);
         confetti({

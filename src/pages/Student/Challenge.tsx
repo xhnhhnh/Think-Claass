@@ -4,6 +4,8 @@ import { Swords, Shield, Trophy, Flame, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Question {
   id: number;
   title: string;
@@ -48,8 +50,7 @@ export default function StudentChallenge() {
   useEffect(() => {
     // Get student's classId
     if (user?.studentId) {
-      fetch(`/api/students`)
-        .then(res => res.json())
+      apiGet(`/api/students`)
         .then(data => {
           if (data.success) {
             const student = data.students.find((s: any) => s.id === user.studentId);
@@ -67,8 +68,7 @@ export default function StudentChallenge() {
 
   const fetchQuestions = async () => {
     try {
-      const res = await fetch('/api/challenge/questions?limit=5');
-      const data = await res.json();
+      const data = await apiGet('/api/challenge/questions?limit=5');
       if (data.success) {
         setQuestions(data.questions);
         setAnswers({});
@@ -83,8 +83,7 @@ export default function StudentChallenge() {
   const fetchBoss = async () => {
     if (!classId) return;
     try {
-      const res = await fetch(`/api/challenge/boss/active/${classId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/challenge/boss/active/${classId}`);
       if (data.success) {
         setBoss(data.boss);
       }
@@ -115,15 +114,11 @@ export default function StudentChallenge() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/challenge/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: user?.studentId,
-          answers
-        })
+      const data = await apiPost('/api/challenge/submit', {
+        studentId: user?.studentId,
+        answers
       });
-      const data = await res.json();
+
       if (data.success) {
         setResult(data);
         toast.success(`挑战完成！得分: ${data.score}`);
@@ -141,12 +136,7 @@ export default function StudentChallenge() {
     if (!boss || isAttacking) return;
     setIsAttacking(true);
     try {
-      const res = await fetch(`/api/challenge/boss/${boss.id}/attack`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId })
-      });
-      const data = await res.json();
+      const data = await apiPost(`/api/challenge/boss/${boss.id}/attack`, { studentId: user?.studentId });
       if (data.success) {
         toast.success(`造成了 ${data.damage} 点伤害！`);
         if (data.defeated) {

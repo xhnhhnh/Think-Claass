@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Gift, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface ShopItem {
   id: number;
   name: string;
@@ -32,8 +34,7 @@ export default function TeacherLuckyDrawConfig() {
 
   const fetchShopItems = async () => {
     try {
-      const res = await fetch(`/api/shop/all?teacherId=${user?.id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/shop/all?teacherId=${user?.id}`);
       if (data.success) {
         setShopItems(data.items);
       }
@@ -45,8 +46,7 @@ export default function TeacherLuckyDrawConfig() {
   const fetchConfigs = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/lucky_draw/config?teacherId=${user?.id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/lucky_draw/config?teacherId=${user?.id}`);
       if (data.success) {
         setCostPoints(data.cost_points || 10);
         if (data.configs && data.configs.length === 9) {
@@ -100,16 +100,12 @@ export default function TeacherLuckyDrawConfig() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/lucky_draw/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacher_id: user.id,
-          cost_points: costPoints,
-          configs
-        }),
+      const data = await apiPost('/api/lucky_draw/config', {
+        teacher_id: user.id,
+        cost_points: costPoints,
+        configs
       });
-      const data = await res.json();
+
       if (data.success) {
         toast.success('保存成功');
         fetchConfigs();

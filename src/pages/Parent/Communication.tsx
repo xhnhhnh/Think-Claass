@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Send, MessageSquare, AlertCircle, RefreshCw, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Message {
   id: number;
   class_id: number;
@@ -28,8 +30,7 @@ export default function ParentCommunication() {
   const fetchMessages = async (cid: number) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/messages?classId=${cid}&type=HOME_SCHOOL`);
-      const data = await res.json();
+      const data = await apiGet(`/api/messages?classId=${cid}&type=HOME_SCHOOL`);
       if (data.success) {
         // Filter messages related to this parent
         const parentMessages = data.messages.filter((m: Message) => 
@@ -52,8 +53,7 @@ export default function ParentCommunication() {
 
     const init = async () => {
       try {
-        const res = await fetch(`/api/student/${user.studentId}`);
-        const data = await res.json();
+        const data = await apiGet(`/api/student/${user.studentId}`);
         if (data.success && data.student) {
           setClassId(data.student.class_id);
           await fetchMessages(data.student.class_id);
@@ -75,20 +75,16 @@ export default function ParentCommunication() {
 
     try {
       setSending(true);
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          class_id: classId,
-          sender_id: user.id,
-          content: newMessage.trim(),
-          is_anonymous: false,
-          type: 'HOME_SCHOOL',
-          sender_role: 'user'
-        })
+
+      const data = await apiPost('/api/messages', {
+        class_id: classId,
+        sender_id: user.id,
+        content: newMessage.trim(),
+        is_anonymous: false,
+        type: 'HOME_SCHOOL',
+        sender_role: 'user'
       });
-      
-      const data = await res.json();
+
       if (data.success) {
         setNewMessage('');
         await fetchMessages(classId);

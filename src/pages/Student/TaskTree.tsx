@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { GitBranch, Plus, Lock, CheckCircle2, Unlock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface TaskNode {
   id: number;
   title: string;
@@ -25,8 +27,7 @@ export default function StudentTaskTree() {
   const fetchNodes = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/task-tree/student/${user.id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/task-tree/student/${user.id}`);
       if (data.success) {
         setNodes(data.nodes);
       }
@@ -43,10 +44,7 @@ export default function StudentTaskTree() {
     if (!selectedNode || !user) return;
     setCompleting(true);
     try {
-      const res = await fetch(`/api/task-tree/student/${user.id}/complete/${selectedNode.id}`, {
-        method: 'POST'
-      });
-      const data = await res.json();
+      const data = await apiPost(`/api/task-tree/student/${user.id}/complete/${selectedNode.id}`, undefined);
       if (data.success) {
         toast.success(`成功完成节点：${selectedNode.title}，获得 ${selectedNode.points_reward} 积分！`);
         fetchNodes();

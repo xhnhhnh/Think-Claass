@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Users, Star, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiGet } from "@/lib/api";
+
 export default function HomeAbout() {
   const navigate = useNavigate();
   const [aboutData, setAboutData] = useState<{ title: string; content: string } | null>(null);
@@ -11,8 +13,7 @@ export default function HomeAbout() {
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const res = await fetch('/api/website/home');
-        const data = await res.json();
+        const data = await apiGet('/api/website/home');
         if (data.success && data.data.about) {
           setAboutData(data.data.about);
         }

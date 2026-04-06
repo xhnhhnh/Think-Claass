@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Map as MapIcon, Lock, Unlock, Pickaxe, Trees, Droplets, Coins, ArrowUpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Territory {
   id: number;
   class_id: number;
@@ -42,8 +44,7 @@ export default function StudentTerritory() {
   const fetchMap = async () => {
     if (!user?.class_id) return;
     try {
-      const res = await fetch(`/api/slg/map/${user.class_id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/slg/map/${user.class_id}`);
       if (data.success) {
         setTerrories(data.territories);
         setResources(data.resources);
@@ -66,12 +67,7 @@ export default function StudentTerritory() {
     
     setIsContributing(true);
     try {
-      const res = await fetch(`/api/slg/student/${user.id}/contribute/${selectedNode.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
-      const data = await res.json();
+      const data = await apiPost(`/api/slg/student/${user.id}/contribute/${selectedNode.id}`, { amount });
       if (data.success) {
         toast.success('捐献成功！');
         fetchMap();

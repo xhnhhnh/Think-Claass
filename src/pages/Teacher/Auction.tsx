@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Gavel, Plus, Edit2, Trash2, Clock, Coins, Tag, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiDelete } from "@/lib/api";
+
 interface Auction {
   id: number;
   item_name: string;
@@ -31,8 +33,7 @@ export default function TeacherAuction() {
   const fetchAuctions = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/shop/auctions');
-      const data = await res.json();
+      const data = await apiGet('/api/shop/auctions');
       if (data.success) {
         setAuctions(data.auctions);
       }
@@ -83,14 +84,9 @@ export default function TeacherAuction() {
     try {
       const url = editingId ? `/api/shop/auctions/${editingId}` : '/api/shop/auctions';
       const method = editingId ? 'PUT' : 'POST';
-      
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      
+
+      const data = await apiGet(url);
+
       if (data.success) {
         toast.success(editingId ? '修改成功' : '发布成功');
         setIsModalOpen(false);
@@ -107,8 +103,7 @@ export default function TeacherAuction() {
     if (!confirm('确定要删除这个拍卖项目吗？')) return;
     
     try {
-      const res = await fetch(`/api/shop/auctions/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/shop/auctions/${id}`);
       if (data.success) {
         toast.success('删除成功');
         fetchAuctions();

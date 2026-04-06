@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, FileText } from 'lucide-react';
 
+import { apiGet, apiDelete } from "@/lib/api";
+
 interface Article {
   id: number;
   title: string;
@@ -32,8 +34,7 @@ export default function AdminArticles() {
   const fetchArticles = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/website/articles');
-      const data = await res.json();
+      const data = await apiGet('/api/website/articles');
       if (data.success) {
         setArticles(data.articles);
       } else {
@@ -93,16 +94,7 @@ export default function AdminArticles() {
         : '/api/website/articles';
       const method = editingId ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          is_published: formData.is_published ? 1 : 0
-        })
-      });
-      
-      const data = await res.json();
+      const data = await apiGet(url);
       if (data.success) {
         toast.success(editingId ? '文章更新成功' : '文章创建成功');
         handleCloseModal();
@@ -119,11 +111,8 @@ export default function AdminArticles() {
     if (!confirm('确定要删除这篇文章吗？')) return;
 
     try {
-      const res = await fetch(`/api/website/articles/${id}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      
+      const data = await apiDelete(`/api/website/articles/${id}`);
+
       if (data.success) {
         toast.success('文章已删除');
         fetchArticles();

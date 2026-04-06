@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Save, Settings as SettingsIcon, DollarSign, DownloadCloud, AlertTriangle } from 'lucide-react';
 
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,8 +21,7 @@ export default function AdminSettings() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/settings');
-      const data = await res.json();
+      const data = await apiGet('/api/settings');
       if (data.success) {
         setFormData({
           site_title: data.data.site_title || '',
@@ -42,8 +43,7 @@ export default function AdminSettings() {
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);
     try {
-      const res = await fetch('/api/admin/system/update/check');
-      const data = await res.json();
+      const data = await apiGet('/api/admin/system/update/check');
       if (data.success) {
         setUpdateInfo(data.data);
         if (data.data.hasUpdate) {
@@ -65,8 +65,7 @@ export default function AdminSettings() {
     if (!confirm('更新过程中系统将会自动重启，是否确认更新？')) return;
     setUpdating(true);
     try {
-      const res = await fetch('/api/admin/system/update/execute', { method: 'POST' });
-      const data = await res.json();
+      const data = await apiPost('/api/admin/system/update/execute', undefined);
       if (data.success) {
         toast.success(data.message || '更新已在后台触发，请稍后刷新页面');
         // Let the user manually refresh after a while, or auto refresh after 10s
@@ -92,12 +91,7 @@ export default function AdminSettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
+      const data = await apiPut('/api/admin/settings', formData);
       if (data.success) {
         toast.success('系统设置已更新');
       } else {

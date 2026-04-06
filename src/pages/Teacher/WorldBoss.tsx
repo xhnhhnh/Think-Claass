@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Swords, Plus, Trash2, ShieldAlert, Trophy, Users, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
+
 interface WorldBoss {
   id: number;
   name: string;
@@ -30,8 +32,7 @@ export default function TeacherWorldBoss() {
   const fetchBosses = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/challenge/boss');
-      const data = await res.json();
+      const data = await apiGet('/api/challenge/boss');
       if (data.success) {
         setBosses(data.bosses);
       }
@@ -54,13 +55,8 @@ export default function TeacherWorldBoss() {
     }
 
     try {
-      const res = await fetch('/api/challenge/boss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/challenge/boss', formData);
+
       if (data.success) {
         toast.success('召唤世界BOSS成功！');
         setIsModalOpen(false);
@@ -78,8 +74,7 @@ export default function TeacherWorldBoss() {
     if (!confirm('确定要删除这个世界BOSS吗？')) return;
     
     try {
-      const res = await fetch(`/api/challenge/boss/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/challenge/boss/${id}`);
       if (data.success) {
         toast.success('删除成功');
         fetchBosses();

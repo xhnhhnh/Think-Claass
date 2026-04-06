@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface ShopItem {
   id: number;
   name: string;
@@ -34,15 +36,11 @@ export default function StudentShop() {
   const fetchData = async () => {
     if (!user?.studentId) return;
     try {
-      const [resItems, resBoxes, resStudents] = await Promise.all([
-        fetch('/api/shop/items'),
-        fetch('/api/shop/blind_boxes'),
-        fetch('/api/students')
-      ]);
-      
-      const dataItems = await resItems.json();
-      const dataBoxes = await resBoxes.json();
-      const dataStudents = await resStudents.json();
+      const [dataItems, dataBoxes, dataStudents] = await Promise.all([
+          apiGet('/api/shop/items'),
+          apiGet('/api/shop/blind_boxes'),
+          apiGet('/api/students')
+        ]);
 
       if (dataItems.success) setItems(dataItems.items);
       if (dataBoxes.success) setBlindBoxes(dataBoxes.boxes.filter((b: any) => b.is_active === 1));
@@ -64,12 +62,7 @@ export default function StudentShop() {
 
   const handleBuy = async (itemId: number) => {
     try {
-      const res = await fetch('/api/shop/buy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId, itemId }),
-      });
-      const data = await res.json();
+      const data = await apiPost('/api/shop/buy', { studentId: user?.studentId, itemId });
       if (data.success) {
         toast.success('兑换成功！已放入背包或生效');
         fetchData();
@@ -85,13 +78,8 @@ export default function StudentShop() {
   const handleBuyBlindBox = async (boxId: number) => {
     try {
       setIsUnboxing(true);
-      const res = await fetch('/api/shop/blind_box', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId, blindBoxId: boxId }),
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/shop/blind_box', { studentId: user?.studentId, blindBoxId: boxId });
+
       if (data.success) {
         // Wait for unboxing animation
         setTimeout(() => {

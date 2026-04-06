@@ -4,6 +4,8 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useNavigate } from 'react-router-dom';
 
+import { apiPost } from "@/lib/api";
+
 export default function SystemReset() {
   const [resetting, setResetting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -20,9 +22,8 @@ export default function SystemReset() {
 
     setResetting(true);
     try {
-      const res = await fetch('/api/admin/system/reset-database', { method: 'POST' });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/admin/system/reset-database', undefined);
+
       if (data.success) {
         toast.success(data.message || '数据库已成功重置，服务器即将重启');
         logout();

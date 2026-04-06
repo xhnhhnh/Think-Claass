@@ -5,6 +5,8 @@ import { Star, MessageSquareHeart, UserCircle2, Send, CheckCircle2, Sparkles, Gh
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface PendingPeer {
   id: number;
   name: string;
@@ -28,8 +30,7 @@ export default function StudentPeerReview() {
 
   const fetchPendingPeers = async () => {
     try {
-      const res = await fetch(`/api/students/${user?.studentId}/peer-reviews/pending`);
-      const data = await res.json();
+      const data = await apiGet(`/api/students/${user?.studentId}/peer-reviews/pending`);
       if (data.success) {
         setPendingPeers(data.pending);
       }
@@ -60,18 +61,13 @@ export default function StudentPeerReview() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/students/${user?.studentId}/peer-reviews`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reviewee_id: selectedPeer.id,
-          score,
-          comment,
-          is_anonymous: isAnonymous
-        })
+      const data = await apiPost(`/api/students/${user?.studentId}/peer-reviews`, {
+        reviewee_id: selectedPeer.id,
+        score,
+        comment,
+        is_anonymous: isAnonymous
       });
-      
-      const data = await res.json();
+
       if (data.success) {
         toast.success(data.message);
         confetti({

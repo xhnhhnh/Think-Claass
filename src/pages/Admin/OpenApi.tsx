@@ -3,6 +3,8 @@ import { Key, Building2, Plus, Trash2, Copy, CheckCircle, Search, Server } from 
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
+
 interface ApiKey {
   id: number;
   name: string;
@@ -46,12 +48,10 @@ export default function AdminOpenApi() {
     setLoading(true);
     try {
       if (activeTab === 'API_KEYS') {
-        const res = await fetch('/api/openapi/keys');
-        const data = await res.json();
+        const data = await apiGet('/api/openapi/keys');
         if (data.success) setApiKeys(data.keys);
       } else {
-        const res = await fetch('/api/openapi/schools');
-        const data = await res.json();
+        const data = await apiGet('/api/openapi/schools');
         if (data.success) setSchools(data.schools);
       }
     } catch (error) {
@@ -67,12 +67,7 @@ export default function AdminOpenApi() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/openapi/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: keyName.trim() })
-      });
-      const data = await res.json();
+      const data = await apiPost('/api/openapi/keys', { name: keyName.trim() });
       if (data.success) {
         toast.success('API 密钥生成成功');
         setIsKeyModalOpen(false);
@@ -91,8 +86,7 @@ export default function AdminOpenApi() {
   const handleDeleteKey = async (id: number) => {
     if (!confirm('确定要删除该 API 密钥吗？删除后相关接口调用将失效！')) return;
     try {
-      const res = await fetch(`/api/openapi/keys/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/openapi/keys/${id}`);
       if (data.success) {
         toast.success('密钥已删除');
         fetchData();
@@ -108,16 +102,12 @@ export default function AdminOpenApi() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/openapi/schools', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: schoolName.trim(),
-          description: schoolDesc.trim(),
-          contact_info: schoolContact.trim()
-        })
+      const data = await apiPost('/api/openapi/schools', { 
+        name: schoolName.trim(),
+        description: schoolDesc.trim(),
+        contact_info: schoolContact.trim()
       });
-      const data = await res.json();
+
       if (data.success) {
         toast.success('入驻学校添加成功');
         setIsSchoolModalOpen(false);
@@ -138,8 +128,7 @@ export default function AdminOpenApi() {
   const handleDeleteSchool = async (id: number) => {
     if (!confirm('确定要删除该学校信息吗？')) return;
     try {
-      const res = await fetch(`/api/openapi/schools/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/openapi/schools/${id}`);
       if (data.success) {
         toast.success('学校信息已删除');
         fetchData();
@@ -199,7 +188,6 @@ export default function AdminOpenApi() {
           </button>
         </div>
       </div>
-
       {/* Main Content */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden">
         
@@ -223,7 +211,7 @@ export default function AdminOpenApi() {
             <div className="py-20 text-center text-slate-400">加载中...</div>
           ) : activeTab === 'API_KEYS' ? (
             /* API Keys Table */
-            <div className="overflow-x-auto">
+            (<div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-sm">
@@ -272,10 +260,10 @@ export default function AdminOpenApi() {
                   )}
                 </tbody>
               </table>
-            </div>
+            </div>)
           ) : (
             /* Schools Table */
-            <div className="overflow-x-auto">
+            (<div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-sm">
@@ -322,11 +310,10 @@ export default function AdminOpenApi() {
                   )}
                 </tbody>
               </table>
-            </div>
+            </div>)
           )}
         </div>
       </div>
-
       {/* Modals */}
       <AnimatePresence>
         {isKeyModalOpen && (

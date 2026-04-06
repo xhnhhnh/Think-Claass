@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { apiPut, apiGet } from "@/lib/api";
+
 interface ClassItem {
   id: number;
   name: string;
@@ -18,8 +20,7 @@ export default function TeacherFeatures() {
   });
 
   useEffect(() => {
-    fetch('/api/classes')
-      .then((res) => res.json())
+    apiGet('/api/classes')
       .then((data) => {
         if (data.success && data.classes && data.classes.length > 0) {
           setClasses(data.classes);
@@ -57,12 +58,7 @@ export default function TeacherFeatures() {
   const handleSave = async () => {
     if (!classId) return;
     try {
-      const res = await fetch(`/api/classes/${classId}/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: JSON.stringify(features) }),
-      });
-      const data = await res.json();
+      const data = await apiPut(`/api/classes/${classId}/settings`, { settings: JSON.stringify(features) });
       if (data.success) {
         toast.success('设置已保存');
         // Update local class settings

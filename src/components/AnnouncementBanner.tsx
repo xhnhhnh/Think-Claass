@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
 
+import { apiGet } from "@/lib/api";
+
 interface Announcement {
   id: number;
   title: string;
@@ -14,8 +16,7 @@ export default function AnnouncementBanner() {
   useEffect(() => {
     const fetchActiveAnnouncement = async () => {
       try {
-        const res = await fetch('/api/announcements/active');
-        const data = await res.json();
+        const data = await apiGet('/api/announcements/active');
         if (data.success && data.announcement) {
           setAnnouncement(data.announcement);
           

@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Student {
   id: number;
   name: string;
@@ -41,13 +43,10 @@ export default function TeacherCertificates() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [studentsRes, certsRes] = await Promise.all([
-        fetch('/api/students'),
-        fetch('/api/certificates')
-      ]);
-
-      const studentsData = await studentsRes.json();
-      const certsData = await certsRes.json();
+      const [studentsData, certsData] = await Promise.all([
+          apiGet('/api/students'),
+          apiGet('/api/certificates')
+        ]);
 
       if (studentsData.success) {
         setStudents(studentsData.students);
@@ -71,17 +70,12 @@ export default function TeacherCertificates() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/certificates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          student_id: selectedStudent,
-          title: title.trim(),
-          description: description.trim()
-        })
+      const data = await apiPost('/api/certificates', {
+        student_id: selectedStudent,
+        title: title.trim(),
+        description: description.trim()
       });
 
-      const data = await res.json();
       if (data.success) {
         toast.success('奖状颁发成功！');
         confetti({

@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Package, Plus, Edit2, Trash2, Tag, Info, Coins, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
+
 interface BlindBox {
   id: number;
   name: string;
@@ -28,8 +30,7 @@ export default function TeacherBlindBox() {
   const fetchBoxes = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/shop/blind_boxes');
-      const data = await res.json();
+      const data = await apiGet('/api/shop/blind_boxes');
       if (data.success) {
         setBoxes(data.boxes);
       }
@@ -70,14 +71,9 @@ export default function TeacherBlindBox() {
     try {
       const url = editingId ? `/api/shop/blind_boxes/${editingId}` : '/api/shop/blind_boxes';
       const method = editingId ? 'PUT' : 'POST';
-      
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      
+
+      const data = await apiGet(url);
+
       if (data.success) {
         toast.success(editingId ? '修改成功' : '创建成功');
         setIsModalOpen(false);
@@ -94,8 +90,7 @@ export default function TeacherBlindBox() {
     if (!confirm('确定要删除这个盲盒吗？')) return;
     
     try {
-      const res = await fetch(`/api/shop/blind_boxes/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/shop/blind_boxes/${id}`);
       if (data.success) {
         toast.success('删除成功');
         fetchBoxes();
@@ -109,12 +104,11 @@ export default function TeacherBlindBox() {
 
   const handleToggleActive = async (box: BlindBox) => {
     try {
-      const res = await fetch(`/api/shop/blind_boxes/${box.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...box, is_active: box.is_active === 1 ? false : true })
-      });
-      const data = await res.json();
+      const data = await apiPut(
+        `/api/shop/blind_boxes/${box.id}`,
+        { ...box, is_active: box.is_active === 1 ? false : true }
+      );
+
       if (data.success) {
         toast.success(box.is_active === 1 ? '盲盒已下架' : '盲盒已上架');
         fetchBoxes();

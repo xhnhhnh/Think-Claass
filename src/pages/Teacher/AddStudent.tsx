@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { UserPlus, ArrowLeft, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 export default function AddStudent() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,8 +21,7 @@ export default function AddStudent() {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const res = await fetch('/api/classes');
-        const data = await res.json();
+        const data = await apiGet('/api/classes');
         if (data.success) {
           setClasses(data.classes);
           if (data.classes.length > 0 && !defaultClassId) {
@@ -41,13 +42,8 @@ export default function AddStudent() {
     setError('');
 
     try {
-      const res = await fetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newStudent),
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/students', newStudent);
+
       if (data.success) {
         toast.success('学生添加成功');
         navigate('/teacher', { state: { classId: newStudent.class_id } }); // Redirect to dashboard and keep class selected
@@ -92,13 +88,8 @@ export default function AddStudent() {
     }
 
     try {
-      const res = await fetch('/api/students/batch-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ students, class_id: batchClassId }),
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/students/batch-import', { students, class_id: batchClassId });
+
       if (data.success) {
         toast.success(`成功导入 ${students.length} 名学生`);
         navigate('/teacher', { state: { classId: batchClassId } });

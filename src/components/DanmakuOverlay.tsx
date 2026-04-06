@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@/store/useStore';
 import { Sparkles, MessageCircle } from 'lucide-react';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface DanmakuMessage {
   id: number;
   class_id: number;
@@ -32,9 +34,8 @@ export default function DanmakuOverlay({ classId }: { classId: number }) {
     const fetchDanmaku = async () => {
       try {
         const url = lastId === 0 ? `/api/danmaku?classId=${classId}` : `/api/danmaku?classId=${classId}&since=${lastId}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        
+        const data = await apiGet(url);
+
         if (data.success && data.messages && data.messages.length > 0) {
           const newMessages = data.messages.map((msg: DanmakuMessage) => ({
             ...msg,
@@ -64,15 +65,11 @@ export default function DanmakuOverlay({ classId }: { classId: number }) {
     setIsFocused(false);
 
     try {
-      const res = await fetch('/api/danmaku', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          class_id: classId,
-          sender_name: user.name || user.username,
-          content: currentInput,
-          color: color
-        })
+      await apiPost('/api/danmaku', {
+        class_id: classId,
+        sender_name: user.name || user.username,
+        content: currentInput,
+        color: color
       });
       // the polling will pick it up automatically
     } catch (err) {

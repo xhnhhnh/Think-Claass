@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Package, Store, Plus, CheckCircle, XCircle, Search, Edit2 } from 'lucide-react';
 
+import { apiGet, apiPut } from "@/lib/api";
+
 interface ShopItem {
   id: number;
   name: string;
@@ -29,8 +31,7 @@ export default function TeacherShop() {
 
   const fetchItems = async () => {
     try {
-      const res = await fetch('/api/shop/all');
-      const data = await res.json();
+      const data = await apiGet('/api/shop/all');
       if (data.success) {
         setItems(data.items);
       }
@@ -47,12 +48,7 @@ export default function TeacherShop() {
 
   const toggleStatus = async (id: number, currentStatus: number) => {
     try {
-      const res = await fetch(`/api/shop/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: currentStatus === 1 ? 0 : 1 }),
-      });
-      const data = await res.json();
+      const data = await apiPut(`/api/shop/${id}/status`, { is_active: currentStatus === 1 ? 0 : 1 });
       if (data.success) {
         fetchItems();
       }
@@ -65,16 +61,11 @@ export default function TeacherShop() {
     if (newStock < -1) return;
     
     try {
-      const res = await fetch(`/api/shop/${item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...item,
-          stock: newStock
-        }),
+      const data = await apiPut(`/api/shop/${item.id}`, {
+        ...item,
+        stock: newStock
       });
-      const data = await res.json();
-      
+
       if (data.success) {
         fetchItems();
       } else {
@@ -99,13 +90,8 @@ export default function TeacherShop() {
         method = 'PUT';
       }
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentItem),
-      });
-      const data = await res.json();
-      
+      const data = await apiGet(url);
+
       if (data.success) {
         setShowModal(false);
         fetchItems();

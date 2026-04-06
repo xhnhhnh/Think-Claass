@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 
+import { apiGet } from "@/lib/api";
+
 interface ClassItem {
   id: number;
   name: string;
@@ -53,8 +55,7 @@ export default function TeacherBigscreen() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch('/api/classes');
-      const data = await res.json();
+      const data = await apiGet('/api/classes');
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -78,8 +79,7 @@ export default function TeacherBigscreen() {
     if (!selectedClassId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/classes/${selectedClassId}/bigscreen`);
-      const data = await res.json();
+      const data = await apiGet(`/api/classes/${selectedClassId}/bigscreen`);
       if (data.success) {
         setBigscreenData(data);
       }
