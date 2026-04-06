@@ -38,13 +38,14 @@ export default function AdminLayout() {
 
       <div className="flex-1 flex overflow-hidden p-4 gap-6 z-10">
         {/* Sidebar */}
-        <aside className="w-64 glass-dark rounded-3xl flex flex-col z-10 relative overflow-hidden">
-          <div className="h-20 flex items-center px-8 border-b border-white/10 flex-shrink-0">
-            <Settings className="mr-3 h-8 w-8 text-blue-400" />
-            <span className="font-bold text-xl tracking-wide text-white">超级管理员</span>
+        <aside className="w-64 glass-dark rounded-3xl flex flex-col z-10 relative overflow-hidden border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+          <div className="h-20 flex items-center px-8 border-b border-white/10 flex-shrink-0 relative z-10">
+            <Settings className="mr-3 h-8 w-8 text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]" />
+            <span className="font-bold text-xl tracking-wide text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">超级管理员</span>
           </div>
           
-          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar relative z-10">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
@@ -52,20 +53,29 @@ export default function AdminLayout() {
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-300 ${
+                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-300 relative overflow-hidden group ${
                     isActive 
-                      ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/30' 
-                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                      ? 'bg-blue-500/20 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.2)] border border-blue-500/30' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
                   }`}
                 >
-                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
-                  {item.label}
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent opacity-50 pointer-events-none" />
+                  )}
+                  <Icon className={`mr-3 h-5 w-5 transition-all duration-300 ${
+                    isActive 
+                      ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]' 
+                      : 'text-slate-500 group-hover:text-slate-300 group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]'
+                  }`} />
+                  <span className={`relative z-10 ${isActive ? 'drop-shadow-[0_0_5px_rgba(147,197,253,0.5)]' : ''}`}>
+                    {item.label}
+                  </span>
                 </button>
               );
             })}
           </nav>
           
-          <div className="p-4 border-t border-white/10 bg-white/5">
+          <div className="p-4 border-t border-white/10 bg-black/20 relative z-10 backdrop-blur-md">
             <div className="flex items-center px-4 py-3 text-sm text-slate-300 font-medium mb-2">
               <span className="truncate">欢迎, {user.username}</span>
             </div>
@@ -74,9 +84,9 @@ export default function AdminLayout() {
                 logout();
                 navigate(`${ADMIN_PATH}/login`);
               }}
-              className="w-full flex items-center px-4 py-2 text-sm font-medium rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+              className="w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 border border-transparent hover:border-red-500/20 transition-all duration-300 group hover:shadow-[0_0_15px_rgba(239,68,68,0.15)]"
             >
-              <LogOut className="mr-3 h-5 w-5" />
+              <LogOut className="mr-3 h-5 w-5 group-hover:drop-shadow-[0_0_8px_rgba(248,113,113,0.8)] transition-all duration-300" />
               退出登录
             </button>
           </div>

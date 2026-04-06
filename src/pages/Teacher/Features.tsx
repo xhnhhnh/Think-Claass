@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
-import { apiPut, apiGet } from "@/lib/api";
+import { apiPut } from "@/lib/api";
 
 interface ClassItem {
   id: number;
@@ -20,7 +20,8 @@ export default function TeacherFeatures() {
   });
 
   useEffect(() => {
-    apiGet('/api/classes')
+    fetch('/api/classes')
+      .then((res) => res.json())
       .then((data) => {
         if (data.success && data.classes && data.classes.length > 0) {
           setClasses(data.classes);

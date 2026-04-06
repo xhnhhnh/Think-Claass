@@ -5,7 +5,6 @@ import Activate from '@/pages/Activate';
 import Payment from '@/pages/Payment';
 import { useStore } from '@/store/useStore';
 import ThemeWrapper from "@/components/ThemeWrapper";
-import { ErrorBoundary } from './components/ErrorBoundary';
 
 // PrivateRoute Component for enforcing authentication and activation
 const PrivateRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
@@ -135,9 +134,8 @@ import Home from "@/pages/Home";
 export default function App() {
   return (
     <>
-      <Toaster position="top-center" richColors closeButton />
+      <Toaster position="top-center" richColors />
       <Router>
-        <ErrorBoundary>
         <ThemeWrapper>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -224,7 +222,6 @@ export default function App() {
             </Route>
           </Routes>
         </ThemeWrapper>
-        </ErrorBoundary>
       </Router>
     </>
   );

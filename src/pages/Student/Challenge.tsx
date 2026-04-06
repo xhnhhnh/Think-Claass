@@ -50,7 +50,8 @@ export default function StudentChallenge() {
   useEffect(() => {
     // Get student's classId
     if (user?.studentId) {
-      apiGet(`/api/students`)
+      fetch(`/api/students`)
+        .then(res => res.json())
         .then(data => {
           if (data.success) {
             const student = data.students.find((s: any) => s.id === user.studentId);

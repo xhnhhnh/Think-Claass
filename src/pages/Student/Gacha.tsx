@@ -34,7 +34,8 @@ export default function StudentGacha() {
 
   useEffect(() => {
     if (user?.class_id) {
-      apiGet(`/api/gacha/pools/\${user.class_id}`)
+      fetch(`/api/gacha/pools/${user.class_id}`)
+        .then(res => res.json())
         .then(data => {
           if (data.success) setPools(data.pools);
           setLoading(false);

@@ -32,7 +32,8 @@ export default function TeacherTaskTree() {
   });
 
   useEffect(() => {
-    apiGet('/api/classes')
+    fetch('/api/classes')
+      .then(res => res.json())
       .then(data => {
         if (data.success && data.classes.length > 0) {
           setClassId(data.classes[0].id);

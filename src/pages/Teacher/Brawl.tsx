@@ -37,7 +37,8 @@ export default function TeacherBrawl() {
 
   useEffect(() => {
     // Get teacher's first class ID
-    apiGet('/api/classes')
+    fetch('/api/classes')
+      .then(res => res.json())
       .then(data => {
         if (data.success && data.classes.length > 0) {
           setClassId(data.classes[0].id);

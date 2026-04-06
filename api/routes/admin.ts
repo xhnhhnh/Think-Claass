@@ -229,8 +229,7 @@ router.post('/announcements', (req: Request, res: Response): void => {
       db.prepare('UPDATE announcements SET is_active = 0').run();
     }
 
-    const isActiveNum = is_active ? 1 : 0;
-    const info = db.prepare('INSERT INTO announcements (title, content, is_active) VALUES (?, ?, ?)').run(String(title), String(content), isActiveNum);
+    const info = db.prepare('INSERT INTO announcements (title, content, is_active) VALUES (?, ?, ?)').run(title, content, is_active ? 1 : 0);
     const newAnnouncement = db.prepare('SELECT * FROM announcements WHERE id = ?').get(info.lastInsertRowid);
     res.json({ success: true, announcement: newAnnouncement });
   } catch (error) {
@@ -249,8 +248,7 @@ router.put('/announcements/:id', (req: Request, res: Response): void => {
       db.prepare('UPDATE announcements SET is_active = 0 WHERE id != ?').run(id);
     }
 
-    const isActiveNum = is_active ? 1 : 0;
-    db.prepare('UPDATE announcements SET title = ?, content = ?, is_active = ? WHERE id = ?').run(String(title), String(content), isActiveNum, id);
+    db.prepare('UPDATE announcements SET title = ?, content = ?, is_active = ? WHERE id = ?').run(title, content, is_active ? 1 : 0, id);
     const updated = db.prepare('SELECT * FROM announcements WHERE id = ?').get(id);
     res.json({ success: true, announcement: updated });
   } catch (error) {
@@ -295,13 +293,13 @@ router.post('/users', (req: Request, res: Response): void => {
       return;
     }
 
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(String(username));
+    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
     if (existingUser) {
       res.status(400).json({ success: false, message: '用户名已存在' });
       return;
     }
 
-    const info = db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)').run('teacher', String(username), String(password));
+    const info = db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)').run('teacher', username, password);
     const newTeacher = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(info.lastInsertRowid);
     res.json({ success: true, user: newTeacher });
   } catch (error) {
@@ -322,16 +320,16 @@ router.put('/users/:id', (req: Request, res: Response): void => {
     }
 
     // Check if new username conflicts with another user
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(String(username), id);
+    const existingUser = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, id);
     if (existingUser) {
       res.status(400).json({ success: false, message: '用户名已存在' });
       return;
     }
 
     if (password) {
-      db.prepare('UPDATE users SET username = ?, password_hash = ? WHERE id = ? AND role = ?').run(String(username), String(password), id, 'teacher');
+      db.prepare('UPDATE users SET username = ?, password_hash = ? WHERE id = ? AND role = ?').run(username, password, id, 'teacher');
     } else {
-      db.prepare('UPDATE users SET username = ? WHERE id = ? AND role = ?').run(String(username), id, 'teacher');
+      db.prepare('UPDATE users SET username = ? WHERE id = ? AND role = ?').run(username, id, 'teacher');
     }
 
     const updatedTeacher = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(id);
@@ -424,21 +422,19 @@ router.put('/settings', (req: any, res) => {
   const { site_title, site_favicon, allow_teacher_registration, revenue_enabled, revenue_mode } = req.body;
   try {
     if (site_title !== undefined) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(site_title), 'site_title');
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(site_title, 'site_title');
     }
     if (site_favicon !== undefined) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(site_favicon), 'site_favicon');
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(site_favicon, 'site_favicon');
     }
     if (allow_teacher_registration !== undefined) {
-      const val = allow_teacher_registration === true ? '1' : allow_teacher_registration === false ? '0' : String(allow_teacher_registration);
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(val, 'allow_teacher_registration');
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(allow_teacher_registration, 'allow_teacher_registration');
     }
     if (revenue_enabled !== undefined) {
-      const val = revenue_enabled === true ? '1' : revenue_enabled === false ? '0' : String(revenue_enabled);
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(val, 'revenue_enabled');
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(revenue_enabled, 'revenue_enabled');
     }
     if (revenue_mode !== undefined) {
-      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(revenue_mode), 'revenue_mode');
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(revenue_mode, 'revenue_mode');
     }
     res.json({ success: true });
   } catch (error) {
