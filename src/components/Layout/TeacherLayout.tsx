@@ -7,7 +7,7 @@ import {
   CalendarCheck, Target, Sparkles, ShieldAlert, Package,
   Gavel, GitBranch, Swords, Map
 } from "lucide-react";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 
 const MENU_ITEMS = [
@@ -69,9 +69,68 @@ export default function TeacherLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [features, setFeatures] = useState({
+    enableShop: true,
+    enablePets: true,
+    enableRecords: true,
+  });
+
+  const fetchFeatures = async () => {
+    try {
+      const response = await fetch('/api/classes');
+      const data = await response.json();
+      
+      let enableShop = false;
+      let enablePets = false;
+      let enableRecords = false;
+
+      if (data.success && data.classes && Array.isArray(data.classes)) {
+        if (data.classes.length === 0) {
+          enableShop = true;
+          enablePets = true;
+          enableRecords = true;
+        } else {
+          data.classes.forEach((cls: any) => {
+            if (cls.settings) {
+              try {
+                const settings = typeof cls.settings === 'string' ? JSON.parse(cls.settings) : cls.settings;
+                if (settings.enableShop) enableShop = true;
+                if (settings.enablePets) enablePets = true;
+                if (settings.enableRecords) enableRecords = true;
+              } catch (e) {
+                console.error('Failed to parse class settings', e);
+              }
+            } else {
+              // If any class has no settings, assume default true
+              enableShop = true;
+              enablePets = true;
+              enableRecords = true;
+            }
+          });
+        }
+      }
+
+      setFeatures({
+        enableShop,
+        enablePets,
+        enableRecords,
+      });
+    } catch (error) {
+      console.error('Failed to fetch class features:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user || user.role !== 'teacher') {
       navigate('/login');
+    }
+    
+    if (user && user.role === 'teacher') {
+      fetchFeatures();
+      window.addEventListener('featuresUpdated', fetchFeatures);
+      return () => {
+        window.removeEventListener('featuresUpdated', fetchFeatures);
+      };
     }
   }, [user, navigate]);
 
@@ -91,7 +150,12 @@ export default function TeacherLayout() {
             教师主控台
           </div>
           <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
-            {MENU_ITEMS.map((item) => {
+            {MENU_ITEMS.filter(item => {
+              if (item.path === '/teacher/shop' && !features.enableShop) return false;
+              if (item.path === '/teacher/pets' && !features.enablePets) return false;
+              if (item.path === '/teacher/records' && !features.enableRecords) return false;
+              return true;
+            }).map((item) => {
               const isActive = location.pathname === item.path;
               const styles = colorStyles[item.color] || colorStyles.indigo;
               

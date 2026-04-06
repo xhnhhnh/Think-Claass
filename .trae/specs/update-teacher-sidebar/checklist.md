@@ -1,0 +1,5 @@
+- [x] 检查 TeacherLayout.tsx 中是否正确添加了 features 状态和 fetchFeatures 函数。
+- [x] 检查 TeacherLayout.tsx 是否能正确解析 /api/classes 返回的各个班级的 settings。
+- [x] 检查 TeacherLayout.tsx 中是否成功对“商品管理”、“精灵管理”、“积分与兑换记录”三个菜单项进行了条件渲染。
+- [x] 检查 TeacherFeatures.tsx 中保存配置后是否正确触发了 `featuresUpdated` 事件。
+- [x] 验证：在功能开关中关闭某项功能后，侧边栏对应菜单实时消失（当只有单个班级或所有班级均关闭时）。
