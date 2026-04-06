@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface StudentInfo {
   id: number;
   name: string;
@@ -53,17 +55,12 @@ export default function ParentDashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [studentRes, recordsRes, tasksRes, petRes] = await Promise.all([
-          fetch(`/api/student/${user.studentId}`),
-          fetch(`/api/student/records?studentId=${user.studentId}`),
-          fetch(`/api/familyTasks?studentId=${user.studentId}`),
-          fetch(`/api/pets/${user.studentId}`)
+        const [studentData, recordsData, tasksData, petData] = await Promise.all([
+          apiGet(`/api/student/${user.studentId}`),
+          apiGet(`/api/student/records?studentId=${user.studentId}`),
+          apiGet(`/api/familyTasks?studentId=${user.studentId}`),
+          apiGet(`/api/pets/${user.studentId}`)
         ]);
-
-        const studentData = await studentRes.json();
-        const recordsData = await recordsRes.json();
-        const tasksData = await tasksRes.json();
-        const petData = await petRes.json();
 
         if (studentData.success) setStudent(studentData.student);
         if (recordsData.success) setRecords(recordsData.records.slice(0, 5));
@@ -86,12 +83,7 @@ export default function ParentDashboard() {
     }
     setBuffLoading(true);
     try {
-      const res = await fetch(`/api/parent-buff`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId })
-      });
-      const data = await res.json();
+      const data = await apiPost(`/api/parent-buff`, { studentId: user?.studentId });
       if (data.success) {
         setBuffActive(true);
         toast.success('✨ 母爱的祝福已施放！');

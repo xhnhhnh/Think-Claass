@@ -4,6 +4,8 @@ import { Gift, Star, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface PrizeConfig {
   prize_name: string;
   prize_type: 'POINTS' | 'ITEM' | 'NOTHING';
@@ -23,8 +25,7 @@ export default function StudentLuckyDraw() {
   const fetchData = async () => {
     if (!user?.studentId) return;
     try {
-      const res = await fetch(`/api/students`);
-      const data = await res.json();
+      const data = await apiGet(`/api/students`);
       if (data.success) {
         const student = data.students.find((s: any) => s.id === user.studentId);
         if (student) setAvailablePoints(student.available_points);
@@ -33,14 +34,12 @@ export default function StudentLuckyDraw() {
       const studentData = data.students.find((s: any) => s.id === user.studentId);
       let tId = 1;
       if (studentData && studentData.class_id) {
-        const clsRes = await fetch(`/api/classes`);
-        const clsData = await clsRes.json();
+        const clsData = await apiGet(`/api/classes`);
         const cls = clsData.classes?.find((c: any) => c.id === studentData.class_id);
         if (cls) tId = cls.teacher_id;
       }
 
-      const configRes = await fetch(`/api/lucky-draw/config?teacherId=${tId}`);
-      const configData = await configRes.json();
+      const configData = await apiGet(`/api/lucky-draw/config?teacherId=${tId}`);
       if (configData.success) {
         setConfigs(configData.configs);
         if (configData.cost_points) setCostPoints(configData.cost_points);
@@ -68,13 +67,8 @@ export default function StudentLuckyDraw() {
     setFlippedIndex(index);
 
     try {
-      const res = await fetch('/api/lucky-draw/draw', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId })
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/lucky-draw/draw', { studentId: user?.studentId });
+
       // Delay to show animation
       setTimeout(() => {
         if (data.success) {

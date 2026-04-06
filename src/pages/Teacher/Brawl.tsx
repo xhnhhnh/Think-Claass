@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Swords, ShieldAlert, Crosshair, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+
 interface Battle {
   id: number;
   initiator_class_id: number;
@@ -35,8 +37,7 @@ export default function TeacherBrawl() {
 
   useEffect(() => {
     // Get teacher's first class ID
-    fetch('/api/classes')
-      .then(res => res.json())
+    apiGet('/api/classes')
       .then(data => {
         if (data.success && data.classes.length > 0) {
           setClassId(data.classes[0].id);
@@ -47,8 +48,7 @@ export default function TeacherBrawl() {
   const fetchBattles = async () => {
     if (!classId) return;
     try {
-      const res = await fetch(`/api/battles/teacher/${classId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/battles/teacher/${classId}`);
       if (data.success) {
         setBattles(data.battles);
         
@@ -67,8 +67,7 @@ export default function TeacherBrawl() {
 
   const fetchStats = async (battleId: number) => {
     try {
-      const res = await fetch(`/api/battles/stats/${battleId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/battles/stats/${battleId}`);
       if (data.success) {
         setActiveStats(data);
       }
@@ -91,8 +90,10 @@ export default function TeacherBrawl() {
     
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/battles/classes/search?q=${encodeURIComponent(searchQuery)}&excludeClassId=${classId}`);
-      const data = await res.json();
+      const data = await apiGet(
+        `/api/battles/classes/search?q=${encodeURIComponent(searchQuery)}&excludeClassId=${classId}`
+      );
+
       if (data.success) {
         setSearchResults(data.classes);
         if (data.classes.length === 0) toast.info('未找到其他班级');
@@ -108,12 +109,11 @@ export default function TeacherBrawl() {
     if (!window.confirm(`确定要向 [${targetName}] 发起大乱斗挑战吗？`)) return;
 
     try {
-      const res = await fetch('/api/battles/teacher/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initiator_class_id: classId, target_class_id: targetId })
-      });
-      const data = await res.json();
+      const data = await apiPost(
+        '/api/battles/teacher/initiate',
+        { initiator_class_id: classId, target_class_id: targetId }
+      );
+
       if (data.success) {
         toast.success('挑战已发出！等待对方教师接受。');
         setSearchQuery('');
@@ -138,12 +138,7 @@ export default function TeacherBrawl() {
         body = { winner_class_id: winnerId };
       }
 
-      const res = await fetch(`/api/battles/teacher/${action}/${battleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
+      const data = await apiPut(`/api/battles/teacher/${action}/${battleId}`, body);
       if (data.success) {
         toast.success(`操作成功: ${action}`);
         fetchBattles();

@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore';
 import { BookOpen, User, Lock, Loader2, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState('student');
@@ -26,8 +28,7 @@ export default function Login() {
     if (code.length === 6) {
       setFetchingStudents(true);
       try {
-        const res = await fetch(`/api/classes/invite/${code}`);
-        const data = await res.json();
+        const data = await apiGet(`/api/classes/invite/${code}`);
         if (data.success) {
           setStudents(data.students);
           if (data.students.length > 0) {
@@ -63,12 +64,7 @@ export default function Login() {
         ? { username, password, role }
         : { username, password, role, name: students.find(s => s.id === selectedStudentId)?.name || '', invite_code: inviteCode, student_id: selectedStudentId };
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      const data = await apiPost(endpoint, payload);
 
       if (data.success) {
         if (isLogin) {

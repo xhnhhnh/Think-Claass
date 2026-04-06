@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Server, Users, GraduationCap, School, Activity, Cpu, HardDrive, Clock, RefreshCw, Download, Upload, BookOpen, Calendar, Target, Award } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Stats {
   server: {
     cpuUsage: number;
@@ -35,8 +37,7 @@ export default function AdminDashboard() {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/stats');
-      const data = await res.json();
+      const data = await apiGet('/api/admin/stats');
       if (data.success) {
         setStats(data.data);
       } else {
@@ -69,12 +70,8 @@ export default function AdminDashboard() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/admin/data/import', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/admin/data/import', formData);
+
       if (data.success) {
         toast.success(data.message);
         setTimeout(() => {

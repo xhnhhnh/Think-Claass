@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+
 interface Pet {
   id: number;
   element_type: string;
@@ -48,28 +50,23 @@ export default function StudentPet() {
   const fetchPetData = async () => {
     if (!user?.studentId) return;
     try {
-      const res = await fetch(`/api/pets/${user.studentId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/pets/${user.studentId}`);
       if (data.success && data.pet) {
         setPet(data.pet);
       }
-      
-      // Fetch user's current points
-      const resStudents = await fetch('/api/students');
-      const dataStudents = await resStudents.json();
+
+      const dataStudents = await apiGet('/api/students');
       if (dataStudents.success) {
         const student = dataStudents.students.find((s: any) => s.id === user.studentId);
         if (student) setAvailablePoints(student.available_points);
       }
-      
-      const praiseRes = await fetch(`/api/praises/student/${user.studentId}`);
-      const praiseData = await praiseRes.json();
+
+      const praiseData = await apiGet(`/api/praises/student/${user.studentId}`);
       if (praiseData.success) {
         setPraises(praiseData.praises);
       }
 
-      const recordsRes = await fetch(`/api/students/records?studentId=${user.studentId}`);
-      const recordsData = await recordsRes.json();
+      const recordsData = await apiGet(`/api/students/records?studentId=${user.studentId}`);
       if (recordsData.success) {
         setRecords(recordsData.records);
       }
@@ -120,12 +117,7 @@ export default function StudentPet() {
   const handleSaveImages = async () => {
     setSavingImages(true);
     try {
-      const res = await fetch(`/api/pets/${user?.studentId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingImages),
-      });
-      const data = await res.json();
+      const data = await apiPut(`/api/pets/${user?.studentId}`, editingImages);
       if (data.success) {
         toast.success('外观保存成功！');
         setShowEditImages(false);
@@ -144,16 +136,12 @@ export default function StudentPet() {
     if (!selectedElement) return;
     setAdopting(true);
     try {
-      const res = await fetch('/api/pets/adopt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          studentId: user?.studentId, 
-          elementType: selectedElement,
-          customImage: customImage 
-        }),
+      const data = await apiPost('/api/pets/adopt', { 
+        studentId: user?.studentId, 
+        elementType: selectedElement,
+        customImage: customImage 
       });
-      const data = await res.json();
+
       if (data.success) {
         toast.success('领养成功！开启你的学习之旅吧');
         fetchPetData();
@@ -176,13 +164,12 @@ export default function StudentPet() {
     
     try {
       const oldLevel = pet?.level || 1;
-      
-      const res = await fetch('/api/pets/interact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: user?.studentId, actionType, cost, expGain, type }),
-      });
-      const data = await res.json();
+
+      const data = await apiPost(
+        '/api/pets/interact',
+        { studentId: user?.studentId, actionType, cost, expGain, type }
+      );
+
       if (data.success) {
         setPet(data.pet);
         setAvailablePoints(data.points);

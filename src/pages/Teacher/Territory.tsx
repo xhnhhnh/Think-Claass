@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Map as MapIcon, Plus, Settings, Play, Database, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Territory {
   id: number;
   class_id: number;
@@ -31,8 +33,7 @@ export default function TeacherTerritory() {
   });
 
   useEffect(() => {
-    fetch('/api/classes')
-      .then(res => res.json())
+    apiGet('/api/classes')
       .then(data => {
         if (data.success && data.classes.length > 0) {
           setClassId(data.classes[0].id);
@@ -43,8 +44,7 @@ export default function TeacherTerritory() {
   const fetchMap = async () => {
     if (!classId) return;
     try {
-      const res = await fetch(`/api/slg/map/${classId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/slg/map/${classId}`);
       if (data.success) {
         setTerrories(data.territories);
       }
@@ -62,13 +62,7 @@ export default function TeacherTerritory() {
     if (!classId) return;
 
     try {
-      const res = await fetch('/api/slg/teacher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, class_id: classId })
-      });
-      
-      const data = await res.json();
+      const data = await apiPost('/api/slg/teacher', { ...formData, class_id: classId });
       if (data.success) {
         toast.success('领地已创建');
         setIsModalOpen(false);
@@ -84,8 +78,7 @@ export default function TeacherTerritory() {
   const triggerYield = async () => {
     if (!classId) return;
     try {
-      const res = await fetch(`/api/slg/teacher/yield/${classId}`, { method: 'POST' });
-      const data = await res.json();
+      const data = await apiPost(`/api/slg/teacher/yield/${classId}`, undefined);
       if (data.success) {
         toast.success('已模拟产出资源');
         fetchMap();

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Megaphone } from 'lucide-react';
 
+import { apiGet, apiDelete } from "@/lib/api";
+
 interface Announcement {
   id: number;
   title: string;
@@ -25,8 +27,7 @@ export default function AdminAnnouncements() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/announcements');
-      const data = await res.json();
+      const data = await apiGet('/api/admin/announcements');
       if (data.success) {
         setAnnouncements(data.announcements);
       } else {
@@ -80,17 +81,7 @@ export default function AdminAnnouncements() {
         : '/api/admin/announcements';
       const method = editingId ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: formData.title,
-          content: formData.content,
-          is_active: formData.is_active
-        })
-      });
-      
-      const data = await res.json();
+      const data = await apiGet(url);
       if (data.success) {
         toast.success(editingId ? '公告更新成功' : '公告创建成功');
         handleCloseModal();
@@ -107,11 +98,8 @@ export default function AdminAnnouncements() {
     if (!confirm('确定要删除这条公告吗？')) return;
 
     try {
-      const res = await fetch(`/api/admin/announcements/${id}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      
+      const data = await apiDelete(`/api/admin/announcements/${id}`);
+
       if (data.success) {
         toast.success('公告已删除');
         fetchAnnouncements();

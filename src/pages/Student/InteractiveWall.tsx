@@ -4,6 +4,8 @@ import { MessageSquare, Megaphone, Loader2, Send, MessageCircle } from 'lucide-r
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface Announcement {
   id: number;
   title: string;
@@ -48,8 +50,7 @@ export default function StudentInteractiveWall() {
 
   const fetchStudentClass = async () => {
     try {
-      const res = await fetch(`/api/students`);
-      const data = await res.json();
+      const data = await apiGet(`/api/students`);
       if (data.success) {
         const student = data.students.find((s: any) => s.id === user?.studentId);
         if (student && student.class_id) {
@@ -83,8 +84,7 @@ export default function StudentInteractiveWall() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/class-announcements?classId=${classId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/class-announcements?classId=${classId}`);
       if (data.success) {
         setAnnouncements(data.announcements);
       }
@@ -98,8 +98,10 @@ export default function StudentInteractiveWall() {
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/messages?classId=${classId}&type=TREE_HOLE&involvedId=${user?.studentId}`);
-      const data = await res.json();
+      const data = await apiGet(
+        `/api/messages?classId=${classId}&type=TREE_HOLE&involvedId=${user?.studentId}`
+      );
+
       if (data.success) {
         setMessages(data.messages.reverse()); // Chronological order
       }
@@ -116,20 +118,16 @@ export default function StudentInteractiveWall() {
 
     try {
       setSending(true);
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          class_id: classId,
-          sender_id: user.studentId,
-          content: newMessage.trim(),
-          is_anonymous: true,
-          type: 'TREE_HOLE',
-          sender_role: 'student'
-        })
+
+      const data = await apiPost('/api/messages', {
+        class_id: classId,
+        sender_id: user.studentId,
+        content: newMessage.trim(),
+        is_anonymous: true,
+        type: 'TREE_HOLE',
+        sender_role: 'student'
       });
-      
-      const data = await res.json();
+
       if (data.success) {
         setNewMessage('');
         await fetchMessages();

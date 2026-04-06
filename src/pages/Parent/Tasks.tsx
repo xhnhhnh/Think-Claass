@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { CheckSquare, Plus, CheckCircle, XCircle, Clock, Trash2, AlertCircle, Heart, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
+
 interface FamilyTask {
   id: number;
   title: string;
@@ -24,8 +26,7 @@ export default function ParentTasks() {
     if (!user?.studentId) return;
     try {
       setLoading(true);
-      const res = await fetch(`/api/family-tasks?studentId=${user.studentId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/family-tasks?studentId=${user.studentId}`);
       if (data.success) {
         setTasks(data.tasks);
       }
@@ -52,17 +53,14 @@ export default function ParentTasks() {
 
     try {
       setSubmitting(true);
-      const res = await fetch('/api/family-tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          student_id: user.studentId,
-          parent_id: user.id,
-          title: newTaskTitle.trim(),
-          points: points
-        })
+
+      const data = await apiPost('/api/family-tasks', {
+        student_id: user.studentId,
+        parent_id: user.id,
+        title: newTaskTitle.trim(),
+        points: points
       });
-      const data = await res.json();
+
       if (data.success) {
         toast.success('新约定已记录');
         setShowAddModal(false);
@@ -81,26 +79,16 @@ export default function ParentTasks() {
 
   const handleUpdateStatus = async (task: FamilyTask, newStatus: 'approved' | 'rejected') => {
     try {
-      // First update the task status
-      const res = await fetch(`/api/family-tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      const data = await res.json();
-      
+      const data = await apiPut(`/api/family-tasks/${task.id}`, { status: newStatus });
+
       if (data.success) {
         // If approved, give points to student
         if (newStatus === 'approved') {
-          const pointsRes = await fetch(`/api/student/${user?.studentId}/points`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount: task.points,
-              reason: `完成家庭约定: ${task.title}`
-            })
+          const pointsData = await apiPost(`/api/student/${user?.studentId}/points`, {
+            amount: task.points,
+            reason: `完成家庭约定: ${task.title}`
           });
-          const pointsData = await pointsRes.json();
+
           if (!pointsData.success) {
             toast.error('颁发小红花失败');
           } else {
@@ -121,8 +109,7 @@ export default function ParentTasks() {
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这个约定吗？')) return;
     try {
-      const res = await fetch(`/api/family-tasks/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/family-tasks/${id}`);
       if (data.success) {
         toast.success('约定已删除');
         fetchTasks();

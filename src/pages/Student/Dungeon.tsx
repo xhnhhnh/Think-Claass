@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Skull, Heart, Shield, Swords, Sparkles, Tent, Zap, ArrowRight, ArrowDownToLine, RefreshCw, Box, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface DungeonRun {
   id: number;
   current_floor: number;
@@ -35,8 +37,7 @@ export default function StudentDungeon() {
   const fetchDungeon = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/dungeon/${user.id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/dungeon/${user.id}`);
       if (data.success) {
         if (data.run) {
           setRun(data.run);
@@ -59,8 +60,7 @@ export default function StudentDungeon() {
     if (!user) return;
     setProcessing(true);
     try {
-      const res = await fetch(`/api/dungeon/start/${user.id}`, { method: 'POST' });
-      const data = await res.json();
+      const data = await apiPost(`/api/dungeon/start/${user.id}`, undefined);
       if (data.success) {
         toast.success('深入地下城...');
         fetchDungeon();
@@ -83,13 +83,8 @@ export default function StudentDungeon() {
 
     setProcessing(true);
     try {
-      const res = await fetch(`/api/dungeon/choice/${user.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(choice)
-      });
-      const data = await res.json();
-      
+      const data = await apiPost(`/api/dungeon/choice/${user.id}`, choice);
+
       if (data.success) {
         if (data.status === 'died') {
           toast.error(`你在第 ${run.current_floor} 层倒下了...`);
@@ -112,8 +107,8 @@ export default function StudentDungeon() {
     if (!user || !window.confirm('确定要放弃本次探索吗？(生命值将归零，进度重置)')) return;
     setProcessing(true);
     try {
-      const res = await fetch(`/api/dungeon/abandon/${user.id}`, { method: 'POST' });
-      if (res.ok) {
+      const data = await apiPost(`/api/dungeon/abandon/${user.id}`);
+      if (data.success !== false) {
         toast.success('已逃离地下城');
         fetchDungeon();
       }

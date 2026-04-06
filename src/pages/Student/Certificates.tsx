@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Award, Trophy, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiGet } from "@/lib/api";
+
 interface Certificate {
   id: number;
   title: string;
@@ -25,8 +27,7 @@ export default function StudentCertificates() {
 
   const fetchCertificates = async () => {
     try {
-      const res = await fetch(`/api/certificates?studentId=${user?.studentId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/certificates?studentId=${user?.studentId}`);
       if (data.success) {
         setCertificates(data.certificates);
       }

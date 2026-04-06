@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { BarChart2, Users, Target, TrendingUp } from 'lucide-react';
 
+import { apiGet } from "@/lib/api";
+
 interface Student {
   id: number;
   name: string;
@@ -27,8 +29,7 @@ export default function TeacherAnalysis() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch('/api/classes');
-      const data = await res.json();
+      const data = await apiGet('/api/classes');
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -49,8 +50,7 @@ export default function TeacherAnalysis() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/students?classId=${selectedClassId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/students?classId=${selectedClassId}`);
       if (data.success) {
         setStudents(data.students);
       }

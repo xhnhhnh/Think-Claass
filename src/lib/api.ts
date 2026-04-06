@@ -1,6 +1,7 @@
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
-interface ApiOptions extends RequestInit {
+interface ApiOptions extends AxiosRequestConfig {
   showError?: boolean;
 }
 
@@ -15,24 +16,59 @@ export class FetchError extends Error {
   }
 }
 
-export const api = async <T = any>(url: string, options: ApiOptions = {}): Promise<T> => {
-  const { showError = true, ...fetchOptions } = options;
+// 创建 axios 实例
+const axiosInstance = axios.create({
+  // baseURL 默认为空，复用当前的域名和 /api 前缀代理配置
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 请求拦截器
+axiosInstance.interceptors.request.use(
+  (config) => {
+    // 预留：如果有 Token 可以从 localStorage 或 useStore 中取出并添加到 headers 中
+    // const token = localStorage.getItem('token');
+    // if (token) {
+    //   config.headers.Authorization = `Bearer ${token}`;
+    // }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 响应拦截器
+axiosInstance.interceptors.response.use(
+  (response) => {
+    // 请求成功（HTTP 2xx），直接返回 data
+    return response;
+  },
+  (error: AxiosError) => {
+    // 处理 HTTP 错误（如 400, 401, 500 等）
+    // 为了向下兼容现有的组件逻辑（直接处理 error.response.data 中的 { success: false, message: "..." }），
+    // 只要有 response.data，我们就让 Promise resolve 并返回它，而不是 reject 触发 catch 块。
+    if (error.response && error.response.data) {
+      // 相当于欺骗调用方，把 4xx/5xx 错误当作正常响应返回（只要里面有 data）
+      return Promise.resolve(error.response);
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const api = async <T = any>(config: ApiOptions): Promise<T> => {
+  const { showError = true, ...axiosConfig } = config;
   
   try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers: {
-        'Content-Type': 'application/json',
-        ...fetchOptions.headers,
-      },
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok || data.success === false) {
-      throw new FetchError(response.status, data);
-    }
-
+    const response = await axiosInstance(axiosConfig);
+    const data = response.data;
+    
+    // 向下兼容：原来部分代码使用了 api.ts，如果 data.success === false，原 api.ts 会抛出异常
+    // 但为了这次大规模替换 fetch，我们选择不在这里强制抛出错误，而是直接返回 data。
+    // 让各个页面的 if (data.success) 逻辑自己去处理。
+    
     return data as T;
   } catch (error: any) {
     if (showError) {
@@ -42,7 +78,15 @@ export const api = async <T = any>(url: string, options: ApiOptions = {}): Promi
   }
 };
 
-export const apiGet = <T>(url: string, options?: ApiOptions) => api<T>(url, { ...options, method: 'GET' });
-export const apiPost = <T>(url: string, body: any, options?: ApiOptions) => api<T>(url, { ...options, method: 'POST', body: JSON.stringify(body) });
-export const apiPut = <T>(url: string, body: any, options?: ApiOptions) => api<T>(url, { ...options, method: 'PUT', body: JSON.stringify(body) });
-export const apiDelete = <T>(url: string, options?: ApiOptions) => api<T>(url, { ...options, method: 'DELETE' });
+// 提供向下兼容的快捷方法，返回值直接就是 response.data
+export const apiGet = <T = any>(url: string, options?: ApiOptions) => 
+  api<T>({ url, method: 'GET', ...options });
+
+export const apiPost = <T = any>(url: string, data?: any, options?: ApiOptions) => 
+  api<T>({ url, method: 'POST', data, ...options });
+
+export const apiPut = <T = any>(url: string, data?: any, options?: ApiOptions) => 
+  api<T>({ url, method: 'PUT', data, ...options });
+
+export const apiDelete = <T = any>(url: string, options?: ApiOptions) => 
+  api<T>({ url, method: 'DELETE', ...options });

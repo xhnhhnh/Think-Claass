@@ -5,6 +5,8 @@ import { Sparkles, Star, Zap, Shield, HelpCircle, ShieldAlert, Award } from 'luc
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface GachaPool {
   id: number;
   name: string;
@@ -32,8 +34,7 @@ export default function StudentGacha() {
 
   useEffect(() => {
     if (user?.class_id) {
-      fetch(`/api/gacha/pools/${user.class_id}`)
-        .then(res => res.json())
+      apiGet(`/api/gacha/pools/\${user.class_id}`)
         .then(data => {
           if (data.success) setPools(data.pools);
           setLoading(false);
@@ -45,12 +46,7 @@ export default function StudentGacha() {
     if (!user) return;
     setDrawing(true);
     try {
-      const res = await fetch(`/api/gacha/draw/${user.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ poolId, times })
-      });
-      const data = await res.json();
+      const data = await apiPost(`/api/gacha/draw/${user.id}`, { poolId, times });
       if (data.success) {
         setResults(data.results);
         setShowResults(true);

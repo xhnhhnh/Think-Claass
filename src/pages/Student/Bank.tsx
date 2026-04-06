@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Building2, TrendingUp, TrendingDown, RefreshCw, Wallet, PiggyBank, Briefcase, Coins, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface BankAccount {
   student_id: number;
   deposit_amount: number;
@@ -50,14 +52,11 @@ export default function StudentEconomy() {
   const fetchEconomy = async () => {
     if (!user) return;
     try {
-      const [bankRes, stocksRes, portRes] = await Promise.all([
-        fetch(`/api/economy/bank/${user.id}`),
-        fetch(`/api/economy/stocks/${user.class_id}`),
-        fetch(`/api/economy/portfolio/${user.id}`)
-      ]);
-      const bankData = await bankRes.json();
-      const stocksData = await stocksRes.json();
-      const portData = await portRes.json();
+      const [bankData, stocksData, portData] = await Promise.all([
+          apiGet(`/api/economy/bank/${user.id}`),
+          apiGet(`/api/economy/stocks/${user.class_id}`),
+          apiGet(`/api/economy/portfolio/${user.id}`)
+        ]);
 
       if (bankData.success) setBank(bankData.account);
       if (stocksData.success) setStocks(stocksData.stocks);
@@ -80,12 +79,7 @@ export default function StudentEconomy() {
     if (isNaN(amount) || amount <= 0) return toast.error('请输入有效金额');
 
     try {
-      const res = await fetch(`/api/economy/bank/${bankAction}/${user.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
-      const data = await res.json();
+      const data = await apiPost(`/api/economy/bank/${bankAction}/${user.id}`, { amount });
       if (data.success) {
         toast.success(bankAction === 'deposit' ? '存款成功！' : '取款成功！');
         fetchEconomy();
@@ -106,12 +100,11 @@ export default function StudentEconomy() {
     if (isNaN(shares) || shares <= 0) return toast.error('请输入有效股数');
 
     try {
-      const res = await fetch(`/api/economy/stocks/${tradeAction}/${user.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stockId: selectedStock.id, shares })
-      });
-      const data = await res.json();
+      const data = await apiPost(
+        `/api/economy/stocks/${tradeAction}/${user.id}`,
+        { stockId: selectedStock.id, shares }
+      );
+
       if (data.success) {
         toast.success(tradeAction === 'buy' ? '买入成功！' : '卖出成功！');
         fetchEconomy();

@@ -4,6 +4,8 @@ import { Swords, RefreshCw, Flame, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
+import { apiGet } from "@/lib/api";
+
 interface Battle {
   id: number;
   initiator_class_id: number;
@@ -25,8 +27,7 @@ export default function StudentBrawl() {
   const fetchActiveBattle = async () => {
     if (!user?.class_id) return;
     try {
-      const res = await fetch(`/api/battles/teacher/${user.class_id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/battles/teacher/${user.class_id}`);
       if (data.success) {
         const active = data.battles.find((b: Battle) => b.status === 'active');
         setActiveBattle(active || null);
@@ -43,8 +44,7 @@ export default function StudentBrawl() {
 
   const fetchStats = async (battleId: number) => {
     try {
-      const res = await fetch(`/api/battles/stats/${battleId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/battles/stats/${battleId}`);
       if (data.success) {
         setStats(data);
       }

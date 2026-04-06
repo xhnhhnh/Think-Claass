@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Newspaper, Calendar, Eye, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet } from "@/lib/api";
+
 interface Article {
   id: number;
   title: string;
@@ -24,8 +26,7 @@ export default function HomeNews() {
   useEffect(() => {
     const fetchArticles = async () => {
       try {
-        const res = await fetch('/api/website/articles?is_published=true&limit=20');
-        const data = await res.json();
+        const data = await apiGet('/api/website/articles?is_published=true&limit=20');
         if (data.success) {
           setArticles(data.articles);
         }
@@ -41,8 +42,7 @@ export default function HomeNews() {
   const handleReadMore = async (id: number) => {
     setArticleLoading(true);
     try {
-      const res = await fetch(`/api/website/articles/${id}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/website/articles/${id}`);
       if (data.success) {
         setSelectedArticle(data.article);
       }

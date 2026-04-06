@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Key, Plus, Download, Copy, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 export default function AdminCodes() {
   const [codes, setCodes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,8 +15,7 @@ export default function AdminCodes() {
   const fetchCodes = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/codes');
-      const data = await res.json();
+      const data = await apiGet('/api/admin/codes');
       if (data.success) {
         setCodes(data.codes);
       } else {
@@ -38,12 +39,7 @@ export default function AdminCodes() {
     }
     setGenerating(true);
     try {
-      const res = await fetch('/api/admin/codes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: generateCount })
-      });
-      const data = await res.json();
+      const data = await apiPost('/api/admin/codes', { count: generateCount });
       if (data.success) {
         toast.success(data.message);
         fetchCodes();

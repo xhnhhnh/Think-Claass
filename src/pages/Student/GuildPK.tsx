@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Swords, Trophy, Crown, Flame, ShieldAlert, AlertCircle, Medal } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiGet } from "@/lib/api";
+
 interface GuildRanking {
   id: number;
   name: string;
@@ -20,8 +22,7 @@ export default function StudentGuildPK() {
     const init = async () => {
       if (!user?.studentId) return;
       try {
-        const studentRes = await fetch(`/api/students`);
-        const studentData = await studentRes.json();
+        const studentData = await apiGet(`/api/students`);
         if (studentData.success) {
           const student = studentData.students.find((s: any) => s.id === user.studentId);
           if (student) {
@@ -39,8 +40,7 @@ export default function StudentGuildPK() {
     if (!studentClassId) return;
     const fetchRankings = async () => {
       try {
-        const res = await fetch(`/api/classes/${studentClassId}/guild-ranking`);
-        const data = await res.json();
+        const data = await apiGet(`/api/classes/${studentClassId}/guild-ranking`);
         if (data.success) {
           setIsEnabled(data.isEnabled);
           setRankings(data.rankings);

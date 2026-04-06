@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { UserCog, Save, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiPut } from "@/lib/api";
+
 export default function TeacherSettings() {
   const { user, setUser } = useStore();
   const [username, setUsername] = useState('');
@@ -29,13 +31,11 @@ export default function TeacherSettings() {
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/users/${user?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password: password || undefined }),
-      });
-      const data = await res.json();
-      
+      const data = await apiPut(
+        `/api/admin/users/${user?.id}`,
+        { username: username.trim(), password: password || undefined }
+      );
+
       if (data.success) {
         toast.success('个人信息更新成功');
         setPassword('');

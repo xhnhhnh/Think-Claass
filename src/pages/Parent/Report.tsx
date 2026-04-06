@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { PieChart, TrendingUp, TrendingDown, Calendar, Award, AlertCircle, Heart, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet } from "@/lib/api";
+
 interface Record {
   id: number;
   type: string;
@@ -22,8 +24,7 @@ export default function ParentReport() {
     const fetchRecords = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/student/records?studentId=${user.studentId}`);
-        const data = await res.json();
+        const data = await apiGet(`/api/student/records?studentId=${user.studentId}`);
         if (data.success) {
           setRecords(data.records);
         }

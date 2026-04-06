@@ -4,6 +4,8 @@ import { ArrowLeft, MessageSquare, Send, Mail, Phone, MapPin } from 'lucide-reac
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
+import { apiPost } from "@/lib/api";
+
 export default function HomeContact() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -22,13 +24,8 @@ export default function HomeContact() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/website/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/website/contact', formData);
+
       if (data.success) {
         toast.success('留言提交成功，我们会尽快与您联系！');
         setFormData({ name: '', email: '', message: '' });

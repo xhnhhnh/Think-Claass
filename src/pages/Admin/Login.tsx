@@ -5,6 +5,8 @@ import { Settings, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ADMIN_PATH } from "@/constants";
 
+import { apiPost } from "@/lib/api";
+
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -19,13 +21,8 @@ export default function AdminLogin() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      
+      const data = await apiPost('/api/admin/login', { username, password });
+
       if (data.success) {
         setUser(data.user);
         navigate(ADMIN_PATH);

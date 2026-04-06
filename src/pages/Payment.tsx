@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { ShieldCheck, CreditCard, ScanLine, Smartphone } from 'lucide-react';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 export default function Payment() {
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -23,12 +25,11 @@ export default function Payment() {
   const handleCreateOrder = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/payment/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, method: paymentMethod, amount: 99.00 }) // Example amount
-      });
-      const data = await res.json();
+      const data = await apiPost(
+        '/api/payment/create',
+        { userId: user?.id, method: paymentMethod, amount: 99.00 }
+      );
+
       if (data.success) {
         setOrderId(data.data.orderId);
         setQrCodeUrl(data.data.qrCodeUrl);
@@ -49,8 +50,7 @@ export default function Payment() {
     if (orderId && user) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/payment/status/${orderId}?userId=${user.id}`);
-          const data = await res.json();
+          const data = await apiGet(`/api/payment/status/${orderId}?userId=${user.id}`);
           if (data.success && data.data.status === 'SUCCESS') {
             clearInterval(interval);
             toast.success('支付成功！系统已激活');

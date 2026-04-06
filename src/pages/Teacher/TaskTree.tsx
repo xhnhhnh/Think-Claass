@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { GitBranch, Plus, XCircle, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { apiGet, apiDelete } from "@/lib/api";
+
 interface TaskNode {
   id: number;
   title: string;
@@ -30,8 +32,7 @@ export default function TeacherTaskTree() {
   });
 
   useEffect(() => {
-    fetch('/api/classes')
-      .then(res => res.json())
+    apiGet('/api/classes')
       .then(data => {
         if (data.success && data.classes.length > 0) {
           setClassId(data.classes[0].id);
@@ -42,8 +43,7 @@ export default function TeacherTaskTree() {
   const fetchNodes = async () => {
     if (!classId) return;
     try {
-      const res = await fetch(`/api/task-tree/teacher/${classId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/task-tree/teacher/${classId}`);
       if (data.success) {
         setNodes(data.nodes);
       }
@@ -63,14 +63,8 @@ export default function TeacherTaskTree() {
     try {
       const url = editingNode ? `/api/task-tree/teacher/${editingNode.id}` : '/api/task-tree/teacher';
       const method = editingNode ? 'PUT' : 'POST';
-      
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, class_id: classId })
-      });
-      
-      const data = await res.json();
+
+      const data = await apiGet(url);
       if (data.success) {
         toast.success(editingNode ? '节点已更新' : '节点已创建');
         setIsModalOpen(false);
@@ -86,8 +80,7 @@ export default function TeacherTaskTree() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除此节点吗？')) return;
     try {
-      const res = await fetch(`/api/task-tree/teacher/${id}`, { method: 'DELETE' });
-      const data = await res.json();
+      const data = await apiDelete(`/api/task-tree/teacher/${id}`);
       if (data.success) {
         toast.success('节点已删除');
         fetchNodes();

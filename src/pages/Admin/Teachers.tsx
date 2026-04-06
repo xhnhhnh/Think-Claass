@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 
+import { apiGet, apiDelete } from "@/lib/api";
+
 interface Teacher {
   id: number;
   username: string;
@@ -22,8 +24,7 @@ export default function AdminTeachers() {
   const fetchTeachers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/users');
-      const data = await res.json();
+      const data = await apiGet('/api/admin/users');
       if (data.success) {
         setTeachers(data.users);
       } else {
@@ -79,16 +80,7 @@ export default function AdminTeachers() {
         : '/api/admin/users';
       const method = editingId ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password || undefined // 只有在填写时才发送
-        })
-      });
-      
-      const data = await res.json();
+      const data = await apiGet(url);
       if (data.success) {
         toast.success(editingId ? '教师更新成功' : '教师创建成功');
         handleCloseModal();
@@ -105,11 +97,8 @@ export default function AdminTeachers() {
     if (!confirm('确定要删除这位教师吗？所有相关的班级、学生和记录将被永久删除！')) return;
 
     try {
-      const res = await fetch(`/api/admin/users/${id}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      
+      const data = await apiDelete(`/api/admin/users/${id}`);
+
       if (data.success) {
         toast.success('教师已删除');
         fetchTeachers();

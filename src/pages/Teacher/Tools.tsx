@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Dice5, Timer, Clock, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet } from "@/lib/api";
+
 interface Student {
   id: number;
   name: string;
@@ -38,8 +40,7 @@ export default function TeacherTools() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch('/api/classes');
-      const data = await res.json();
+      const data = await apiGet('/api/classes');
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -59,8 +60,7 @@ export default function TeacherTools() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch(`/api/students?classId=${selectedClassId}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/students?classId=${selectedClassId}`);
       if (data.success) {
         setStudents(data.students);
       }

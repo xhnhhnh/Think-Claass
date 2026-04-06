@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Save, Globe } from 'lucide-react';
 
+import { apiGet, apiPut } from "@/lib/api";
+
 export default function AdminWebsite() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -14,8 +16,7 @@ export default function AdminWebsite() {
   const fetchWebsiteData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/website/home');
-      const data = await res.json();
+      const data = await apiGet('/api/website/home');
       if (data.success) {
         setSections({
           hero: data.data.hero || { title: '', subtitle: '', buttonText: '' },
@@ -54,12 +55,7 @@ export default function AdminWebsite() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/website/home', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sections)
-      });
-      const data = await res.json();
+      const data = await apiPut('/api/website/home', sections);
       if (data.success) {
         toast.success('网站内容已更新');
       } else {

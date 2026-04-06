@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { MessageCircle, Send, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiGet, apiPost } from "@/lib/api";
+
 interface ClassItem {
   id: number;
   name: string;
@@ -38,8 +40,7 @@ export default function TeacherCommunication() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch('/api/classes');
-      const data = await res.json();
+      const data = await apiGet('/api/classes');
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -60,8 +61,7 @@ export default function TeacherCommunication() {
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/messages?classId=${selectedClassId}&type=${msgType}&role=teacher`);
-      const data = await res.json();
+      const data = await apiGet(`/api/messages?classId=${selectedClassId}&type=${msgType}&role=teacher`);
       if (data.success) {
         setMessages(data.messages);
       }
@@ -75,20 +75,16 @@ export default function TeacherCommunication() {
   const handleReply = async (receiverId: number) => {
     if (!replyContent.trim()) return;
     try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          class_id: selectedClassId,
-          sender_id: user?.id,
-          receiver_id: receiverId,
-          content: replyContent,
-          type: msgType,
-          sender_role: 'user', // use 'user' so backend joins with users table
-          is_anonymous: false
-        }),
+      const data = await apiPost('/api/messages', {
+        class_id: selectedClassId,
+        sender_id: user?.id,
+        receiver_id: receiverId,
+        content: replyContent,
+        type: msgType,
+        sender_role: 'user', // use 'user' so backend joins with users table
+        is_anonymous: false
       });
-      const data = await res.json();
+
       if (data.success) {
         toast.success('回复成功');
         setReplyContent('');

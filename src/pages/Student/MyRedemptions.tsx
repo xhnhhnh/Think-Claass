@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Ticket, CheckCircle2, Clock, Loader2, Gift } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiGet } from "@/lib/api";
+
 interface RedemptionTicket {
   id: number;
   item_name: string;
@@ -21,8 +23,7 @@ export default function StudentMyRedemptions() {
     const fetchTickets = async () => {
       if (!user?.studentId) return;
       try {
-        const res = await fetch(`/api/redemption/my?studentId=${user.studentId}`);
-        const data = await res.json();
+        const data = await apiGet(`/api/redemption/my?studentId=${user.studentId}`);
         if (data.success) {
           setTickets(data.tickets);
         }

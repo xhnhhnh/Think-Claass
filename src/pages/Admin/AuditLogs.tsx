@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Shield, Search, RefreshCw, Calendar, User, Tag } from 'lucide-react';
 
+import { apiGet } from "@/lib/api";
+
 interface AuditLog {
   id: number;
   teacher_id: number;
@@ -32,13 +34,12 @@ export default function AdminAuditLogs() {
         limit: limit.toString(),
         offset: ((page - 1) * limit).toString()
       });
-      
+
       if (teacherId) queryParams.append('teacher_id', teacherId);
       if (userId) queryParams.append('user_id', userId);
       if (actionFilter) queryParams.append('action', actionFilter);
 
-      const res = await fetch(`/api/audit-logs?${queryParams.toString()}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/audit-logs?${queryParams.toString()}`);
       if (data.success) {
         setLogs(data.data);
         setTotal(data.total);

@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import { CheckCircle, Search, Gift, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { apiPost } from "@/lib/api";
+
 export default function TeacherVerification() {
   const user = useStore((state) => state.user);
   const [code, setCode] = useState('');
@@ -18,13 +20,11 @@ export default function TeacherVerification() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/redemption/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim().toUpperCase(), teacherId: user?.id }),
-      });
-      const data = await res.json();
-      
+      const data = await apiPost(
+        '/api/redemption/verify',
+        { code: code.trim().toUpperCase(), teacherId: user?.id }
+      );
+
       if (data.success) {
         toast.success('核销成功！');
         setResult(data.ticket);
