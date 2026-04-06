@@ -1,8 +1,38 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { Users, ClipboardList, LogOut, Award, Store, Settings, MonitorPlay, BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, Gavel, GitBranch, Swords, Map } from "lucide-react";
+import { 
+  Users, ClipboardList, LogOut, Award, Store, Settings, MonitorPlay, 
+  BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, 
+  FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, 
+  Gavel, Swords, Map 
+} from "lucide-react";
 import { useEffect } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
+
+const navItems = [
+  { path: '/teacher', icon: Users, label: '班级与学生管理' },
+  { path: '/teacher/attendance', icon: CalendarCheck, label: '考勤与请假' },
+  { path: '/teacher/assignments', icon: BookOpen, label: '作业管理' },
+  { path: '/teacher/exams', icon: FileSpreadsheet, label: '考试与成绩' },
+  { path: '/teacher/team-quests', icon: Target, label: '团队任务' },
+  { path: '/teacher/pets', icon: Sparkles, label: '精灵管理' },
+  { path: '/teacher/brawl', icon: Swords, label: '跨班大乱斗' },
+  { path: '/teacher/territory', icon: Map, label: '领土扩张' },
+  { path: '/teacher/records', icon: ClipboardList, label: '积分与兑换记录' },
+  { path: '/teacher/certificates', icon: Award, label: '荣誉奖状' },
+  { path: '/teacher/shop', icon: Store, label: '商品管理' },
+  { path: '/teacher/auction', icon: Gavel, label: '拍卖行管理' },
+  { path: '/teacher/blind-box', icon: Package, label: '盲盒管理' },
+  { path: '/teacher/features', icon: Settings, label: '功能开关' },
+  { path: '/teacher/world-boss', icon: ShieldAlert, label: '世界BOSS管理' },
+  { path: '/teacher/lucky-draw-config', icon: Gift, label: '抽奖设置' },
+  { path: '/teacher/verification', icon: CheckCircle, label: '奖品核销' },
+  { path: '/teacher/communication', icon: MessageCircle, label: '家校与留言' },
+  { path: '/teacher/analysis', icon: BarChart, label: '数据分析' },
+  { path: '/teacher/tools', icon: Wrench, label: '教学工具' },
+  { path: '/teacher/bigscreen', icon: MonitorPlay, label: '大屏展示' },
+  { path: '/teacher/settings', icon: UserCog, label: '个人设置' },
+];
 
 export default function TeacherLayout() {
   const user = useStore((state) => state.user);
@@ -19,272 +49,63 @@ export default function TeacherLayout() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans">
       <AnnouncementBanner />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden p-4 gap-6">
         {/* Sidebar */}
-        <div className="w-64 bg-white/70 backdrop-blur-xl border-r border-white/50 shadow-[4px_0_24px_rgba(0,0,0,0.02)] flex flex-col z-10 relative">
-          <div className="h-16 flex items-center px-6 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold text-xl tracking-wide shadow-sm flex-shrink-0">
-            <Award className="mr-2 h-6 w-6" />
-            教师主控台
+        <aside className="w-64 glass rounded-3xl flex flex-col z-10 relative overflow-hidden soft-shadow">
+          <div className="h-20 flex items-center px-8 border-b border-white/20 flex-shrink-0">
+            <Award className="mr-3 h-8 w-8 text-primary" />
+            <span className="font-bold text-xl tracking-wide gemini-gradient-text">教师主控台</span>
           </div>
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          <button
-            onClick={() => navigate('/teacher')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Users className={`mr-3 h-5 w-5 ${location.pathname === '/teacher' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            班级与学生管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/attendance')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/attendance' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <CalendarCheck className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/attendance' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            考勤与请假
-          </button>
-          <button
-            onClick={() => navigate('/teacher/assignments')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/assignments' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <BookOpen className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/assignments' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            作业管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/exams')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/exams' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <FileSpreadsheet className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/exams' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            考试与成绩
-          </button>
-          <button
-            onClick={() => navigate('/teacher/team-quests')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/team-quests' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Target className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/team-quests' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            团队任务
-          </button>
-          <button
-            onClick={() => navigate('/teacher/pets')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/pets' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Sparkles className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/pets' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            精灵管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/brawl')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/brawl' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Swords className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/brawl' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            跨班大乱斗
-          </button>
-          <button
-            onClick={() => navigate('/teacher/brawl')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/brawl' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Swords className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/brawl' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            跨班大乱斗
-          </button>
-          <button
-            onClick={() => navigate('/teacher/territory')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/territory' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Map className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/territory' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            领土扩张
-          </button>
-          <button
-            onClick={() => navigate('/teacher/records')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/records' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <ClipboardList className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/records' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            积分与兑换记录
-          </button>
-          <button
-            onClick={() => navigate('/teacher/certificates')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/certificates' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Award className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/certificates' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            荣誉奖状
-          </button>
-          <button
-            onClick={() => navigate('/teacher/shop')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/shop' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Store className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/shop' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            商品管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/auction')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/auction' ? 'bg-amber-50/80 text-amber-700 shadow-sm border border-amber-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Gavel className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/auction' ? 'text-amber-600' : 'text-gray-400'}`} />
-            拍卖行管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/blind-box')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/blind-box' ? 'bg-purple-50/80 text-purple-700 shadow-sm border border-purple-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Package className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/blind-box' ? 'text-purple-600' : 'text-gray-400'}`} />
-            盲盒管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/features')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/features' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Settings className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/features' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            功能开关
-          </button>
-          <button
-            onClick={() => navigate('/teacher/world-boss')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/world-boss' ? 'bg-red-50/80 text-red-700 shadow-sm border border-red-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <ShieldAlert className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/world-boss' ? 'text-red-600' : 'text-gray-400'}`} />
-            世界BOSS管理
-          </button>
-          <button
-            onClick={() => navigate('/teacher/lucky-draw-config')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/lucky-draw-config' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Gift className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/lucky-draw-config' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            抽奖设置
-          </button>
-          <button
-            onClick={() => navigate('/teacher/verification')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/verification' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <CheckCircle className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/verification' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            奖品核销
-          </button>
-          <button
-            onClick={() => navigate('/teacher/communication')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/communication' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <MessageCircle className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/communication' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            家校与留言
-          </button>
-          <button
-            onClick={() => navigate('/teacher/analysis')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/analysis' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <BarChart className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/analysis' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            数据分析
-          </button>
-          <button
-            onClick={() => navigate('/teacher/tools')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/tools' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Wrench className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/tools' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            教学工具
-          </button>
-          <button
-            onClick={() => navigate('/teacher/bigscreen')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/bigscreen' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <MonitorPlay className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/bigscreen' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            大屏展示
-          </button>
-          <button
-            onClick={() => navigate('/teacher/settings')}
-            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-              location.pathname === '/teacher/settings' ? 'bg-indigo-50/80 text-indigo-700 shadow-sm border border-indigo-100/50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <UserCog className={`mr-3 h-5 w-5 ${location.pathname === '/teacher/settings' ? 'text-indigo-600' : 'text-gray-400'}`} />
-            个人设置
-          </button>
-        </nav>
-        <div className="p-4 border-t border-gray-100">
-          <div className="flex items-center px-4 py-3 text-sm text-gray-700 font-medium mb-2">
-            <span className="truncate">欢迎, 老师 {user.username}</span>
+          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-300 ${
+                    isActive 
+                      ? 'bg-primary/10 text-primary shadow-sm border border-primary/20 glow-shadow' 
+                      : 'text-gray-500 hover:bg-black/5 hover:text-gray-900'
+                  }`}
+                >
+                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-primary' : 'text-gray-400'}`} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="p-4 border-t border-white/20 bg-white/30">
+            <div className="flex items-center px-4 py-3 text-sm text-gray-700 font-medium mb-2">
+              <span className="truncate">欢迎, 老师 {user.username}</span>
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              className="w-full flex items-center px-4 py-2 text-sm font-medium rounded-xl text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="mr-3 h-5 w-5 text-red-400" />
+              退出登录
+            </button>
           </div>
-          <button
-            onClick={() => {
-              logout();
-              navigate('/login');
-            }}
-            className="w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <LogOut className="mr-3 h-5 w-5 text-red-400" />
-            退出登录
-          </button>
-        </div>
-      </div>
+        </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 bg-transparent overflow-hidden">
-        <header className="bg-white/60 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.02)] h-16 border-b border-white/40 flex items-center px-8 border-b border-gray-100 flex-shrink-0 z-10 relative">
-          <h1 className="text-xl font-semibold text-gray-800">
-            {location.pathname === '/teacher' && '学生管理与积分操作'}
-            {location.pathname === '/teacher/attendance' && '考勤与请假'}
-            {location.pathname === '/teacher/assignments' && '作业管理'}
-            {location.pathname === '/teacher/exams' && '考试与成绩'}
-            {location.pathname === '/teacher/team-quests' && '团队任务'}
-            {location.pathname === '/teacher/pets' && '精灵管理'}
-            {location.pathname === '/teacher/records' && '记录审核'}
-            {location.pathname === '/teacher/certificates' && '荣誉奖状'}
-            {location.pathname === '/teacher/shop' && '商品管理'}
-            {location.pathname === '/teacher/auction' && '拍卖行管理'}
-            {location.pathname === '/teacher/blind-box' && '盲盒管理'}
-            {location.pathname === '/teacher/features' && '功能开关'}
-            {location.pathname === '/teacher/world-boss' && '世界BOSS管理'}
-            {location.pathname === '/teacher/add-student' && '添加学生'}
-            {location.pathname === '/teacher/lucky-draw-config' && '抽奖设置'}
-            {location.pathname === '/teacher/verification' && '奖品核销'}
-            {location.pathname === '/teacher/communication' && '家校与留言'}
-            {location.pathname === '/teacher/analysis' && '数据分析'}
-            {location.pathname === '/teacher/tools' && '教学工具'}
-            {location.pathname === '/teacher/bigscreen' && '大屏展示'}
-            {location.pathname === '/teacher/settings' && '个人设置'}
-          </h1>
-        </header>
-        <main className="flex-1 overflow-auto p-8 relative">
-          <Outlet />
-        </main>
-      </div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 glass rounded-3xl overflow-hidden relative soft-shadow">
+          <header className="h-20 border-b border-white/20 flex items-center px-8 flex-shrink-0 z-10 relative bg-white/40">
+            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
+              {navItems.find(item => item.path === location.pathname)?.label || '添加学生'}
+            </h1>
+          </header>
+          <main className="flex-1 overflow-auto p-8 relative bg-white/50">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );
