@@ -48,6 +48,7 @@ import slgRoutes from './routes/slg.js'
 import gachaRoutes from './routes/gacha.js'
 import economyRoutes from './routes/economy.js'
 import dungeonRoutes from './routes/dungeon.js'
+import paymentRoutes from './routes/payment.js'
 import { initDb } from './db.js'
 import { operationLogger } from './utils/logMiddleware.js'
 
@@ -110,6 +111,7 @@ app.use('/api/slg', slgRoutes)
 app.use('/api/gacha', gachaRoutes)
 app.use('/api/economy', economyRoutes)
 app.use('/api/dungeon', dungeonRoutes)
+app.use('/api/payment', paymentRoutes)
 
 /**
  * health

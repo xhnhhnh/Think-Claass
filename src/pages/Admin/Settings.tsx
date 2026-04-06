@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Save, Settings as SettingsIcon, DollarSign, DownloadCloud, AlertTriangle, X, CheckCircle2, Rocket } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
+import { Save, Settings as SettingsIcon, DollarSign, DownloadCloud, AlertTriangle } from 'lucide-react';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
@@ -10,7 +8,6 @@ export default function AdminSettings() {
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [formData, setFormData] = useState({
     site_title: '',
     site_favicon: '',
@@ -64,11 +61,8 @@ export default function AdminSettings() {
     }
   };
 
-  const triggerUpgrade = () => {
-    setShowUpgradePrompt(true);
-  };
-
   const handleExecuteUpdate = async () => {
+    if (!confirm('更新过程中系统将会自动重启，是否确认更新？')) return;
     setUpdating(true);
     try {
       const res = await fetch('/api/admin/system/update/execute', { method: 'POST' });
@@ -131,57 +125,33 @@ export default function AdminSettings() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="relative overflow-hidden rounded-3xl bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/50 max-w-3xl group">
-            {/* Decorative background gradients */}
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-500/20 blur-3xl transition-transform duration-500 group-hover:scale-110 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full bg-gradient-to-tr from-emerald-400/20 to-teal-500/20 blur-3xl transition-transform duration-500 group-hover:scale-110 pointer-events-none"></div>
-
-            <div className="relative p-8">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/30 text-white">
-                    <DownloadCloud className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
-                      系统升级
-                    </h3>
-                    <p className="text-sm text-slate-500 font-medium mt-1">保持系统最新，获取最新功能与安全更新</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCheckUpdate}
-                  disabled={checkingUpdate || updating}
-                  className="relative px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm disabled:opacity-50 hover:shadow-md flex items-center overflow-hidden"
-                >
-                  <span className="relative z-10 flex items-center">
-                    {checkingUpdate ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                        检查中...
-                      </>
-                    ) : '检查更新'}
-                  </span>
-                </button>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden max-w-3xl">
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center">
+                <DownloadCloud className="w-5 h-5 text-blue-500 mr-2" />
+                <h3 className="font-medium text-slate-700">系统升级</h3>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-100/80 transition-all hover:bg-slate-50 hover:shadow-sm">
-                  <div className="text-sm text-slate-500 font-medium mb-2 flex items-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></div>
-                    当前系统版本
-                  </div>
-                  <p className="text-3xl font-black text-slate-800 tracking-tight">
+              <button
+                onClick={handleCheckUpdate}
+                disabled={checkingUpdate || updating}
+                className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                {checkingUpdate ? '检查中...' : '检查更新'}
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between items-center bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div>
+                  <p className="text-sm text-slate-500 mb-1">当前系统版本</p>
+                  <p className="text-lg font-bold text-slate-800">
                     {updateInfo ? updateInfo.currentVersion : '获取中...'}
                   </p>
                 </div>
                 {updateInfo && (
-                  <div className="bg-slate-50/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-100/80 transition-all hover:bg-slate-50 hover:shadow-sm">
-                    <div className="text-sm text-slate-500 font-medium mb-2 flex items-center">
-                      <div className={`w-1.5 h-1.5 rounded-full ${updateInfo.hasUpdate ? 'bg-blue-500' : 'bg-emerald-500'} mr-2`}></div>
-                      最新发布版本
-                    </div>
-                    <p className={`text-3xl font-black tracking-tight bg-clip-text text-transparent ${updateInfo.hasUpdate ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : 'bg-gradient-to-r from-emerald-500 to-teal-500'}`}>
+                  <div className="text-right">
+                    <p className="text-sm text-slate-500 mb-1">最新发布版本</p>
+                    <p className={`text-lg font-bold ${updateInfo.hasUpdate ? 'text-blue-600' : 'text-emerald-600'}`}>
                       {updateInfo.latestVersion}
                     </p>
                   </div>
@@ -189,38 +159,27 @@ export default function AdminSettings() {
               </div>
 
               {updateInfo?.hasUpdate && (
-                <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 shadow-xl shadow-blue-500/20 text-white">
-                  {/* Abstract background shapes */}
-                  <div className="absolute top-0 right-0 opacity-10 pointer-events-none">
-                    <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="100" cy="100" r="100" fill="white"/>
-                    </svg>
-                  </div>
-                  
-                  <div className="relative z-10 flex items-start">
-                    <div className="bg-white/20 backdrop-blur-md p-3 rounded-xl mr-4 flex-shrink-0">
-                      <AlertTriangle className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-lg font-bold text-white tracking-wide">发现新版本可用</h4>
-                      <p className="text-blue-100 text-sm mt-1 mb-4 font-medium flex items-center">
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mt-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900">发现新版本可用</h4>
+                      <p className="text-sm text-blue-700 mt-1 mb-4">
                         发布时间: {new Date(updateInfo.publishedAt).toLocaleString()}
                       </p>
                       
-                      <div className="bg-white/60 rounded-lg p-3 text-sm text-slate-700 mb-4 overflow-y-auto max-h-40 border border-blue-100 prose prose-sm max-w-none">
-                        <ReactMarkdown>
-                          {updateInfo.releaseNotes || '暂无更新说明'}
-                        </ReactMarkdown>
+                      <div className="bg-white/60 rounded-lg p-3 text-sm text-slate-700 mb-4 whitespace-pre-wrap max-h-40 overflow-y-auto border border-blue-100">
+                        {updateInfo.releaseNotes || '暂无更新说明'}
                       </div>
                       
                       <button
-                        onClick={triggerUpgrade}
+                        onClick={handleExecuteUpdate}
                         disabled={updating}
-                        className="px-6 py-3 bg-white text-blue-600 text-sm font-bold rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center"
+                        className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                       >
                         {updating ? (
                           <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                             正在后台更新...
                           </>
                         ) : '一键更新并重启'}
@@ -372,96 +331,6 @@ export default function AdminSettings() {
         </div>
         </div>
       )}
-      <AnimatePresence>
-        {showUpgradePrompt && updateInfo && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
-              onClick={() => !updating && setShowUpgradePrompt(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              {/* Header */}
-              <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white relative overflow-hidden shrink-0">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-indigo-900/20 rounded-full blur-xl"></div>
-                
-                <div className="relative flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Rocket className="w-6 h-6 text-blue-200" />
-                      <h2 className="text-2xl font-bold tracking-wide">系统升级确认</h2>
-                    </div>
-                    <p className="text-blue-100 text-sm">
-                      准备从 <span className="font-mono bg-blue-900/30 px-1.5 py-0.5 rounded">{updateInfo.currentVersion}</span> 升级到 <span className="font-mono bg-white/20 px-1.5 py-0.5 rounded font-bold text-white">{updateInfo.latestVersion}</span>
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => !updating && setShowUpgradePrompt(false)}
-                    className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-8 overflow-y-auto bg-slate-50 flex-1">
-                <div className="flex items-center space-x-2 mb-4">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-lg font-semibold text-slate-800">更新日志 (Release Notes)</h3>
-                </div>
-                
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-sm text-slate-600 leading-relaxed prose max-w-none">
-                  <ReactMarkdown>
-                    {updateInfo.releaseNotes || '本次更新没有提供详细的日志说明。'}
-                  </ReactMarkdown>
-                </div>
-
-                <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start space-x-3 text-amber-800">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-sm leading-relaxed">
-                    <strong className="block font-semibold mb-1 text-amber-900">重要提示</strong>
-                    系统将在更新后自动重启。更新过程中可能会出现短暂的服务中断（约 10-30 秒）。请确保当前没有正在进行的敏感操作。
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-8 py-5 bg-white border-t border-slate-100 flex justify-end space-x-4 shrink-0">
-                <button
-                  onClick={() => setShowUpgradePrompt(false)}
-                  disabled={updating}
-                  className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  暂不更新
-                </button>
-                <button
-                  onClick={handleExecuteUpdate}
-                  disabled={updating}
-                  className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center"
-                >
-                  {updating ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2"></div>
-                      正在更新并重启...
-                    </>
-                  ) : (
-                    '确认更新并重启'
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from 'sonner';
 import Activate from '@/pages/Activate';
+import Payment from '@/pages/Payment';
 import { useStore } from '@/store/useStore';
 import ThemeWrapper from "@/components/ThemeWrapper";
 
@@ -37,13 +38,17 @@ const PrivateRoute = ({ children, allowedRoles }: { children: React.ReactNode; a
 
   // Activation Check
   const needsActivation = settings.revenue_enabled === '1' && 
-                          settings.revenue_mode === 'activation_code' && 
                           !user.is_activated && 
                           user.role !== 'admin' && 
+                          user.role !== 'superadmin' && 
                           user.role !== 'teacher';
 
-  if (needsActivation && window.location.pathname !== '/activate') {
-    return <Navigate to="/activate" replace />;
+  if (needsActivation) {
+    if (settings.revenue_mode === 'activation_code' && window.location.pathname !== '/activate') {
+      return <Navigate to="/activate" replace />;
+    } else if (settings.revenue_mode === 'direct_payment' && window.location.pathname !== '/payment') {
+      return <Navigate to="/payment" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -115,6 +120,7 @@ import AdminTeachers from "@/pages/Admin/Teachers";
 import AdminSettings from "@/pages/Admin/Settings";
 import AdminOpenApi from "@/pages/Admin/OpenApi";
 import AdminCodes from "@/pages/Admin/Codes";
+import AdminSystemReset from "@/pages/Admin/SystemReset";
 
 import { ADMIN_PATH } from "@/constants";
 
@@ -135,6 +141,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/activate" element={<Activate />} />
+            <Route path="/payment" element={<Payment />} />
             
             {/* Public Pages */}
             <Route path="/about" element={<HomeAbout />} />
@@ -211,6 +218,7 @@ export default function App() {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="codes" element={<AdminCodes />} />
           <Route path="openapi" element={<AdminOpenApi />} />
+          <Route path="reset" element={<AdminSystemReset />} />
             </Route>
           </Routes>
         </ThemeWrapper>

@@ -67,7 +67,6 @@ export default function TeacherFeatures() {
         toast.success('设置已保存');
         // Update local class settings
         setClasses(classes.map(c => c.id === classId ? { ...c, settings: JSON.stringify(features) } : c));
-        window.dispatchEvent(new Event('featuresUpdated'));
       } else {
         toast.error('保存失败: ' + (data.message || '未知错误'));
       }

@@ -493,9 +493,7 @@ router.post('/codes', (req: any, res) => {
 router.get('/system/update/check', async (req: Request, res: Response): Promise<void> => {
   try {
     const currentVersion = process.env.CURRENT_VERSION || '未知版本';
-    const response = await fetch('https://api.github.com/repos/xhnhhnh/Think-Claass/releases/latest', {
-      headers: { 'User-Agent': 'Node.js' }
-    });
+    const response = await fetch('https://api.github.com/repos/xhnhhnh/Think-Claass/releases/latest');
     const release = await response.json();
     
     if (!release || !release.tag_name) {
@@ -531,11 +529,8 @@ router.post('/system/update/execute', (req: Request, res: Response): void => {
       return;
     }
     
-    const tmpScriptPath = path.join(os.tmpdir(), `update-${Date.now()}.sh`);
-    fs.copyFileSync(updateScriptPath, tmpScriptPath);
-    
     // Spawn the update script in the background
-    const updateProcess = spawn('bash', [tmpScriptPath], {
+    const updateProcess = spawn('bash', [updateScriptPath], {
       cwd: process.cwd(),
       detached: true,
       stdio: 'ignore'

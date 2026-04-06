@@ -1,7 +1,7 @@
 import { ADMIN_PATH } from "@/constants";
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { LogOut, LayoutDashboard, Settings, Megaphone, FileText, Globe, Users, Shield, Server, Key } from 'lucide-react';
+import { LogOut, LayoutDashboard, Settings, Megaphone, FileText, Globe, Users, Shield, Server, Key, AlertTriangle } from 'lucide-react';
 import { useEffect } from 'react';
 
 export default function AdminLayout() {
@@ -108,6 +108,15 @@ export default function AdminLayout() {
             <Shield className={`mr-3 h-5 w-5 ${location.pathname === `${ADMIN_PATH}/audit-logs` ? 'text-white' : 'text-slate-400'}`} />
             审计日志
           </button>
+          <button
+            onClick={() => navigate(`${ADMIN_PATH}/reset`)}
+            className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+              location.pathname === `${ADMIN_PATH}/reset` ? 'bg-red-500/20 text-red-400 shadow-sm border border-red-500/20' : 'text-slate-300 hover:bg-red-900/50 hover:text-red-400'
+            }`}
+          >
+            <AlertTriangle className={`mr-3 h-5 w-5 ${location.pathname === `${ADMIN_PATH}/reset` ? 'text-red-400' : 'text-slate-400'}`} />
+            系统重置
+          </button>
         </nav>
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center px-4 py-3 text-sm text-slate-300 font-medium mb-2">
@@ -139,6 +148,7 @@ export default function AdminLayout() {
             {location.pathname === `${ADMIN_PATH}/settings` && '系统设置'}
             {location.pathname === `${ADMIN_PATH}/openapi` && '开发者与校园'}
             {location.pathname === `${ADMIN_PATH}/audit-logs` && '审计日志'}
+            {location.pathname === `${ADMIN_PATH}/reset` && '系统重置'}
           </h1>
         </header>
         <main className="p-8">
