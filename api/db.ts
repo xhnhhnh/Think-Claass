@@ -7,7 +7,10 @@ let db = new Database(dbPath);
 
 // 优化 SQLite 内存占用和性能
 db.pragma('journal_mode = WAL');
-db.pragma('cache_size = -2000'); // 限制缓存大小为 2MB
+db.pragma('synchronous = NORMAL'); // WAL 模式下安全提升写入性能
+db.pragma('cache_size = -20000'); // 限制缓存大小为 20MB
+db.pragma('busy_timeout = 5000'); // 防止并发写入锁库
+db.pragma('temp_store = MEMORY'); // 临时表存入内存
 db.pragma('foreign_keys = ON'); // 启用外键约束
 
 // =======================
@@ -48,9 +51,20 @@ export function closeDb() {
 export function reopenDb() {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
-  db.pragma('cache_size = -2000'); // 限制缓存大小为 2MB
+  db.pragma('synchronous = NORMAL');
+  db.pragma('cache_size = -20000'); // 限制缓存大小为 20MB
+  db.pragma('busy_timeout = 5000');
+  db.pragma('temp_store = MEMORY');
   db.pragma('foreign_keys = ON'); // 启用外键约束
   initDb();
+}
+
+
+function addColumnIfNotExists(tableName: string, columnName: string, columnDef: string) {
+  const info = db.pragma(`table_info(${tableName})`) as any[];
+  if (!info.some(c => c.name === columnName)) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+  }
 }
 
 export function initDb() {
@@ -661,219 +675,90 @@ export function initDb() {
   }
 
   // Add user_id and role to operation_logs if not exists (migration)
-  try {
-    db.exec('ALTER TABLE operation_logs ADD COLUMN user_id INTEGER REFERENCES users(id);');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
-  try {
-    db.exec('ALTER TABLE operation_logs ADD COLUMN role TEXT;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('operation_logs', 'user_id', 'INTEGER REFERENCES users(id)');
+  addColumnIfNotExists('operation_logs', 'role', 'TEXT');
 
   // Add missing columns to articles if not exists (migration)
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN summary TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN cover_image TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN category TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN is_published INTEGER DEFAULT 0;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN view_count INTEGER DEFAULT 0;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE articles ADD COLUMN updated_at DATETIME;');
-  } catch (e) {}
+  addColumnIfNotExists('articles', 'summary', 'TEXT');
+  addColumnIfNotExists('articles', 'cover_image', 'TEXT');
+  addColumnIfNotExists('articles', 'category', 'TEXT');
+  addColumnIfNotExists('articles', 'is_published', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('articles', 'view_count', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('articles', 'created_at', 'DATETIME');
+  addColumnIfNotExists('articles', 'updated_at', 'DATETIME');
 
   // Add birthday column to students if not exists (migration)
-  try {
-    db.exec('ALTER TABLE students ADD COLUMN birthday TEXT;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('students', 'birthday', 'TEXT');
 
   // Add feature flags to classes if not exists (migration)
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_chat_bubble INTEGER DEFAULT 1;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_peer_review INTEGER DEFAULT 1;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_tree_hole INTEGER DEFAULT 1;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_shop INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_lucky_draw INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_challenge INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_family_tasks INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_world_boss INTEGER DEFAULT 1;');
-  } catch (e) { }
+  addColumnIfNotExists('classes', 'enable_chat_bubble', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_peer_review', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_tree_hole', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_shop', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_lucky_draw', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_challenge', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_family_tasks', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_world_boss', 'INTEGER DEFAULT 1');
 
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_task_tree INTEGER DEFAULT 1;');
-  } catch (e) { }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_danmaku INTEGER DEFAULT 1;');
-  } catch (e) { }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_slg INTEGER DEFAULT 1;');
-  } catch (e) { }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_gacha INTEGER DEFAULT 1;');
-  } catch (e) { }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_economy INTEGER DEFAULT 1;');
-  } catch (e) { }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_dungeon INTEGER DEFAULT 1;');
-  } catch (e) { }
+  addColumnIfNotExists('classes', 'enable_task_tree', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_danmaku', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_slg', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_gacha', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_economy', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_dungeon', 'INTEGER DEFAULT 1');
 
-  try {
-    db.exec("ALTER TABLE world_bosses ADD COLUMN status TEXT DEFAULT 'active';");
-  } catch (e) { }
+  addColumnIfNotExists('world_bosses', 'status', "TEXT DEFAULT 'active'");
 
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_guild_pk INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_auction_blind_box INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_achievements INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN enable_parent_buff INTEGER DEFAULT 1;');
-  } catch (e) {
-  }
+  addColumnIfNotExists('classes', 'enable_guild_pk', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_auction_blind_box', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_achievements', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_parent_buff', 'INTEGER DEFAULT 1');
 
   // Add last_active_date to parent_activity
-  try {
-    db.exec('ALTER TABLE parent_activity ADD COLUMN last_active_date TEXT;');
-    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_activity_parent_student ON parent_activity(parent_id, student_id);');
-  } catch (e) {
-  }
+  addColumnIfNotExists('parent_activity', 'last_active_date', 'TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_activity_parent_student ON parent_activity(parent_id, student_id);');
 
   // Add pet_selection_mode column to classes if not exists (migration)
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN pet_selection_mode TEXT DEFAULT "student";');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('classes', 'pet_selection_mode', "TEXT DEFAULT 'student'");
 
   // Add image_stage columns to pets if not exists (migration)
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN image_stage1 TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN image_stage2 TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN image_stage3 TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN image_stage4 TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN image_stage5 TEXT;');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN image_stage6 TEXT;');
-  } catch (e) {}
+  addColumnIfNotExists('pets', 'image_stage1', 'TEXT');
+  addColumnIfNotExists('pets', 'image_stage2', 'TEXT');
+  addColumnIfNotExists('pets', 'image_stage3', 'TEXT');
+  addColumnIfNotExists('pets', 'image_stage4', 'TEXT');
+  addColumnIfNotExists('pets', 'image_stage5', 'TEXT');
+  addColumnIfNotExists('pets', 'image_stage6', 'TEXT');
 
   // Add mood column to pets if not exists (migration)
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN mood TEXT DEFAULT "happy";');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('pets', 'mood', "TEXT DEFAULT 'happy'");
 
   // Add group_id column to students if not exists (migration)
-  try {
-    db.exec('ALTER TABLE students ADD COLUMN group_id INTEGER REFERENCES student_groups(id);');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('students', 'group_id', 'INTEGER REFERENCES student_groups(id)');
 
   // Add last_checkin_date column to students if not exists (migration)
-  try {
-    db.exec('ALTER TABLE students ADD COLUMN last_checkin_date TEXT;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('students', 'last_checkin_date', 'TEXT');
 
   // Add invite_code column if not exists (migration)
-  try {
-    db.exec('ALTER TABLE classes ADD COLUMN invite_code TEXT;');
-    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_classes_invite_code ON classes(invite_code);');
-    // Generate codes for existing classes
-    const classesWithoutCode = db.prepare('SELECT id FROM classes WHERE invite_code IS NULL').all() as {id: number}[];
-    for (const c of classesWithoutCode) {
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      db.prepare('UPDATE classes SET invite_code = ? WHERE id = ?').run(code, c.id);
-    }
-  } catch (e) {
-    // Column might already exist, ignore error
+  addColumnIfNotExists('classes', 'invite_code', 'TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_classes_invite_code ON classes(invite_code);');
+  // Generate codes for existing classes
+  const classesWithoutCode = db.prepare('SELECT id FROM classes WHERE invite_code IS NULL').all() as {id: number}[];
+  for (const c of classesWithoutCode) {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    db.prepare('UPDATE classes SET invite_code = ? WHERE id = ?').run(code, c.id);
   }
 
   // Add is_active column if not exists (migration)
-  try {
-    db.exec('ALTER TABLE shop_items ADD COLUMN is_active INTEGER DEFAULT 1;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('shop_items', 'is_active', 'INTEGER DEFAULT 1');
 
   // Add custom_image column to pets if not exists (migration)
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN custom_image TEXT;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('pets', 'custom_image', 'TEXT');
 
   // Add last_fed_at column to pets if not exists (migration)
-  try {
-    db.exec('ALTER TABLE pets ADD COLUMN last_fed_at DATETIME DEFAULT CURRENT_TIMESTAMP;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('pets', 'last_fed_at', 'DATETIME');
 
   // Add teacher_id column to shop_items if not exists (migration)
-  try {
-    db.exec('ALTER TABLE shop_items ADD COLUMN teacher_id INTEGER REFERENCES users(id);');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('shop_items', 'teacher_id', 'INTEGER REFERENCES users(id)');
 
   // Add holiday columns to shop_items if not exists (migration)
   try {
@@ -885,19 +770,11 @@ export function initDb() {
   }
 
   // Add sender_role column to messages if not exists (migration)
-  try {
-    db.exec('ALTER TABLE messages ADD COLUMN sender_role TEXT DEFAULT "student";');
-    db.exec('UPDATE messages SET sender_role = "user" WHERE type = "HOME_SCHOOL";');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('messages', 'sender_role', "TEXT DEFAULT 'student'");
+  db.exec("UPDATE messages SET sender_role = 'user' WHERE type = 'HOME_SCHOOL';");
 
   // Add is_activated column to users if not exists (migration)
-  try {
-    db.exec('ALTER TABLE users ADD COLUMN is_activated INTEGER DEFAULT 0;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
+  addColumnIfNotExists('users', 'is_activated', 'INTEGER DEFAULT 0');
 
   // Insert initial teacher user if not exists
   const teacher = db.prepare('SELECT * FROM users WHERE role = ?').get('teacher') as any;
@@ -981,6 +858,41 @@ export function initDb() {
   } catch (e) {
     console.error('Migration error for messages table:', e);
   }
+
+  // =========================================
+  // 创建高频查询外键索引 (Performance Indexes)
+  // =========================================
+  const indexesToCreate = [
+    // 用户与班级
+    'CREATE INDEX IF NOT EXISTS idx_students_class_id ON students(class_id);',
+    'CREATE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id);',
+    'CREATE INDEX IF NOT EXISTS idx_classes_teacher_id ON classes(teacher_id);',
+    
+    // 游戏化系统
+    'CREATE INDEX IF NOT EXISTS idx_pets_student_id ON pets(student_id);',
+    'CREATE INDEX IF NOT EXISTS idx_shop_items_teacher_id ON shop_items(teacher_id);',
+    'CREATE INDEX IF NOT EXISTS idx_records_student_id ON records(student_id);',
+    'CREATE INDEX IF NOT EXISTS idx_redemption_tickets_student_id ON redemption_tickets(student_id);',
+    
+    // 学习与教务
+    'CREATE INDEX IF NOT EXISTS idx_assignments_class_id ON assignments(class_id);',
+    'CREATE INDEX IF NOT EXISTS idx_exams_class_id ON exams(class_id);',
+    'CREATE INDEX IF NOT EXISTS idx_attendance_records_class_id ON attendance_records(class_id);',
+    'CREATE INDEX IF NOT EXISTS idx_attendance_records_student_id ON attendance_records(student_id);',
+    'CREATE INDEX IF NOT EXISTS idx_messages_class_id ON messages(class_id);',
+    'CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);',
+    'CREATE INDEX IF NOT EXISTS idx_operation_logs_teacher_id ON operation_logs(teacher_id);',
+    
+    // SLG 及其他
+    'CREATE INDEX IF NOT EXISTS idx_territories_class_id ON territories(class_id);',
+    'CREATE INDEX IF NOT EXISTS idx_student_pets_student_id ON student_pets(student_id);',
+    'CREATE INDEX IF NOT EXISTS idx_dungeon_runs_student_id ON dungeon_runs(student_id);'
+  ];
+
+  for (const sql of indexesToCreate) {
+    db.exec(sql);
+  }
+
 }
 
 export default db;
