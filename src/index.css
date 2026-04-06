@@ -6,7 +6,7 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 235 86% 65%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -18,16 +18,16 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --ring: 235 86% 65%;
+    --radius: 1rem;
   }
 
   .theme-student {
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 142.1 76.2% 96.3%;
-    --secondary-foreground: 142.1 76.2% 16.3%;
-    --ring: 142.1 76.2% 36.3%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 160 20% 96%;
+    --secondary-foreground: 160 80% 15%;
+    --ring: 160 84% 39%;
   }
 
   .theme-admin {
@@ -39,16 +39,42 @@
   }
 
   .theme-parent {
-    --primary: 262.1 83.3% 57.8%;
+    --primary: 280 83% 65%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 262.1 83.3% 96.8%;
-    --secondary-foreground: 262.1 83.3% 17.8%;
-    --ring: 262.1 83.3% 57.8%;
+    --secondary: 280 20% 96%;
+    --secondary-foreground: 280 80% 15%;
+    --ring: 280 83% 65%;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/50 shadow-sm;
+  }
+  
+  .glass-dark {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-sm;
+  }
+
+  .gemini-gradient {
+    @apply bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500;
+  }
+
+  .gemini-gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500;
+  }
+
+  .soft-shadow {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  }
+  
+  .glow-shadow {
+    box-shadow: 0 0 20px rgba(var(--primary), 0.3);
   }
 }
 
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
