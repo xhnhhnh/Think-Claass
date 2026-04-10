@@ -131,6 +131,11 @@ download_latest_release() {
         DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-release\.zip"' | cut -d '"' -f 4 | head -n 1)
     fi
 
+    # 再尝试模糊匹配任何符合前缀的包
+    if [ -z "$DOWNLOAD_URL" ]; then
+        DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-.*\.zip"' | cut -d '"' -f 4 | head -n 1)
+    fi
+
     LATEST_TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4)
 
     if [ -z "$DOWNLOAD_URL" ]; then

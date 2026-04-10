@@ -29,11 +29,11 @@ check_pm2_service() {
 backup_data() {
     local BACKUP_DIR="data_backup_$(date +%Y%m%d_%H%M%S)"
     echo ">> 正在备份数据库到 $BACKUP_DIR..."
-    if [ -d "data" ]; then
-        cp -r data "$BACKUP_DIR"
+    if [ -f "database.sqlite" ]; then
+        cp database.sqlite* "$BACKUP_DIR/"
         echo ">> 备份完成！"
     else
-        echo ">> 未检测到 data 目录，跳过备份。"
+        echo ">> 未检测到 database.sqlite 文件，跳过备份。"
     fi
 }
 
@@ -63,7 +63,7 @@ install_base_tools() {
 update_project() {
     echo ">> 正在获取 GitHub 最新版本信息..."
     LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest")
-    DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-release.zip"' | cut -d '"' -f 4)
+    DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-.*\.zip"' | cut -d '"' -f 4 | head -n 1)
     LATEST_TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4)
 
     if [ -z "$DOWNLOAD_URL" ]; then
