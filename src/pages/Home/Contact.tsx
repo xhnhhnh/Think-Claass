@@ -83,70 +83,12 @@ export default function HomeContact() {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-5 gap-8">
-          {/* Contact Info */}
-          <div className="md:col-span-2 space-y-6">
-            <motion.div 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white p-8 rounded-3xl shadow-sm border border-[#f0e6d3] flex items-start space-x-5 hover:shadow-md transition-shadow"
-            >
-              <div className="bg-[#fdf4f1] p-4 rounded-full text-[#d97757]">
-                <MapPin className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-[#4a3b2c] mb-2">公司地址</h3>
-                <p className="text-[#7d6b5a] leading-relaxed">
-                  北京市海淀区中关村大街1号<br />
-                  教育科技创新园区 A座 808室
-                </p>
-              </div>
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white p-8 rounded-3xl shadow-sm border border-[#f0e6d3] flex items-start space-x-5 hover:shadow-md transition-shadow"
-            >
-              <div className="bg-[#f1f8f5] p-4 rounded-full text-[#8fb9a8]">
-                <Phone className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-[#4a3b2c] mb-2">联系电话</h3>
-                <p className="text-[#7d6b5a] leading-relaxed">
-                  工作日 09:00 - 18:00<br />
-                  400-123-4567
-                </p>
-              </div>
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white p-8 rounded-3xl shadow-sm border border-[#f0e6d3] flex items-start space-x-5 hover:shadow-md transition-shadow"
-            >
-              <div className="bg-[#fcf8f0] p-4 rounded-full text-[#e8b560]">
-                <Mail className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-[#4a3b2c] mb-2">电子邮箱</h3>
-                <p className="text-[#7d6b5a] leading-relaxed">
-                  商务合作: business@edustory.com<br />
-                  技术支持: support@edustory.com
-                </p>
-              </div>
-            </motion.div>
-          </div>
-
+        <div className="max-w-3xl mx-auto">
           {/* Contact Form */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="md:col-span-3"
           >
             <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-[#f0e6d3] relative overflow-hidden">
               {/* Decorative shapes */}
