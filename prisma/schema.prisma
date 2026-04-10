@@ -1,0 +1,755 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model activation_codes {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique(map: "sqlite_autoindex_activation_codes_1")
+  status     String?   @default("unused")
+  used_by    Int?
+  created_at DateTime? @default(now())
+  used_at    DateTime?
+  users      users?    @relation(fields: [used_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model announcements {
+  id         Int       @id @default(autoincrement())
+  title      String
+  content    String
+  created_at DateTime? @default(now())
+  is_active  Int?      @default(1)
+}
+
+model api_keys {
+  id           Int       @id @default(autoincrement())
+  key          String    @unique(map: "sqlite_autoindex_api_keys_1")
+  name         String
+  created_at   DateTime? @default(now())
+  last_used_at DateTime?
+  is_active    Int?      @default(1)
+}
+
+model articles {
+  id           Int       @id @default(autoincrement())
+  title        String
+  content      String
+  created_at   DateTime? @default(now())
+  summary      String?
+  cover_image  String?
+  category     String?
+  is_published Int?      @default(0)
+  view_count   Int?      @default(0)
+  updated_at   DateTime?
+}
+
+model assignments {
+  id                  Int                   @id @default(autoincrement())
+  class_id            Int?
+  teacher_id          Int?
+  title               String
+  description         String?
+  due_date            DateTime?
+  reward_points       Int?                  @default(0)
+  created_at          DateTime?             @default(now())
+  users               users?                @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes             classes?              @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  peer_reviews        peer_reviews[]
+  student_assignments student_assignments[]
+
+  @@index([class_id], map: "idx_assignments_class_id")
+}
+
+model attendance_records {
+  id         Int       @id @default(autoincrement())
+  class_id   Int?
+  student_id Int?
+  date       String
+  status     String
+  remark     String?
+  created_at DateTime? @default(now())
+  students   students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes    classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_attendance_records_student_id")
+  @@index([class_id], map: "idx_attendance_records_class_id")
+}
+
+model auctions {
+  id                Int       @id @default(autoincrement())
+  item_name         String
+  description       String?
+  starting_price    Int       @default(0)
+  current_price     Int       @default(0)
+  highest_bidder_id Int?
+  status            String?   @default("active")
+  end_time          DateTime?
+  created_at        DateTime? @default(now())
+}
+
+model bank_accounts {
+  student_id         Int       @id @default(autoincrement())
+  deposit_amount     Int?      @default(0)
+  interest_rate      Float?    @default(0.05)
+  last_interest_date String?
+  created_at         DateTime? @default(now())
+  students           students  @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model blind_boxes {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  price       Int       @default(100)
+  is_active   Int?      @default(1)
+  created_at  DateTime? @default(now())
+}
+
+model certificates {
+  id          Int       @id @default(autoincrement())
+  student_id  Int?
+  title       String
+  description String?
+  created_at  DateTime? @default(now())
+  students    students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model challenge_records {
+  id            Int       @id @default(autoincrement())
+  student_id    Int?
+  score         Int       @default(0)
+  correct_count Int       @default(0)
+  wrong_count   Int       @default(0)
+  created_at    DateTime? @default(now())
+  students      students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model class_announcements {
+  id         Int       @id @default(autoincrement())
+  class_id   Int?
+  teacher_id Int?
+  title      String
+  content    String
+  created_at DateTime? @default(now())
+  users      users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes    classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model class_battles {
+  id                                                Int       @id @default(autoincrement())
+  initiator_class_id                                Int?
+  target_class_id                                   Int?
+  status                                            String?   @default("pending")
+  start_time                                        DateTime?
+  end_time                                          DateTime?
+  winner_class_id                                   Int?
+  created_at                                        DateTime? @default(now())
+  classes_class_battles_winner_class_idToclasses    classes?  @relation("class_battles_winner_class_idToclasses", fields: [winner_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes_class_battles_target_class_idToclasses    classes?  @relation("class_battles_target_class_idToclasses", fields: [target_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes_class_battles_initiator_class_idToclasses classes?  @relation("class_battles_initiator_class_idToclasses", fields: [initiator_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model class_resources {
+  class_id   Int       @id @default(autoincrement())
+  wood       Int?      @default(0)
+  stone      Int?      @default(0)
+  magic_dust Int?      @default(0)
+  gold       Int?      @default(0)
+  updated_at DateTime? @default(now())
+  classes    classes   @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model classes {
+  id                                                      Int                   @id @default(autoincrement())
+  name                                                    String
+  invite_code                                             String?               @unique(map: "idx_classes_invite_code")
+  teacher_id                                              Int?
+  created_at                                              DateTime?             @default(now())
+  settings                                                String?
+  enable_chat_bubble                                      Int?                  @default(1)
+  enable_peer_review                                      Int?                  @default(1)
+  enable_tree_hole                                        Int?                  @default(1)
+  enable_shop                                             Int?                  @default(1)
+  enable_lucky_draw                                       Int?                  @default(1)
+  enable_challenge                                        Int?                  @default(1)
+  enable_family_tasks                                     Int?                  @default(1)
+  enable_world_boss                                       Int?                  @default(1)
+  enable_guild_pk                                         Int?                  @default(1)
+  enable_auction_blind_box                                Int?                  @default(1)
+  enable_achievements                                     Int?                  @default(1)
+  enable_parent_buff                                      Int?                  @default(1)
+  pet_selection_mode                                      String?               @default("student")
+  enable_task_tree                                        Int?                  @default(1)
+  enable_danmaku                                          Int?                  @default(1)
+  enable_class_brawl                                      Int?                  @default(1)
+  enable_slg                                              Int?                  @default(1)
+  enable_gacha                                            Int?                  @default(1)
+  enable_economy                                          Int?                  @default(1)
+  enable_dungeon                                          Int?                  @default(1)
+  assignments                                             assignments[]
+  attendance_records                                      attendance_records[]
+  class_announcements                                     class_announcements[]
+  class_battles_class_battles_winner_class_idToclasses    class_battles[]       @relation("class_battles_winner_class_idToclasses")
+  class_battles_class_battles_target_class_idToclasses    class_battles[]       @relation("class_battles_target_class_idToclasses")
+  class_battles_class_battles_initiator_class_idToclasses class_battles[]       @relation("class_battles_initiator_class_idToclasses")
+  class_resources                                         class_resources?
+  users                                                   users?                @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  danmaku_messages                                        danmaku_messages[]
+  exams                                                   exams[]
+  gacha_pools                                             gacha_pools[]
+  messages                                                messages[]
+  stocks                                                  stocks[]
+  student_groups                                          student_groups[]
+  task_nodes                                              task_nodes[]
+  team_quests                                             team_quests[]
+  territories                                             territories[]
+
+  @@index([teacher_id], map: "idx_classes_teacher_id")
+}
+
+model contact_messages {
+  id         Int       @id @default(autoincrement())
+  name       String
+  email      String?
+  message    String
+  created_at DateTime? @default(now())
+}
+
+model danmaku_messages {
+  id          Int       @id @default(autoincrement())
+  class_id    Int?
+  sender_name String
+  content     String
+  color       String?   @default("#ffffff")
+  created_at  DateTime? @default(now())
+  classes     classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model dungeon_runs {
+  id            Int       @id @default(autoincrement())
+  student_id    Int?
+  current_floor Int?      @default(1)
+  max_floor     Int?      @default(1)
+  active_buffs  String?
+  current_hp    Int?      @default(100)
+  max_hp        Int?      @default(100)
+  status        String?   @default("active")
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+  students      students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_dungeon_runs_student_id")
+}
+
+model exams {
+  id            Int             @id @default(autoincrement())
+  class_id      Int?
+  teacher_id    Int?
+  title         String
+  description   String?
+  exam_date     DateTime?
+  total_score   Int
+  created_at    DateTime?       @default(now())
+  users         users?          @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes       classes?        @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  student_exams student_exams[]
+
+  @@index([class_id], map: "idx_exams_class_id")
+}
+
+model family_tasks {
+  id         Int       @id @default(autoincrement())
+  student_id Int?
+  parent_id  Int?
+  title      String
+  points     Int
+  status     String?   @default("pending")
+  created_at DateTime? @default(now())
+  users      users?    @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students   students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model gacha_pools {
+  id          Int       @id @default(autoincrement())
+  class_id    Int?
+  name        String
+  cost_points Int
+  ssr_rate    Float?    @default(0.01)
+  sr_rate     Float?    @default(0.1)
+  r_rate      Float?    @default(0.3)
+  n_rate      Float?    @default(0.59)
+  is_active   Int?      @default(1)
+  created_at  DateTime? @default(now())
+  classes     classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model homepage_content {
+  id           Int    @id @default(autoincrement())
+  section_key  String @unique(map: "sqlite_autoindex_homepage_content_1")
+  content_json String
+}
+
+model leave_requests {
+  id                                      Int       @id @default(autoincrement())
+  student_id                              Int?
+  parent_id                               Int?
+  start_date                              DateTime
+  end_date                                DateTime
+  reason                                  String
+  status                                  String?   @default("pending")
+  reviewer_id                             Int?
+  review_comment                          String?
+  created_at                              DateTime? @default(now())
+  users_leave_requests_reviewer_idTousers users?    @relation("leave_requests_reviewer_idTousers", fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_leave_requests_parent_idTousers   users?    @relation("leave_requests_parent_idTousers", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students                                students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model lucky_draw_config {
+  id          Int       @id @default(autoincrement())
+  teacher_id  Int?
+  cost_points Int       @default(10)
+  prize_name  String
+  prize_type  String
+  prize_value Int?
+  probability Int       @default(0)
+  is_active   Int?      @default(1)
+  created_at  DateTime? @default(now())
+  users       users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model messages {
+  id           Int       @id @default(autoincrement())
+  class_id     Int?
+  sender_id    Int?
+  receiver_id  Int?
+  content      String
+  is_anonymous Int?      @default(0)
+  type         String
+  sender_role  String?   @default("student")
+  created_at   DateTime? @default(now())
+  students     students? @relation(fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes      classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([receiver_id], map: "idx_messages_receiver_id")
+  @@index([class_id], map: "idx_messages_class_id")
+}
+
+model operation_logs {
+  id                                     Int       @id @default(autoincrement())
+  teacher_id                             Int?
+  action                                 String
+  details                                String?
+  ip_address                             String?
+  created_at                             DateTime? @default(now())
+  user_id                                Int?
+  role                                   String?
+  users_operation_logs_user_idTousers    users?    @relation("operation_logs_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_operation_logs_teacher_idTousers users?    @relation("operation_logs_teacher_idTousers", fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([teacher_id], map: "idx_operation_logs_teacher_id")
+}
+
+model parent_activity {
+  id               Int       @id @default(autoincrement())
+  parent_id        Int?
+  student_id       Int?
+  activity_type    String
+  description      String?
+  points_awarded   Int?      @default(0)
+  created_at       DateTime? @default(now())
+  last_active_date String?
+  students         students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users            users?    @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([parent_id, student_id], map: "idx_parent_activity_parent_student")
+}
+
+model parent_students {
+  parent_id  Int
+  student_id Int
+  students   students @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users    @relation(fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([parent_id, student_id])
+}
+
+model peer_reviews {
+  id                                          Int          @id @default(autoincrement())
+  reviewer_id                                 Int?
+  reviewee_id                                 Int?
+  assignment_id                               Int?
+  score                                       Int?
+  comment                                     String?
+  created_at                                  DateTime?    @default(now())
+  assignments                                 assignments? @relation(fields: [assignment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students_peer_reviews_reviewee_idTostudents students?    @relation("peer_reviews_reviewee_idTostudents", fields: [reviewee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students_peer_reviews_reviewer_idTostudents students?    @relation("peer_reviews_reviewer_idTostudents", fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model pet_dictionary {
+  id           Int            @id @default(autoincrement())
+  name         String
+  element      String
+  rarity       String
+  base_power   Int
+  description  String?
+  image_url    String?
+  created_at   DateTime?      @default(now())
+  student_pets student_pets[]
+}
+
+model pets {
+  id           Int       @id @default(autoincrement())
+  student_id   Int?
+  element_type String
+  custom_image String?
+  level        Int?      @default(1)
+  experience   Int?      @default(0)
+  attack_power Int?      @default(10)
+  mood         String?   @default("happy")
+  image_stage1 String?
+  image_stage2 String?
+  image_stage3 String?
+  image_stage4 String?
+  image_stage5 String?
+  image_stage6 String?
+  last_fed_at  DateTime?
+  students     students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_pets_student_id")
+}
+
+model point_presets {
+  id         Int    @id @default(autoincrement())
+  label      String
+  amount     Int
+  teacher_id Int?
+  users      users? @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model praises {
+  id         Int       @id @default(autoincrement())
+  teacher_id Int?
+  student_id Int?
+  content    String
+  color      String?   @default("bg-yellow-100")
+  created_at DateTime? @default(now())
+  students   students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model question_bank {
+  id          Int       @id @default(autoincrement())
+  title       String
+  type        String
+  options     String?
+  answer      String
+  explanation String?
+  teacher_id  Int?
+  created_at  DateTime? @default(now())
+  users       users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model records {
+  id          Int       @id @default(autoincrement())
+  student_id  Int?
+  type        String
+  amount      Int
+  description String?
+  created_at  DateTime? @default(now())
+  students    students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_records_student_id")
+}
+
+model redemption_tickets {
+  id         Int         @id @default(autoincrement())
+  student_id Int?
+  item_id    Int?
+  code       String      @unique(map: "sqlite_autoindex_redemption_tickets_1")
+  status     String?     @default("pending")
+  used_at    DateTime?
+  created_at DateTime?   @default(now())
+  shop_items shop_items? @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students   students?   @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_redemption_tickets_student_id")
+}
+
+model schools {
+  id           Int       @id @default(autoincrement())
+  name         String
+  description  String?
+  contact_info String?
+  created_at   DateTime? @default(now())
+}
+
+model settings {
+  key   String @id
+  value String?
+}
+
+model shop_items {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  description        String?
+  price              Int
+  stock              Int?                 @default(999)
+  is_active          Int?                 @default(1)
+  teacher_id         Int?
+  is_holiday_limited Int?                 @default(0)
+  holiday_start_time String?
+  holiday_end_time   String?
+  redemption_tickets redemption_tickets[]
+  users              users?               @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([teacher_id], map: "idx_shop_items_teacher_id")
+}
+
+model stocks {
+  id             Int              @id @default(autoincrement())
+  class_id       Int?
+  name           String
+  symbol         String
+  current_price  Int
+  trend_history  String?
+  volatility     Float?           @default(0.1)
+  created_at     DateTime?        @default(now())
+  classes        classes?         @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  student_stocks student_stocks[]
+}
+
+model student_assignments {
+  id               Int          @id @default(autoincrement())
+  assignment_id    Int?
+  student_id       Int?
+  status           String?      @default("pending")
+  content          String?
+  score            Int?
+  teacher_feedback String?
+  submitted_at     DateTime?
+  created_at       DateTime?    @default(now())
+  students         students?    @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignments      assignments? @relation(fields: [assignment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model student_exams {
+  id         Int       @id @default(autoincrement())
+  exam_id    Int?
+  student_id Int?
+  score      Int?
+  feedback   String?
+  created_at DateTime? @default(now())
+  students   students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  exams      exams?    @relation(fields: [exam_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model student_groups {
+  id         Int        @id @default(autoincrement())
+  name       String
+  class_id   Int?
+  created_at DateTime?  @default(now())
+  classes    classes?   @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students   students[]
+}
+
+model student_pets {
+  id             Int             @id @default(autoincrement())
+  student_id     Int?
+  pet_dict_id    Int?
+  level          Int?            @default(1)
+  experience     Int?            @default(0)
+  is_active      Int?            @default(0)
+  created_at     DateTime?       @default(now())
+  pet_dictionary pet_dictionary? @relation(fields: [pet_dict_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students       students?       @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_student_pets_student_id")
+}
+
+model student_stocks {
+  id                Int       @id @default(autoincrement())
+  student_id        Int?
+  stock_id          Int?
+  shares            Int?      @default(0)
+  average_buy_price Float?    @default(0)
+  stocks            stocks?   @relation(fields: [stock_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students          students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([student_id, stock_id], map: "sqlite_autoindex_student_stocks_1")
+}
+
+model student_task_nodes {
+  id           Int         @id @default(autoincrement())
+  student_id   Int?
+  task_node_id Int?
+  status       String?     @default("locked")
+  completed_at DateTime?
+  task_nodes   task_nodes? @relation(fields: [task_node_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students     students?   @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([student_id, task_node_id], map: "sqlite_autoindex_student_task_nodes_1")
+}
+
+model students {
+  id                                              Int                   @id @default(autoincrement())
+  user_id                                         Int?
+  class_id                                        Int?
+  name                                            String
+  total_points                                    Int?                  @default(0)
+  available_points                                Int?                  @default(0)
+  group_id                                        Int?
+  birthday                                        String?
+  last_checkin_date                               String?
+  attendance_records                              attendance_records[]
+  bank_accounts                                   bank_accounts?
+  certificates                                    certificates[]
+  challenge_records                               challenge_records[]
+  dungeon_runs                                    dungeon_runs[]
+  family_tasks                                    family_tasks[]
+  leave_requests                                  leave_requests[]
+  messages                                        messages[]
+  parent_activity                                 parent_activity[]
+  parent_students                                 parent_students[]
+  peer_reviews_peer_reviews_reviewee_idTostudents peer_reviews[]        @relation("peer_reviews_reviewee_idTostudents")
+  peer_reviews_peer_reviews_reviewer_idTostudents peer_reviews[]        @relation("peer_reviews_reviewer_idTostudents")
+  pets                                            pets[]
+  praises                                         praises[]
+  records                                         records[]
+  redemption_tickets                              redemption_tickets[]
+  student_assignments                             student_assignments[]
+  student_exams                                   student_exams[]
+  student_pets                                    student_pets[]
+  student_stocks                                  student_stocks[]
+  student_task_nodes                              student_task_nodes[]
+  student_groups                                  student_groups?       @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                           users?                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  team_quest_progress                             team_quest_progress[]
+  user_achievements                               user_achievements[]
+
+  @@index([user_id], map: "idx_students_user_id")
+  @@index([class_id], map: "idx_students_class_id")
+}
+
+model system_settings {
+  id          Int       @id @default(autoincrement())
+  key         String    @unique(map: "sqlite_autoindex_system_settings_1")
+  value       String?
+  description String?
+  updated_at  DateTime? @default(now())
+}
+
+model task_nodes {
+  id                 Int                  @id @default(autoincrement())
+  class_id           Int?
+  title              String
+  description        String?
+  points_reward      Int                  @default(0)
+  parent_node_id     Int?
+  x_pos              Int?                 @default(0)
+  y_pos              Int?                 @default(0)
+  created_at         DateTime?            @default(now())
+  student_task_nodes student_task_nodes[]
+  task_nodes         task_nodes?          @relation("task_nodesTotask_nodes", fields: [parent_node_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_task_nodes   task_nodes[]         @relation("task_nodesTotask_nodes")
+  classes            classes?             @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model team_quest_progress {
+  id                 Int          @id @default(autoincrement())
+  quest_id           Int?
+  student_id         Int?
+  contribution_score Int?         @default(0)
+  created_at         DateTime?    @default(now())
+  students           students?    @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  team_quests        team_quests? @relation(fields: [quest_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model team_quests {
+  id                  Int                   @id @default(autoincrement())
+  class_id            Int?
+  teacher_id          Int?
+  title               String
+  description         String?
+  target_score        Int
+  reward_points       Int
+  start_date          DateTime?
+  end_date            DateTime?
+  status              String?               @default("active")
+  created_at          DateTime?             @default(now())
+  team_quest_progress team_quest_progress[]
+  users               users?                @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes             classes?              @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model territories {
+  id                   Int       @id @default(autoincrement())
+  class_id             Int?
+  name                 String
+  type                 String
+  level                Int?      @default(1)
+  cost_to_unlock       Int
+  current_contribution Int?      @default(0)
+  x_pos                Int
+  y_pos                Int
+  status               String?   @default("locked")
+  created_at           DateTime? @default(now())
+  classes              classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([class_id], map: "idx_territories_class_id")
+}
+
+model user_achievements {
+  id               Int       @id @default(autoincrement())
+  student_id       Int?
+  achievement_name String
+  description      String?
+  unlocked_at      DateTime? @default(now())
+  students         students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model users {
+  id                                               Int                   @id @default(autoincrement())
+  role                                             String
+  username                                         String                @unique(map: "sqlite_autoindex_users_1")
+  password_hash                                    String
+  is_activated                                     Int?                  @default(0)
+  activation_codes                                 activation_codes[]
+  assignments                                      assignments[]
+  class_announcements                              class_announcements[]
+  classes                                          classes[]
+  exams                                            exams[]
+  family_tasks                                     family_tasks[]
+  leave_requests_leave_requests_reviewer_idTousers leave_requests[]      @relation("leave_requests_reviewer_idTousers")
+  leave_requests_leave_requests_parent_idTousers   leave_requests[]      @relation("leave_requests_parent_idTousers")
+  lucky_draw_config                                lucky_draw_config[]
+  operation_logs_operation_logs_user_idTousers     operation_logs[]      @relation("operation_logs_user_idTousers")
+  operation_logs_operation_logs_teacher_idTousers  operation_logs[]      @relation("operation_logs_teacher_idTousers")
+  parent_activity                                  parent_activity[]
+  parent_students                                  parent_students[]
+  point_presets                                    point_presets[]
+  praises                                          praises[]
+  question_bank                                    question_bank[]
+  shop_items                                       shop_items[]
+  students                                         students[]
+  team_quests                                      team_quests[]
+}
+
+model world_bosses {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  hp          Int       @default(10000)
+  max_hp      Int       @default(10000)
+  level       Int?      @default(1)
+  is_active   Int?      @default(1)
+  status      String?   @default("active")
+  start_time  DateTime?
+  end_time    DateTime?
+  created_at  DateTime? @default(now())
+}
