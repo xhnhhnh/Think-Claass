@@ -181,18 +181,35 @@ export default function AdminSettings() {
                         {updateInfo.releaseNotes || '暂无更新说明'}
                       </div>
                       
-                      <button
-                        onClick={handleExecuteUpdate}
-                        disabled={updating}
-                        className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                      >
-                        {updating ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            正在后台更新...
-                          </>
-                        ) : '一键更新并重启'}
-                      </button>
+                      {updateInfo.platform === 'win32' ? (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start text-amber-800 text-sm">
+                          <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                          <div className="space-y-2">
+                            <p>
+                              <strong>注意：</strong> 您当前运行在 Windows 环境。出于权限和安全考虑，暂不支持从浏览器直接“一键更新”。
+                            </p>
+                            <p>
+                              <strong>请在服务器的 PowerShell 终端中执行以下命令进行自动化更新：</strong>
+                            </p>
+                            <code className="block bg-amber-100/50 p-2 rounded border border-amber-200/60 font-mono text-xs select-all text-slate-800">
+                              ./update.ps1
+                            </code>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleExecuteUpdate}
+                          disabled={updating}
+                          className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                          {updating ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              正在后台更新...
+                            </>
+                          ) : '一键更新并重启'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

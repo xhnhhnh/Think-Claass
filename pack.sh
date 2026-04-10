@@ -20,7 +20,10 @@ print_welcome() {
 # --- 编译前端代码 ---
 build_frontend() {
     echo "🛠️ [1/4] 编译前端代码 (Vite Build)..."
-    npm run build
+    if ! npm run build; then
+        echo "❌ [错误] 前端编译 (npm run build) 失败，请检查代码或依赖后重试。"
+        exit 1
+    fi
 }
 
 # --- 整理打包文件目录 ---
@@ -40,6 +43,7 @@ prepare_release_dir() {
     cp .tmp/deploy/ecosystem.config.cjs "$RELEASE_DIR"/ 2>/dev/null || true
     cp .tmp/deploy/deploy.sh "$RELEASE_DIR"/ 2>/dev/null || true
     cp .tmp/deploy/update.sh "$RELEASE_DIR"/ 2>/dev/null || true
+    cp .tmp/deploy/install.sh "$RELEASE_DIR"/ 2>/dev/null || true
     cp .tmp/deploy/DEPLOYMENT.md "$RELEASE_DIR"/ 2>/dev/null || true
 }
 

@@ -28,13 +28,6 @@ export default function Home() {
     fetchData();
   }, []);
 
-  const hero = homeData.hero || {
-    title: "在温暖中陪伴成长",
-    subtitle: "我们致力于打造一个如童话般温馨的教育平台。连接教师、学生与家长，让每一次学习都像翻开一本精彩的故事书。",
-    buttonText: "学生登录",
-    buttonLink: "/login"
-  };
-
   const about = homeData.about || {
     title: "了解我们的教育理念",
     content: "在这里，每个孩子都是独一无二的主角。"
@@ -94,52 +87,6 @@ export default function Home() {
 
       <main className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-16 md:pt-24 pb-24 space-y-32">
         
-        {/* HERO SECTION */}
-        <section className="grid md:grid-cols-2 gap-16 items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            <h1 className="text-5xl md:text-7xl font-extrabold leading-tight text-[#4a3b2c] mb-6 whitespace-pre-wrap">
-              {hero.title}
-            </h1>
-            <p className="text-lg md:text-xl text-[#7d6b5a] mb-10 leading-relaxed max-w-lg">
-              {hero.subtitle}
-            </p>
-            
-            <div className="flex flex-wrap gap-4">
-              <Link 
-                to={hero.buttonLink || "/login"}
-                className="px-8 py-4 rounded-full bg-[#8fb9a8] text-white font-medium hover:bg-[#7ca795] transition-all shadow-[0_8px_20px_rgba(143,185,168,0.3)] hover:-translate-y-1 text-lg flex items-center gap-2"
-              >
-                {hero.buttonText || "开启旅程"} <Users className="w-5 h-5" />
-              </Link>
-              <Link 
-                to="/about"
-                className="px-8 py-4 rounded-full bg-white text-[#d97757] border-2 border-[#f0e6d3] font-medium hover:border-[#d97757] transition-all hover:-translate-y-1 text-lg flex items-center gap-2"
-              >
-                了解更多 <BookOpen className="w-5 h-5" />
-              </Link>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-            className="relative"
-          >
-            <div className="aspect-square bg-[#f2e9d8] rounded-full absolute inset-0 -z-10 blur-3xl opacity-60 animate-pulse"></div>
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto drop-shadow-2xl hover:scale-[1.02] transition-transform duration-700">
-              <path fill="#d97757" d="M47.7,-57.2C60.1,-46.3,67.3,-28.9,71.5,-10.1C75.7,8.7,76.9,28.9,67.2,43.3C57.5,57.7,36.9,66.4,15.7,71.2C-5.5,76,-27.3,76.9,-43.5,67.2C-59.7,57.5,-70.3,37.2,-73.4,16.5C-76.5,-4.2,-72,-25.3,-59.4,-41.2C-46.8,-57.1,-26.1,-67.8,-5.6,-61.2C14.9,-54.6,29.8,-50.7,47.7,-57.2Z" transform="translate(100 100)" />
-              <circle cx="80" cy="80" r="15" fill="#fcfaf5" />
-              <circle cx="120" cy="70" r="10" fill="#fcfaf5" />
-              <path d="M70,120 Q100,150 130,120" stroke="#fcfaf5" strokeWidth="8" strokeLinecap="round" fill="none" />
-            </svg>
-          </motion.div>
-        </section>
-
         {/* LATEST ARTICLES SECTION */}
         <section className="relative">
           <div className="flex justify-between items-end mb-12">

@@ -18,6 +18,49 @@ print_welcome() {
     echo "================================================="
 }
 
+# --- 环境预检 ---
+pre_flight_checks() {
+    echo ">> 执行环境预检..."
+    
+    # 1. 检查 root 权限
+    if [ "$EUID" -ne 0 ]; then
+        echo "[错误] 请使用 root 权限运行此脚本 (例如: sudo bash install.sh)"
+        exit 1
+    fi
+    
+    # 2. 检查操作系统类型
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+    else
+        echo "[错误] 无法检测操作系统类型。"
+        exit 1
+    fi
+    
+    case $OS in
+        ubuntu|debian)
+            PKG_MANAGER="apt-get"
+            ;;
+        centos|rhel|almalinux|rocky)
+            PKG_MANAGER="yum"
+            ;;
+        *)
+            echo "[错误] 不支持的操作系统: $OS。仅支持 Ubuntu/Debian 或 CentOS/RHEL 及其衍生版。"
+            exit 1
+            ;;
+    esac
+    echo ">> 检测到操作系统: $OS ($PKG_MANAGER)"
+    
+    # 3. 检查可用磁盘空间 (最小 1GB)
+    local min_space=1048576 # 1GB in KB
+    local available_space=$(df -k / | awk 'NR==2 {print $4}')
+    if [ "$available_space" -lt "$min_space" ]; then
+        echo "[错误] 根目录可用空间不足 1GB (当前: $((available_space / 1024)) MB)。"
+        exit 1
+    fi
+    echo ">> 磁盘空间充足: $((available_space / 1024)) MB 可用。"
+}
+
 # --- 收集用户输入配置 ---
 collect_inputs() {
     read -p "请输入您绑定的域名或 IP 地址 (如 example.com 或 12.34.56.78): " USER_DOMAIN
@@ -56,6 +99,31 @@ collect_inputs() {
     read -p "按回车键继续，或按 Ctrl+C 取消..."
 }
 
+# --- 检查端口占用情况 ---
+check_ports() {
+    echo ">> 检查端口占用情况..."
+    if command -v ss &> /dev/null || command -v netstat &> /dev/null; then
+        local check_cmd="ss -tuln"
+        if ! command -v ss &> /dev/null; then
+            check_cmd="netstat -tuln"
+        fi
+        
+        if $check_cmd | grep -q ":$PORT "; then
+            echo "[错误] 端口 $PORT 已被占用，请修改应用端口或停止占用该端口的服务。"
+            exit 1
+        fi
+        
+        if [[ "${SETUP_NGINX,,}" == "y" ]]; then
+            if $check_cmd | grep -q ":80 "; then
+                echo "[错误] 端口 80 已被占用。Nginx 需要使用 80 端口，请停止占用该端口的服务或选择不自动配置 Nginx。"
+                exit 1
+            fi
+        fi
+    else
+        echo ">> [警告] 无法检测端口占用情况，缺少 ss 或 netstat 命令。"
+    fi
+}
+
 # --- 准备安装目录 ---
 prepare_directory() {
     echo ">> 正在准备安装目录 ($INSTALL_DIR)..."
@@ -66,21 +134,19 @@ prepare_directory() {
 
 # --- 检查并安装基础工具 ---
 install_base_tools() {
-    echo ">> 检查基础工具 (curl, unzip)..."
+    echo ">> 检查基础工具 (curl, unzip, jq)..."
     local tools_to_install=""
     
-    if ! command -v curl &> /dev/null; then
-        tools_to_install="$tools_to_install curl"
-    fi
-    if ! command -v unzip &> /dev/null; then
-        tools_to_install="$tools_to_install unzip"
-    fi
+    if ! command -v curl &> /dev/null; then tools_to_install="$tools_to_install curl"; fi
+    if ! command -v unzip &> /dev/null; then tools_to_install="$tools_to_install unzip"; fi
+    if ! command -v jq &> /dev/null; then tools_to_install="$tools_to_install jq"; fi
     
     if [ -n "$tools_to_install" ]; then
         echo ">> 正在安装缺少的基础工具:$tools_to_install"
-        if command -v apt-get &> /dev/null; then
+        if [ "$PKG_MANAGER" == "apt-get" ]; then
             sudo apt-get update && sudo apt-get install -y $tools_to_install
-        elif command -v yum &> /dev/null; then
+        elif [ "$PKG_MANAGER" == "yum" ]; then
+            sudo yum install -y epel-release || true
             sudo yum install -y $tools_to_install
         fi
     fi
@@ -114,29 +180,35 @@ get_github_url() {
 download_latest_release() {
     echo ">> 正在获取 GitHub 最新版本信息..."
     local api_url="https://api.github.com/repos/${REPO}/releases/latest"
-    # 对于 API 请求，也可以考虑代理，但由于返回的是 JSON，通常 GitHub API 访问还算顺畅
     LATEST_RELEASE=$(curl -s "$api_url")
     
-    # 如果直接获取失败，尝试使用公共 API 代理
+    # 检查是否因为 API 限制被拦截
     if [ -z "$LATEST_RELEASE" ] || echo "$LATEST_RELEASE" | grep -q "API rate limit exceeded"; then
-         echo ">> [警告] 直接获取 GitHub API 失败或受限，尝试备用方式..."
-         # 此处仅作简单示例，若无法拿到则终止或回退
-         return 1
+         echo ">> [警告] 直接获取 GitHub API 失败或受到速率限制。"
+         echo ">> 将尝试使用当前目录源码进行安装..."
+         DOWNLOAD_URL=""
+         return 0
     fi
 
-    DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-v[0-9.]*\.zip"' | cut -d '"' -f 4 | head -n 1)
-
-    # 如果找不到带版本号的包，尝试查找原名
-    if [ -z "$DOWNLOAD_URL" ]; then
-        DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-release\.zip"' | cut -d '"' -f 4 | head -n 1)
+    if command -v jq &> /dev/null; then
+        DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | test("think-class-v[0-9.]*\\.zip$")) | .browser_download_url' | head -n 1)
+        if [ -z "$DOWNLOAD_URL" ]; then
+            DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | test("think-class-release\\.zip$")) | .browser_download_url' | head -n 1)
+        fi
+        if [ -z "$DOWNLOAD_URL" ]; then
+            DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | test("think-class-.*\\.zip$")) | .browser_download_url' | head -n 1)
+        fi
+        LATEST_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name // empty')
+    else
+        DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-v[0-9.]*\.zip"' | cut -d '"' -f 4 | head -n 1)
+        if [ -z "$DOWNLOAD_URL" ]; then
+            DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-release\.zip"' | cut -d '"' -f 4 | head -n 1)
+        fi
+        if [ -z "$DOWNLOAD_URL" ]; then
+            DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-.*\.zip"' | cut -d '"' -f 4 | head -n 1)
+        fi
+        LATEST_TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4)
     fi
-
-    # 再尝试模糊匹配任何符合前缀的包
-    if [ -z "$DOWNLOAD_URL" ]; then
-        DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o '"browser_download_url": *"[^"]*think-class-.*\.zip"' | cut -d '"' -f 4 | head -n 1)
-    fi
-
-    LATEST_TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4)
 
     if [ -z "$DOWNLOAD_URL" ]; then
         echo ">> [警告] 无法在 GitHub Releases 中找到对应的 .zip 部署包。"
@@ -164,9 +236,9 @@ install_node_and_deps() {
     echo ">> 检查编译依赖 (make, g++, python3)..."
     if ! command -v make &> /dev/null || ! command -v g++ &> /dev/null || ! command -v python3 &> /dev/null; then
         echo ">> 未检测到完整的编译依赖，正在为您安装..."
-        if command -v apt-get &> /dev/null; then
+        if [ "$PKG_MANAGER" == "apt-get" ]; then
             sudo apt-get update && sudo apt-get install -y build-essential python3
-        elif command -v yum &> /dev/null; then
+        elif [ "$PKG_MANAGER" == "yum" ]; then
             sudo yum groupinstall -y "Development Tools"
             sudo yum install -y python3
         else
@@ -174,21 +246,28 @@ install_node_and_deps() {
         fi
     fi
 
-    if ! command -v node &> /dev/null; then
-        echo ">> 未检测到 Node.js，正在自动安装 Node.js v18..."
-        if command -v apt-get &> /dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-        elif command -v yum &> /dev/null; then
-            curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-            sudo yum install -y nodejs
+    if command -v node &> /dev/null; then
+        NODE_VERSION=$(node -v | cut -d 'v' -f 2)
+        NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
+        if [ "$NODE_MAJOR" -lt 18 ]; then
+            echo ">> 检测到 Node.js 版本 ($NODE_VERSION) 低于 v18，准备升级..."
         else
-            echo ">> [错误] 不支持的系统包管理器。请手动安装 Node.js v18+ 后重试。"
-            exit 1
+            echo ">> 已检测到 Node.js，版本为 v$NODE_VERSION，满足要求。"
+            return 0
         fi
     else
-        NODE_VERSION=$(node -v)
-        echo ">> 已检测到 Node.js，版本为 $NODE_VERSION"
+        echo ">> 未检测到 Node.js，正在自动安装 Node.js v18..."
+    fi
+
+    if [ "$PKG_MANAGER" == "apt-get" ]; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    elif [ "$PKG_MANAGER" == "yum" ]; then
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        sudo yum install -y nodejs
+    else
+        echo ">> [错误] 不支持的系统包管理器。请手动安装 Node.js v18+ 后重试。"
+        exit 1
     fi
 }
 
@@ -198,7 +277,8 @@ install_pm2() {
         echo ">> 未检测到 PM2，正在全局安装 PM2..."
         sudo npm install -g pm2
     else
-        echo ">> 已检测到 PM2"
+        PM2_VERSION=$(pm2 -v)
+        echo ">> 已检测到 PM2，当前版本为 $PM2_VERSION"
     fi
 }
 
@@ -254,13 +334,13 @@ setup_nginx() {
     if [[ "${SETUP_NGINX,,}" == "y" ]]; then
         echo ">> 正在检查并安装 Nginx..."
         if ! command -v nginx &> /dev/null; then
-            if command -v apt-get &> /dev/null; then
+            if [ "$PKG_MANAGER" == "apt-get" ]; then
                 sudo apt-get update && sudo apt-get install -y nginx
-            elif command -v yum &> /dev/null; then
+            elif [ "$PKG_MANAGER" == "yum" ]; then
                 sudo yum install -y epel-release && sudo yum install -y nginx
             else
                 echo ">> [警告] 无法自动安装 Nginx，请手动配置反向代理。"
-                return
+                return 0
             fi
         fi
 
@@ -331,7 +411,9 @@ print_success() {
 # --- 主执行流程 ---
 main() {
     print_welcome
+    pre_flight_checks
     collect_inputs
+    check_ports
     prepare_directory
     install_base_tools
     download_latest_release

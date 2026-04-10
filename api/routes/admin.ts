@@ -498,12 +498,17 @@ router.get('/system/update/check', asyncHandler(async (req: Request, res: Respon
       latestVersion,
       hasUpdate,
       releaseNotes: release.body,
-      publishedAt: release.published_at
+      publishedAt: release.published_at,
+      platform: process.platform
     }
   });
 }));
 
 router.post('/system/update/execute', asyncHandler(async (req: Request, res: Response) => {
+  if (process.platform === 'win32') {
+    throw new ApiError(400, 'Windows 环境暂不支持一键更新，请手动下载最新 Release 包解压覆盖（注意保留 database.sqlite 和 .env 文件）。');
+  }
+
   const updateScriptPath = path.join(process.cwd(), 'update.sh');
   
   if (!fs.existsSync(updateScriptPath)) {
