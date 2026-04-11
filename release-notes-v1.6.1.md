@@ -11,8 +11,9 @@
 - **一键脚本增强**
   - `install.sh` / `update.sh` 增强 Prisma 相关处理（安装/更新/回滚后自动重新生成 Prisma Client）
   - `install.sh` 增加可选的 **安装前停止 Nginx**（释放 80 端口，减少 502 风险）
+  - 一键部署命令（Linux）：
+    - `wget -O install.sh https://raw.githubusercontent.com/xhnhhnh/Think-Claass/main/install.sh && bash install.sh`
 
 ## 📦 部署包
 
 - `think-class-v1.6.1.zip`
-
