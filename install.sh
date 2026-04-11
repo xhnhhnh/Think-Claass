@@ -87,6 +87,13 @@ collect_inputs() {
     read -p "是否为您自动安装并配置 Nginx 反向代理 (直接通过域名访问，无需加端口)? (y/n, 默认: y): " SETUP_NGINX
     SETUP_NGINX=${SETUP_NGINX:-y}
 
+    if [[ "${SETUP_NGINX,,}" == "y" ]]; then
+        read -p "是否在安装前自动停止正在运行的 Nginx (释放 80 端口)? (y/n, 默认: n): " STOP_NGINX
+        STOP_NGINX=${STOP_NGINX:-n}
+    else
+        STOP_NGINX="n"
+    fi
+
     echo ""
     echo "即将开始安装，配置如下："
     echo "目标安装目录: $INSTALL_DIR"
@@ -95,8 +102,28 @@ collect_inputs() {
     echo "超级管理员账号: $SUPERADMIN_USERNAME"
     echo "超级管理员密码: $SUPERADMIN_PASSWORD"
     echo "自动配置 Nginx: $SETUP_NGINX"
+    echo "安装前停止 Nginx: $STOP_NGINX"
     echo "================================================="
     read -p "按回车键继续，或按 Ctrl+C 取消..."
+}
+
+# --- 停止 Nginx（可选） ---
+stop_nginx() {
+    if command -v systemctl &> /dev/null; then
+        systemctl stop nginx &> /dev/null || true
+    elif command -v service &> /dev/null; then
+        service nginx stop &> /dev/null || true
+    elif command -v nginx &> /dev/null; then
+        nginx -s stop &> /dev/null || true
+    fi
+}
+
+stop_nginx_if_requested() {
+    if [[ "${STOP_NGINX,,}" == "y" ]]; then
+        echo ">> 正在停止 Nginx..."
+        stop_nginx
+        sleep 1
+    fi
 }
 
 # --- 检查端口占用情况 ---
@@ -115,8 +142,18 @@ check_ports() {
         
         if [[ "${SETUP_NGINX,,}" == "y" ]]; then
             if $check_cmd | grep -q ":80 "; then
-                echo "[错误] 端口 80 已被占用。Nginx 需要使用 80 端口，请停止占用该端口的服务或选择不自动配置 Nginx。"
-                exit 1
+                if [[ "${STOP_NGINX,,}" == "y" ]]; then
+                    echo ">> 检测到 80 端口被占用，尝试停止 Nginx 后重新检测..."
+                    stop_nginx
+                    sleep 1
+                    if $check_cmd | grep -q ":80 "; then
+                        echo "[错误] 端口 80 仍被占用。请手动停止占用 80 端口的服务或选择不自动配置 Nginx。"
+                        exit 1
+                    fi
+                else
+                    echo "[错误] 端口 80 已被占用。Nginx 需要使用 80 端口，请停止占用该端口的服务或选择不自动配置 Nginx。"
+                    exit 1
+                fi
             fi
         fi
     else
@@ -413,6 +450,7 @@ main() {
     print_welcome
     pre_flight_checks
     collect_inputs
+    stop_nginx_if_requested
     check_ports
     prepare_directory
     install_base_tools
