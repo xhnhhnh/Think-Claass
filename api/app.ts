@@ -50,6 +50,11 @@ import economyRoutes from './routes/economy.js'
 import dungeonRoutes from './routes/dungeon.js'
 import paymentRoutes from './routes/payment.js'
 import analyticsRoutes from './routes/analytics.js'
+import paperRoutes from './routes/papers.js'
+import knowledgeRoutes from './routes/knowledge.js'
+import paperSubmissionRoutes from './routes/paperSubmissions.js'
+import wrongQuestionRoutes from './routes/wrongQuestions.js'
+import studyPlanRoutes from './routes/studyPlans.js'
 import { initDb } from './db.js'
 import { operationLogger } from './utils/logMiddleware.js'
 
@@ -114,6 +119,11 @@ app.use('/api/economy', economyRoutes)
 app.use('/api/dungeon', dungeonRoutes)
 app.use('/api/payment', paymentRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/papers', paperRoutes)
+app.use('/api/knowledge', knowledgeRoutes)
+app.use('/api/paper-submissions', paperSubmissionRoutes)
+app.use('/api/wrong-questions', wrongQuestionRoutes)
+app.use('/api/study-plans', studyPlanRoutes)
 
 /**
  * health
@@ -132,6 +142,7 @@ app.use(
  * Serve static files from the React app
  */
 const distPath = path.join(__dirname, '../dist')
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 app.use(express.static(distPath))
 
 app.get('*', (req: Request, res: Response) => {

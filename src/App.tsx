@@ -114,6 +114,9 @@ import TeacherAuction from "@/pages/Teacher/Auction";
 import TeacherTaskTree from "@/pages/Teacher/TaskTree";
 import TeacherBrawl from "@/pages/Teacher/Brawl";
 import TeacherTerritory from "@/pages/Teacher/Territory";
+import TeacherPapers from "@/pages/Teacher/Papers";
+import TeacherPaperEditor from "@/pages/Teacher/PaperEditor";
+import TeacherKnowledgeGraph from "@/pages/Teacher/KnowledgeGraph";
 
 import StudentLayout from "@/components/Layout/StudentLayout";
 import StudentPet from "@/pages/Student/Pet";
@@ -135,6 +138,10 @@ import StudentTerritory from "@/pages/Student/Territory";
 import StudentGacha from "@/pages/Student/Gacha";
 import StudentBank from "@/pages/Student/Bank";
 import StudentDungeon from "@/pages/Student/Dungeon";
+import StudentPapers from "@/pages/Student/Papers";
+import StudentPaperAttempt from "@/pages/Student/PaperAttempt";
+import StudentWrongQuestions from "@/pages/Student/WrongQuestions";
+import StudentPlan from "@/pages/Student/Plan";
 
 import ParentLayout from "@/components/Layout/ParentLayout";
 import ParentDashboard from "@/pages/Parent/Dashboard";
@@ -200,6 +207,9 @@ export default function App() {
               <Route path="verification" element={<TeacherVerification />} />
               <Route path="assignments" element={<TeacherAssignments />} />
               <Route path="exams" element={<TeacherExams />} />
+              <Route path="papers" element={<TeacherPapers />} />
+              <Route path="papers/:id/edit" element={<TeacherPaperEditor />} />
+              <Route path="knowledge" element={<TeacherKnowledgeGraph />} />
               <Route path="attendance" element={<TeacherAttendance />} />
           <Route path="world-boss" element={<TeacherWorldBoss />} />
           <Route path="blind-box" element={<TeacherBlindBox />} />
@@ -227,6 +237,10 @@ export default function App() {
           <Route path="interactive-wall" element={<FeatureRouteGuard role="student" requirement={{ anyOf: ['enable_chat_bubble', 'enable_tree_hole'] }} title="互动墙"><StudentInteractiveWall /></FeatureRouteGuard>} />
           <Route path="peer-review" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_peer_review' }} title="同伴互评"><StudentPeerReview /></FeatureRouteGuard>} />
           <Route path="guild-pk" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_guild_pk' }} title="公会PK"><StudentGuildPK /></FeatureRouteGuard>} />
+              <Route path="papers" element={<StudentPapers />} />
+              <Route path="papers/:id" element={<StudentPaperAttempt />} />
+              <Route path="wrong-questions" element={<StudentWrongQuestions />} />
+              <Route path="plan" element={<StudentPlan />} />
               <Route path="assignments" element={<StudentAssignments />} />
               <Route path="team-quests" element={<StudentTeamQuests />} />
             </Route>

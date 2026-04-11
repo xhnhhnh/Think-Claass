@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 import { defaultClassFeatures, type ClassFeatures } from '@/lib/classFeatures';
 
@@ -21,8 +22,23 @@ interface AppState {
   logout: () => void;
 }
 
-export const useStore = create<AppState>((set) => ({
-  user: null,
-  setUser: (user) => set({ user: user ? { ...user, classFeatures: user.classFeatures ?? defaultClassFeatures } : null }),
-  logout: () => set({ user: null }),
-}));
+export const useStore = create<AppState>()(
+  persist(
+    (set) => ({
+      user: null,
+      setUser: (user) => set({ user: user ? { ...user, classFeatures: user.classFeatures ?? defaultClassFeatures } : null }),
+      logout: () => set({ user: null }),
+    }),
+    {
+      name: 'thinkclass-user',
+      partialize: (state) => ({ user: state.user }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AppState> | undefined;
+        const user = persisted?.user
+          ? { ...persisted.user, classFeatures: persisted.user.classFeatures ?? defaultClassFeatures }
+          : null;
+        return { ...currentState, ...persisted, user };
+      },
+    }
+  )
+);
