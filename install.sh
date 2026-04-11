@@ -84,6 +84,19 @@ collect_inputs() {
     read -p "请输入超级后台管理员密码 (默认: wx951004): " SUPERADMIN_PASSWORD
     SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-wx951004}
 
+    read -p "请输入应用端口 (默认: 3001): " INPUT_PORT
+    INPUT_PORT=${INPUT_PORT:-3001}
+    if ! [[ "$INPUT_PORT" =~ ^[0-9]+$ ]] || [ "$INPUT_PORT" -lt 1 ] || [ "$INPUT_PORT" -gt 65535 ]; then
+        echo "[错误] 端口号不合法: $INPUT_PORT"
+        exit 1
+    fi
+    PORT=$INPUT_PORT
+
+    read -p "如果端口被占用，是否自动切换到可用端口? (y/n, 默认: y): " AUTO_PICK_PORT
+    AUTO_PICK_PORT=${AUTO_PICK_PORT:-y}
+    read -p "如果端口被占用且不切换，是否尝试自动停止占用端口的进程? (y/n, 默认: n): " AUTO_KILL_PORT
+    AUTO_KILL_PORT=${AUTO_KILL_PORT:-n}
+
     read -p "是否为您自动安装并配置 Nginx 反向代理 (直接通过域名访问，无需加端口)? (y/n, 默认: y): " SETUP_NGINX
     SETUP_NGINX=${SETUP_NGINX:-y}
 
@@ -101,6 +114,9 @@ collect_inputs() {
     echo "超级后台路径: $ADMIN_PATH"
     echo "超级管理员账号: $SUPERADMIN_USERNAME"
     echo "超级管理员密码: $SUPERADMIN_PASSWORD"
+    echo "应用端口: $PORT"
+    echo "端口被占用自动切换: $AUTO_PICK_PORT"
+    echo "端口被占用自动停止进程: $AUTO_KILL_PORT"
     echo "自动配置 Nginx: $SETUP_NGINX"
     echo "安装前停止 Nginx: $STOP_NGINX"
     echo "================================================="
@@ -126,27 +142,101 @@ stop_nginx_if_requested() {
     fi
 }
 
+get_pid_by_port() {
+    local port=$1
+    local pid=""
+    if command -v lsof &> /dev/null; then
+        pid=$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$pid" ] && command -v ss &> /dev/null; then
+        pid=$(ss -lntp 2>/dev/null | grep -E ":${port}[[:space:]]" | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -n 1 || true)
+    fi
+    echo "$pid"
+}
+
+stop_process_on_port() {
+    local port=$1
+    local pid
+    pid=$(get_pid_by_port "$port")
+    if [ -z "$pid" ]; then
+        echo ">> [警告] 无法自动识别占用端口 $port 的进程 PID，请手动处理。"
+        return 1
+    fi
+    echo ">> 正在停止占用端口 $port 的进程 (PID=$pid)..."
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
+        sleep 1
+    fi
+    return 0
+}
+
+is_port_in_use() {
+    local port=$1
+    if command -v ss &> /dev/null; then
+        ss -tuln 2>/dev/null | grep -q ":${port}[[:space:]]"
+        return $?
+    fi
+    if command -v netstat &> /dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":${port}[[:space:]]"
+        return $?
+    fi
+    return 1
+}
+
+pick_available_port() {
+    local start_port=$1
+    local max_tries=${2:-100}
+    local p=$start_port
+    local i=0
+    while [ $i -lt $max_tries ]; do
+        if ! is_port_in_use "$p"; then
+            echo "$p"
+            return 0
+        fi
+        p=$((p + 1))
+        i=$((i + 1))
+    done
+    echo ""
+    return 1
+}
+
 # --- 检查端口占用情况 ---
 check_ports() {
     echo ">> 检查端口占用情况..."
     if command -v ss &> /dev/null || command -v netstat &> /dev/null; then
-        local check_cmd="ss -tuln"
-        if ! command -v ss &> /dev/null; then
-            check_cmd="netstat -tuln"
-        fi
-        
-        if $check_cmd | grep -q ":$PORT "; then
-            echo "[错误] 端口 $PORT 已被占用，请修改应用端口或停止占用该端口的服务。"
-            exit 1
+        if is_port_in_use "$PORT"; then
+            if [[ "${AUTO_PICK_PORT,,}" == "y" ]]; then
+                local new_port
+                new_port=$(pick_available_port "$((PORT + 1))" 200)
+                if [ -n "$new_port" ]; then
+                    echo ">> 检测到端口 $PORT 被占用，已自动切换到端口 $new_port"
+                    PORT=$new_port
+                else
+                    echo "[错误] 端口 $PORT 被占用，且未找到可用端口。"
+                    exit 1
+                fi
+            elif [[ "${AUTO_KILL_PORT,,}" == "y" ]]; then
+                echo ">> 检测到端口 $PORT 被占用，尝试停止占用端口的进程..."
+                stop_process_on_port "$PORT" || true
+                if is_port_in_use "$PORT"; then
+                    echo "[错误] 端口 $PORT 仍被占用，请手动停止占用该端口的服务或选择自动切换端口。"
+                    exit 1
+                fi
+            else
+                echo "[错误] 端口 $PORT 已被占用，请修改应用端口或停止占用该端口的服务。"
+                exit 1
+            fi
         fi
         
         if [[ "${SETUP_NGINX,,}" == "y" ]]; then
-            if $check_cmd | grep -q ":80 "; then
+            if is_port_in_use 80; then
                 if [[ "${STOP_NGINX,,}" == "y" ]]; then
                     echo ">> 检测到 80 端口被占用，尝试停止 Nginx 后重新检测..."
                     stop_nginx
                     sleep 1
-                    if $check_cmd | grep -q ":80 "; then
+                    if is_port_in_use 80; then
                         echo "[错误] 端口 80 仍被占用。请手动停止占用 80 端口的服务或选择不自动配置 Nginx。"
                         exit 1
                     fi
