@@ -42,6 +42,16 @@ check_node_version() {
     fi
 }
 
+ensure_database_url() {
+    if [ ! -f ".env" ]; then
+        return 0
+    fi
+    if ! grep -q "^DATABASE_URL=" .env; then
+        echo ">> 检测到 .env 缺少 DATABASE_URL，正在自动补齐..."
+        echo 'DATABASE_URL="file:./database.sqlite"' >> .env
+    fi
+}
+
 # --- 检查并安装基础工具 ---
 install_base_tools() {
     echo ">> 检查基础工具 (curl, unzip, jq, tar)..."
@@ -223,6 +233,7 @@ main() {
     print_welcome
     check_pm2_service
     check_node_version
+    ensure_database_url
     install_base_tools
     backup_data
     update_project
