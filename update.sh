@@ -123,6 +123,12 @@ update_project() {
         echo ">> 将尝试使用 npm run build 进行本地源码更新..."
         echo ">> 正在拉取最新的项目依赖 (npm install)..."
         npm install
+        if [ -f "prisma/schema.prisma" ]; then
+            echo ">> 正在生成 Prisma Client (npx prisma generate)..."
+            npx prisma generate --schema prisma/schema.prisma
+        else
+            echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
+        fi
         echo ">> 正在重新编译前端静态文件 (npm run build)..."
         npm run build
     else
@@ -143,6 +149,12 @@ update_project() {
 
         echo ">> 正在拉取最新的项目依赖 (npm install)..."
         npm install
+        if [ -f "prisma/schema.prisma" ]; then
+            echo ">> 正在生成 Prisma Client (npx prisma generate)..."
+            npx prisma generate --schema prisma/schema.prisma
+        else
+            echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
+        fi
     fi
 }
 
@@ -166,6 +178,12 @@ rollback() {
         
         echo ">> 正在重新拉取旧版本的依赖 (npm install)..."
         npm install
+        if [ -f "prisma/schema.prisma" ]; then
+            echo ">> 正在生成 Prisma Client (npx prisma generate)..."
+            npx prisma generate --schema prisma/schema.prisma
+        else
+            echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
+        fi
         
         echo ">> 备份已恢复，尝试重启服务..."
         if ! pm2 restart $APP_NAME --update-env; then

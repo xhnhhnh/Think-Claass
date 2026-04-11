@@ -339,6 +339,13 @@ build_project() {
     rm -rf node_modules package-lock.json pnpm-lock.yaml
     npm install
 
+    if [ -f "prisma/schema.prisma" ]; then
+        echo ">> 正在生成 Prisma Client (npx prisma generate)..."
+        npx prisma generate --schema prisma/schema.prisma
+    else
+        echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
+    fi
+
     if [ -z "$DOWNLOAD_URL" ]; then
         echo ">> 正在编译打包前端静态文件 (npm run build)..."
         npm run build
