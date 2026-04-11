@@ -249,24 +249,24 @@ install_node_and_deps() {
     if command -v node &> /dev/null; then
         NODE_VERSION=$(node -v | cut -d 'v' -f 2)
         NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
-        if [ "$NODE_MAJOR" -lt 18 ]; then
-            echo ">> 检测到 Node.js 版本 ($NODE_VERSION) 低于 v18，准备升级..."
+        if [ "$NODE_MAJOR" -lt 24 ]; then
+            echo ">> 检测到 Node.js 版本 ($NODE_VERSION) 低于 v24，准备升级到 Node.js 24 LTS..."
         else
-            echo ">> 已检测到 Node.js，版本为 v$NODE_VERSION，满足要求。"
+            echo ">> 已检测到 Node.js，版本为 v$NODE_VERSION，满足 Node.js 24 LTS 要求。"
             return 0
         fi
     else
-        echo ">> 未检测到 Node.js，正在自动安装 Node.js v18..."
+        echo ">> 未检测到 Node.js，正在自动安装 Node.js 24 LTS..."
     fi
 
     if [ "$PKG_MANAGER" == "apt-get" ]; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
         sudo apt-get install -y nodejs
     elif [ "$PKG_MANAGER" == "yum" ]; then
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo bash -
         sudo yum install -y nodejs
     else
-        echo ">> [错误] 不支持的系统包管理器。请手动安装 Node.js v18+ 后重试。"
+        echo ">> [错误] 不支持的系统包管理器。请手动安装 Node.js 24 LTS 后重试。"
         exit 1
     fi
 }

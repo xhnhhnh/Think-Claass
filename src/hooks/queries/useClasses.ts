@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { teacherApi } from '@/api/teacher';
+import { useStore } from '@/store/useStore';
 
 export interface ClassItem {
   id: number;
@@ -8,10 +9,12 @@ export interface ClassItem {
 }
 
 export function useClasses() {
+  const user = useStore((state) => state.user);
   return useQuery({
-    queryKey: ['classes'],
+    queryKey: ['classes', user?.id, user?.role],
     queryFn: async () => {
-      const data = await teacherApi.getClasses() as any;
+      const teacherId = user?.role === 'teacher' ? user.id : undefined;
+      const data = await teacherApi.getClasses(teacherId) as any;
       return data.classes;
     },
   });

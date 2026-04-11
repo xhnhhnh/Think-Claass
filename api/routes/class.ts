@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import db, { decrypt } from '../db.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
+import { classFeatureKeys, pickClassFeatures } from '../utils/classFeatures.js';
 
 const router = Router();
 
@@ -72,6 +73,21 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(404, 'Class not found');
   }
   res.json({ success: true, class: cls });
+}));
+
+router.get('/:id/features', asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const cls = db.prepare('SELECT * FROM classes WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  if (!cls) {
+    throw new ApiError(404, 'Class not found');
+  }
+
+  res.json({
+    success: true,
+    classId: Number(id),
+    features: pickClassFeatures(cls),
+    pet_selection_mode: cls.pet_selection_mode ?? 'random',
+  });
 }));
 
 // Get class data for big screen (read-only, no strict auth)
@@ -155,61 +171,42 @@ router.get('/:id/guild-ranking', asyncHandler(async (req: Request, res: Response
 // Update class settings/features
 router.put(['/:id/settings', '/:id/features'], asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { 
-    enable_chat_bubble, 
-    enable_peer_review, 
-    enable_tree_hole,
-    enable_shop,
-    enable_lucky_draw,
-    enable_challenge,
-    enable_family_tasks,
-    enable_world_boss,
-    enable_guild_pk,
-    enable_auction_blind_box,
-    enable_achievements,
-    enable_parent_buff,
-    pet_selection_mode
-  } = req.body;
+  const { pet_selection_mode } = req.body;
 
   const cls = db.prepare('SELECT id FROM classes WHERE id = ?').get(id) as any;
   if (!cls) {
     throw new ApiError(404, 'Class not found');
   }
 
-  db.prepare(`
-    UPDATE classes 
-    SET enable_chat_bubble = COALESCE(?, enable_chat_bubble),
-        enable_peer_review = COALESCE(?, enable_peer_review),
-        enable_tree_hole = COALESCE(?, enable_tree_hole),
-        enable_shop = COALESCE(?, enable_shop),
-        enable_lucky_draw = COALESCE(?, enable_lucky_draw),
-        enable_challenge = COALESCE(?, enable_challenge),
-        enable_family_tasks = COALESCE(?, enable_family_tasks),
-        enable_world_boss = COALESCE(?, enable_world_boss),
-        enable_guild_pk = COALESCE(?, enable_guild_pk),
-        enable_auction_blind_box = COALESCE(?, enable_auction_blind_box),
-        enable_achievements = COALESCE(?, enable_achievements),
-        enable_parent_buff = COALESCE(?, enable_parent_buff),
-        pet_selection_mode = COALESCE(?, pet_selection_mode)
-    WHERE id = ?
-  `).run(
-    enable_chat_bubble !== undefined ? (enable_chat_bubble ? 1 : 0) : null,
-    enable_peer_review !== undefined ? (enable_peer_review ? 1 : 0) : null,
-    enable_tree_hole !== undefined ? (enable_tree_hole ? 1 : 0) : null,
-    enable_shop !== undefined ? (enable_shop ? 1 : 0) : null,
-    enable_lucky_draw !== undefined ? (enable_lucky_draw ? 1 : 0) : null,
-    enable_challenge !== undefined ? (enable_challenge ? 1 : 0) : null,
-    enable_family_tasks !== undefined ? (enable_family_tasks ? 1 : 0) : null,
-    enable_world_boss !== undefined ? (enable_world_boss ? 1 : 0) : null,
-    enable_guild_pk !== undefined ? (enable_guild_pk ? 1 : 0) : null,
-    enable_auction_blind_box !== undefined ? (enable_auction_blind_box ? 1 : 0) : null,
-    enable_achievements !== undefined ? (enable_achievements ? 1 : 0) : null,
-    enable_parent_buff !== undefined ? (enable_parent_buff ? 1 : 0) : null,
-    pet_selection_mode !== undefined ? pet_selection_mode : null,
-    id
-  );
+  const setClauses: string[] = [];
+  const values: Array<number | string> = [];
 
-  res.json({ success: true, message: 'Settings updated successfully' });
+  for (const key of classFeatureKeys) {
+    if (req.body[key] !== undefined) {
+      setClauses.push(`${key} = ?`);
+      values.push(req.body[key] ? 1 : 0);
+    }
+  }
+
+  if (pet_selection_mode !== undefined) {
+    setClauses.push('pet_selection_mode = ?');
+    values.push(pet_selection_mode);
+  }
+
+  if (setClauses.length === 0) {
+    throw new ApiError(400, 'No settings provided');
+  }
+
+  values.push(id);
+  db.prepare(`UPDATE classes SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+
+  const updated = db.prepare('SELECT * FROM classes WHERE id = ?').get(id) as Record<string, unknown>;
+  res.json({
+    success: true,
+    message: 'Settings updated successfully',
+    features: pickClassFeatures(updated),
+    pet_selection_mode: updated.pet_selection_mode ?? 'random',
+  });
 }));
 
 export default router;

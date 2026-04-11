@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import db, { decrypt } from '../db.js';
+import { assertAnyClassFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = Router();
 
@@ -8,6 +9,10 @@ router.get('/', (req: Request, res: Response) => {
   const { classId, type, receiverId, role, involvedId } = req.query;
 
   try {
+    if (classId && type === 'TREE_HOLE') {
+      assertAnyClassFeatureEnabled(Number(classId), ['enable_tree_hole', 'enable_chat_bubble']);
+    }
+
     let query = `
       SELECT m.*, 
              CASE WHEN m.sender_role = 'user' THEN u1.username ELSE s1.name END as sender_name,
@@ -95,6 +100,10 @@ router.post('/', (req: Request, res: Response) => {
   }
 
   try {
+    if (type === 'TREE_HOLE') {
+      assertAnyClassFeatureEnabled(Number(class_id), ['enable_tree_hole', 'enable_chat_bubble']);
+    }
+
     const stmt = db.prepare(`
       INSERT INTO messages (class_id, sender_id, receiver_id, content, is_anonymous, type, sender_role)
       VALUES (?, ?, ?, ?, ?, ?, ?)

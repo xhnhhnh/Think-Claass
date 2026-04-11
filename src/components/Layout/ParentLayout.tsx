@@ -1,7 +1,13 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { LogOut, Home, MessageSquare, PieChart, CheckSquare, Calendar, BookOpen, Heart } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import {
+  defaultClassFeatures,
+  getFirstEnabledRoute,
+  isFeatureRequirementEnabled,
+  parentFeatureRequirements,
+} from '@/lib/classFeatures';
 
 const navItems = [
   { path: '/parent/dashboard', icon: Home, label: '温馨家园' },
@@ -17,6 +23,32 @@ export default function ParentLayout() {
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
+  const features = user?.classFeatures ?? defaultClassFeatures;
+
+  const filteredNavItems = useMemo(
+    () =>
+      navItems.filter((item) =>
+        isFeatureRequirementEnabled(features, parentFeatureRequirements[item.path]),
+      ),
+    [features],
+  );
+
+  const fallbackPath = useMemo(
+    () => getFirstEnabledRoute('parent', features) ?? '/parent/dashboard',
+    [features],
+  );
+
+  useEffect(() => {
+    if (location.pathname === '/parent') {
+      navigate(fallbackPath, { replace: true });
+      return;
+    }
+
+    const requirement = parentFeatureRequirements[location.pathname];
+    if (requirement && !isFeatureRequirementEnabled(features, requirement)) {
+      navigate(fallbackPath, { replace: true });
+    }
+  }, [fallbackPath, features, location.pathname, navigate]);
 
   if (!user) return null;
 
@@ -35,7 +67,7 @@ export default function ParentLayout() {
           </div>
           
           <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
               return (
@@ -73,7 +105,7 @@ export default function ParentLayout() {
         <div className="flex-1 flex flex-col min-w-0 glass rounded-3xl overflow-hidden relative soft-shadow">
           <header className="h-20 border-b border-white/20 flex items-center px-8 flex-shrink-0 z-10 relative bg-white/40">
             <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-              {navItems.find(item => item.path === location.pathname)?.label || '温馨家园'}
+              {filteredNavItems.find(item => item.path === location.pathname)?.label || '温馨家园'}
             </h1>
           </header>
           <main className="flex-1 overflow-auto p-8 relative bg-white/50">

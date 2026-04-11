@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertStudentFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -7,6 +8,7 @@ const router = express.Router();
 router.get('/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_dungeon');
     let run = db.prepare("SELECT * FROM dungeon_runs WHERE student_id = ? AND status = 'active'").get(studentId) as any;
     
     if (!run) {
@@ -35,6 +37,7 @@ router.get('/:studentId', (req: Request, res: Response) => {
 router.post('/start/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_dungeon');
     const tx = db.transaction(() => {
       // End any existing active run
       db.prepare("UPDATE dungeon_runs SET status = 'died' WHERE student_id = ? AND status = 'active'").run(studentId);
@@ -61,6 +64,7 @@ router.post('/choice/:studentId', (req: Request, res: Response) => {
   const { choiceType, hpCost, rewardType, rewardValue } = req.body;
   
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_dungeon');
     const tx = db.transaction(() => {
       const run = db.prepare("SELECT * FROM dungeon_runs WHERE student_id = ? AND status = 'active'").get(studentId) as any;
       if (!run) throw new Error('No active run');
@@ -107,6 +111,7 @@ router.post('/choice/:studentId', (req: Request, res: Response) => {
 router.post('/abandon/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_dungeon');
     db.prepare("UPDATE dungeon_runs SET status = 'died' WHERE student_id = ? AND status = 'active'").run(studentId);
     res.json({ success: true });
   } catch (error: any) {

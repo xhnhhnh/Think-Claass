@@ -494,6 +494,62 @@ model settings {
   value String?
 }
 
+model payment_orders {
+  id                  Int                    @id @default(autoincrement())
+  order_no            String                 @unique(map: "sqlite_autoindex_payment_orders_1")
+  user_id             Int
+  source              String
+  payment_method      String
+  amount              Float
+  currency            String                 @default("CNY")
+  status              String                 @default("PENDING")
+  description         String?
+  channel_order_id    String?
+  qr_code_url         String?
+  payment_url         String?
+  channel_payload     String?
+  activated_at        DateTime?
+  expires_at          DateTime?
+  created_at          DateTime?              @default(now())
+  updated_at          DateTime?              @default(now())
+  activation_events   activation_events[]
+  payment_transactions payment_transactions[]
+  users               users                  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status], map: "idx_payment_orders_status")
+  @@index([user_id], map: "idx_payment_orders_user_id")
+}
+
+model payment_transactions {
+  id               Int             @id @default(autoincrement())
+  order_id         Int
+  transaction_type String
+  status           String
+  provider         String
+  provider_trade_no String?
+  signature        String?
+  payload          String?
+  created_at       DateTime?       @default(now())
+  payment_orders   payment_orders  @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_payment_transactions_order_id")
+}
+
+model activation_events {
+  id             Int       @id @default(autoincrement())
+  user_id        Int
+  source         String
+  activation_code String?
+  order_id       Int?
+  remark         String?
+  created_at     DateTime? @default(now())
+  payment_orders payment_orders? @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_activation_events_order_id")
+  @@index([user_id], map: "idx_activation_events_user_id")
+}
+
 model shop_items {
   id                 Int                  @id @default(autoincrement())
   name               String
@@ -720,6 +776,7 @@ model users {
   password_hash                                    String
   is_activated                                     Int?                  @default(0)
   activation_codes                                 activation_codes[]
+  activation_events                                activation_events[]
   assignments                                      assignments[]
   class_announcements                              class_announcements[]
   classes                                          classes[]
@@ -732,6 +789,7 @@ model users {
   operation_logs_operation_logs_teacher_idTousers  operation_logs[]      @relation("operation_logs_teacher_idTousers")
   parent_activity                                  parent_activity[]
   parent_students                                  parent_students[]
+  payment_orders                                   payment_orders[]
   point_presets                                    point_presets[]
   praises                                          praises[]
   question_bank                                    question_bank[]

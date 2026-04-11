@@ -1,11 +1,22 @@
 import { Router, type Request, type Response } from 'express';
 import db from '../db.js';
+import {
+  assertActorFeatureEnabled,
+  assertClassFeatureEnabled,
+  assertStudentFeatureEnabled,
+} from '../utils/classFeatures.js';
+import { getRequestActor } from '../utils/requestAuth.js';
 
 const router = Router();
 
 // GET /api/challenge/questions
 router.get('/questions', (req: Request, res: Response) => {
   try {
+    const actor = getRequestActor(req);
+    if (actor.role === 'student' && actor.id) {
+      assertActorFeatureEnabled(actor.id, 'student', 'enable_challenge');
+    }
+
     const limit = parseInt(req.query.limit as string) || 10;
     
     // Get random questions from question_bank
@@ -47,6 +58,8 @@ router.post('/submit', (req: Request, res: Response) => {
   }
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_challenge');
+
     const transaction = db.transaction(() => {
       let correctCount = 0;
       let wrongCount = 0;
@@ -130,10 +143,7 @@ router.post('/submit', (req: Request, res: Response) => {
 router.get('/boss/active/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
-    const classInfo = db.prepare('SELECT enable_world_boss FROM classes WHERE id = ?').get(classId) as any;
-    if (!classInfo || classInfo.enable_world_boss !== 1) {
-      return res.json({ success: true, boss: null });
-    }
+    assertClassFeatureEnabled(Number(classId), 'enable_world_boss');
 
     const boss = db.prepare(`
       SELECT * FROM world_bosses 
@@ -157,6 +167,8 @@ router.post('/boss/:id/attack', (req: Request, res: Response) => {
   }
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_world_boss');
+
     const result = db.transaction(() => {
       const boss = db.prepare("SELECT * FROM world_bosses WHERE id = ? AND status = 'active'").get(id) as any;
       if (!boss) {

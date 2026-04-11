@@ -1,42 +1,13 @@
-import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { PieChart, TrendingUp, TrendingDown, Calendar, Award, AlertCircle, Heart, Star } from 'lucide-react';
-import { toast } from 'sonner';
+import { AlertCircle, Calendar, Heart, LoaderCircle, PieChart, Star, TrendingDown, TrendingUp } from 'lucide-react';
 
-import { apiGet } from "@/lib/api";
-
-interface Record {
-  id: number;
-  type: string;
-  amount: number;
-  description: string;
-  created_at: string;
-}
+import { useStudentReport } from '@/hooks/queries/useAnalytics';
+import { useSettings } from '@/hooks/queries/useSettings';
 
 export default function ParentReport() {
   const user = useStore(state => state.user);
-  const [records, setRecords] = useState<Record[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user?.studentId) return;
-
-    const fetchRecords = async () => {
-      try {
-        setLoading(true);
-        const data = await apiGet(`/api/student/records?studentId=${user.studentId}`);
-        if (data.success) {
-          setRecords(data.records);
-        }
-      } catch (error) {
-        toast.error('翻阅日记失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRecords();
-  }, [user?.studentId]);
+  const { data: settings } = useSettings();
+  const { data: report, isLoading, error } = useStudentReport(user?.studentId ?? null);
 
   if (!user?.studentId) {
     return (
@@ -52,29 +23,54 @@ export default function ParentReport() {
     );
   }
 
-  // Calculate statistics
-  const now = new Date();
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  
-  const weeklyRecords = records.filter(r => new Date(r.created_at) >= oneWeekAgo);
-  const weeklyEarned = weeklyRecords.filter(r => r.amount > 0).reduce((sum, r) => sum + r.amount, 0);
-  const weeklySpent = weeklyRecords.filter(r => r.amount < 0).reduce((sum, r) => sum + Math.abs(r.amount), 0);
-  
-  const totalEarned = records.filter(r => r.amount > 0).reduce((sum, r) => sum + r.amount, 0);
-  const totalSpent = records.filter(r => r.amount < 0).reduce((sum, r) => sum + Math.abs(r.amount), 0);
+  if (settings?.enable_parent_report === '0') {
+    return (
+      <div className="flex flex-col items-center justify-center h-80 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-100/50 p-8 text-center max-w-5xl mx-auto">
+        <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6">
+          <AlertCircle className="w-10 h-10 text-amber-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-stone-800 mb-3">报告功能暂未开放</h2>
+        <p className="text-stone-500 max-w-md">管理员当前关闭了家长报告功能，请稍后再查看。</p>
+      </div>
+    );
+  }
+
+  const summary = report?.summary;
+  const records = report?.records ?? [];
+  const recentExams = report?.recent_exams ?? [];
+  const assignments = report?.assignments ?? [];
+  const praises = report?.praises ?? [];
+  const leaves = report?.leaves ?? [];
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-stone-800">成长足迹</h1>
-          <p className="text-stone-500 mt-2">记录宝贝每一次闪光的瞬间</p>
+          <p className="text-stone-500 mt-2">
+            {report?.student.name ? `${report.student.name} 的真实成长报告` : '记录宝贝每一次闪光的瞬间'}
+          </p>
         </div>
         <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center shadow-inner">
           <PieChart className="w-7 h-7" />
         </div>
       </div>
 
+      {isLoading && (
+        <div className="flex items-center justify-center rounded-[2rem] bg-white p-16 text-stone-500 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+          正在生成成长报告...
+        </div>
+      )}
+
+      {!isLoading && error && (
+        <div className="rounded-[2rem] border border-red-100 bg-red-50 px-8 py-16 text-center text-red-600 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          成长报告加载失败，请稍后重试。
+        </div>
+      )}
+
+      {!isLoading && !error && report && (
+        <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-[#fffdfa] p-7 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300">
           <div className="flex items-center space-x-4 mb-5">
@@ -84,7 +80,7 @@ export default function ParentReport() {
             <h3 className="font-bold text-stone-700 text-lg">本周收获</h3>
           </div>
           <div className="flex items-baseline space-x-2">
-            <p className="text-4xl font-bold text-green-500">+{weeklyEarned}</p>
+            <p className="text-4xl font-bold text-green-500">+{summary?.weekly_earned ?? 0}</p>
             <span className="text-stone-400 font-medium">朵</span>
           </div>
         </div>
@@ -97,7 +93,7 @@ export default function ParentReport() {
             <h3 className="font-bold text-stone-700 text-lg">本周兑换</h3>
           </div>
           <div className="flex items-baseline space-x-2">
-            <p className="text-4xl font-bold text-coral-500">-{weeklySpent}</p>
+            <p className="text-4xl font-bold text-coral-500">-{summary?.weekly_spent ?? 0}</p>
             <span className="text-stone-400 font-medium">朵</span>
           </div>
         </div>
@@ -110,7 +106,7 @@ export default function ParentReport() {
             <h3 className="font-bold text-stone-700 text-lg">累计获得</h3>
           </div>
           <div className="flex items-baseline space-x-2">
-            <p className="text-4xl font-bold text-indigo-500">{totalEarned}</p>
+            <p className="text-4xl font-bold text-indigo-500">{summary?.total_earned ?? 0}</p>
             <span className="text-stone-400 font-medium">朵</span>
           </div>
         </div>
@@ -123,8 +119,57 @@ export default function ParentReport() {
             <h3 className="font-bold text-stone-700 text-lg">累计使用</h3>
           </div>
           <div className="flex items-baseline space-x-2">
-            <p className="text-4xl font-bold text-amber-500">{totalSpent}</p>
+            <p className="text-4xl font-bold text-amber-500">{summary?.total_spent ?? 0}</p>
             <span className="text-stone-400 font-medium">朵</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-[#fffdfa] p-7 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50">
+          <h2 className="text-lg font-bold text-stone-800 mb-4">学习概况</h2>
+          <div className="space-y-3 text-stone-600">
+            <div className="flex items-center justify-between"><span>平均考试分</span><span className="font-bold text-indigo-600">{summary?.average_exam_score ?? 0}</span></div>
+            <div className="flex items-center justify-between"><span>作业完成率</span><span className="font-bold text-emerald-600">{summary?.assignment_completion_rate ?? 0}%</span></div>
+            <div className="flex items-center justify-between"><span>出勤率</span><span className="font-bold text-orange-600">{summary?.attendance_rate ?? 0}%</span></div>
+            <div className="flex items-center justify-between"><span>获得表扬</span><span className="font-bold text-pink-500">{summary?.praise_count ?? 0} 次</span></div>
+          </div>
+        </div>
+
+        <div className="bg-[#fffdfa] p-7 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50">
+          <h2 className="text-lg font-bold text-stone-800 mb-4">近期考试</h2>
+          <div className="space-y-3">
+            {recentExams.length === 0 && <div className="text-stone-400">暂无考试记录</div>}
+            {recentExams.map((exam) => (
+              <div key={`${exam.title}-${exam.exam_date}`} className="rounded-2xl bg-white/80 border border-amber-50 p-4">
+                <div className="font-bold text-stone-800">{exam.title}</div>
+                <div className="text-sm text-stone-500 mt-1">{exam.exam_date || '未设置考试日期'}</div>
+                <div className="mt-2 text-lg font-bold text-indigo-600">
+                  {exam.score}/{exam.total_score}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#fffdfa] p-7 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50">
+          <h2 className="text-lg font-bold text-stone-800 mb-4">作业与出勤</h2>
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-white/80 border border-amber-50 p-4">
+              <div className="text-sm text-stone-500">出勤明细</div>
+              <div className="mt-2 text-stone-700">
+                到课 {report.attendance.present_count} 次 · 迟到 {report.attendance.late_count} 次 · 缺勤 {report.attendance.absent_count} 次
+              </div>
+            </div>
+            {assignments.slice(0, 2).map((assignment) => (
+              <div key={`${assignment.title}-${assignment.due_date}`} className="rounded-2xl bg-white/80 border border-amber-50 p-4">
+                <div className="font-bold text-stone-800">{assignment.title}</div>
+                <div className="mt-1 text-sm text-stone-500">
+                  状态：{assignment.status === 'submitted' ? '已提交' : '待完成'}
+                </div>
+              </div>
+            ))}
+            {assignments.length === 0 && <div className="text-stone-400">暂无作业记录</div>}
           </div>
         </div>
       </div>
@@ -141,9 +186,7 @@ export default function ParentReport() {
         <div className="p-8 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] relative">
           <div className="absolute inset-0 bg-gradient-to-b from-[#fffdfa]/80 to-[#fffdfa]/40 pointer-events-none"></div>
           <div className="relative z-10">
-            {loading ? (
-              <div className="text-center py-16 text-stone-400 font-medium tracking-widest">翻阅日记中...</div>
-            ) : records.length === 0 ? (
+            {records.length === 0 ? (
               <div className="text-center py-16 text-stone-400">
                 <div className="w-24 h-24 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Star className="w-10 h-10 opacity-20" />
@@ -178,6 +221,43 @@ export default function ParentReport() {
           </div>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-[#fffdfa] rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50 p-8">
+          <h2 className="text-xl font-bold text-stone-800 mb-6">教师表扬与评语</h2>
+          <div className="space-y-4">
+            {praises.length === 0 && <div className="text-stone-400">最近还没有新的表扬记录</div>}
+            {praises.map((praise) => (
+              <div key={`${praise.title}-${praise.created_at}`} className="rounded-2xl bg-white/80 border border-amber-50 p-5">
+                <div className="font-bold text-stone-800">{praise.title}</div>
+                <div className="mt-2 text-stone-600">{praise.message}</div>
+                <div className="mt-3 text-xs text-stone-400">{new Date(praise.created_at).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#fffdfa] rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50 p-8">
+          <h2 className="text-xl font-bold text-stone-800 mb-6">请假与出勤提醒</h2>
+          <div className="space-y-4">
+            {leaves.length === 0 && <div className="text-stone-400">最近没有请假记录</div>}
+            {leaves.map((leave) => (
+              <div key={`${leave.reason}-${leave.created_at}`} className="rounded-2xl bg-white/80 border border-amber-50 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="font-bold text-stone-800">{leave.reason}</div>
+                  <div className="text-sm font-bold text-amber-600">{leave.status}</div>
+                </div>
+                <div className="mt-2 text-sm text-stone-500">
+                  {leave.start_date} 至 {leave.end_date}
+                </div>
+                {leave.review_comment && <div className="mt-3 text-stone-600">{leave.review_comment}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+        </>
+      )}
     </div>
   );
 }

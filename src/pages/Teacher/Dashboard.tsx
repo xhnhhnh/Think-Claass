@@ -12,8 +12,11 @@ import { useStudents } from '@/hooks/queries/useStudents';
 import { useGroups } from '@/hooks/queries/useGroups';
 import { usePresets } from '@/hooks/queries/usePresets';
 import { useStudentMutations } from '@/hooks/queries/useStudentMutations';
+import { useSettings } from '@/hooks/queries/useSettings';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { teacherApi } from '@/api/teacher';
+import { analyticsApi } from '@/api/analytics';
+import { useStore } from '@/store/useStore';
 
 import { PointsModal } from './components/PointsModal';
 import { CreateClassModal } from './components/CreateClassModal';
@@ -21,11 +24,13 @@ import { CreateGroupModal } from './components/CreateGroupModal';
 import { PraiseModal } from './components/PraiseModal';
 import { EditStudentsModal } from './components/EditStudentsModal';
 import { AIRadarModal } from './components/AIRadarModal';
+import ClassFeaturePanel from './components/ClassFeaturePanel';
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const user = useStore((state) => state.user);
 
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
@@ -37,6 +42,7 @@ export default function TeacherDashboard() {
   const { data: students = [], isLoading: loadingStudents } = useStudents(selectedClassId);
   const { data: groups = [] } = useGroups(selectedClassId);
   const { data: presets = [] } = usePresets();
+  const { data: settings } = useSettings();
 
   // Mutations
   const {
@@ -48,7 +54,7 @@ export default function TeacherDashboard() {
   } = useStudentMutations(selectedClassId);
 
   const createClassMutation = useMutation({
-    mutationFn: async (name: string) => teacherApi.createClass(name),
+    mutationFn: async (name: string) => teacherApi.createClass(name, user?.id),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['classes'] });
       setSelectedClassId(data.class.id);
@@ -67,7 +73,7 @@ export default function TeacherDashboard() {
   });
 
   const createPresetMutation = useMutation({
-    mutationFn: async ({ label, amount }: { label: string, amount: number }) => teacherApi.createPreset(label, amount),
+    mutationFn: async ({ label, amount }: { label: string, amount: number }) => teacherApi.createPreset(label, amount, user?.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['presets'] })
   });
 
@@ -78,12 +84,28 @@ export default function TeacherDashboard() {
 
   const praiseMutation = useMutation({
     mutationFn: async ({ studentId, content, color }: { studentId: number, content: string, color: string }) => 
-      teacherApi.sendPraise({ teacher_id: 1, student_id: studentId, content, color }),
+      teacherApi.sendPraise({ teacher_id: user?.id ?? 1, student_id: studentId, content, color }),
     onSuccess: () => {
       toast.success('表扬信发送成功！学生已获得经验加成！');
       triggerConfetti();
       setShowPraiseModal(false);
     }
+  });
+
+  const studentRadarMutation = useMutation({
+    mutationFn: async (studentId: number) => analyticsApi.getStudentRadar(studentId),
+    onSuccess: (data) => {
+      setAiAnalysisStage(3);
+      setAiReport({
+        strengths: data.report.strengths,
+        weaknesses: data.report.weaknesses,
+        advice: data.report.advice.join(' '),
+      });
+    },
+    onError: () => {
+      toast.error('AI 学情摘要生成失败，请稍后重试');
+      setShowAIModal(false);
+    },
   });
 
   // Modal States
@@ -190,6 +212,11 @@ export default function TeacherDashboard() {
   };
 
   const openAIModal = (studentId: number) => {
+    if (settings?.enable_teacher_analytics === '0') {
+      toast.error('管理员暂未开放教师分析功能');
+      return;
+    }
+
     const student = students.find(s => s.id === studentId);
     if (!student) return;
     setAiTargetStudent(student);
@@ -200,24 +227,8 @@ export default function TeacherDashboard() {
     setTimeout(() => setAiAnalysisStage(1), 800);
     setTimeout(() => setAiAnalysisStage(2), 1800);
     setTimeout(() => {
-      setAiAnalysisStage(3);
-      const score = student.total_points;
-      let strengths, weaknesses, advice;
-      if (score > 500) {
-        strengths = ['学习积极性极高', '经常参与课堂互动', '作业完成度好'];
-        weaknesses = ['可能缺乏同伴互评的参与度'];
-        advice = '该魔法师表现优异！建议解锁更高级的盲盒奖励以维持其积极性，或委任其为魔法小队队长。';
-      } else if (score > 100) {
-        strengths = ['表现稳定', '有持续进步的潜力'];
-        weaknesses = ['偶尔会错过一些互动机会', '部分挑战未完成'];
-        advice = '该魔法师处于平稳发展期。建议在课堂上多给予一些口头表扬（加分），并鼓励其参与世界 BOSS 挑战。';
-      } else {
-        strengths = ['具备基础的规则意识'];
-        weaknesses = ['近期积分获取缓慢', '参与度偏低'];
-        advice = '系统检测到该魔法师近期情绪可能较低落或缺乏动力。建议进行一次简短的私下谈心，或者通过家校联动（家长魔法增益）来激发其学习兴趣。';
-      }
-      setAiReport({ strengths, weaknesses, advice });
-    }, 3500);
+      studentRadarMutation.mutate(studentId);
+    }, 2600);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -279,6 +290,24 @@ export default function TeacherDashboard() {
           </div>
         )}
       </div>
+
+      {selectedClassId && (
+        <div className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-xl">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">课堂功能控制</h2>
+              <p className="text-sm text-slate-500">当前班级的 19 项课堂能力会实时同步到学生端、家长端与接口兜底校验</p>
+            </div>
+            <button
+              onClick={() => navigate('/teacher/features')}
+              className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+            >
+              进入完整控制台
+            </button>
+          </div>
+          <ClassFeaturePanel classId={selectedClassId} compact />
+        </div>
+      )}
 
       {/* Top Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 gap-4 sm:gap-0">

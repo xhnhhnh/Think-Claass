@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.post('/dictionary', (req: Request, res: Response) => {
 router.get('/pools/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_gacha');
     // Auto-create a default pool if none exists
     const existing = db.prepare('SELECT * FROM gacha_pools WHERE class_id = ?').all(classId);
     if (existing.length === 0) {
@@ -55,6 +57,7 @@ router.post('/draw/:studentId', (req: Request, res: Response) => {
   if (!poolId || !times) return res.status(400).json({ success: false, message: 'Invalid request' });
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_gacha');
     const tx = db.transaction(() => {
       const student = db.prepare('SELECT available_points FROM students WHERE id = ?').get(studentId) as any;
       const pool = db.prepare('SELECT * FROM gacha_pools WHERE id = ?').get(poolId) as any;
@@ -108,6 +111,7 @@ router.post('/draw/:studentId', (req: Request, res: Response) => {
 router.get('/collection/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_gacha');
     const collection = db.prepare(`
       SELECT sp.id as instance_id, sp.level, sp.experience, sp.is_active,
              pd.* 
@@ -134,6 +138,7 @@ router.get('/collection/:studentId', (req: Request, res: Response) => {
 router.put('/active/:studentId/:instanceId', (req: Request, res: Response) => {
   const { studentId, instanceId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_gacha');
     db.prepare('UPDATE student_pets SET is_active = 0 WHERE student_id = ?').run(studentId);
     db.prepare('UPDATE student_pets SET is_active = 1 WHERE student_id = ? AND id = ?').run(studentId, instanceId);
     res.json({ success: true });

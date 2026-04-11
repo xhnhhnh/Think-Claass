@@ -1,8 +1,8 @@
-- [ ] `install.sh` has root privilege checks and OS detection.
-- [ ] `install.sh` checks for available disk space and required ports.
-- [ ] `install.sh` uses robust parsing for GitHub API responses.
-- [ ] `update.sh` compresses backups and can restore them if the update fails.
-- [ ] `update.sh` has rollback logic on PM2 restart failure.
-- [ ] `pack.sh` checks if `npm run build` succeeds before zipping.
-- [ ] `install.sh` and `update.sh` changes are synchronized to the deployment templates (`.tmp/deploy/` and `.tmp/update/`).
-- [ ] The updated scripts are successfully committed and pushed to the GitHub repository.
+- [x] `install.sh` has root privilege checks and OS detection.
+- [x] `install.sh` checks for available disk space and required ports.
+- [x] `install.sh` uses robust parsing for GitHub API responses.
+- [x] `update.sh` compresses backups and can restore them if the update fails.
+- [x] `update.sh` has rollback logic on PM2 restart failure.
+- [x] `pack.sh` checks if `npm run build` succeeds before zipping.
+- [x] `install.sh` and `update.sh` changes are synchronized to the deployment templates (`.tmp/deploy/` and `.tmp/update/`).
+- [x] The updated scripts are successfully committed and pushed to the GitHub repository.

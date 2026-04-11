@@ -69,7 +69,10 @@ export default function Login() {
 
       if (data.success) {
         if (isLogin) {
-          setUser(data.user);
+          setUser({
+            ...data.user,
+            classFeatures: data.classFeatures ?? undefined,
+          });
           if (data.user.role === 'teacher') {
             navigate('/teacher');
           } else if (data.user.role === 'parent') {
