@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
 router.get('/bank/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_economy');
     let account = db.prepare('SELECT * FROM bank_accounts WHERE student_id = ?').get(studentId);
     
     if (!account) {
@@ -31,6 +33,7 @@ router.post('/bank/deposit/:studentId', (req: Request, res: Response) => {
   if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid amount' });
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_economy');
     const tx = db.transaction(() => {
       const student = db.prepare('SELECT available_points FROM students WHERE id = ?').get(studentId) as any;
       if (!student || student.available_points < amount) throw new Error('余额不足');
@@ -54,6 +57,7 @@ router.post('/bank/withdraw/:studentId', (req: Request, res: Response) => {
   if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid amount' });
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_economy');
     const tx = db.transaction(() => {
       const account = db.prepare('SELECT deposit_amount FROM bank_accounts WHERE student_id = ?').get(studentId) as any;
       if (!account || account.deposit_amount < amount) throw new Error('存款不足');
@@ -93,6 +97,7 @@ router.post('/bank/trigger-interest', (req: Request, res: Response) => {
 router.get('/stocks/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_economy');
     const stocks = db.prepare('SELECT * FROM stocks WHERE class_id = ?').all(classId);
     res.json({ success: true, stocks });
   } catch (error: any) {
@@ -104,6 +109,7 @@ router.get('/stocks/:classId', (req: Request, res: Response) => {
 router.get('/portfolio/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_economy');
     const portfolio = db.prepare(`
       SELECT ss.*, s.name, s.symbol, s.current_price 
       FROM student_stocks ss
@@ -123,6 +129,7 @@ router.post('/stocks/buy/:studentId', (req: Request, res: Response) => {
   if (!stockId || !shares || shares <= 0) return res.status(400).json({ success: false, message: 'Invalid request' });
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_economy');
     const tx = db.transaction(() => {
       const student = db.prepare('SELECT available_points FROM students WHERE id = ?').get(studentId) as any;
       const stock = db.prepare('SELECT * FROM stocks WHERE id = ?').get(stockId) as any;
@@ -160,6 +167,7 @@ router.post('/stocks/sell/:studentId', (req: Request, res: Response) => {
   if (!stockId || !shares || shares <= 0) return res.status(400).json({ success: false, message: 'Invalid request' });
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_economy');
     const tx = db.transaction(() => {
       const stock = db.prepare('SELECT * FROM stocks WHERE id = ?').get(stockId) as any;
       const holding = db.prepare('SELECT * FROM student_stocks WHERE student_id = ? AND stock_id = ?').get(studentId, stockId) as any;
@@ -185,6 +193,7 @@ router.post('/stocks/sell/:studentId', (req: Request, res: Response) => {
 router.post('/teacher/stocks', (req: Request, res: Response) => {
   const { class_id, name, symbol, current_price } = req.body;
   try {
+    assertClassFeatureEnabled(Number(class_id), 'enable_economy');
     db.prepare('INSERT INTO stocks (class_id, name, symbol, current_price, trend_history) VALUES (?, ?, ?, ?, ?)')
       .run(class_id, name, symbol, current_price, JSON.stringify([current_price]));
     res.json({ success: true });
@@ -197,7 +206,11 @@ router.put('/teacher/stocks/:id', (req: Request, res: Response) => {
   const { id } = req.params;
   const { new_price } = req.body;
   try {
-    const stock = db.prepare('SELECT trend_history FROM stocks WHERE id = ?').get(id) as any;
+    const stock = db.prepare('SELECT class_id, trend_history FROM stocks WHERE id = ?').get(id) as any;
+    if (!stock) {
+      return res.status(404).json({ success: false, message: 'Stock not found' });
+    }
+    assertClassFeatureEnabled(Number(stock.class_id), 'enable_economy');
     let history = [];
     if (stock && stock.trend_history) {
       try { history = JSON.parse(stock.trend_history); } catch(e){}

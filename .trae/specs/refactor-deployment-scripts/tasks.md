@@ -20,10 +20,10 @@
   - [x] Add strict error checking to `pack.sh` to ensure `npm run build` succeeds.
   - [x] Synchronize changes from the root `update.sh` and `install.sh` to the `.tmp/deploy/` directory to ensure packaged deployments use the new scripts.
 
-- [ ] Task 5: Commit and push changes to GitHub
-  - [ ] Add modified scripts to Git.
-  - [ ] Create a commit message explaining the robust script refactoring.
-  - [ ] Push the changes to the `main` branch.
+- [x] Task 5: Commit and push changes to GitHub
+  - [x] Add modified scripts to Git.
+  - [x] Create a commit message explaining the robust script refactoring.
+  - [x] Push the changes to the `main` branch.
 
 # Task Dependencies
 - Task 2 depends on Task 1.

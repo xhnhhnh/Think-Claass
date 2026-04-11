@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertClassFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
 router.get('/teacher/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_class_brawl');
     const battles = db.prepare(`
       SELECT cb.*, 
              c1.name as initiator_class_name,
@@ -36,6 +38,8 @@ router.post('/teacher/initiate', (req: Request, res: Response) => {
   }
 
   try {
+    assertClassFeatureEnabled(Number(initiator_class_id), 'enable_class_brawl');
+    assertClassFeatureEnabled(Number(target_class_id), 'enable_class_brawl');
     // Check if there is already an active battle
     const existing = db.prepare(`
       SELECT * FROM class_battles 
@@ -63,6 +67,11 @@ router.post('/teacher/initiate', (req: Request, res: Response) => {
 router.put('/teacher/accept/:battleId', (req: Request, res: Response) => {
   const { battleId } = req.params;
   try {
+    const battle = db.prepare('SELECT initiator_class_id, target_class_id FROM class_battles WHERE id = ?').get(battleId) as any;
+    if (!battle) return res.status(404).json({ success: false, message: 'Battle not found' });
+    assertClassFeatureEnabled(Number(battle.initiator_class_id), 'enable_class_brawl');
+    assertClassFeatureEnabled(Number(battle.target_class_id), 'enable_class_brawl');
+
     const startTime = new Date();
     const endTime = new Date(startTime.getTime() + 15 * 60000); // 15 mins default
     
@@ -82,6 +91,10 @@ router.put('/teacher/accept/:battleId', (req: Request, res: Response) => {
 router.put('/teacher/reject/:battleId', (req: Request, res: Response) => {
   const { battleId } = req.params;
   try {
+    const battle = db.prepare('SELECT initiator_class_id, target_class_id FROM class_battles WHERE id = ?').get(battleId) as any;
+    if (!battle) return res.status(404).json({ success: false, message: 'Battle not found' });
+    assertClassFeatureEnabled(Number(battle.initiator_class_id), 'enable_class_brawl');
+    assertClassFeatureEnabled(Number(battle.target_class_id), 'enable_class_brawl');
     db.prepare(`
       UPDATE class_battles 
       SET status = 'rejected' 
@@ -99,6 +112,10 @@ router.put('/teacher/end/:battleId', (req: Request, res: Response) => {
   const { battleId } = req.params;
   const { winner_class_id } = req.body;
   try {
+    const battle = db.prepare('SELECT initiator_class_id, target_class_id FROM class_battles WHERE id = ?').get(battleId) as any;
+    if (!battle) return res.status(404).json({ success: false, message: 'Battle not found' });
+    assertClassFeatureEnabled(Number(battle.initiator_class_id), 'enable_class_brawl');
+    assertClassFeatureEnabled(Number(battle.target_class_id), 'enable_class_brawl');
     db.prepare(`
       UPDATE class_battles 
       SET status = 'ended', winner_class_id = ? 
@@ -126,6 +143,8 @@ router.get('/stats/:battleId', (req: Request, res: Response) => {
     `).get(battleId) as any;
 
     if (!battle) return res.status(404).json({ success: false, message: 'Battle not found' });
+    assertClassFeatureEnabled(Number(battle.initiator_class_id), 'enable_class_brawl');
+    assertClassFeatureEnabled(Number(battle.target_class_id), 'enable_class_brawl');
 
     // Calculate score for initiator
     // Here we use challenge_records total score added after start_time as an example proxy for battle power
@@ -164,6 +183,9 @@ router.get('/stats/:battleId', (req: Request, res: Response) => {
 router.get('/classes/search', (req: Request, res: Response) => {
   const { q, excludeClassId } = req.query;
   try {
+    if (excludeClassId) {
+      assertClassFeatureEnabled(Number(excludeClassId), 'enable_class_brawl');
+    }
     let classes;
     if (q) {
       classes = db.prepare(`

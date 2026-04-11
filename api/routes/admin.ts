@@ -3,11 +3,13 @@ import express from 'express';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
+import { randomBytes } from 'crypto';
 import { spawn, execSync } from 'child_process';
 import multer from 'multer';
 import { closeDb, initDb, reopenDb } from '../db.js';
 import { prisma } from '../prismaClient.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
+import { requireActorRole } from '../utils/requestAuth.js';
 
 const router = Router();
 router.use(express.json({ limit: '10mb' }));
@@ -33,6 +35,15 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(401, '账号或密码错误，请重试');
   }
 }));
+
+router.use((req: Request, _res: Response, next) => {
+  try {
+    requireActorRole(req, ['admin', 'superadmin']);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Super admin stats
 router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
@@ -424,13 +435,35 @@ router.delete('/users/:id', asyncHandler(async (req: Request, res: Response) => 
 
 // Settings
 router.put('/settings', asyncHandler(async (req: Request, res: Response) => {
-  const { site_title, site_favicon, allow_teacher_registration, revenue_enabled, revenue_mode } = req.body;
+  const {
+    site_title,
+    site_favicon,
+    allow_teacher_registration,
+    revenue_enabled,
+    revenue_mode,
+    enable_teacher_analytics,
+    enable_parent_report,
+    payment_price,
+    payment_currency,
+    payment_description,
+    payment_environment,
+    payment_enable_wechat,
+    payment_enable_alipay,
+  } = req.body;
   const updates = [];
   if (site_title !== undefined) updates.push({ key: 'site_title', value: String(site_title) });
   if (site_favicon !== undefined) updates.push({ key: 'site_favicon', value: String(site_favicon) });
   if (allow_teacher_registration !== undefined) updates.push({ key: 'allow_teacher_registration', value: String(allow_teacher_registration) });
   if (revenue_enabled !== undefined) updates.push({ key: 'revenue_enabled', value: String(revenue_enabled) });
   if (revenue_mode !== undefined) updates.push({ key: 'revenue_mode', value: String(revenue_mode) });
+  if (enable_teacher_analytics !== undefined) updates.push({ key: 'enable_teacher_analytics', value: String(enable_teacher_analytics) });
+  if (enable_parent_report !== undefined) updates.push({ key: 'enable_parent_report', value: String(enable_parent_report) });
+  if (payment_price !== undefined) updates.push({ key: 'payment_price', value: String(payment_price) });
+  if (payment_currency !== undefined) updates.push({ key: 'payment_currency', value: String(payment_currency) });
+  if (payment_description !== undefined) updates.push({ key: 'payment_description', value: String(payment_description) });
+  if (payment_environment !== undefined) updates.push({ key: 'payment_environment', value: String(payment_environment) });
+  if (payment_enable_wechat !== undefined) updates.push({ key: 'payment_enable_wechat', value: String(payment_enable_wechat) });
+  if (payment_enable_alipay !== undefined) updates.push({ key: 'payment_enable_alipay', value: String(payment_enable_alipay) });
 
   for (const update of updates) {
     await prisma.settings.upsert({
@@ -446,9 +479,10 @@ router.put('/settings', asyncHandler(async (req: Request, res: Response) => {
 router.get('/codes', asyncHandler(async (req: Request, res: Response) => {
   const { default: db } = await import('../db.js');
   const codes = db.prepare(`
-    SELECT ac.*, u.username as used_by_username
+    SELECT ac.*, u.username as used_by_username, ae.source as activation_source, ae.remark as activation_remark
     FROM activation_codes ac
     LEFT JOIN users u ON ac.used_by = u.id
+    LEFT JOIN activation_events ae ON ae.activation_code = ac.code
     ORDER BY ac.created_at DESC
   `).all();
   res.json({ success: true, codes });
@@ -468,8 +502,7 @@ router.post('/codes', asyncHandler(async (req: Request, res: Response) => {
   
   db.transaction(() => {
     for (let i = 0; i < numToGenerate; i++) {
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase() + 
-                   Math.random().toString(36).substring(2, 8).toUpperCase();
+      const code = randomBytes(8).toString('hex').toUpperCase();
       insertCode.run(code);
       generatedCodes.push(code);
     }
@@ -505,6 +538,10 @@ router.get('/system/update/check', asyncHandler(async (req: Request, res: Respon
 }));
 
 router.post('/system/update/execute', asyncHandler(async (req: Request, res: Response) => {
+  if (req.body?.confirmation !== 'UPDATE') {
+    throw new ApiError(400, '缺少更新确认标记');
+  }
+
   if (process.platform === 'win32') {
     throw new ApiError(400, 'Windows 环境暂不支持一键更新，请手动下载最新 Release 包解压覆盖（注意保留 database.sqlite 和 .env 文件）。');
   }

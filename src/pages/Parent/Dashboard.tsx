@@ -56,9 +56,9 @@ export default function ParentDashboard() {
       try {
         setLoading(true);
         const [studentData, recordsData, tasksData, petData] = await Promise.all([
-          apiGet(`/api/student/${user.studentId}`),
-          apiGet(`/api/student/records?studentId=${user.studentId}`),
-          apiGet(`/api/familyTasks?studentId=${user.studentId}`),
+          apiGet(`/api/students/${user.studentId}`),
+          apiGet(`/api/students/records?studentId=${user.studentId}`),
+          apiGet(`/api/family-tasks?studentId=${user.studentId}`),
           apiGet(`/api/pets/${user.studentId}`)
         ]);
 

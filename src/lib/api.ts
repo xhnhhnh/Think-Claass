@@ -1,5 +1,7 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
+
+import { useStore } from '@/store/useStore';
 
 interface ApiOptions extends AxiosRequestConfig {
   showError?: boolean;
@@ -41,11 +43,13 @@ const axiosInstance = axios.create({
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 预留：如果有 Token 可以从 localStorage 或 useStore 中取出并添加到 headers 中
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const user = useStore.getState().user;
+    if (user) {
+      const headers = new AxiosHeaders(config.headers);
+      headers.set('x-user-role', user.role);
+      headers.set('x-user-id', String(user.id));
+      config.headers = headers;
+    }
     return config;
   },
   (error) => {

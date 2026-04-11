@@ -5,8 +5,11 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
+import ClassFeaturePanel from './components/ClassFeaturePanel';
 
 import { apiGet } from "@/lib/api";
+import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
+import { defaultClassFeatures } from '@/lib/classFeatures';
 
 interface ClassItem {
   id: number;
@@ -25,6 +28,8 @@ export default function TeacherBigscreen() {
   const [countdownInput, setCountdownInput] = useState('10');
   const [showCountdownConfig, setShowCountdownConfig] = useState(false);
   const [prevBossHp, setPrevBossHp] = useState<number | null>(null);
+  const { data: classFeatureData } = useClassFeatures(selectedClassId);
+  const classFeatures = classFeatureData?.features ?? defaultClassFeatures;
 
   useEffect(() => {
     fetchClasses();
@@ -32,9 +37,8 @@ export default function TeacherBigscreen() {
 
   // Handle Boss Defeat Animation
   useEffect(() => {
-    if (bigscreenData?.activeBoss) {
+    if (classFeatures.enable_world_boss && bigscreenData?.activeBoss) {
       if (prevBossHp !== null && bigscreenData.activeBoss.hp === 0 && prevBossHp > 0) {
-        // Boss just defeated!
         confetti({
           particleCount: 200,
           spread: 160,
@@ -44,7 +48,7 @@ export default function TeacherBigscreen() {
       }
       setPrevBossHp(bigscreenData.activeBoss.hp);
     }
-  }, [bigscreenData?.activeBoss?.hp]);
+  }, [bigscreenData?.activeBoss?.hp, classFeatures.enable_world_boss, prevBossHp]);
 
   // Handle Countdown Timer
   useEffect(() => {
@@ -119,11 +123,11 @@ export default function TeacherBigscreen() {
     return <div className="p-8 text-center text-slate-500">暂无班级数据，请先创建班级。</div>;
   }
 
-  const isBossActive = bigscreenData?.activeBoss && bigscreenData.activeBoss.hp > 0;
+  const isBossActive = classFeatures.enable_world_boss && bigscreenData?.activeBoss && bigscreenData.activeBoss.hp > 0;
 
   return (
     <div className={`flex flex-col h-full relative ${isFullscreen ? 'bg-gray-900 text-white fixed inset-0 z-50 p-8 overflow-y-auto' : 'space-y-6'}`}>
-      {selectedClassId && <DanmakuOverlay classId={selectedClassId} />}
+      {selectedClassId && classFeatures.enable_danmaku ? <DanmakuOverlay classId={selectedClassId} /> : null}
       {/* Background Particles for Fullscreen */}
       {isFullscreen && (
         <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden bg-[#0B0C10]">
@@ -158,6 +162,18 @@ export default function TeacherBigscreen() {
             <Maximize className="h-4 w-4 mr-2" />
             进入大屏模式
           </button>
+        </div>
+      )}
+
+      {!isFullscreen && selectedClassId && (
+        <div className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-xl">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">大屏功能摘要</h2>
+              <p className="text-sm text-slate-500">关闭弹幕后将停止展示课堂弹幕，关闭世界 Boss 后大屏也会同步隐藏相关区块</p>
+            </div>
+          </div>
+          <ClassFeaturePanel classId={selectedClassId} compact />
         </div>
       )}
 

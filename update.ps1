@@ -15,10 +15,26 @@ $repo = "xhnhhnh/Think-Claass"
 $appName = "think-class"
 $zipFile = "think-class-release.zip"
 $tempExtractDir = "temp_update_extract"
+$requiredNodeMajor = 24
 
 function Write-Log {
     param([string]$Message, [string]$Color = "White")
     Write-Host ">> $Message" -ForegroundColor $Color
+}
+
+function Test-NodeVersion {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Write-Log "错误：未检测到 Node.js，请先安装 Node.js 24 LTS 后再执行更新。" "Red"
+        exit 1
+    }
+
+    $nodeVersion = (node -v).Trim().TrimStart("v")
+    $nodeMajor = [int]($nodeVersion.Split(".")[0])
+    if ($nodeMajor -lt $requiredNodeMajor) {
+        Write-Log "错误：检测到 Node.js 版本 $nodeVersion，低于 v$requiredNodeMajor，无法继续更新。" "Red"
+        Write-Log "请先升级到 Node.js 24 LTS，再重新运行 update.ps1。" "Red"
+        exit 1
+    }
 }
 
 Write-Log "=================================================" "Cyan"
@@ -36,6 +52,8 @@ try {
     Write-Log "错误：未检测到 PM2，请确保您已全局安装 PM2 (npm install -g pm2)。" "Red"
     exit 1
 }
+
+Test-NodeVersion
 
 # 2. 备份数据
 $backupDir = "data_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"

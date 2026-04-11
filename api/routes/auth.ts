@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import { decrypt } from '../db.js';
 import { prisma } from '../prismaClient.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
+import { activateUser } from '../services/activationService.js';
+import { pickClassFeatures } from '../utils/classFeatures.js';
 
 const router = Router();
 
@@ -27,18 +29,11 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
         role: user.role, 
         username: user.username, 
         studentId: student?.id, 
+        class_id: student?.class_id ?? undefined,
         name: student ? decrypt(student.name) : undefined, 
         is_activated: !!user.is_activated 
       },
-      classFeatures: cls ? {
-        enable_chat_bubble: cls.enable_chat_bubble,
-        enable_peer_review: cls.enable_peer_review,
-        enable_tree_hole: cls.enable_tree_hole,
-        enable_shop: cls.enable_shop,
-        enable_lucky_draw: cls.enable_lucky_draw,
-        enable_challenge: cls.enable_challenge,
-        enable_family_tasks: cls.enable_family_tasks,
-      } : null
+      classFeatures: cls ? pickClassFeatures(cls as unknown as Record<string, unknown>) : null
     });
   } else if (role === 'parent') {
     const parentStudent = await prisma.parent_students.findFirst({ where: { parent_id: user.id } });
@@ -62,18 +57,11 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
         role: user.role, 
         username: user.username, 
         studentId: student?.id, 
+        class_id: student?.class_id ?? undefined,
         name: student ? decrypt(student.name) : undefined, 
         is_activated: !!user.is_activated 
       },
-      classFeatures: cls ? {
-        enable_chat_bubble: cls.enable_chat_bubble,
-        enable_peer_review: cls.enable_peer_review,
-        enable_tree_hole: cls.enable_tree_hole,
-        enable_shop: cls.enable_shop,
-        enable_lucky_draw: cls.enable_lucky_draw,
-        enable_challenge: cls.enable_challenge,
-        enable_family_tasks: cls.enable_family_tasks,
-      } : null
+      classFeatures: cls ? pickClassFeatures(cls as unknown as Record<string, unknown>) : null
     });
   } else {
     res.json({ success: true, user: { id: user.id, role: user.role, username: user.username, is_activated: !!user.is_activated } });
@@ -107,7 +95,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
     
     classId = cls.id;
   } else if (role === 'teacher') {
-    const setting = await prisma.system_settings.findUnique({ where: { key: 'allow_teacher_registration' } });
+    const setting = await prisma.settings.findUnique({ where: { key: 'allow_teacher_registration' } });
     if (setting && setting.value === '0') {
       throw new ApiError(403, '系统暂未开放教师注册');
     }
@@ -160,10 +148,13 @@ router.post('/activate', asyncHandler(async (req: Request, res: Response) => {
       where: { id: activationCode.id },
       data: { status: 'used', used_by: Number(userId), used_at: new Date() }
     });
-    await tx.users.update({
-      where: { id: Number(userId) },
-      data: { is_activated: 1 }
-    });
+  });
+
+  await activateUser({
+    userId: Number(userId),
+    source: 'activation_code',
+    activationCode: String(code),
+    remark: '通过激活码完成开通',
   });
 
   res.json({ success: true, message: '激活成功' });

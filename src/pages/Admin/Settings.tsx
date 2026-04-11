@@ -10,12 +10,21 @@ export default function AdminSettings() {
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [updateConfirmation, setUpdateConfirmation] = useState('');
   const [formData, setFormData] = useState({
     site_title: '',
     site_favicon: '',
     allow_teacher_registration: '0',
     revenue_enabled: '0',
-    revenue_mode: 'activation_code'
+    revenue_mode: 'activation_code',
+    enable_teacher_analytics: '1',
+    enable_parent_report: '1',
+    payment_price: '99.00',
+    payment_currency: 'CNY',
+    payment_description: 'Think-Class 平台激活',
+    payment_environment: 'mock',
+    payment_enable_wechat: '1',
+    payment_enable_alipay: '1'
   });
 
   const fetchSettings = async () => {
@@ -28,7 +37,15 @@ export default function AdminSettings() {
           site_favicon: data.data.site_favicon || '',
           allow_teacher_registration: data.data.allow_teacher_registration || '0',
           revenue_enabled: data.data.revenue_enabled || '0',
-          revenue_mode: data.data.revenue_mode || 'activation_code'
+          revenue_mode: data.data.revenue_mode || 'activation_code',
+          enable_teacher_analytics: data.data.enable_teacher_analytics || '1',
+          enable_parent_report: data.data.enable_parent_report || '1',
+          payment_price: data.data.payment_price || '99.00',
+          payment_currency: data.data.payment_currency || 'CNY',
+          payment_description: data.data.payment_description || 'Think-Class 平台激活',
+          payment_environment: data.data.payment_environment || 'mock',
+          payment_enable_wechat: data.data.payment_enable_wechat || '1',
+          payment_enable_alipay: data.data.payment_enable_alipay || '1'
         });
       } else {
         toast.error(data.message || '获取设置失败');
@@ -63,12 +80,15 @@ export default function AdminSettings() {
 
   const handleExecuteUpdate = async () => {
     if (!confirm('更新过程中系统将会自动重启，是否确认更新？')) return;
+    if (updateConfirmation !== 'UPDATE') {
+      toast.error('请输入 UPDATE 以确认危险操作');
+      return;
+    }
     setUpdating(true);
     try {
-      const data = await apiPost('/api/admin/system/update/execute', undefined);
+      const data = await apiPost('/api/admin/system/update/execute', { confirmation: 'UPDATE' });
       if (data.success) {
         toast.success(data.message || '更新已在后台触发，请稍后刷新页面');
-        // Let the user manually refresh after a while, or auto refresh after 10s
         setTimeout(() => {
           window.location.reload();
         }, 10000);
@@ -285,6 +305,42 @@ export default function AdminSettings() {
               </div>
             </div>
 
+            <div className="flex items-center space-x-3 pt-2">
+              <div className="flex items-center h-5">
+                <input
+                  id="enable_teacher_analytics"
+                  type="checkbox"
+                  checked={formData.enable_teacher_analytics === '1'}
+                  onChange={(e) => setFormData({ ...formData, enable_teacher_analytics: e.target.checked ? '1' : '0' })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+              </div>
+              <div className="text-sm">
+                <label htmlFor="enable_teacher_analytics" className="font-medium text-slate-700">
+                  开启教师分析页
+                </label>
+                <p className="text-slate-500">关闭后，教师分析页面和 AI 学情摘要将显示为不可用状态</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3 pt-2">
+              <div className="flex items-center h-5">
+                <input
+                  id="enable_parent_report"
+                  type="checkbox"
+                  checked={formData.enable_parent_report === '1'}
+                  onChange={(e) => setFormData({ ...formData, enable_parent_report: e.target.checked ? '1' : '0' })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+              </div>
+              <div className="text-sm">
+                <label htmlFor="enable_parent_report" className="font-medium text-slate-700">
+                  开启家长成长报告
+                </label>
+                <p className="text-slate-500">关闭后，家长报告页会提示功能暂未开放</p>
+              </div>
+            </div>
+
             <div className="border-t border-slate-200 my-8"></div>
 
             <div className="flex items-center mb-6">
@@ -356,6 +412,80 @@ export default function AdminSettings() {
                     <p className="text-xs text-slate-500">用户通过内置支付网关（如微信/支付宝）直接扫码购买</p>
                   </div>
                 </div>
+
+                {formData.revenue_mode === 'direct_payment' && (
+                  <div className="space-y-4 rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">支付金额</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.payment_price}
+                          onChange={(e) => setFormData({ ...formData, payment_price: e.target.value })}
+                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">币种</label>
+                        <input
+                          type="text"
+                          value={formData.payment_currency}
+                          onChange={(e) => setFormData({ ...formData, payment_currency: e.target.value.toUpperCase() })}
+                          className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">支付说明</label>
+                      <input
+                        type="text"
+                        value={formData.payment_description}
+                        onChange={(e) => setFormData({ ...formData, payment_description: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">支付环境</label>
+                      <select
+                        value={formData.payment_environment}
+                        onChange={(e) => setFormData({ ...formData, payment_environment: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      >
+                        <option value="mock">mock</option>
+                        <option value="sandbox">sandbox</option>
+                        <option value="production">production</option>
+                      </select>
+                      <p className="mt-2 text-xs text-amber-600">
+                        当前代码仓库仍使用 mock 支付适配层。这里的环境与渠道开关会驱动订单流与页面提示，但若要真正接入微信/支付宝，还需要后续补充 SDK、证书和密钥配置。
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <label className="flex items-center space-x-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={formData.payment_enable_wechat === '1'}
+                          onChange={(e) => setFormData({ ...formData, payment_enable_wechat: e.target.checked ? '1' : '0' })}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-slate-700">启用微信支付</span>
+                      </label>
+                      <label className="flex items-center space-x-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={formData.payment_enable_alipay === '1'}
+                          onChange={(e) => setFormData({ ...formData, payment_enable_alipay: e.target.checked ? '1' : '0' })}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-slate-700">启用支付宝</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -371,6 +501,28 @@ export default function AdminSettings() {
             </div>
           </form>
         </div>
+
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-red-100 overflow-hidden max-w-3xl">
+            <div className="p-6 border-b border-red-100 bg-red-50 flex items-center">
+              <AlertTriangle className="w-5 h-5 text-red-500 mr-2" />
+              <h3 className="font-medium text-red-700">危险操作区</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                系统更新属于高风险操作。执行前请确认已备份数据库，并在下方输入 <span className="font-bold text-red-600">UPDATE</span> 进行确认。
+              </p>
+              <input
+                type="text"
+                value={updateConfirmation}
+                onChange={(e) => setUpdateConfirmation(e.target.value)}
+                className="w-full px-4 py-2 border border-red-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                placeholder="输入 UPDATE 以确认"
+              />
+              <p className="text-xs text-slate-500">
+                当前运行平台：{updateInfo?.platform || '未知'}。Windows 环境下仍需使用手动更新方式。
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

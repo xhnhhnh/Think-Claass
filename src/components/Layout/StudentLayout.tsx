@@ -1,19 +1,24 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { Star, ShoppingBag, LogOut, Crown, Swords, Gift, Ticket, MessageSquare, BookOpen, Users, Award, Medal, MessageSquareHeart, Gavel, GitBranch, Crosshair, MapPin, Sparkles, Building2, Skull } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import { motion } from 'framer-motion';
+import {
+  defaultClassFeatures,
+  getFirstEnabledRoute,
+  isFeatureRequirementEnabled,
+  studentFeatureRequirements,
+} from '@/lib/classFeatures';
 
 export default function StudentLayout() {
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
+  const features = user?.classFeatures ?? defaultClassFeatures;
 
-  if (!user) return null;
-
-  const navItems = [
+  const allNavItems = [
     { path: '/student/pet', icon: Star, label: '我的精灵' },
     { path: '/student/shop', icon: ShoppingBag, label: '积分商城' },
     { path: '/student/auction', icon: Gavel, label: '拍卖行' },
@@ -35,6 +40,33 @@ export default function StudentLayout() {
     { path: '/student/team-quests', icon: Users, label: '团队任务' },
   ];
 
+  const navItems = useMemo(
+    () =>
+      allNavItems.filter((item) =>
+        isFeatureRequirementEnabled(features, studentFeatureRequirements[item.path]),
+      ),
+    [features],
+  );
+
+  const fallbackPath = useMemo(
+    () => getFirstEnabledRoute('student', features) ?? '/student/pet',
+    [features],
+  );
+
+  useEffect(() => {
+    if (location.pathname === '/student') {
+      navigate(fallbackPath, { replace: true });
+      return;
+    }
+
+    const requirement = studentFeatureRequirements[location.pathname];
+    if (requirement && !isFeatureRequirementEnabled(features, requirement)) {
+      navigate(fallbackPath, { replace: true });
+    }
+  }, [fallbackPath, features, location.pathname, navigate]);
+
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans theme-student relative overflow-hidden">
       {/* Decorative ambient background elements */}
@@ -49,7 +81,7 @@ export default function StudentLayout() {
           <motion.div 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => navigate('/student/pet')}
+            onClick={() => navigate(fallbackPath)}
             className="flex items-center px-6 py-2 cursor-pointer"
           >
             <Crown className="mr-3 h-8 w-8 text-primary" />

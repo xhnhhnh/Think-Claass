@@ -26,6 +26,22 @@ check_pm2_service() {
     fi
 }
 
+# --- 检查 Node.js 版本 ---
+check_node_version() {
+    if ! command -v node &> /dev/null; then
+        echo ">> 错误：未检测到 Node.js。请先安装 Node.js 24 LTS 后再执行更新。"
+        exit 1
+    fi
+
+    NODE_VERSION=$(node -v | cut -d 'v' -f 2)
+    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
+    if [ "$NODE_MAJOR" -lt 24 ]; then
+        echo ">> 错误：检测到 Node.js 版本 ($NODE_VERSION) 低于 v24，无法继续更新。"
+        echo ">> 请先升级到 Node.js 24 LTS，再重新运行 update.sh。"
+        exit 1
+    fi
+}
+
 # --- 检查并安装基础工具 ---
 install_base_tools() {
     echo ">> 检查基础工具 (curl, unzip, jq, tar)..."
@@ -188,6 +204,7 @@ print_success() {
 main() {
     print_welcome
     check_pm2_service
+    check_node_version
     install_base_tools
     backup_data
     update_project

@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
 router.get('/teacher/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_task_tree');
     const nodes = db.prepare('SELECT * FROM task_nodes WHERE class_id = ?').all(classId);
     res.json({ success: true, nodes });
   } catch (error: any) {
@@ -26,6 +28,7 @@ router.post('/teacher', (req: Request, res: Response) => {
   }
 
   try {
+    assertClassFeatureEnabled(Number(class_id), 'enable_task_tree');
     const stmt = db.prepare(`
       INSERT INTO task_nodes (class_id, title, description, points_reward, parent_node_id, x_pos, y_pos) 
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -57,6 +60,11 @@ router.put('/teacher/:id', (req: Request, res: Response) => {
   const { title, description, points_reward, x_pos, y_pos } = req.body;
 
   try {
+    const node = db.prepare('SELECT class_id FROM task_nodes WHERE id = ?').get(id) as { class_id: number } | undefined;
+    if (!node) {
+      return res.status(404).json({ success: false, message: 'Task node not found' });
+    }
+    assertClassFeatureEnabled(node.class_id, 'enable_task_tree');
     db.prepare(`
       UPDATE task_nodes 
       SET title = ?, description = ?, points_reward = ?, x_pos = ?, y_pos = ? 
@@ -72,6 +80,11 @@ router.put('/teacher/:id', (req: Request, res: Response) => {
 router.delete('/teacher/:id', (req: Request, res: Response) => {
   const { id } = req.params;
   try {
+    const node = db.prepare('SELECT class_id FROM task_nodes WHERE id = ?').get(id) as { class_id: number } | undefined;
+    if (!node) {
+      return res.status(404).json({ success: false, message: 'Task node not found' });
+    }
+    assertClassFeatureEnabled(node.class_id, 'enable_task_tree');
     // Check if it has children
     const hasChildren = db.prepare('SELECT 1 FROM task_nodes WHERE parent_node_id = ?').get(id);
     if (hasChildren) {
@@ -95,6 +108,7 @@ router.delete('/teacher/:id', (req: Request, res: Response) => {
 router.get('/student/:studentId', (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_task_tree');
     const student = db.prepare('SELECT class_id FROM students WHERE id = ?').get(studentId) as any;
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
@@ -129,6 +143,7 @@ router.post('/student/:studentId/complete/:nodeId', (req: Request, res: Response
   const { studentId, nodeId } = req.params;
   
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_task_tree');
     const tx = db.transaction(() => {
       const node = db.prepare('SELECT * FROM task_nodes WHERE id = ?').get(nodeId) as any;
       if (!node) throw new Error('Task node not found');

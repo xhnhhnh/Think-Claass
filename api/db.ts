@@ -709,6 +709,46 @@ export function initDb() {
     db.prepare("INSERT INTO settings (key, value) VALUES ('revenue_mode', 'activation_code')").run();
   }
 
+  const teacherAnalyticsExists = db.prepare("SELECT key FROM settings WHERE key = 'enable_teacher_analytics'").get();
+  if (!teacherAnalyticsExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('enable_teacher_analytics', '1')").run();
+  }
+
+  const parentReportExists = db.prepare("SELECT key FROM settings WHERE key = 'enable_parent_report'").get();
+  if (!parentReportExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('enable_parent_report', '1')").run();
+  }
+
+  const paymentPriceExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_price'").get();
+  if (!paymentPriceExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_price', '99.00')").run();
+  }
+
+  const paymentCurrencyExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_currency'").get();
+  if (!paymentCurrencyExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_currency', 'CNY')").run();
+  }
+
+  const paymentDescriptionExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_description'").get();
+  if (!paymentDescriptionExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_description', 'Think-Class 平台激活')").run();
+  }
+
+  const paymentEnvExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_environment'").get();
+  if (!paymentEnvExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_environment', 'mock')").run();
+  }
+
+  const paymentWechatExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_enable_wechat'").get();
+  if (!paymentWechatExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_wechat', '1')").run();
+  }
+
+  const paymentAlipayExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_enable_alipay'").get();
+  if (!paymentAlipayExists) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_alipay', '1')").run();
+  }
+
   // Add user_id and role to operation_logs if not exists (migration)
   addColumnIfNotExists('operation_logs', 'user_id', 'INTEGER REFERENCES users(id)');
   addColumnIfNotExists('operation_logs', 'role', 'TEXT');
@@ -769,6 +809,9 @@ export function initDb() {
 
   // Add group_id column to students if not exists (migration)
   addColumnIfNotExists('students', 'group_id', 'INTEGER REFERENCES student_groups(id)');
+
+  // Add team_quest_id column to peer_reviews if not exists (migration)
+  addColumnIfNotExists('peer_reviews', 'team_quest_id', 'INTEGER REFERENCES team_quests(id)');
 
   // Add last_checkin_date column to students if not exists (migration)
   addColumnIfNotExists('students', 'last_checkin_date', 'TEXT');

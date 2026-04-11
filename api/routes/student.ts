@@ -1,8 +1,40 @@
 import { Router, type Request, type Response } from 'express';
 import db, { encrypt, decrypt } from '../db.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
+import {
+  assertClassFeatureEnabled,
+  assertStudentFeatureEnabled,
+  getClassFeaturesByClassId,
+} from '../utils/classFeatures.js';
+import { getRequestActor, requireActorRole } from '../utils/requestAuth.js';
 
 const router = Router();
+
+function ensureTeacherCanManageStudent(req: Request, studentId: number) {
+  const actor = getRequestActor(req);
+  if (actor.role === 'admin' || actor.role === 'superadmin') {
+    return;
+  }
+
+  if (actor.role !== 'teacher' || !actor.id) {
+    throw new ApiError(403, '无权限修改该学生');
+  }
+
+  const relation = db
+    .prepare(
+      `
+      SELECT 1
+      FROM students s
+      JOIN classes c ON c.id = s.class_id
+      WHERE s.id = ? AND c.teacher_id = ?
+    `,
+    )
+    .get(studentId, actor.id);
+
+  if (!relation) {
+    throw new ApiError(403, '无权限修改该学生');
+  }
+}
 
 // Get all students (optionally filter by class_id)
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -259,6 +291,71 @@ router.post('/batch-points', (req: Request, res: Response) => {
   }
 });
 
+router.put('/:id/class', asyncHandler(async (req: Request, res: Response) => {
+  const studentId = Number(req.params.id);
+  const classId = Number(req.body?.class_id);
+
+  if (!Number.isFinite(studentId) || !Number.isFinite(classId)) {
+    throw new ApiError(400, 'Invalid student or class');
+  }
+
+  ensureTeacherCanManageStudent(req, studentId);
+
+  const targetClass = db.prepare('SELECT id FROM classes WHERE id = ?').get(classId);
+  if (!targetClass) {
+    throw new ApiError(404, 'Class not found');
+  }
+
+  db.prepare('UPDATE students SET class_id = ?, group_id = NULL WHERE id = ?').run(classId, studentId);
+  res.json({ success: true });
+}));
+
+router.put('/:id/group', asyncHandler(async (req: Request, res: Response) => {
+  const studentId = Number(req.params.id);
+  const groupId = req.body?.group_id === null || req.body?.group_id === undefined || req.body?.group_id === ''
+    ? null
+    : Number(req.body.group_id);
+
+  if (!Number.isFinite(studentId)) {
+    throw new ApiError(400, 'Invalid student');
+  }
+
+  ensureTeacherCanManageStudent(req, studentId);
+
+  if (groupId !== null && !Number.isFinite(groupId)) {
+    throw new ApiError(400, 'Invalid group');
+  }
+
+  if (groupId !== null) {
+    const group = db.prepare('SELECT id FROM student_groups WHERE id = ?').get(groupId);
+    if (!group) {
+      throw new ApiError(404, 'Group not found');
+    }
+  }
+
+  db.prepare('UPDATE students SET group_id = ? WHERE id = ?').run(groupId, studentId);
+  res.json({ success: true });
+}));
+
+router.put('/:id/password', asyncHandler(async (req: Request, res: Response) => {
+  const studentId = Number(req.params.id);
+  const password = typeof req.body?.password === 'string' && req.body.password.trim() ? req.body.password.trim() : '123456';
+
+  if (!Number.isFinite(studentId)) {
+    throw new ApiError(400, 'Invalid student');
+  }
+
+  ensureTeacherCanManageStudent(req, studentId);
+
+  const student = db.prepare('SELECT user_id FROM students WHERE id = ?').get(studentId) as { user_id: number } | undefined;
+  if (!student) {
+    throw new ApiError(404, 'Student not found');
+  }
+
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password, student.user_id);
+  res.json({ success: true });
+}));
+
 // Batch edit students
 router.post('/batch-edit', (req: Request, res: Response) => {
   const { studentIds, action, value } = req.body;
@@ -311,11 +408,9 @@ router.post('/:id/points', (req: Request, res: Response) => {
       let amount = rawAmount;
       let finalReason = reason;
 
-      // Check Parent Buff
       if (amount > 0) {
-        const classConfig = db.prepare('SELECT enable_parent_buff FROM classes WHERE id = ?').get(student.class_id) as any;
-        if (classConfig && classConfig.enable_parent_buff) {
-          // Check if parent has activity today
+        const classFeatures = getClassFeaturesByClassId(student.class_id);
+        if (classFeatures.enable_parent_buff) {
           const today = new Date().toISOString().split('T')[0];
           const hasBuff = db.prepare(`
             SELECT 1 FROM parent_activity 
@@ -453,7 +548,8 @@ router.get('/:id/achievements', (req: Request, res: Response) => {
       return;
     }
 
-    // Get current achievements
+    assertClassFeatureEnabled(student.class_id, 'enable_achievements');
+
     const existingAchievements = db.prepare('SELECT achievement_name FROM user_achievements WHERE student_id = ?').all(id) as { achievement_name: string }[];
     const earnedSet = new Set(existingAchievements.map(a => a.achievement_name));
     const newAchievements: string[] = [];
@@ -526,7 +622,8 @@ router.get('/:id/peer-reviews/pending', (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    // Determine group or class peers
+    assertClassFeatureEnabled(student.class_id, 'enable_peer_review');
+
     let peers: any[] = [];
     if (student.group_id) {
       peers = db.prepare('SELECT id, name FROM students WHERE group_id = ? AND id != ?').all(student.group_id, id) as any[];
@@ -564,28 +661,25 @@ router.post('/:id/peer-reviews', (req: Request, res: Response) => {
   }
 
   try {
-    // 1. Insert review record
+    assertStudentFeatureEnabled(Number(id), 'enable_peer_review');
+
     db.prepare('INSERT INTO peer_reviews (reviewer_id, reviewee_id, score, comment) VALUES (?, ?, ?, ?)')
       .run(id, reviewee_id, score, comment || '');
 
-    // 2. Award points (10 points to reviewer for doing it, score * 2 points to reviewee)
     const reviewerReward = 10;
     const revieweeReward = score * 2;
 
     db.transaction(() => {
-      // Reviewer
       db.prepare('UPDATE students SET total_points = total_points + ?, available_points = available_points + ? WHERE id = ?')
         .run(reviewerReward, reviewerReward, id);
       db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
         .run(id, 'ADD_POINTS', reviewerReward, '完成本周同伴互评奖励');
 
-      // Reviewee
       db.prepare('UPDATE students SET total_points = total_points + ?, available_points = available_points + ? WHERE id = ?')
         .run(revieweeReward, revieweeReward, reviewee_id);
       db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
         .run(reviewee_id, 'ADD_POINTS', revieweeReward, `收到同伴互评奖励 (${score}星)`);
 
-      // 3. Send Message to Reviewee
       const reviewer = db.prepare('SELECT name FROM students WHERE id = ?').get(id) as any;
       const senderName = is_anonymous ? '一位匿名的魔法师' : decrypt(reviewer.name);
       

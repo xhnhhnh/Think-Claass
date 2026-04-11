@@ -17,7 +17,7 @@ export const studentsApi = {
   getAchievements: (id: number) => apiGet(`/api/students/${id}/achievements`),
   updatePoints: (id: number, data: { amount: number; reason: string }) => 
     apiPost(`/api/students/${id}/points`, data),
-  updateClass: (id: number, classId: number) => apiPut(`/api/students/${id}/class`, { classId }),
-  updateGroup: (id: number, groupId: number | null) => apiPut(`/api/students/${id}/group`, { groupId }),
+  updateClass: (id: number, classId: number) => apiPut(`/api/students/${id}/class`, { class_id: classId }),
+  updateGroup: (id: number, groupId: number | null) => apiPut(`/api/students/${id}/group`, { group_id: groupId }),
   resetPassword: (id: number, password: string) => apiPut(`/api/students/${id}/password`, { password }),
 };

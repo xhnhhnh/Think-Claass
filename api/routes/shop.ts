@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import db from '../db.js';
+import { assertActorFeatureEnabled, assertStudentFeatureEnabled } from '../utils/classFeatures.js';
+import { getRequestActor } from '../utils/requestAuth.js';
 
 const router = Router();
 
@@ -7,6 +9,11 @@ const router = Router();
 router.get('/items', (req: Request, res: Response) => {
   const { studentId } = req.query;
   try {
+    const actor = getRequestActor(req);
+    if (actor.role === 'student' && actor.id) {
+      assertActorFeatureEnabled(actor.id, 'student', 'enable_shop');
+    }
+
     let items;
     if (studentId) {
       items = db.prepare(`
@@ -94,6 +101,8 @@ router.post('/buy', (req: Request, res: Response) => {
   const { studentId, itemId } = req.body;
   
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_shop');
+
     const transaction = db.transaction(() => {
       const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
       if (!student) throw new Error('Student not found');
@@ -148,6 +157,11 @@ router.post('/buy', (req: Request, res: Response) => {
 // Get all auctions
 router.get('/auctions', (req: Request, res: Response) => {
   try {
+    const actor = getRequestActor(req);
+    if (actor.role === 'student' && actor.id) {
+      assertActorFeatureEnabled(actor.id, 'student', 'enable_auction_blind_box');
+    }
+
     const auctions = db.prepare('SELECT * FROM auctions ORDER BY id DESC').all();
     res.json({ success: true, auctions });
   } catch (error: any) {
@@ -161,6 +175,8 @@ router.post('/auctions/:id/bid', (req: Request, res: Response) => {
   const { studentId, bid_amount } = req.body;
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_auction_blind_box');
+
     const transaction = db.transaction(() => {
       const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
       if (!student) throw new Error('Student not found');
@@ -215,6 +231,8 @@ router.post('/blind_box', (req: Request, res: Response) => {
   const { studentId, boxId } = req.body;
   
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_auction_blind_box');
+
     const transaction = db.transaction(() => {
       const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
       if (!student) throw new Error('Student not found');
@@ -309,6 +327,11 @@ router.delete('/auctions/:id', (req: Request, res: Response) => {
 // Get all blind boxes (for management or student shop)
 router.get('/blind_boxes', (req: Request, res: Response) => {
   try {
+    const actor = getRequestActor(req);
+    if (actor.role === 'student' && actor.id) {
+      assertActorFeatureEnabled(actor.id, 'student', 'enable_auction_blind_box');
+    }
+
     const boxes = db.prepare('SELECT * FROM blind_boxes ORDER BY id DESC').all();
     res.json({ success: true, boxes });
   } catch (error: any) {

@@ -134,18 +134,19 @@ export default function AdminCodes() {
                 <th className="p-4 font-medium">使用者</th>
                 <th className="p-4 font-medium">生成时间</th>
                 <th className="p-4 font-medium">使用时间</th>
+                <th className="p-4 font-medium">开通来源</th>
               </tr>
             </thead>
             <tbody className="text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400">
+                  <td colSpan={6} className="p-8 text-center text-slate-400">
                     加载中...
                   </td>
                 </tr>
               ) : codes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400 flex flex-col items-center">
+                  <td colSpan={6} className="p-8 text-center text-slate-400 flex flex-col items-center">
                     <Key className="w-8 h-8 mb-2 opacity-20" />
                     暂无激活码记录
                   </td>
@@ -193,6 +194,14 @@ export default function AdminCodes() {
                     </td>
                     <td className="p-4 text-slate-500">
                       {code.used_at ? new Date(code.used_at).toLocaleString() : '-'}
+                    </td>
+                    <td className="p-4 text-slate-500">
+                      {code.activation_source ? (
+                        <div className="space-y-1">
+                          <div>{code.activation_source}</div>
+                          {code.activation_remark && <div className="text-xs text-slate-400">{code.activation_remark}</div>}
+                        </div>
+                      ) : '-'}
                     </td>
                   </motion.tr>
                 ))

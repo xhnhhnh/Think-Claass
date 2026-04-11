@@ -7,6 +7,7 @@ import Activate from '@/pages/Activate';
 import Payment from '@/pages/Payment';
 import { useStore } from '@/store/useStore';
 import ThemeWrapper from "@/components/ThemeWrapper";
+import FeatureRouteGuard from '@/components/FeatureRouteGuard';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,12 +27,28 @@ const PrivateRoute = ({ children, allowedRoles }: { children: React.ReactNode; a
   const [settings, setSettings] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
+  const applySiteSettings = (nextSettings: any) => {
+    if (nextSettings?.site_title) {
+      document.title = nextSettings.site_title;
+    }
+    if (nextSettings?.site_favicon) {
+      let favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+      if (!favicon) {
+        favicon = document.createElement('link');
+        favicon.rel = 'icon';
+        document.head.appendChild(favicon);
+      }
+      favicon.href = nextSettings.site_favicon;
+    }
+  };
+
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           setSettings(data.data);
+          applySiteSettings(data.data);
         }
         setLoading(false);
       })
@@ -194,22 +211,22 @@ export default function App() {
 
             <Route path="/student" element={<PrivateRoute allowedRoles={['student']}><StudentLayout /></PrivateRoute>}>
               <Route path="pet" element={<StudentPet />} />
-              <Route path="shop" element={<StudentShop />} />
-          <Route path="auction" element={<StudentAuction />} />
-          <Route path="task-tree" element={<StudentTaskTree />} />
-          <Route path="brawl" element={<StudentBrawl />} />
-          <Route path="territory" element={<StudentTerritory />} />
-          <Route path="gacha" element={<StudentGacha />} />
-          <Route path="bank" element={<StudentBank />} />
-          <Route path="dungeon" element={<StudentDungeon />} />
-              <Route path="challenge" element={<StudentChallenge />} />
-              <Route path="lucky-draw" element={<StudentLuckyDraw />} />
+              <Route path="shop" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_shop' }} title="积分商城"><StudentShop /></FeatureRouteGuard>} />
+          <Route path="auction" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_auction_blind_box' }} title="拍卖行"><StudentAuction /></FeatureRouteGuard>} />
+          <Route path="task-tree" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_task_tree' }} title="技能树"><StudentTaskTree /></FeatureRouteGuard>} />
+          <Route path="brawl" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_class_brawl' }} title="大乱斗"><StudentBrawl /></FeatureRouteGuard>} />
+          <Route path="territory" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_slg' }} title="版图"><StudentTerritory /></FeatureRouteGuard>} />
+          <Route path="gacha" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_gacha' }} title="召唤法阵"><StudentGacha /></FeatureRouteGuard>} />
+          <Route path="bank" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_economy' }} title="银行股市"><StudentBank /></FeatureRouteGuard>} />
+          <Route path="dungeon" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_dungeon' }} title="无尽塔"><StudentDungeon /></FeatureRouteGuard>} />
+              <Route path="challenge" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_challenge' }} title="挑战模式"><StudentChallenge /></FeatureRouteGuard>} />
+              <Route path="lucky-draw" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_lucky_draw' }} title="翻牌抽奖"><StudentLuckyDraw /></FeatureRouteGuard>} />
               <Route path="my-redemptions" element={<StudentMyRedemptions />} />
           <Route path="certificates" element={<StudentCertificates />} />
-          <Route path="achievements" element={<StudentAchievements />} />
-          <Route path="interactive-wall" element={<StudentInteractiveWall />} />
-          <Route path="peer-review" element={<StudentPeerReview />} />
-          <Route path="guild-pk" element={<StudentGuildPK />} />
+          <Route path="achievements" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_achievements' }} title="成就墙"><StudentAchievements /></FeatureRouteGuard>} />
+          <Route path="interactive-wall" element={<FeatureRouteGuard role="student" requirement={{ anyOf: ['enable_chat_bubble', 'enable_tree_hole'] }} title="互动墙"><StudentInteractiveWall /></FeatureRouteGuard>} />
+          <Route path="peer-review" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_peer_review' }} title="同伴互评"><StudentPeerReview /></FeatureRouteGuard>} />
+          <Route path="guild-pk" element={<FeatureRouteGuard role="student" requirement={{ key: 'enable_guild_pk' }} title="公会PK"><StudentGuildPK /></FeatureRouteGuard>} />
               <Route path="assignments" element={<StudentAssignments />} />
               <Route path="team-quests" element={<StudentTeamQuests />} />
             </Route>
@@ -218,7 +235,7 @@ export default function App() {
               <Route path="dashboard" element={<ParentDashboard />} />
               <Route path="communication" element={<ParentCommunication />} />
               <Route path="report" element={<ParentReport />} />
-              <Route path="tasks" element={<ParentTasks />} />
+              <Route path="tasks" element={<FeatureRouteGuard role="parent" requirement={{ key: 'enable_family_tasks' }} title="家庭时光"><ParentTasks /></FeatureRouteGuard>} />
               <Route path="leave-request" element={<ParentLeaveRequest />} />
               <Route path="assignments" element={<ParentAssignments />} />
             </Route>

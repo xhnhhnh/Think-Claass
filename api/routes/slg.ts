@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
 router.get('/map/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_slg');
     const territories = db.prepare('SELECT * FROM territories WHERE class_id = ?').all(classId);
     
     // Ensure class_resources exists
@@ -35,6 +37,7 @@ router.post('/student/:studentId/contribute/:territoryId', (req: Request, res: R
   if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid amount' });
 
   try {
+    assertStudentFeatureEnabled(Number(studentId), 'enable_slg');
     const tx = db.transaction(() => {
       const student = db.prepare('SELECT available_points FROM students WHERE id = ?').get(studentId) as any;
       if (!student || student.available_points < amount) throw new Error('Insufficient points');
@@ -76,6 +79,7 @@ router.post('/teacher', (req: Request, res: Response) => {
   if (!class_id || !name || !type) return res.status(400).json({ success: false, message: 'Missing fields' });
 
   try {
+    assertClassFeatureEnabled(Number(class_id), 'enable_slg');
     db.prepare(`
       INSERT INTO territories (class_id, name, type, cost_to_unlock, x_pos, y_pos)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -90,6 +94,7 @@ router.post('/teacher', (req: Request, res: Response) => {
 router.post('/teacher/yield/:classId', (req: Request, res: Response) => {
   const { classId } = req.params;
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_slg');
     const tx = db.transaction(() => {
       const owned = db.prepare("SELECT type, level FROM territories WHERE class_id = ? AND status = 'owned'").all(classId);
       let wood = 0, stone = 0, magic = 0, gold = 0;

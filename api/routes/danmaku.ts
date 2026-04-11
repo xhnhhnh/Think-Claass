@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import db from '../db.js';
+import { assertClassFeatureEnabled } from '../utils/classFeatures.js';
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ router.get('/', (req: Request, res: Response) => {
   }
 
   try {
+    assertClassFeatureEnabled(Number(classId), 'enable_danmaku');
     let messages;
     if (since) {
       messages = db.prepare(`
@@ -42,6 +44,7 @@ router.post('/', (req: Request, res: Response) => {
   }
 
   try {
+    assertClassFeatureEnabled(Number(class_id), 'enable_danmaku');
     const stmt = db.prepare(`
       INSERT INTO danmaku_messages (class_id, sender_name, content, color)
       VALUES (?, ?, ?, ?)
