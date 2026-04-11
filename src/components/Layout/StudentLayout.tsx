@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { Star, ShoppingBag, LogOut, Crown, Swords, Gift, Ticket, MessageSquare, BookOpen, Users, Award, Medal, MessageSquareHeart, Gavel, GitBranch, Crosshair, MapPin, Sparkles, Building2, Skull } from 'lucide-react';
+import { Star, ShoppingBag, LogOut, Crown, Swords, Gift, Ticket, MessageSquare, BookOpen, Users, Award, Medal, MessageSquareHeart, Gavel, GitBranch, Crosshair, MapPin, Sparkles, Building2, Skull, FileText, ListChecks } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import { motion } from 'framer-motion';
@@ -38,6 +38,9 @@ export default function StudentLayout() {
     { path: '/student/guild-pk', icon: Swords, label: '公会PK' },
     { path: '/student/assignments', icon: BookOpen, label: '学业中心' },
     { path: '/student/team-quests', icon: Users, label: '团队任务' },
+    { path: '/student/papers', icon: FileText, label: '试卷练习' },
+    { path: '/student/wrong-questions', icon: ListChecks, label: '错题本' },
+    { path: '/student/plan', icon: ListChecks, label: '学习计划' },
   ];
 
   const navItems = useMemo(

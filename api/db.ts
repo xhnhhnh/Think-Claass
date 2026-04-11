@@ -671,6 +671,285 @@ export function initDb() {
       comment TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS subjects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      stage TEXT,
+      grade INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(name, stage, grade)
+    );
+
+    CREATE TABLE IF NOT EXISTS knowledge_nodes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject_id INTEGER NOT NULL REFERENCES subjects(id),
+      name TEXT NOT NULL,
+      code TEXT,
+      parent_id INTEGER REFERENCES knowledge_nodes(id),
+      importance INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_subject_id ON knowledge_nodes(subject_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_parent_id ON knowledge_nodes(parent_id);
+
+    CREATE TABLE IF NOT EXISTS knowledge_edges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject_id INTEGER NOT NULL REFERENCES subjects(id),
+      from_node_id INTEGER NOT NULL REFERENCES knowledge_nodes(id),
+      to_node_id INTEGER NOT NULL REFERENCES knowledge_nodes(id),
+      edge_type TEXT NOT NULL,
+      weight REAL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(from_node_id, to_node_id, edge_type)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_edges_subject_id ON knowledge_edges(subject_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_edges_from_node_id ON knowledge_edges(from_node_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_edges_to_node_id ON knowledge_edges(to_node_id);
+
+    CREATE TABLE IF NOT EXISTS questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_id INTEGER REFERENCES users(id),
+      subject_id INTEGER REFERENCES subjects(id),
+      stem TEXT NOT NULL,
+      type TEXT NOT NULL,
+      options_json TEXT,
+      answer_json TEXT,
+      explanation TEXT,
+      difficulty INTEGER DEFAULT 3,
+      is_subjective INTEGER DEFAULT 0,
+      default_points INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_questions_teacher_id ON questions(teacher_id);
+    CREATE INDEX IF NOT EXISTS idx_questions_subject_id ON questions(subject_id);
+
+    CREATE TABLE IF NOT EXISTS question_knowledge (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+      node_id INTEGER NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+      weight REAL DEFAULT 1,
+      UNIQUE(question_id, node_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_question_knowledge_node_id ON question_knowledge(node_id);
+
+    CREATE TABLE IF NOT EXISTS papers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_id INTEGER NOT NULL REFERENCES users(id),
+      class_id INTEGER REFERENCES classes(id),
+      subject_id INTEGER REFERENCES subjects(id),
+      title TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'manual',
+      status TEXT NOT NULL DEFAULT 'draft',
+      total_points INTEGER NOT NULL DEFAULT 0,
+      exam_date DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_papers_teacher_id ON papers(teacher_id);
+    CREATE INDEX IF NOT EXISTS idx_papers_class_id ON papers(class_id);
+    CREATE INDEX IF NOT EXISTS idx_papers_subject_id ON papers(subject_id);
+
+    CREATE TABLE IF NOT EXISTS paper_assets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      storage_path TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_paper_assets_paper_id ON paper_assets(paper_id);
+    CREATE INDEX IF NOT EXISTS idx_paper_assets_sha256 ON paper_assets(sha256);
+
+    CREATE TABLE IF NOT EXISTS paper_sections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      order_no INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(paper_id, order_no)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_paper_sections_paper_id ON paper_sections(paper_id);
+
+    CREATE TABLE IF NOT EXISTS paper_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+      section_id INTEGER REFERENCES paper_sections(id),
+      question_id INTEGER NOT NULL REFERENCES questions(id),
+      order_no INTEGER NOT NULL,
+      points_override INTEGER,
+      difficulty_override INTEGER,
+      rubric_json TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(paper_id, order_no)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_paper_items_paper_id ON paper_items(paper_id);
+    CREATE INDEX IF NOT EXISTS idx_paper_items_question_id ON paper_items(question_id);
+
+    CREATE TABLE IF NOT EXISTS paper_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      submitted_at DATETIME,
+      total_time_sec INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_paper_submissions_paper_id ON paper_submissions(paper_id);
+    CREATE INDEX IF NOT EXISTS idx_paper_submissions_student_id ON paper_submissions(student_id);
+
+    CREATE TABLE IF NOT EXISTS paper_answers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      submission_id INTEGER NOT NULL REFERENCES paper_submissions(id) ON DELETE CASCADE,
+      paper_item_id INTEGER NOT NULL REFERENCES paper_items(id) ON DELETE CASCADE,
+      answer_json TEXT,
+      score INTEGER DEFAULT 0,
+      is_correct INTEGER DEFAULT 0,
+      time_spent_sec INTEGER DEFAULT 0,
+      error_type TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(submission_id, paper_item_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_paper_answers_paper_item_id ON paper_answers(paper_item_id);
+
+    CREATE TABLE IF NOT EXISTS rubric_points (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      paper_item_id INTEGER NOT NULL REFERENCES paper_items(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      points INTEGER NOT NULL,
+      keywords_json TEXT,
+      step_order INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(paper_item_id, step_order)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rubric_points_paper_item_id ON rubric_points(paper_item_id);
+
+    CREATE TABLE IF NOT EXISTS rubric_point_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      answer_id INTEGER NOT NULL REFERENCES paper_answers(id) ON DELETE CASCADE,
+      rubric_point_id INTEGER NOT NULL REFERENCES rubric_points(id) ON DELETE CASCADE,
+      score INTEGER NOT NULL,
+      reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(answer_id, rubric_point_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rubric_point_scores_rubric_point_id ON rubric_point_scores(rubric_point_id);
+
+    CREATE TABLE IF NOT EXISTS wrong_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+      first_wrong_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_wrong_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      wrong_count INTEGER NOT NULL DEFAULT 1,
+      mastery_score REAL DEFAULT 0,
+      cleared_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(student_id, question_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_wrong_questions_question_id ON wrong_questions(question_id);
+
+    CREATE TABLE IF NOT EXISTS wrong_question_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wrong_question_id INTEGER NOT NULL REFERENCES wrong_questions(id) ON DELETE CASCADE,
+      practice_source TEXT NOT NULL,
+      is_correct INTEGER DEFAULT 0,
+      spent_sec INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_wrong_question_attempts_wrong_question_id ON wrong_question_attempts(wrong_question_id);
+
+    CREATE TABLE IF NOT EXISTS study_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      target_exam_date DATETIME,
+      target_score INTEGER,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_study_plans_student_id ON study_plans(student_id);
+
+    CREATE TABLE IF NOT EXISTS study_plan_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id INTEGER NOT NULL REFERENCES study_plans(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      knowledge_node_id INTEGER REFERENCES knowledge_nodes(id),
+      question_id INTEGER REFERENCES questions(id),
+      due_date DATETIME,
+      estimated_min INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_study_plan_items_plan_id ON study_plan_items(plan_id);
+    CREATE INDEX IF NOT EXISTS idx_study_plan_items_knowledge_node_id ON study_plan_items(knowledge_node_id);
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_id INTEGER REFERENCES users(id),
+      student_id INTEGER REFERENCES students(id),
+      class_id INTEGER REFERENCES classes(id),
+      subject_id INTEGER REFERENCES subjects(id),
+      source TEXT NOT NULL,
+      content_text TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notes_teacher_id ON notes(teacher_id);
+    CREATE INDEX IF NOT EXISTS idx_notes_student_id ON notes(student_id);
+    CREATE INDEX IF NOT EXISTS idx_notes_class_id ON notes(class_id);
+
+    CREATE TABLE IF NOT EXISTS note_assets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      storage_path TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_note_assets_note_id ON note_assets(note_id);
+    CREATE INDEX IF NOT EXISTS idx_note_assets_sha256 ON note_assets(sha256);
+
+    CREATE TABLE IF NOT EXISTS note_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_note_products_note_id ON note_products(note_id);
+
+    CREATE TABLE IF NOT EXISTS knowledge_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      knowledge_node_id INTEGER NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_products_node_id ON knowledge_products(knowledge_node_id);
   `);
 
   // 初始化首页内容默认数据

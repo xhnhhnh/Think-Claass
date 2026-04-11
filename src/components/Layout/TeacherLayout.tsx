@@ -4,7 +4,7 @@ import {
   Users, ClipboardList, LogOut, Award, Store, Settings, MonitorPlay, 
   BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, 
   FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, 
-  Gavel, Swords, Map 
+  Gavel, Swords, Map, FileText, Network
 } from "lucide-react";
 import { useEffect } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
@@ -14,6 +14,8 @@ const navItems = [
   { path: '/teacher/attendance', icon: CalendarCheck, label: '考勤与请假' },
   { path: '/teacher/assignments', icon: BookOpen, label: '作业管理' },
   { path: '/teacher/exams', icon: FileSpreadsheet, label: '考试与成绩' },
+  { path: '/teacher/papers', icon: FileText, label: '试卷系统' },
+  { path: '/teacher/knowledge', icon: Network, label: '知识点图谱' },
   { path: '/teacher/team-quests', icon: Target, label: '团队任务' },
   { path: '/teacher/pets', icon: Sparkles, label: '精灵管理' },
   { path: '/teacher/brawl', icon: Swords, label: '跨班大乱斗' },

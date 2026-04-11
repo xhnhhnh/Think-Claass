@@ -207,6 +207,8 @@ model classes {
   task_nodes                                              task_nodes[]
   team_quests                                             team_quests[]
   territories                                             territories[]
+  papers                                                  papers[]
+  notes                                                   notes[]
 
   @@index([teacher_id], map: "idx_classes_teacher_id")
 }
@@ -676,6 +678,7 @@ model students {
   peer_reviews_peer_reviews_reviewer_idTostudents peer_reviews[]        @relation("peer_reviews_reviewer_idTostudents")
   pets                                            pets[]
   praises                                         praises[]
+  paper_submissions                               paper_submissions[]
   records                                         records[]
   redemption_tickets                              redemption_tickets[]
   student_assignments                             student_assignments[]
@@ -683,6 +686,9 @@ model students {
   student_pets                                    student_pets[]
   student_stocks                                  student_stocks[]
   student_task_nodes                              student_task_nodes[]
+  wrong_questions                                 wrong_questions[]
+  study_plans                                     study_plans[]
+  notes                                           notes[]
   student_groups                                  student_groups?       @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                                           users?                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   team_quest_progress                             team_quest_progress[]
@@ -793,6 +799,9 @@ model users {
   point_presets                                    point_presets[]
   praises                                          praises[]
   question_bank                                    question_bank[]
+  questions                                        questions[]
+  papers                                           papers[]
+  notes                                            notes[]
   shop_items                                       shop_items[]
   students                                         students[]
   team_quests                                      team_quests[]
@@ -810,4 +819,351 @@ model world_bosses {
   start_time  DateTime?
   end_time    DateTime?
   created_at  DateTime? @default(now())
+}
+
+model subjects {
+  id           Int             @id @default(autoincrement())
+  name         String
+  stage        String?
+  grade        Int?
+  created_at   DateTime?       @default(now())
+  knowledge_nodes knowledge_nodes[]
+  knowledge_edges knowledge_edges[]
+  notes        notes[]
+  papers       papers[]
+  questions    questions[]
+
+  @@unique([name, stage, grade], map: "sqlite_autoindex_subjects_1")
+}
+
+model knowledge_nodes {
+  id               Int             @id @default(autoincrement())
+  subject_id       Int
+  name             String
+  code             String?
+  parent_id        Int?
+  importance       Int?            @default(1)
+  created_at       DateTime?       @default(now())
+  subjects         subjects        @relation(fields: [subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent           knowledge_nodes? @relation("knowledge_nodesToknowledge_nodes", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children         knowledge_nodes[] @relation("knowledge_nodesToknowledge_nodes")
+  outgoing_edges   knowledge_edges[] @relation("knowledge_edges_from")
+  incoming_edges   knowledge_edges[] @relation("knowledge_edges_to")
+  question_knowledge question_knowledge[]
+  knowledge_products knowledge_products[]
+  study_plan_items  study_plan_items[]
+
+  @@index([subject_id], map: "idx_knowledge_nodes_subject_id")
+  @@index([parent_id], map: "idx_knowledge_nodes_parent_id")
+}
+
+model knowledge_edges {
+  id          Int        @id @default(autoincrement())
+  subject_id  Int
+  from_node_id Int
+  to_node_id   Int
+  edge_type   String
+  weight      Float?     @default(1)
+  created_at  DateTime?  @default(now())
+  subjects    subjects   @relation(fields: [subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  from_node   knowledge_nodes @relation("knowledge_edges_from", fields: [from_node_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  to_node     knowledge_nodes @relation("knowledge_edges_to", fields: [to_node_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([subject_id], map: "idx_knowledge_edges_subject_id")
+  @@index([from_node_id], map: "idx_knowledge_edges_from_node_id")
+  @@index([to_node_id], map: "idx_knowledge_edges_to_node_id")
+  @@unique([from_node_id, to_node_id, edge_type], map: "sqlite_autoindex_knowledge_edges_1")
+}
+
+model questions {
+  id            Int       @id @default(autoincrement())
+  teacher_id    Int?
+  subject_id    Int?
+  stem          String
+  type          String
+  options_json  String?
+  answer_json   String?
+  explanation   String?
+  difficulty    Int?      @default(3)
+  is_subjective Int?      @default(0)
+  default_points Int?     @default(0)
+  created_at    DateTime? @default(now())
+  users         users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subjects      subjects? @relation(fields: [subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  question_knowledge question_knowledge[]
+  paper_items   paper_items[]
+  wrong_questions wrong_questions[]
+  study_plan_items study_plan_items[]
+
+  @@index([teacher_id], map: "idx_questions_teacher_id")
+  @@index([subject_id], map: "idx_questions_subject_id")
+}
+
+model question_knowledge {
+  id          Int             @id @default(autoincrement())
+  question_id Int
+  node_id     Int
+  weight      Float?          @default(1)
+  questions   questions       @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  knowledge_nodes knowledge_nodes @relation(fields: [node_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([question_id, node_id], map: "sqlite_autoindex_question_knowledge_1")
+  @@index([node_id], map: "idx_question_knowledge_node_id")
+}
+
+model papers {
+  id          Int       @id @default(autoincrement())
+  teacher_id  Int
+  class_id    Int?
+  subject_id  Int?
+  title       String
+  source      String    @default("manual")
+  status      String    @default("draft")
+  total_points Int      @default(0)
+  exam_date   DateTime?
+  created_at  DateTime? @default(now())
+  users       users     @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes     classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subjects    subjects? @relation(fields: [subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paper_assets paper_assets[]
+  paper_sections paper_sections[]
+  paper_items  paper_items[]
+  paper_submissions paper_submissions[]
+
+  @@index([teacher_id], map: "idx_papers_teacher_id")
+  @@index([class_id], map: "idx_papers_class_id")
+  @@index([subject_id], map: "idx_papers_subject_id")
+}
+
+model paper_assets {
+  id           Int       @id @default(autoincrement())
+  paper_id     Int
+  kind         String
+  storage_path String
+  mime         String
+  size         Int
+  sha256       String
+  created_at   DateTime? @default(now())
+  papers       papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([paper_id], map: "idx_paper_assets_paper_id")
+  @@index([sha256], map: "idx_paper_assets_sha256")
+}
+
+model paper_sections {
+  id         Int       @id @default(autoincrement())
+  paper_id   Int
+  title      String
+  order_no   Int
+  created_at DateTime? @default(now())
+  papers     papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper_items paper_items[]
+
+  @@index([paper_id], map: "idx_paper_sections_paper_id")
+  @@unique([paper_id, order_no], map: "sqlite_autoindex_paper_sections_1")
+}
+
+model paper_items {
+  id               Int       @id @default(autoincrement())
+  paper_id         Int
+  section_id       Int?
+  question_id      Int
+  order_no         Int
+  points_override  Int?
+  difficulty_override Int?
+  rubric_json      String?
+  created_at       DateTime? @default(now())
+  papers           papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper_sections   paper_sections? @relation(fields: [section_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  questions        questions @relation(fields: [question_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paper_answers    paper_answers[]
+  rubric_points    rubric_points[]
+
+  @@index([paper_id], map: "idx_paper_items_paper_id")
+  @@index([question_id], map: "idx_paper_items_question_id")
+  @@unique([paper_id, order_no], map: "sqlite_autoindex_paper_items_1")
+}
+
+model paper_submissions {
+  id             Int       @id @default(autoincrement())
+  paper_id       Int
+  student_id     Int
+  started_at     DateTime? @default(now())
+  submitted_at   DateTime?
+  total_time_sec Int?      @default(0)
+  created_at     DateTime? @default(now())
+  papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students       students  @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paper_answers  paper_answers[]
+
+  @@index([paper_id], map: "idx_paper_submissions_paper_id")
+  @@index([student_id], map: "idx_paper_submissions_student_id")
+}
+
+model paper_answers {
+  id             Int       @id @default(autoincrement())
+  submission_id  Int
+  paper_item_id  Int
+  answer_json    String?
+  score          Int?      @default(0)
+  is_correct     Int?      @default(0)
+  time_spent_sec Int?      @default(0)
+  error_type     String?
+  created_at     DateTime? @default(now())
+  paper_submissions paper_submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper_items    paper_items @relation(fields: [paper_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  rubric_point_scores rubric_point_scores[]
+
+  @@unique([submission_id, paper_item_id], map: "sqlite_autoindex_paper_answers_1")
+  @@index([paper_item_id], map: "idx_paper_answers_paper_item_id")
+}
+
+model rubric_points {
+  id          Int       @id @default(autoincrement())
+  paper_item_id Int
+  label       String
+  points      Int
+  keywords_json String?
+  step_order  Int
+  created_at  DateTime? @default(now())
+  paper_items paper_items @relation(fields: [paper_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  rubric_point_scores rubric_point_scores[]
+
+  @@index([paper_item_id], map: "idx_rubric_points_paper_item_id")
+  @@unique([paper_item_id, step_order], map: "sqlite_autoindex_rubric_points_1")
+}
+
+model rubric_point_scores {
+  id             Int       @id @default(autoincrement())
+  answer_id      Int
+  rubric_point_id Int
+  score          Int
+  reason         String?
+  created_at     DateTime? @default(now())
+  paper_answers  paper_answers @relation(fields: [answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  rubric_points  rubric_points @relation(fields: [rubric_point_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([answer_id, rubric_point_id], map: "sqlite_autoindex_rubric_point_scores_1")
+  @@index([rubric_point_id], map: "idx_rubric_point_scores_rubric_point_id")
+}
+
+model wrong_questions {
+  id            Int       @id @default(autoincrement())
+  student_id    Int
+  question_id   Int
+  first_wrong_at DateTime? @default(now())
+  last_wrong_at  DateTime? @default(now())
+  wrong_count   Int       @default(1)
+  mastery_score Float?    @default(0)
+  cleared_at    DateTime?
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+  students      students  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  questions     questions @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  wrong_question_attempts wrong_question_attempts[]
+
+  @@unique([student_id, question_id], map: "sqlite_autoindex_wrong_questions_1")
+  @@index([question_id], map: "idx_wrong_questions_question_id")
+}
+
+model wrong_question_attempts {
+  id              Int       @id @default(autoincrement())
+  wrong_question_id Int
+  practice_source String
+  is_correct      Int?      @default(0)
+  spent_sec       Int?      @default(0)
+  created_at      DateTime? @default(now())
+  wrong_questions wrong_questions @relation(fields: [wrong_question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([wrong_question_id], map: "idx_wrong_question_attempts_wrong_question_id")
+}
+
+model study_plans {
+  id             Int       @id @default(autoincrement())
+  student_id     Int
+  target_exam_date DateTime?
+  target_score   Int?
+  status         String    @default("active")
+  created_at     DateTime? @default(now())
+  updated_at     DateTime? @default(now())
+  students       students  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  study_plan_items study_plan_items[]
+
+  @@index([student_id], map: "idx_study_plans_student_id")
+}
+
+model study_plan_items {
+  id              Int       @id @default(autoincrement())
+  plan_id         Int
+  kind            String
+  knowledge_node_id Int?
+  question_id     Int?
+  due_date        DateTime?
+  estimated_min   Int?      @default(0)
+  status          String    @default("pending")
+  created_at      DateTime? @default(now())
+  study_plans     study_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  knowledge_nodes knowledge_nodes? @relation(fields: [knowledge_node_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  questions       questions? @relation(fields: [question_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([plan_id], map: "idx_study_plan_items_plan_id")
+  @@index([knowledge_node_id], map: "idx_study_plan_items_knowledge_node_id")
+}
+
+model notes {
+  id          Int       @id @default(autoincrement())
+  teacher_id  Int?
+  student_id  Int?
+  class_id    Int?
+  subject_id  Int?
+  source      String
+  content_text String?
+  created_at  DateTime? @default(now())
+  users       users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  students    students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classes     classes?  @relation(fields: [class_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subjects    subjects? @relation(fields: [subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  note_assets note_assets[]
+  note_products note_products[]
+
+  @@index([teacher_id], map: "idx_notes_teacher_id")
+  @@index([student_id], map: "idx_notes_student_id")
+  @@index([class_id], map: "idx_notes_class_id")
+}
+
+model note_assets {
+  id           Int       @id @default(autoincrement())
+  note_id      Int
+  kind         String
+  storage_path String
+  mime         String
+  size         Int
+  sha256       String
+  created_at   DateTime? @default(now())
+  notes        notes     @relation(fields: [note_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([note_id], map: "idx_note_assets_note_id")
+  @@index([sha256], map: "idx_note_assets_sha256")
+}
+
+model note_products {
+  id          Int       @id @default(autoincrement())
+  note_id     Int
+  kind        String
+  payload_json String
+  created_at  DateTime? @default(now())
+  notes       notes     @relation(fields: [note_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([note_id], map: "idx_note_products_note_id")
+}
+
+model knowledge_products {
+  id               Int       @id @default(autoincrement())
+  knowledge_node_id Int
+  kind             String
+  payload_json     String
+  created_at       DateTime? @default(now())
+  knowledge_nodes  knowledge_nodes @relation(fields: [knowledge_node_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([knowledge_node_id], map: "idx_knowledge_products_node_id")
 }
