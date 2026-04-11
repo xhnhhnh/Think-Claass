@@ -94,7 +94,7 @@ export default function AdminDashboard() {
     formData.append('file', file);
 
     try {
-      const data = await apiPost('/api/admin/data/import', formData);
+      const data = await apiPost('/api/admin/data/import', formData, { showError: false });
 
       if (data.success) {
         toast.success(data.message);
@@ -105,7 +105,8 @@ export default function AdminDashboard() {
         toast.error(data.message || '导入失败');
       }
     } catch (error) {
-      toast.error('网络错误，导入失败');
+      const message = (error as any)?.response?.data?.message || (error as any)?.data?.message || (error as any)?.message;
+      toast.error(message || '网络错误，导入失败');
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

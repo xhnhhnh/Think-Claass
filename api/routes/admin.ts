@@ -157,16 +157,20 @@ router.post('/data/import', upload.single('file'), asyncHandler(async (req: Requ
 
     fs.copyFileSync(uploadedFilePath, dbPath);
 
-    execSync('npx prisma db push --accept-data-loss --skip-generate', {
-      stdio: 'inherit',
-      cwd: process.cwd(),
-    });
+    removeFileIfExists(walPath);
+    removeFileIfExists(shmPath);
+
+    reopenDb();
+    didCloseSqlite = false;
+
+    await prisma.$connect();
+    didDisconnectPrisma = false;
   } catch (error) {
     if (error instanceof ApiError) {
       importError = error;
     } else {
       console.error('Database import failed:', error);
-      importError = new ApiError(500, '数据库结构升级失败');
+      importError = new ApiError(500, '数据库升级失败');
     }
 
     if (shouldRestoreBackup) {
