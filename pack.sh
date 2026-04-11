@@ -35,6 +35,9 @@ prepare_release_dir() {
     # 拷贝核心代码
     cp -r dist "$RELEASE_DIR"/
     cp -r api "$RELEASE_DIR"/
+    if [ -d prisma ]; then
+        cp -r prisma "$RELEASE_DIR"/
+    fi
     cp package.json "$RELEASE_DIR"/
     cp package-lock.json "$RELEASE_DIR"/
     cp tsconfig.json "$RELEASE_DIR"/
