@@ -12,6 +12,6 @@ describe('adminApi', () => {
   it('should reset database with the real contract', async () => {
     const data = await adminApi.resetDatabase() as any;
     expect(data.success).toBe(true);
-    expect(data.message).toBe('所有数据已重置');
+    expect(data.message).toBe('所有数据已重置，并已恢复超级管理员账户');
   });
 });

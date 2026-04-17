@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { CheckCircle, Clock, Star, TrendingUp, AlertCircle, ChevronRight, Heart, Sparkles, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +5,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { useParentBuffMutation, useParentDashboard } from '@/hooks/queries/useParentDashboard';
 
 interface StudentInfo {
   id: number;
@@ -42,64 +41,31 @@ export const getRankTier = (points: number) => {
 export default function ParentDashboard() {
   const user = useStore(state => state.user);
   const navigate = useNavigate();
-  const [student, setStudent] = useState<StudentInfo | null>(null);
-  const [records, setRecords] = useState<Record[]>([]);
-  const [tasks, setTasks] = useState<FamilyTask[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [buffActive, setBuffActive] = useState(false);
-  const [buffLoading, setBuffLoading] = useState(false);
-
-  useEffect(() => {
-    if (!user?.studentId) return;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [studentData, recordsData, tasksData, petData] = await Promise.all([
-          apiGet(`/api/students/${user.studentId}`),
-          apiGet(`/api/students/records?studentId=${user.studentId}`),
-          apiGet(`/api/family-tasks?studentId=${user.studentId}`),
-          apiGet(`/api/pets/${user.studentId}`)
-        ]);
-
-        if (studentData.success) setStudent(studentData.student);
-        if (recordsData.success) setRecords(recordsData.records.slice(0, 5));
-        if (tasksData.success) setTasks(tasksData.tasks.slice(0, 5));
-        if (petData.success) setBuffActive(petData.pet.has_parent_buff);
-      } catch (error) {
-        toast.error('加载数据失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user?.studentId]);
+  const studentId = user?.studentId ?? null;
+  const { data, isLoading: loading } = useParentDashboard(studentId);
+  const castBuffMutation = useParentBuffMutation(studentId);
+  const student = (data?.student ?? null) as StudentInfo | null;
+  const records = ((data?.records ?? []) as Record[]).slice(0, 5);
+  const tasks = ((data?.tasks ?? []) as FamilyTask[]).slice(0, 5);
+  const buffActive = !!data?.pet?.has_parent_buff;
+  const buffLoading = castBuffMutation.isPending;
 
   const castParentBuff = async () => {
     if (buffActive) {
       toast.info('今日已经施放过祝福啦！');
       return;
     }
-    setBuffLoading(true);
     try {
-      const data = await apiPost(`/api/parent-buff`, { studentId: user?.studentId });
-      if (data.success) {
-        setBuffActive(true);
-        toast.success('✨ 母爱的祝福已施放！');
-        confetti({
-          particleCount: 150,
-          spread: 100,
-          origin: { y: 0.6 },
-          colors: ['#fbbf24', '#f59e0b', '#fb923c']
-        });
-      } else {
-        toast.error(data.message || '施放失败');
-      }
+      await castBuffMutation.mutateAsync();
+      toast.success('✨ 母爱的祝福已施放！');
+      confetti({
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.6 },
+        colors: ['#fbbf24', '#f59e0b', '#fb923c']
+      });
     } catch (error) {
       toast.error('网络错误');
-    } finally {
-      setBuffLoading(false);
     }
   };
 

@@ -16,6 +16,7 @@ $appName = "think-class"
 $zipFile = "think-class-release.zip"
 $tempExtractDir = "temp_update_extract"
 $requiredNodeMajor = 24
+$defaultDatabaseUrl = 'DATABASE_URL="file:./database.sqlite"'
 
 function Write-Log {
     param([string]$Message, [string]$Color = "White")
@@ -37,6 +38,52 @@ function Test-NodeVersion {
     }
 }
 
+function Invoke-GeneratePrismaClient {
+    if (Test-Path "prisma/schema.prisma") {
+        Write-Log "正在生成 Prisma Client (npx prisma generate)..." "Cyan"
+        npx prisma generate --schema prisma/schema.prisma
+    } else {
+        Write-Log "未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。" "Yellow"
+    }
+}
+
+function Invoke-InstallDependencies {
+    Write-Log "正在拉取最新的项目依赖 (npm install)..." "Cyan"
+    npm install
+    Invoke-GeneratePrismaClient
+}
+
+function Invoke-InstallDependenciesAndBuild {
+    Invoke-InstallDependencies
+    Write-Log "正在重新编译前端静态文件 (npm run build)..." "Cyan"
+    npm run build
+}
+
+function Ensure-DatabaseUrl {
+    if (-not (Test-Path ".env")) {
+        return
+    }
+    $envContent = Get-Content ".env" -Raw
+    if ($envContent -notmatch "(?m)^DATABASE_URL=") {
+        Write-Log "检测到 .env 缺少 DATABASE_URL，正在自动补齐..." "Cyan"
+        Add-Content -Path ".env" -Value "`n$defaultDatabaseUrl" -Encoding UTF8
+    }
+}
+
+function Update-CurrentVersionInEnv {
+    param([string]$Tag)
+    if (-not (Test-Path ".env")) {
+        return
+    }
+    $envContent = Get-Content ".env" -Raw
+    if ($envContent -match "CURRENT_VERSION=") {
+        $envContent = $envContent -replace "CURRENT_VERSION=.*", "CURRENT_VERSION=$Tag"
+    } else {
+        $envContent += "`nCURRENT_VERSION=$Tag"
+    }
+    Set-Content -Path ".env" -Value $envContent -Encoding UTF8
+}
+
 Write-Log "=================================================" "Cyan"
 Write-Log "      欢迎使用【学习王国】Windows 自动更新脚本     " "Cyan"
 Write-Log "=================================================" "Cyan"
@@ -54,6 +101,7 @@ try {
 }
 
 Test-NodeVersion
+Ensure-DatabaseUrl
 
 # 2. 备份数据
 $backupDir = "data_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
@@ -75,12 +123,7 @@ try {
     if (-not $downloadUrl) {
         Write-Log "警告：无法在 GitHub Releases 中找到 think-class-release.zip 部署包。" "Yellow"
         Write-Log "将尝试使用本地源码拉取方式更新..." "Yellow"
-        
-        Write-Log "正在拉取最新的项目依赖 (npm install)..." "Cyan"
-        npm install
-        
-        Write-Log "正在重新编译前端静态文件 (npm run build)..." "Cyan"
-        npm run build
+        Invoke-InstallDependenciesAndBuild
     } else {
         Write-Log "发现最新版本: $latestTag" "Green"
         Write-Log "正在下载最新部署包..." "Cyan"
@@ -104,22 +147,13 @@ try {
         Copy-Item -Path "$tempExtractDir\*" -Destination "." -Recurse -Force
 
         # 更新 .env 中的版本号
-        if (Test-Path ".env") {
-            $envContent = Get-Content ".env" -Raw
-            if ($envContent -match "CURRENT_VERSION=") {
-                $envContent = $envContent -replace "CURRENT_VERSION=.*", "CURRENT_VERSION=$latestTag"
-            } else {
-                $envContent += "`nCURRENT_VERSION=$latestTag"
-            }
-            Set-Content -Path ".env" -Value $envContent -Encoding UTF8
-        }
+        Update-CurrentVersionInEnv -Tag $latestTag
 
         Write-Log "清理临时文件..." "Cyan"
         Remove-Item $zipFile -Force
         Remove-Item $tempExtractDir -Recurse -Force
 
-        Write-Log "正在安装最新的项目依赖 (npm install)..." "Cyan"
-        npm install
+        Invoke-InstallDependencies
     }
 } catch {
     Write-Log "更新过程中发生网络错误或 API 限制: $_" "Red"

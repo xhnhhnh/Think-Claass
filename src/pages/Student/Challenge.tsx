@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@/store/useStore';
 import { Swords, Shield, Trophy, Flame, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
+import {
+  useActiveBoss,
+  useAttackBossMutation,
+  useChallengeQuestions,
+  useChallengeSubmitMutation,
+} from '@/hooks/queries/useChallenge';
 
 interface Question {
   id: number;
@@ -24,72 +30,36 @@ interface Boss {
 }
 
 export default function StudentChallenge() {
+  const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
   const [activeTab, setActiveTab] = useState<'questions' | 'boss'>('questions');
   
   // Questions State
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<any>(null);
 
   // Boss State
   const [boss, setBoss] = useState<Boss | null>(null);
-  const [isAttacking, setIsAttacking] = useState(false);
-  const [classId, setClassId] = useState<number | null>(null);
+  const classId = user?.class_id ?? null;
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const { data: questions = [], refetch: refetchQuestions } = useChallengeQuestions(5);
+  const submitMutation = useChallengeSubmitMutation(studentId);
+  const { data: queriedBoss } = useActiveBoss(classId);
+  const attackMutation = useAttackBossMutation(studentId);
 
   useEffect(() => {
-    if (activeTab === 'questions' && questions.length === 0 && !result) {
-      fetchQuestions();
-    } else if (activeTab === 'boss' && !boss) {
-      fetchBoss();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    // Get student's classId
-    if (user?.studentId) {
-      fetch(`/api/students`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            const student = data.students.find((s: any) => s.id === user.studentId);
-            if (student) setClassId(student.class_id);
-          }
-        });
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (classId && activeTab === 'boss') {
-      fetchBoss();
-    }
-  }, [classId]);
+    setBoss((queriedBoss as Boss | null) ?? null);
+  }, [queriedBoss]);
 
   const fetchQuestions = async () => {
     try {
-      const data = await apiGet('/api/challenge/questions?limit=5');
-      if (data.success) {
-        setQuestions(data.questions);
-        setAnswers({});
-        setResult(null);
-        setCurrentQIndex(0);
-      }
+      await refetchQuestions();
+      setAnswers({});
+      setResult(null);
+      setCurrentQIndex(0);
     } catch (err) {
       toast.error('获取题目失败');
-    }
-  };
-
-  const fetchBoss = async () => {
-    if (!classId) return;
-    try {
-      const data = await apiGet(`/api/challenge/boss/active/${classId}`);
-      if (data.success) {
-        setBoss(data.boss);
-      }
-    } catch (err) {
-      toast.error('获取Boss失败');
     }
   };
 
@@ -113,31 +83,22 @@ export default function StudentChallenge() {
       toast.error('请回答完所有问题');
       return;
     }
-    setIsSubmitting(true);
     try {
-      const data = await apiPost('/api/challenge/submit', {
-        studentId: user?.studentId,
-        answers
-      });
+      const data = await submitMutation.mutateAsync(answers);
 
       if (data.success) {
         setResult(data);
         toast.success(`挑战完成！得分: ${data.score}`);
-      } else {
-        toast.error(data.message);
       }
     } catch (err) {
       toast.error('提交失败');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleAttackBoss = async () => {
-    if (!boss || isAttacking) return;
-    setIsAttacking(true);
+    if (!boss || attackMutation.isPending) return;
     try {
-      const data = await apiPost(`/api/challenge/boss/${boss.id}/attack`, { studentId: user?.studentId });
+      const data = await attackMutation.mutateAsync(boss.id);
       if (data.success) {
         toast.success(`造成了 ${data.damage} 点伤害！`);
         if (data.defeated) {
@@ -146,13 +107,10 @@ export default function StudentChallenge() {
         } else {
           setBoss(prev => prev ? { ...prev, hp: data.newHp } : null);
         }
-      } else {
-        toast.error(data.message);
+        await queryClient.invalidateQueries({ queryKey: ['active-world-boss', classId] });
       }
     } catch (err) {
       toast.error('攻击失败');
-    } finally {
-      setIsAttacking(false);
     }
   };
 
@@ -326,13 +284,13 @@ export default function StudentChallenge() {
                   </motion.button>
                   {currentQIndex === questions.length - 1 ? (
                     <motion.button
-                      whileHover={!isSubmitting ? { scale: 1.05, y: -4 } : {}}
-                      whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+                      whileHover={!submitMutation.isPending ? { scale: 1.05, y: -4 } : {}}
+                      whileTap={!submitMutation.isPending ? { scale: 0.95 } : {}}
                       onClick={handleSubmit}
-                      disabled={isSubmitting}
+                      disabled={submitMutation.isPending}
                       className="px-10 py-4 rounded-[1.5rem] font-black text-lg bg-green-500 text-white border-b-8 border-green-700 hover:bg-green-400 disabled:opacity-50 shadow-lg"
                     >
-                      {isSubmitting ? '提交中...' : '提交试卷'}
+                      {submitMutation.isPending ? '提交中...' : '提交试卷'}
                     </motion.button>
                   ) : (
                     <motion.button
@@ -394,13 +352,13 @@ export default function StudentChallenge() {
               </div>
               
               <motion.button
-                whileHover={!isAttacking && boss.hp > 0 ? { scale: 1.1, y: -5 } : {}}
-                whileTap={!isAttacking && boss.hp > 0 ? { scale: 0.9 } : {}}
+                whileHover={!attackMutation.isPending && boss.hp > 0 ? { scale: 1.1, y: -5 } : {}}
+                whileTap={!attackMutation.isPending && boss.hp > 0 ? { scale: 0.9 } : {}}
                 onClick={handleAttackBoss}
-                disabled={isAttacking || boss.hp <= 0}
+                disabled={attackMutation.isPending || boss.hp <= 0}
                 className="mt-12 px-16 py-6 bg-red-500 text-white rounded-[2rem] font-black text-3xl border-b-8 border-red-700 hover:bg-red-400 disabled:opacity-50 shadow-2xl shadow-red-500/40"
               >
-                {isAttacking ? '攻击中...' : boss.hp <= 0 ? 'Boss已被击败' : '发起攻击！'}
+                {attackMutation.isPending ? '攻击中...' : boss.hp <= 0 ? 'Boss已被击败' : '发起攻击！'}
               </motion.button>
             </div>
           ) : (

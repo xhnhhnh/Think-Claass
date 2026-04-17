@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { CheckSquare, Plus, CheckCircle, XCircle, Clock, Trash2, AlertCircle, Heart, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
+import {
+  useCreateFamilyTaskMutation,
+  useDeleteFamilyTaskMutation,
+  useFamilyTasks,
+  useUpdateFamilyTaskStatusMutation,
+} from '@/hooks/queries/useFamilyTasks';
 
 interface FamilyTask {
   id: number;
@@ -15,31 +20,14 @@ interface FamilyTask {
 
 export default function ParentTasks() {
   const user = useStore(state => state.user);
-  const [tasks, setTasks] = useState<FamilyTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const studentId = user?.studentId ?? null;
+  const { data: tasks = [], isLoading: loading } = useFamilyTasks(studentId);
+  const createMutation = useCreateFamilyTaskMutation(studentId);
+  const updateMutation = useUpdateFamilyTaskStatusMutation(studentId);
+  const deleteMutation = useDeleteFamilyTaskMutation(studentId);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPoints, setNewTaskPoints] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const fetchTasks = async () => {
-    if (!user?.studentId) return;
-    try {
-      setLoading(true);
-      const data = await apiGet(`/api/family-tasks?studentId=${user.studentId}`);
-      if (data.success) {
-        setTasks(data.tasks);
-      }
-    } catch (error) {
-      toast.error('翻阅约定失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-  }, [user?.studentId]);
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,55 +40,33 @@ export default function ParentTasks() {
     }
 
     try {
-      setSubmitting(true);
-
-      const data = await apiPost('/api/family-tasks', {
+      await createMutation.mutateAsync({
         student_id: user.studentId,
         parent_id: user.id,
         title: newTaskTitle.trim(),
-        points: points
+        points: points,
       });
-
-      if (data.success) {
-        toast.success('新约定已记录');
-        setShowAddModal(false);
-        setNewTaskTitle('');
-        setNewTaskPoints('');
-        fetchTasks();
-      } else {
-        toast.error(data.message || '记录失败');
-      }
+      toast.success('新约定已记录');
+      setShowAddModal(false);
+      setNewTaskTitle('');
+      setNewTaskPoints('');
     } catch (error) {
       toast.error('网络错误');
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleUpdateStatus = async (task: FamilyTask, newStatus: 'approved' | 'rejected') => {
     try {
-      const data = await apiPut(`/api/family-tasks/${task.id}`, { status: newStatus });
-
-      if (data.success) {
-        // If approved, give points to student
-        if (newStatus === 'approved') {
-          const pointsData = await apiPost(`/api/student/${user?.studentId}/points`, {
-            amount: task.points,
-            reason: `完成家庭约定: ${task.title}`
-          });
-
-          if (!pointsData.success) {
-            toast.error('颁发小红花失败');
-          } else {
-            toast.success('约定已达成，小红花已颁发');
-          }
-        } else {
-          toast.success('约定需要改进');
-        }
-        fetchTasks();
-      } else {
-        toast.error(data.message || '操作失败');
-      }
+      await updateMutation.mutateAsync({
+        taskId: task.id,
+        status: newStatus,
+        reward:
+          newStatus === 'approved' && user?.studentId
+            ? { studentId: user.studentId, amount: task.points, reason: `完成家庭约定: ${task.title}` }
+            : undefined,
+      });
+      if (newStatus === 'approved') toast.success('约定已达成，小红花已颁发');
+      else toast.success('约定需要改进');
     } catch (error) {
       toast.error('网络错误');
     }
@@ -109,13 +75,8 @@ export default function ParentTasks() {
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这个约定吗？')) return;
     try {
-      const data = await apiDelete(`/api/family-tasks/${id}`);
-      if (data.success) {
-        toast.success('约定已删除');
-        fetchTasks();
-      } else {
-        toast.error(data.message || '删除失败');
-      }
+      await deleteMutation.mutateAsync(id);
+      toast.success('约定已删除');
     } catch (error) {
       toast.error('网络错误');
     }
@@ -299,10 +260,10 @@ export default function ParentTasks() {
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={createMutation.isPending}
                     className="flex-1 px-5 py-3.5 bg-coral-400 text-white rounded-2xl hover:bg-coral-500 disabled:opacity-50 transition-all duration-300 font-bold tracking-wide shadow-md hover:shadow-lg hover:shadow-coral-500/30 hover:-translate-y-0.5"
                   >
-                    {submitting ? '记录中...' : '定下约定'}
+                    {createMutation.isPending ? '记录中...' : '定下约定'}
                   </button>
                 </div>
               </form>

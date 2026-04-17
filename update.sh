@@ -10,12 +10,38 @@ PROJECT_NAME=${PROJECT_NAME:-"Think-Class"}
 APP_NAME=${APP_NAME:-"think-class"}
 REPO="xhnhhnh/Think-Claass"
 BACKUP_ARCHIVE=""
+REQUIRED_NODE_MAJOR=24
+DEFAULT_DATABASE_URL='DATABASE_URL="file:./database.sqlite"'
 
 # --- 打印欢迎信息 ---
 print_welcome() {
     echo "================================================="
     echo "      欢迎使用【${PROJECT_NAME}】一键自动更新脚本       "
     echo "================================================="
+}
+
+generate_prisma_client() {
+    if [ -f "prisma/schema.prisma" ]; then
+        echo ">> 正在生成 Prisma Client (npx prisma generate)..."
+        npx prisma generate --schema prisma/schema.prisma
+    else
+        echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
+    fi
+}
+
+install_dependencies_and_prisma() {
+    echo ">> 正在拉取最新的项目依赖 (npm install)..."
+    npm install
+    generate_prisma_client
+}
+
+update_current_version_in_env() {
+    local tag="$1"
+    if grep -q "CURRENT_VERSION=" .env; then
+        sed -i "s/CURRENT_VERSION=.*/CURRENT_VERSION=$tag/g" .env
+    else
+        echo "CURRENT_VERSION=$tag" >> .env
+    fi
 }
 
 # --- 检查服务状态 ---
@@ -35,9 +61,9 @@ check_node_version() {
 
     NODE_VERSION=$(node -v | cut -d 'v' -f 2)
     NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
-    if [ "$NODE_MAJOR" -lt 24 ]; then
-        echo ">> 错误：检测到 Node.js 版本 ($NODE_VERSION) 低于 v24，无法继续更新。"
-        echo ">> 请先升级到 Node.js 24 LTS，再重新运行 update.sh。"
+    if [ "$NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
+        echo ">> 错误：检测到 Node.js 版本 ($NODE_VERSION) 低于 v${REQUIRED_NODE_MAJOR}，无法继续更新。"
+        echo ">> 请先升级到 Node.js ${REQUIRED_NODE_MAJOR} LTS，再重新运行 update.sh。"
         exit 1
     fi
 }
@@ -48,7 +74,7 @@ ensure_database_url() {
     fi
     if ! grep -q "^DATABASE_URL=" .env; then
         echo ">> 检测到 .env 缺少 DATABASE_URL，正在自动补齐..."
-        echo 'DATABASE_URL="file:./database.sqlite"' >> .env
+        echo "$DEFAULT_DATABASE_URL" >> .env
     fi
 }
 
@@ -131,14 +157,7 @@ update_project() {
     if [ -z "$DOWNLOAD_URL" ]; then
         echo ">> [警告] 无法在 GitHub Releases 中获取下载链接（可能由于速率限制或未发布）。"
         echo ">> 将尝试使用 npm run build 进行本地源码更新..."
-        echo ">> 正在拉取最新的项目依赖 (npm install)..."
-        npm install
-        if [ -f "prisma/schema.prisma" ]; then
-            echo ">> 正在生成 Prisma Client (npx prisma generate)..."
-            npx prisma generate --schema prisma/schema.prisma
-        else
-            echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
-        fi
+        install_dependencies_and_prisma
         echo ">> 正在重新编译前端静态文件 (npm run build)..."
         npm run build
     else
@@ -151,20 +170,8 @@ update_project() {
         rm think-class-release.zip
 
         # 更新 .env 中的版本号
-        if grep -q "CURRENT_VERSION=" .env; then
-            sed -i "s/CURRENT_VERSION=.*/CURRENT_VERSION=$LATEST_TAG/g" .env
-        else
-            echo "CURRENT_VERSION=$LATEST_TAG" >> .env
-        fi
-
-        echo ">> 正在拉取最新的项目依赖 (npm install)..."
-        npm install
-        if [ -f "prisma/schema.prisma" ]; then
-            echo ">> 正在生成 Prisma Client (npx prisma generate)..."
-            npx prisma generate --schema prisma/schema.prisma
-        else
-            echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
-        fi
+        update_current_version_in_env "$LATEST_TAG"
+        install_dependencies_and_prisma
     fi
 }
 
@@ -186,14 +193,8 @@ rollback() {
         echo ">> 正在解压备份文件以覆盖当前内容..."
         tar -xzf "$BACKUP_ARCHIVE" -C .
         
-        echo ">> 正在重新拉取旧版本的依赖 (npm install)..."
-        npm install
-        if [ -f "prisma/schema.prisma" ]; then
-            echo ">> 正在生成 Prisma Client (npx prisma generate)..."
-            npx prisma generate --schema prisma/schema.prisma
-        else
-            echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
-        fi
+        echo ">> 正在重新拉取旧版本的依赖..."
+        install_dependencies_and_prisma
         
         echo ">> 备份已恢复，尝试重启服务..."
         if ! pm2 restart $APP_NAME --update-env; then

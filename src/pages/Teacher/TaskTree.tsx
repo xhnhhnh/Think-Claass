@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { GitBranch, Plus, XCircle, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import {
+  useCreateTaskNodeMutation,
+  useDeleteTaskNodeMutation,
+  useTeacherTaskNodes,
+  useUpdateTaskNodeMutation,
+} from '@/hooks/queries/useTaskTree';
+import { useClasses } from '@/hooks/queries/useClasses';
 
 interface TaskNode {
   id: number;
@@ -16,9 +23,13 @@ interface TaskNode {
 }
 
 export default function TeacherTaskTree() {
-  const [nodes, setNodes] = useState<TaskNode[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [classId, setClassId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const { data: classes = [] } = useClasses();
+  const classId = useMemo(() => classes[0]?.id ?? null, [classes]);
+  const { data: nodes = [] } = useTeacherTaskNodes(classId);
+  const createMutation = useCreateTaskNodeMutation();
+  const updateMutation = useUpdateTaskNodeMutation();
+  const deleteMutation = useDeleteTaskNodeMutation();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<TaskNode | null>(null);
@@ -31,31 +42,10 @@ export default function TeacherTaskTree() {
     y_pos: 50
   });
 
-  useEffect(() => {
-    fetch('/api/classes')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.classes.length > 0) {
-          setClassId(data.classes[0].id);
-        }
-      });
-  }, []);
-
-  const fetchNodes = async () => {
+  const reloadNodes = async () => {
     if (!classId) return;
-    try {
-      const data = await apiGet(`/api/task-tree/teacher/${classId}`);
-      if (data.success) {
-        setNodes(data.nodes);
-      }
-    } finally {
-      setLoading(false);
-    }
+    await queryClient.invalidateQueries({ queryKey: ['teacher-task-nodes', classId] });
   };
-
-  useEffect(() => {
-    if (classId) fetchNodes();
-  }, [classId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,14 +62,21 @@ export default function TeacherTaskTree() {
         y_pos: formData.y_pos,
       };
       const data = editingNode
-        ? await apiPut(`/api/task-tree/teacher/${editingNode.id}`, payload)
-        : await apiPost('/api/task-tree/teacher', payload);
+        ? await updateMutation.mutateAsync({
+            nodeId: editingNode.id,
+            data: {
+              title: payload.title,
+              description: payload.description,
+              points_reward: payload.points_reward,
+              x_pos: payload.x_pos,
+              y_pos: payload.y_pos,
+            },
+          })
+        : await createMutation.mutateAsync(payload);
       if (data.success) {
         toast.success(editingNode ? '节点已更新' : '节点已创建');
         setIsModalOpen(false);
-        fetchNodes();
-      } else {
-        toast.error(data.message || '操作失败');
+        await reloadNodes();
       }
     } catch (err) {
       toast.error('网络错误');
@@ -89,12 +86,10 @@ export default function TeacherTaskTree() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除此节点吗？')) return;
     try {
-      const data = await apiDelete(`/api/task-tree/teacher/${id}`);
+      const data = await deleteMutation.mutateAsync(id);
       if (data.success) {
         toast.success('节点已删除');
-        fetchNodes();
-      } else {
-        toast.error(data.message || '删除失败');
+        await reloadNodes();
       }
     } catch (err) {
       toast.error('网络错误');

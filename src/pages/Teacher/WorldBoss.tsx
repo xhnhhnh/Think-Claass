@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Swords, Plus, Trash2, ShieldAlert, Trophy, Users, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { useWorldBossMutation, useWorldBosses } from '@/hooks/queries/useWorldBoss';
 
 interface WorldBoss {
   id: number;
@@ -18,8 +18,8 @@ interface WorldBoss {
 }
 
 export default function TeacherWorldBoss() {
-  const [bosses, setBosses] = useState<WorldBoss[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: bosses = [], isLoading: loading, refetch } = useWorldBosses();
+  const bossMutation = useWorldBossMutation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -29,24 +29,6 @@ export default function TeacherWorldBoss() {
     level: 1
   });
 
-  const fetchBosses = async () => {
-    setLoading(true);
-    try {
-      const data = await apiGet('/api/challenge/boss');
-      if (data.success) {
-        setBosses(data.bosses);
-      }
-    } catch (error) {
-      toast.error('获取世界BOSS列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBosses();
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -55,16 +37,11 @@ export default function TeacherWorldBoss() {
     }
 
     try {
-      const data = await apiPost('/api/challenge/boss', formData);
-
-      if (data.success) {
-        toast.success('召唤世界BOSS成功！');
-        setIsModalOpen(false);
-        setFormData({ name: '', description: '', hp: 10000, level: 1 });
-        fetchBosses();
-      } else {
-        toast.error(data.message || '召唤失败');
-      }
+      await bossMutation.mutateAsync({ type: 'create', data: formData });
+      toast.success('召唤世界BOSS成功！');
+      setIsModalOpen(false);
+      setFormData({ name: '', description: '', hp: 10000, level: 1 });
+      await refetch();
     } catch (error) {
       toast.error('网络错误');
     }
@@ -74,13 +51,9 @@ export default function TeacherWorldBoss() {
     if (!confirm('确定要删除这个世界BOSS吗？')) return;
     
     try {
-      const data = await apiDelete(`/api/challenge/boss/${id}`);
-      if (data.success) {
-        toast.success('删除成功');
-        fetchBosses();
-      } else {
-        toast.error(data.message || '删除失败');
-      }
+      await bossMutation.mutateAsync({ type: 'delete', id });
+      toast.success('删除成功');
+      await refetch();
     } catch (error) {
       toast.error('网络错误');
     }
@@ -118,7 +91,7 @@ export default function TeacherWorldBoss() {
               <ShieldAlert className="w-5 h-5 text-red-500 mr-2" />
               当前战况
             </h3>
-            <button onClick={fetchBosses} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => refetch()} className="text-gray-400 hover:text-gray-600">
               <RefreshCw className="w-5 h-5" />
             </button>
           </div>

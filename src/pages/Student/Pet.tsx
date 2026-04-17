@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 
-import { apiGet, apiPost, apiPut } from "@/lib/api";
+import { usePetActionMutation, useStudentPetData } from '@/hooks/queries/usePet';
 
 interface Pet {
   id: number;
@@ -34,8 +34,11 @@ const ELEMENTS = [
 
 export default function StudentPet() {
   const user = useStore((state) => state.user);
+  const studentId = user?.studentId ?? null;
+  const { data, isLoading, refetch } = useStudentPetData(studentId);
+  const petMutation = usePetActionMutation(studentId);
   const [pet, setPet] = useState<Pet | null>(null);
-  const [loading, setLoading] = useState(true);
+  const loading = isLoading;
   const [adopting, setAdopting] = useState(false);
   const [selectedElement, setSelectedElement] = useState('');
   const [customImage, setCustomImage] = useState<string | null>(null);
@@ -47,39 +50,13 @@ export default function StudentPet() {
   const [editingImages, setEditingImages] = useState<Record<string, string>>({});
   const [savingImages, setSavingImages] = useState(false);
 
-  const fetchPetData = async () => {
-    if (!user?.studentId) return;
-    try {
-      const data = await apiGet(`/api/pets/${user.studentId}`);
-      if (data.success && data.pet) {
-        setPet(data.pet);
-      }
-
-      const dataStudents = await apiGet('/api/students');
-      if (dataStudents.success) {
-        const student = dataStudents.students.find((s: any) => s.id === user.studentId);
-        if (student) setAvailablePoints(student.available_points);
-      }
-
-      const praiseData = await apiGet(`/api/praises/student/${user.studentId}`);
-      if (praiseData.success) {
-        setPraises(praiseData.praises);
-      }
-
-      const recordsData = await apiGet(`/api/students/records?studentId=${user.studentId}`);
-      if (recordsData.success) {
-        setRecords(recordsData.records);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchPetData();
-  }, [user]);
+    if (!data) return;
+    setPet((data.pet as Pet) ?? null);
+    setAvailablePoints(data.availablePoints ?? 0);
+    setPraises(data.praises ?? []);
+    setRecords(data.records ?? []);
+  }, [data]);
 
   const handleStageImageUpload = (e: React.ChangeEvent<HTMLInputElement>, stage: number) => {
     const file = e.target.files?.[0];
@@ -117,14 +94,10 @@ export default function StudentPet() {
   const handleSaveImages = async () => {
     setSavingImages(true);
     try {
-      const data = await apiPut(`/api/pets/${user?.studentId}`, editingImages);
-      if (data.success) {
-        toast.success('外观保存成功！');
-        setShowEditImages(false);
-        fetchPetData();
-      } else {
-        toast.error(data.message || '保存失败');
-      }
+      await petMutation.mutateAsync({ type: 'update', data: editingImages });
+      toast.success('外观保存成功！');
+      setShowEditImages(false);
+      await refetch();
     } catch (err) {
       toast.error('网络错误');
     } finally {
@@ -136,18 +109,9 @@ export default function StudentPet() {
     if (!selectedElement) return;
     setAdopting(true);
     try {
-      const data = await apiPost('/api/pets/adopt', { 
-        studentId: user?.studentId, 
-        elementType: selectedElement,
-        customImage: customImage 
-      });
-
-      if (data.success) {
-        toast.success('领养成功！开启你的学习之旅吧');
-        fetchPetData();
-      } else {
-        toast.error('领养失败：' + data.message);
-      }
+      await petMutation.mutateAsync({ type: 'adopt', elementType: selectedElement, customImage });
+      toast.success('领养成功！开启你的学习之旅吧');
+      await refetch();
     } catch (err) {
       console.error(err);
       toast.error('网络错误');
@@ -165,26 +129,22 @@ export default function StudentPet() {
     try {
       const oldLevel = pet?.level || 1;
 
-      const data = await apiPost(
-        '/api/pets/interact',
-        { studentId: user?.studentId, actionType, cost, expGain, type }
-      );
-
-      if (data.success) {
-        setPet(data.pet);
-        setAvailablePoints(data.points);
-        toast.success(`交互成功！经验 +${expGain}`);
-        
-        // Evolution check
-        if (data.pet.level > oldLevel) {
-          triggerEvolutionEffect();
-          toast.success(`🎉 恭喜！你的精灵进化到了【${getEvolutionStage(data.pet.level)}】！`, {
-            duration: 5000,
-            icon: '🌟'
-          });
-        }
-      } else {
-        toast.error(data.message);
+      const data = (await petMutation.mutateAsync({
+        type: 'interact',
+        actionType,
+        cost,
+        expGain,
+        actionLogType: type,
+      })) as any;
+      setPet(data.pet);
+      setAvailablePoints(data.points);
+      toast.success(`交互成功！经验 +${expGain}`);
+      if (data.pet.level > oldLevel) {
+        triggerEvolutionEffect();
+        toast.success(`🎉 恭喜！你的精灵进化到了【${getEvolutionStage(data.pet.level)}】！`, {
+          duration: 5000,
+          icon: '🌟'
+        });
       }
     } catch (err) {
       console.error(err);

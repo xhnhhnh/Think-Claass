@@ -3,12 +3,13 @@ import { useStore } from '@/store/useStore';
 import { CheckCircle, Search, Gift, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiPost } from "@/lib/api";
+import { useRedemptionVerifyMutation } from '@/hooks/queries/useRedemption';
 
 export default function TeacherVerification() {
   const user = useStore((state) => state.user);
   const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const verifyMutation = useRedemptionVerifyMutation();
+  const loading = verifyMutation.isPending;
   const [result, setResult] = useState<any>(null);
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -18,28 +19,19 @@ export default function TeacherVerification() {
       return;
     }
 
-    setLoading(true);
     try {
-      const data = await apiPost(
-        '/api/redemption/verify',
-        { code: code.trim().toUpperCase(), teacherId: user?.id }
-      );
-
-      if (data.success) {
-        toast.success('核销成功！');
-        setResult(data.ticket);
-        setCode('');
-      } else {
-        toast.error(data.message || '核销失败');
-        setResult(null);
-      }
+      const data = await verifyMutation.mutateAsync({ code: code.trim().toUpperCase(), teacherId: user?.id });
+      toast.success('核销成功！');
+      setResult(data.ticket);
+      setCode('');
     } catch (err) {
       console.error('Verify error:', err);
       toast.error('网络错误');
-    } finally {
-      setLoading(false);
+      setResult(null);
     }
   };
+
+
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">

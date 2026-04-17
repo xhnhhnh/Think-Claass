@@ -1,89 +1,31 @@
-import { useState, useEffect } from 'react';
-import { useStore } from '@/store/useStore';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Swords, ShieldAlert, Crosshair, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost, apiPut } from "@/lib/api";
-
-interface Battle {
-  id: number;
-  initiator_class_id: number;
-  target_class_id: number;
-  initiator_class_name: string;
-  target_class_name: string;
-  status: 'pending' | 'active' | 'ended' | 'rejected';
-  start_time: string;
-  end_time: string;
-  winner_class_id: number | null;
-}
+import { battlesApi, type Battle } from '@/api/battles';
+import { useBattleActionMutation, useBattleStats, useInitiateBattleMutation, useTeacherBattles } from '@/hooks/queries/useBattles';
+import { useClasses } from '@/hooks/queries/useClasses';
 
 export default function TeacherBrawl() {
-  const [battles, setBattles] = useState<Battle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [classId, setClassId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const { data: classes = [] } = useClasses();
+  const classId = useMemo(() => classes[0]?.id ?? null, [classes]);
+  const { data: battles = [] } = useTeacherBattles(classId);
+  const activeBattle = battles.find(b => b.status === 'active') ?? null;
+  const { data: activeStats } = useBattleStats(activeBattle?.id ?? null, !!activeBattle);
+  const initiateMutation = useInitiateBattleMutation();
+  const actionMutation = useBattleActionMutation();
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{id: number, name: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-
-  // Stats state
-  const [activeStats, setActiveStats] = useState<{
-    battle: Battle,
-    initiatorScore: number,
-    targetScore: number
-  } | null>(null);
-
-  useEffect(() => {
-    // Get teacher's first class ID
-    fetch('/api/classes')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.classes.length > 0) {
-          setClassId(data.classes[0].id);
-        }
-      });
-  }, []);
-
-  const fetchBattles = async () => {
+  const reloadBattles = async () => {
     if (!classId) return;
-    try {
-      const data = await apiGet(`/api/battles/teacher/${classId}`);
-      if (data.success) {
-        setBattles(data.battles);
-        
-        // If there is an active battle, fetch stats
-        const active = data.battles.find((b: Battle) => b.status === 'active');
-        if (active) {
-          fetchStats(active.id);
-        } else {
-          setActiveStats(null);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
+    await queryClient.invalidateQueries({ queryKey: ['teacher-battles', classId] });
   };
-
-  const fetchStats = async (battleId: number) => {
-    try {
-      const data = await apiGet(`/api/battles/stats/${battleId}`);
-      if (data.success) {
-        setActiveStats(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    if (classId) {
-      fetchBattles();
-      const interval = setInterval(fetchBattles, 10000); // Poll every 10s
-      return () => clearInterval(interval);
-    }
-  }, [classId]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +33,9 @@ export default function TeacherBrawl() {
     
     setIsSearching(true);
     try {
-      const data = await apiGet(
-        `/api/battles/classes/search?q=${encodeURIComponent(searchQuery)}&excludeClassId=${classId}`
+      const data = await battlesApi.searchClasses(
+        searchQuery,
+        classId,
       );
 
       if (data.success) {
@@ -110,18 +53,13 @@ export default function TeacherBrawl() {
     if (!window.confirm(`确定要向 [${targetName}] 发起大乱斗挑战吗？`)) return;
 
     try {
-      const data = await apiPost(
-        '/api/battles/teacher/initiate',
-        { initiator_class_id: classId, target_class_id: targetId }
-      );
+      const data = await initiateMutation.mutateAsync({ initiator_class_id: classId, target_class_id: targetId });
 
       if (data.success) {
         toast.success('挑战已发出！等待对方教师接受。');
         setSearchQuery('');
         setSearchResults([]);
-        fetchBattles();
-      } else {
-        toast.error(data.message || '发起失败');
+        await reloadBattles();
       }
     } catch (err) {
       toast.error('网络错误');
@@ -130,21 +68,23 @@ export default function TeacherBrawl() {
 
   const handleAction = async (battleId: number, action: 'accept' | 'reject' | 'end') => {
     try {
-      let body = {};
+      let winnerClassId: number | null | undefined;
       if (action === 'end' && activeStats) {
         // Determine winner
         const winnerId = activeStats.initiatorScore > activeStats.targetScore 
           ? activeStats.battle.initiator_class_id 
           : (activeStats.targetScore > activeStats.initiatorScore ? activeStats.battle.target_class_id : null);
-        body = { winner_class_id: winnerId };
+        winnerClassId = winnerId;
       }
 
-      const data = await apiPut(`/api/battles/teacher/${action}/${battleId}`, body);
+      const data = await actionMutation.mutateAsync({
+        battleId,
+        action,
+        winnerClassId,
+      });
       if (data.success) {
         toast.success(`操作成功: ${action}`);
-        fetchBattles();
-      } else {
-        toast.error(data.message || '操作失败');
+        await reloadBattles();
       }
     } catch (err) {
       toast.error('网络错误');
@@ -153,7 +93,6 @@ export default function TeacherBrawl() {
 
   if (!classId) return <div className="p-8 text-center text-slate-500">请先创建或选择一个班级</div>;
 
-  const activeBattle = battles.find(b => b.status === 'active');
   const pendingReceived = battles.filter(b => b.status === 'pending' && b.target_class_id === classId);
   const pendingSent = battles.filter(b => b.status === 'pending' && b.initiator_class_id === classId);
 

@@ -3,7 +3,8 @@ import { useStore } from '@/store/useStore';
 import { Send, MessageSquare, AlertCircle, RefreshCw, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { studentsApi } from '@/api/students';
+import { useMessages, useSendMessageMutation } from '@/hooks/queries/useMessages';
 
 interface Message {
   id: number;
@@ -20,43 +21,28 @@ interface Message {
 
 export default function ParentCommunication() {
   const user = useStore(state => state.user);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [classId, setClassId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const fetchMessages = async (cid: number) => {
-    try {
-      setLoading(true);
-      const data = await apiGet(`/api/messages?classId=${cid}&type=HOME_SCHOOL`);
-      if (data.success) {
-        // Filter messages related to this parent
-        const parentMessages = data.messages.filter((m: Message) => 
-          (m.sender_role === 'user' && m.sender_id === user?.id) || 
-          (m.receiver_id === user?.id) || 
-          // If teacher broadcasts to all parents, maybe receiver_id is null? Let's show those sent by teacher
-          (m.sender_role === 'teacher' && m.receiver_id === user?.id)
-        );
-        setMessages(parentMessages.reverse()); // Chronological order
-      }
-    } catch (error) {
-      toast.error('加载信件失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: rawMessages = [], isLoading: loading, refetch } = useMessages(classId, 'HOME_SCHOOL');
+  const sendMutation = useSendMessageMutation(classId, 'HOME_SCHOOL');
+  const messages = (rawMessages as Message[])
+    .filter(
+      (m) =>
+        (m.sender_role === 'user' && m.sender_id === user?.id) ||
+        m.receiver_id === user?.id ||
+        (m.sender_role === 'teacher' && m.receiver_id === user?.id),
+    )
+    .reverse();
 
   useEffect(() => {
     if (!user?.studentId) return;
 
     const init = async () => {
       try {
-        const data = await apiGet(`/api/student/${user.studentId}`);
+        const data = (await studentsApi.getStudentById(user.studentId)) as any;
         if (data.success && data.student) {
           setClassId(data.student.class_id);
-          await fetchMessages(data.student.class_id);
         }
       } catch (error) {
         console.error('Failed to init communication', error);
@@ -74,28 +60,19 @@ export default function ParentCommunication() {
     if (!newMessage.trim() || !classId || !user) return;
 
     try {
-      setSending(true);
-
-      const data = await apiPost('/api/messages', {
+      await sendMutation.mutateAsync({
         class_id: classId,
         sender_id: user.id,
         content: newMessage.trim(),
         is_anonymous: false,
         type: 'HOME_SCHOOL',
-        sender_role: 'user'
+        sender_role: 'user',
       });
-
-      if (data.success) {
-        setNewMessage('');
-        await fetchMessages(classId);
-        toast.success('信件已寄出');
-      } else {
-        toast.error(data.message || '寄信失败');
-      }
+      setNewMessage('');
+      await refetch();
+      toast.success('信件已寄出');
     } catch (error) {
       toast.error('寄信失败，请重试');
-    } finally {
-      setSending(false);
     }
   };
 
@@ -127,7 +104,7 @@ export default function ParentCommunication() {
           </div>
         </div>
         <button 
-          onClick={() => classId && fetchMessages(classId)}
+          onClick={() => classId && refetch()}
           disabled={loading}
           className="p-2.5 text-stone-400 hover:text-coral-500 hover:bg-coral-50 rounded-xl transition-all duration-300 disabled:opacity-50"
           title="刷新信箱"
@@ -200,10 +177,10 @@ export default function ParentCommunication() {
           </div>
           <button
             type="submit"
-            disabled={!newMessage.trim() || sending}
+            disabled={!newMessage.trim() || sendMutation.isPending}
             className="flex-shrink-0 h-14 w-14 flex items-center justify-center bg-coral-400 text-white rounded-[1.25rem] hover:bg-coral-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-coral-500/30 disabled:opacity-50 disabled:hover:bg-coral-400 disabled:hover:translate-y-0 disabled:hover:shadow-none transition-all duration-300 shadow-md"
           >
-            {sending ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6 ml-1" />}
+            {sendMutation.isPending ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6 ml-1" />}
           </button>
         </form>
         <p className="text-center text-xs text-stone-400 mt-4 tracking-widest font-medium">按 Enter 发出信件，Shift + Enter 换行</p>

@@ -10,12 +10,36 @@ PROJECT_NAME=${PROJECT_NAME:-"Think-Class"}
 APP_NAME=${APP_NAME:-"think-class"}
 REPO="xhnhhnh/Think-Claass"
 PORT=3001
+REQUIRED_NODE_MAJOR=24
+DEFAULT_DATABASE_URL='DATABASE_URL="file:./database.sqlite"'
 
 # --- 打印欢迎信息 ---
 print_welcome() {
     echo "================================================="
     echo "      欢迎使用【${PROJECT_NAME}】一键自动部署脚本       "
     echo "================================================="
+}
+
+generate_prisma_client() {
+    if [ -f "prisma/schema.prisma" ]; then
+        echo ">> 正在生成 Prisma Client (npx prisma generate)..."
+        npx prisma generate --schema prisma/schema.prisma
+    else
+        echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
+    fi
+}
+
+install_project_dependencies() {
+    echo ">> 正在安装项目依赖 (npm install)..."
+    rm -rf node_modules package-lock.json pnpm-lock.yaml
+    npm install
+}
+
+replace_custom_admin_path() {
+    if [ "$ADMIN_PATH" != "/beiadmin" ] && [ -d "dist" ]; then
+        echo ">> 正在配置自定义后台路径 ($ADMIN_PATH)..."
+        find dist -type f \( -name "*.js" -o -name "*.html" \) -exec sed -i "s|/beiadmin|$ADMIN_PATH|g" {} +
+    fi
 }
 
 # --- 环境预检 ---
@@ -376,24 +400,24 @@ install_node_and_deps() {
     if command -v node &> /dev/null; then
         NODE_VERSION=$(node -v | cut -d 'v' -f 2)
         NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
-        if [ "$NODE_MAJOR" -lt 18 ]; then
-            echo ">> 检测到 Node.js 版本 ($NODE_VERSION) 低于 v18，准备升级..."
+        if [ "$NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
+            echo ">> 检测到 Node.js 版本 ($NODE_VERSION) 低于 v${REQUIRED_NODE_MAJOR}，准备升级到 Node.js ${REQUIRED_NODE_MAJOR} LTS..."
         else
-            echo ">> 已检测到 Node.js，版本为 v$NODE_VERSION，满足要求。"
+            echo ">> 已检测到 Node.js，版本为 v$NODE_VERSION，满足 Node.js ${REQUIRED_NODE_MAJOR} LTS 要求。"
             return 0
         fi
     else
-        echo ">> 未检测到 Node.js，正在自动安装 Node.js v18..."
+        echo ">> 未检测到 Node.js，正在自动安装 Node.js ${REQUIRED_NODE_MAJOR} LTS..."
     fi
 
     if [ "$PKG_MANAGER" == "apt-get" ]; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        curl -fsSL "https://deb.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" | sudo -E bash -
         sudo apt-get install -y nodejs
     elif [ "$PKG_MANAGER" == "yum" ]; then
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" | sudo bash -
         sudo yum install -y nodejs
     else
-        echo ">> [错误] 不支持的系统包管理器。请手动安装 Node.js v18+ 后重试。"
+        echo ">> [错误] 不支持的系统包管理器。请手动安装 Node.js ${REQUIRED_NODE_MAJOR} LTS 后重试。"
         exit 1
     fi
 }
@@ -420,22 +444,14 @@ VITE_API_URL=http://$USER_DOMAIN
 VITE_ADMIN_PATH=$ADMIN_PATH
 CURRENT_VERSION=$LATEST_TAG
 PORT=$PORT
-DATABASE_URL="file:./database.sqlite"
+${DEFAULT_DATABASE_URL}
 ENV_EOF
 }
 
 # --- 安装项目依赖并处理路径 ---
 build_project() {
-    echo ">> 正在安装项目依赖 (npm install)..."
-    rm -rf node_modules package-lock.json pnpm-lock.yaml
-    npm install
-
-    if [ -f "prisma/schema.prisma" ]; then
-        echo ">> 正在生成 Prisma Client (npx prisma generate)..."
-        npx prisma generate --schema prisma/schema.prisma
-    else
-        echo ">> [警告] 未找到 prisma/schema.prisma，已跳过 Prisma Client 生成。"
-    fi
+    install_project_dependencies
+    generate_prisma_client
 
     if [ -z "$DOWNLOAD_URL" ]; then
         echo ">> 正在编译打包前端静态文件 (npm run build)..."
@@ -443,10 +459,7 @@ build_project() {
     fi
 
     # 替换前端打包文件中的自定义路径
-    if [ "$ADMIN_PATH" != "/beiadmin" ] && [ -d "dist" ]; then
-        echo ">> 正在配置自定义后台路径 ($ADMIN_PATH)..."
-        find dist -type f \( -name "*.js" -o -name "*.html" \) -exec sed -i "s|/beiadmin|$ADMIN_PATH|g" {} +
-    fi
+    replace_custom_admin_path
 }
 
 # --- 启动服务 ---
