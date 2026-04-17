@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Package, Store, Plus, CheckCircle, XCircle, Search, Edit2 } from 'lucide-react';
 
-import { apiGet, apiPut } from "@/lib/api";
+import { useTeacherShopItems, useTeacherShopMutation } from '@/hooks/queries/useTeacherShop';
 
 interface ShopItem {
   id: number;
@@ -13,8 +13,8 @@ interface ShopItem {
 }
 
 export default function TeacherShop() {
-  const [items, setItems] = useState<ShopItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isLoading: loading, refetch } = useTeacherShopItems();
+  const shopMutation = useTeacherShopMutation();
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
 
@@ -29,29 +29,10 @@ export default function TeacherShop() {
   });
   const [error, setError] = useState('');
 
-  const fetchItems = async () => {
-    try {
-      const data = await apiGet('/api/shop/all');
-      if (data.success) {
-        setItems(data.items);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
   const toggleStatus = async (id: number, currentStatus: number) => {
     try {
-      const data = await apiPut(`/api/shop/${id}/status`, { is_active: currentStatus === 1 ? 0 : 1 });
-      if (data.success) {
-        fetchItems();
-      }
+      await shopMutation.mutateAsync({ type: 'status', itemId: id, isActive: currentStatus === 1 ? 0 : 1 });
+      await refetch();
     } catch (err) {
       console.error(err);
     }
@@ -61,16 +42,8 @@ export default function TeacherShop() {
     if (newStock < -1) return;
     
     try {
-      const data = await apiPut(`/api/shop/${item.id}`, {
-        ...item,
-        stock: newStock
-      });
-
-      if (data.success) {
-        fetchItems();
-      } else {
-        alert(data.message || '库存更新失败');
-      }
+      await shopMutation.mutateAsync({ type: 'update', itemId: item.id, data: { ...item, stock: newStock } });
+      await refetch();
     } catch (err) {
       console.error(err);
       alert('网络错误，请稍后重试');
@@ -82,22 +55,13 @@ export default function TeacherShop() {
     setError('');
 
     try {
-      let url = '/api/shop';
-      let method = 'POST';
-
       if (isEditing && currentItem.id) {
-        url = `/api/shop/${currentItem.id}`;
-        method = 'PUT';
-      }
-
-      const data = await apiGet(url);
-
-      if (data.success) {
-        setShowModal(false);
-        fetchItems();
+        await shopMutation.mutateAsync({ type: 'update', itemId: currentItem.id, data: currentItem });
       } else {
-        setError(data.message || '操作失败');
+        await shopMutation.mutateAsync({ type: 'create', data: currentItem });
       }
+      setShowModal(false);
+      await refetch();
     } catch (err) {
       setError('网络错误');
     }

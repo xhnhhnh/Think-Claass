@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { Gift, Star, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { useQuery } from '@tanstack/react-query';
+
+import { studentsApi } from '@/api/students';
+import { teacherApi } from '@/api/teacher';
+import { useLuckyDrawConfig, useLuckyDrawMutation } from '@/hooks/queries/useLuckyDraw';
 
 interface PrizeConfig {
   prize_name: string;
@@ -14,46 +18,31 @@ interface PrizeConfig {
 
 export default function StudentLuckyDraw() {
   const user = useStore((state) => state.user);
-  const [configs, setConfigs] = useState<PrizeConfig[]>([]);
-  const [costPoints, setCostPoints] = useState(10);
-  const [availablePoints, setAvailablePoints] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const studentId = user?.studentId ?? null;
+  const { data: students = [] } = useQuery({
+    queryKey: ['students'],
+    queryFn: async () => {
+      const data = (await studentsApi.getStudents()) as any;
+      return data.students ?? [];
+    },
+  });
+  const { data: classes = [] } = useQuery({
+    queryKey: ['classes'],
+    queryFn: async () => {
+      const data = (await teacherApi.getClasses()) as any;
+      return data.classes ?? [];
+    },
+  });
+  const currentStudent = (students as any[]).find((s) => s.id === studentId);
+  const teacherId = (classes as any[]).find((c) => c.id === currentStudent?.class_id)?.teacher_id ?? 1;
+  const { data: configData, isLoading: loading, refetch } = useLuckyDrawConfig(teacherId);
+  const drawMutation = useLuckyDrawMutation(studentId);
+  const configs = ((configData?.configs ?? []) as PrizeConfig[]);
+  const costPoints = configData?.cost_points ?? 10;
+  const availablePoints = currentStudent?.available_points ?? 0;
   const [drawing, setDrawing] = useState(false);
   const [result, setResult] = useState<{ prize_name: string; message: string } | null>(null);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
-
-  const fetchData = async () => {
-    if (!user?.studentId) return;
-    try {
-      const data = await apiGet(`/api/students`);
-      if (data.success) {
-        const student = data.students.find((s: any) => s.id === user.studentId);
-        if (student) setAvailablePoints(student.available_points);
-      }
-
-      const studentData = data.students.find((s: any) => s.id === user.studentId);
-      let tId = 1;
-      if (studentData && studentData.class_id) {
-        const clsData = await apiGet(`/api/classes`);
-        const cls = clsData.classes?.find((c: any) => c.id === studentData.class_id);
-        if (cls) tId = cls.teacher_id;
-      }
-
-      const configData = await apiGet(`/api/lucky-draw/config?teacherId=${tId}`);
-      if (configData.success) {
-        setConfigs(configData.configs);
-        if (configData.cost_points) setCostPoints(configData.cost_points);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [user]);
 
   const handleDraw = async (index: number) => {
     if (drawing || flippedIndex !== null) return;
@@ -67,17 +56,14 @@ export default function StudentLuckyDraw() {
     setFlippedIndex(index);
 
     try {
-      const data = await apiPost('/api/lucky-draw/draw', { studentId: user?.studentId });
+      const data = await drawMutation.mutateAsync();
 
       // Delay to show animation
-      setTimeout(() => {
+      setTimeout(async () => {
         if (data.success) {
           setResult({ prize_name: data.prize.prize_name, message: data.message });
           toast.success(data.message);
-          fetchData(); // Refresh points
-        } else {
-          toast.error(data.message || '抽奖失败');
-          setFlippedIndex(null);
+          await refetch();
         }
         setDrawing(false);
       }, 1000);

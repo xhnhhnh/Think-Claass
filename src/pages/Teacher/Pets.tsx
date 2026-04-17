@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { apiGet, apiPut } from '@/lib/api';
 import { Sparkles, Users, Upload, ImageIcon, XCircle, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { useClasses } from '@/hooks/queries/useClasses';
+import { useClassPets } from '@/hooks/queries/usePet';
+import { useTeacherPetMutation } from '@/hooks/queries/useTeacherPets';
 
 const ELEMENTS = [
   { id: 'fire', name: '火系', color: 'bg-red-500', bg: 'bg-red-50', icon: '🔥' },
@@ -33,11 +35,11 @@ const getPetIcon = (level: number) => {
 };
 
 export default function TeacherPets() {
-  const user = useStore((state) => state.user);
-  const [classes, setClasses] = useState<any[]>([]);
+  useStore((state) => state.user);
+  const { data: classes = [] } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: students = [], isLoading: loading, refetch } = useClassPets(selectedClassId || null);
+  const petMutation = useTeacherPetMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -45,36 +47,10 @@ export default function TeacherPets() {
   const [savingImages, setSavingImages] = useState(false);
 
   useEffect(() => {
-    fetchClasses();
-  }, []);
-
-  useEffect(() => {
-    if (selectedClassId) {
-      fetchStudentsPets();
+    if (!selectedClassId && classes.length > 0) {
+      setSelectedClassId(String(classes[0].id));
     }
-  }, [selectedClassId]);
-
-  const fetchClasses = async () => {
-    try {
-      const data = await apiGet<{ classes: any[] }>('/api/classes');
-      setClasses(data.classes);
-      if (data.classes.length > 0) {
-        setSelectedClassId(data.classes[0].id.toString());
-      }
-    } catch (error) {
-      setLoading(false);
-    }
-  };
-
-  const fetchStudentsPets = async () => {
-    setLoading(true);
-    try {
-      const data = await apiGet<{ students: any[] }>(`/api/pets/admin/class/${selectedClassId}`);
-      setStudents(data.students);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [classes, selectedClassId]);
 
   const openModal = (student: any) => {
     setEditingStudent(student);
@@ -111,10 +87,10 @@ export default function TeacherPets() {
     }
     setSavingImages(true);
     try {
-      await apiPut(`/api/pets/${editingStudent.student_id}`, editingImages);
+      await petMutation.mutateAsync({ studentId: editingStudent.student_id, data: editingImages });
       toast.success(editingStudent.has_pet ? '外观修改成功！' : '精灵分配成功！');
       setIsModalOpen(false);
-      fetchStudentsPets();
+      await refetch();
     } finally {
       setSavingImages(false);
     }

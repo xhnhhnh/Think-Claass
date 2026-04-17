@@ -6,8 +6,15 @@ import {
   FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, 
   Gavel, Swords, Map, FileText, Network
 } from "lucide-react";
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
+import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
+import { useClasses } from '@/hooks/queries/useClasses';
+import {
+  defaultClassFeatures,
+  isFeatureRequirementEnabled,
+  type FeatureRequirement,
+} from '@/lib/classFeatures';
 
 const navItems = [
   { path: '/teacher', icon: Users, label: '班级与学生管理' },
@@ -36,11 +43,63 @@ const navItems = [
   { path: '/teacher/settings', icon: UserCog, label: '个人设置' },
 ];
 
+const teacherFeatureRequirements: Partial<Record<string, FeatureRequirement>> = {
+  '/teacher/shop': { key: 'enable_shop' },
+  '/teacher/lucky-draw-config': { key: 'enable_lucky_draw' },
+  '/teacher/verification': { key: 'enable_lucky_draw' },
+  '/teacher/brawl': { key: 'enable_class_brawl' },
+  '/teacher/territory': { key: 'enable_slg' },
+  '/teacher/task-tree': { key: 'enable_task_tree' },
+  '/teacher/world-boss': { key: 'enable_world_boss' },
+  '/teacher/auction': { key: 'enable_auction_blind_box' },
+  '/teacher/blind-box': { key: 'enable_auction_blind_box' },
+  '/teacher/certificates': { key: 'enable_achievements' },
+  '/teacher/communication': {
+    anyOf: [
+      'enable_tree_hole',
+      'enable_chat_bubble',
+      'enable_peer_review',
+      'enable_danmaku',
+      'enable_family_tasks',
+      'enable_parent_buff',
+    ],
+  },
+};
+
 export default function TeacherLayout() {
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: classes = [] } = useClasses();
+  const defaultClassId = useMemo(() => classes[0]?.id ?? null, [classes]);
+  const { data: classFeatureData } = useClassFeatures(defaultClassId);
+  const features = classFeatureData?.features ?? defaultClassFeatures;
+
+  const filteredNavItems = useMemo(
+    () =>
+      navItems.filter((item) =>
+        isFeatureRequirementEnabled(features, teacherFeatureRequirements[item.path]),
+      ),
+    [features],
+  );
+
+  const fallbackPath = useMemo(
+    () => filteredNavItems[0]?.path ?? '/teacher/features',
+    [filteredNavItems],
+  );
+
+  useEffect(() => {
+    if (location.pathname === '/teacher' && fallbackPath !== '/teacher') {
+      navigate(fallbackPath, { replace: true });
+      return;
+    }
+
+    const requirement = teacherFeatureRequirements[location.pathname];
+    if (requirement && !isFeatureRequirementEnabled(features, requirement)) {
+      navigate(fallbackPath, { replace: true });
+    }
+  }, [fallbackPath, features, location.pathname, navigate]);
 
   if (!user) return null;
 
@@ -55,7 +114,7 @@ export default function TeacherLayout() {
             <span className="font-bold text-xl tracking-wide gemini-gradient-text">教师主控台</span>
           </div>
           <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
               return (
@@ -95,7 +154,9 @@ export default function TeacherLayout() {
         <div className="flex-1 flex flex-col min-w-0 glass rounded-3xl overflow-hidden relative soft-shadow">
           <header className="h-20 border-b border-white/20 flex items-center px-8 flex-shrink-0 z-10 relative bg-white/40">
             <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-              {navItems.find(item => item.path === location.pathname)?.label || '添加学生'}
+              {filteredNavItems.find(item => item.path === location.pathname)?.label
+                || navItems.find(item => item.path === location.pathname)?.label
+                || '添加学生'}
             </h1>
           </header>
           <main className="flex-1 overflow-auto p-8 relative bg-white/50">

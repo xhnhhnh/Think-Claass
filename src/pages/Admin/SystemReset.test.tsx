@@ -5,22 +5,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SystemReset from './SystemReset';
 
 const mocks = vi.hoisted(() => ({
-  resetDatabase: vi.fn(),
+  mutateAsync: vi.fn(),
   logout: vi.fn(),
   navigate: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
   toast: {
-    success: vi.fn(),
-    error: vi.fn(),
+    success: mocks.toastSuccess,
+    error: mocks.toastError,
   },
 }));
 
-vi.mock('@/api/admin', () => ({
-  adminApi: {
-    resetDatabase: mocks.resetDatabase,
-  },
+vi.mock('@/features/admin/hooks/useAdminSystem', () => ({
+  useDatabaseResetMutation: () => ({
+    mutateAsync: mocks.mutateAsync,
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/store/useStore', () => ({
@@ -40,10 +43,15 @@ vi.mock('react-router-dom', async () => {
 
 describe('SystemReset', () => {
   beforeEach(() => {
-    mocks.resetDatabase.mockReset();
+    mocks.mutateAsync.mockReset();
     mocks.logout.mockReset();
     mocks.navigate.mockReset();
-    mocks.resetDatabase.mockResolvedValue({ success: true, message: '所有数据已重置' });
+    mocks.toastSuccess.mockReset();
+    mocks.toastError.mockReset();
+    mocks.mutateAsync.mockResolvedValue({
+      message: '所有数据已重置，并已恢复超级管理员账户',
+      preservedSuperadmins: 1,
+    });
     vi.stubGlobal('confirm', vi.fn(() => true));
   });
 
@@ -51,7 +59,7 @@ describe('SystemReset', () => {
     render(
       <MemoryRouter>
         <SystemReset />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fireEvent.change(screen.getByPlaceholderText('输入 CONFIRM'), {
@@ -60,9 +68,10 @@ describe('SystemReset', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认并立即重置系统' }));
 
     await waitFor(() => {
-      expect(mocks.resetDatabase).toHaveBeenCalledTimes(1);
+      expect(mocks.mutateAsync).toHaveBeenCalledTimes(1);
     });
 
     expect(mocks.logout).toHaveBeenCalledTimes(1);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('所有数据已重置，并已恢复超级管理员账户');
   });
 });

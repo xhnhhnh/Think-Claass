@@ -119,18 +119,18 @@ export function initDb() {
       invite_code TEXT UNIQUE,
       teacher_id INTEGER REFERENCES users(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      enable_chat_bubble INTEGER DEFAULT 1,
-      enable_peer_review INTEGER DEFAULT 1,
-      enable_tree_hole INTEGER DEFAULT 1,
-      enable_shop INTEGER DEFAULT 1,
-      enable_lucky_draw INTEGER DEFAULT 1,
-      enable_challenge INTEGER DEFAULT 1,
-      enable_family_tasks INTEGER DEFAULT 1,
-      enable_world_boss INTEGER DEFAULT 1,
-      enable_guild_pk INTEGER DEFAULT 1,
-      enable_auction_blind_box INTEGER DEFAULT 1,
-      enable_achievements INTEGER DEFAULT 1,
-      enable_parent_buff INTEGER DEFAULT 1,
+      enable_chat_bubble INTEGER DEFAULT 0,
+      enable_peer_review INTEGER DEFAULT 0,
+      enable_tree_hole INTEGER DEFAULT 0,
+      enable_shop INTEGER DEFAULT 0,
+      enable_lucky_draw INTEGER DEFAULT 0,
+      enable_challenge INTEGER DEFAULT 0,
+      enable_family_tasks INTEGER DEFAULT 0,
+      enable_world_boss INTEGER DEFAULT 0,
+      enable_guild_pk INTEGER DEFAULT 0,
+      enable_auction_blind_box INTEGER DEFAULT 0,
+      enable_achievements INTEGER DEFAULT 0,
+      enable_parent_buff INTEGER DEFAULT 0,
       pet_selection_mode TEXT DEFAULT 'student'
     );
 
@@ -1045,28 +1045,60 @@ export function initDb() {
   addColumnIfNotExists('students', 'birthday', 'TEXT');
 
   // Add feature flags to classes if not exists (migration)
-  addColumnIfNotExists('classes', 'enable_chat_bubble', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_peer_review', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_tree_hole', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_shop', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_lucky_draw', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_challenge', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_family_tasks', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_world_boss', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_chat_bubble', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_peer_review', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_tree_hole', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_shop', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_lucky_draw', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_challenge', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_family_tasks', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_world_boss', 'INTEGER DEFAULT 0');
 
-  addColumnIfNotExists('classes', 'enable_task_tree', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_danmaku', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_slg', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_gacha', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_economy', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_dungeon', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_task_tree', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_danmaku', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_class_brawl', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_slg', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_gacha', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_economy', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_dungeon', 'INTEGER DEFAULT 0');
 
   addColumnIfNotExists('world_bosses', 'status', "TEXT DEFAULT 'active'");
 
-  addColumnIfNotExists('classes', 'enable_guild_pk', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_auction_blind_box', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_achievements', 'INTEGER DEFAULT 1');
-  addColumnIfNotExists('classes', 'enable_parent_buff', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('classes', 'enable_guild_pk', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_auction_blind_box', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_achievements', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'enable_parent_buff', 'INTEGER DEFAULT 0');
+
+  const classFeatureDefaultOffMigrationKey = 'class_features_default_off_migration_v1';
+  const classFeatureDefaultOffMigrationExists = db
+    .prepare('SELECT key FROM settings WHERE key = ?')
+    .get(classFeatureDefaultOffMigrationKey);
+  if (!classFeatureDefaultOffMigrationExists) {
+    db.exec(`
+      UPDATE classes
+      SET
+        enable_chat_bubble = 0,
+        enable_peer_review = 0,
+        enable_tree_hole = 0,
+        enable_shop = 0,
+        enable_lucky_draw = 0,
+        enable_challenge = 0,
+        enable_family_tasks = 0,
+        enable_world_boss = 0,
+        enable_guild_pk = 0,
+        enable_auction_blind_box = 0,
+        enable_achievements = 0,
+        enable_parent_buff = 0,
+        enable_task_tree = 0,
+        enable_danmaku = 0,
+        enable_class_brawl = 0,
+        enable_slg = 0,
+        enable_gacha = 0,
+        enable_economy = 0,
+        enable_dungeon = 0
+    `);
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(classFeatureDefaultOffMigrationKey, '1');
+  }
 
   // Add last_active_date to parent_activity
   addColumnIfNotExists('parent_activity', 'last_active_date', 'TEXT');

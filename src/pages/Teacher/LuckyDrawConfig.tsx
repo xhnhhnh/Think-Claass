@@ -3,7 +3,10 @@ import { useStore } from '@/store/useStore';
 import { Gift, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { useQuery } from '@tanstack/react-query';
+
+import { shopApi } from '@/api/shop';
+import { useLuckyDrawConfig, useSaveLuckyDrawConfigMutation } from '@/hooks/queries/useLuckyDraw';
 
 interface ShopItem {
   id: number;
@@ -21,52 +24,34 @@ export default function TeacherLuckyDrawConfig() {
   const user = useStore((state) => state.user);
   const [costPoints, setCostPoints] = useState<number>(10);
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
-  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const { data: shopItems = [] } = useQuery({
+    queryKey: ['teacher-shop-items', user?.id],
+    queryFn: async () => {
+      const data = await shopApi.getTeacherItems(user?.id);
+      return data.items as ShopItem[];
+    },
+    enabled: !!user?.id,
+  });
+  const { data: configData, isLoading: loading, refetch } = useLuckyDrawConfig(user?.id ?? null);
+  const saveMutation = useSaveLuckyDrawConfigMutation(user?.id ?? null);
+  const saving = saveMutation.isPending;
 
   useEffect(() => {
-    if (user?.id) {
-      fetchConfigs();
-      fetchShopItems();
+    if (!configData) return;
+    setCostPoints(configData.cost_points || 10);
+    if (configData.configs && configData.configs.length === 9) {
+      setConfigs(
+        configData.configs.map((c: any) => ({
+          prize_name: c.prize_name,
+          prize_type: c.prize_type,
+          prize_value: c.prize_value || '',
+          probability: c.probability,
+        })),
+      );
+    } else {
+      setConfigs(Array(9).fill({ prize_name: '', prize_type: 'NONE', prize_value: '', probability: 10 }));
     }
-  }, [user]);
-
-  const fetchShopItems = async () => {
-    try {
-      const data = await apiGet(`/api/shop/all?teacherId=${user?.id}`);
-      if (data.success) {
-        setShopItems(data.items);
-      }
-    } catch (err) {
-      console.error('Failed to fetch shop items:', err);
-    }
-  };
-
-  const fetchConfigs = async () => {
-    setLoading(true);
-    try {
-      const data = await apiGet(`/api/lucky-draw/config?teacherId=${user?.id}`);
-      if (data.success) {
-        setCostPoints(data.cost_points || 10);
-        if (data.configs && data.configs.length === 9) {
-          setConfigs(data.configs.map((c: any) => ({
-            prize_name: c.prize_name,
-            prize_type: c.prize_type,
-            prize_value: c.prize_value || '',
-            probability: c.probability
-          })));
-        } else {
-          // Initialize 9 default configs
-          setConfigs(Array(9).fill({ prize_name: '', prize_type: 'NONE', prize_value: '', probability: 10 }));
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch configs:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [configData]);
 
   const handleConfigChange = (index: number, field: keyof ConfigItem, value: any) => {
     const newConfigs = [...configs];
@@ -98,25 +83,17 @@ export default function TeacherLuckyDrawConfig() {
       }
     }
 
-    setSaving(true);
     try {
-      const data = await apiPost('/api/lucky-draw/config', {
+      await saveMutation.mutateAsync({
         teacher_id: user.id,
         cost_points: costPoints,
-        configs
+        configs,
       });
-
-      if (data.success) {
-        toast.success('保存成功');
-        fetchConfigs();
-      } else {
-        toast.error(data.message || '保存失败');
-      }
+      toast.success('保存成功');
+      await refetch();
     } catch (err) {
       console.error('Save error:', err);
       toast.error('网络错误');
-    } finally {
-      setSaving(false);
     }
   };
 

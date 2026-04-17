@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { ShoppingCart, Check, Star, Package, Gift, Sparkles, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { useQuery } from '@tanstack/react-query';
+
+import { studentsApi } from '@/api/students';
+import { useBuyBlindBoxMutation, useBuyShopItemMutation, useStudentShopData } from '@/hooks/queries/useShop';
 
 interface ShopItem {
   id: number;
@@ -25,50 +28,29 @@ interface BlindBox {
 
 export default function StudentShop() {
   const user = useStore((state) => state.user);
-  const [items, setItems] = useState<ShopItem[]>([]);
-  const [blindBoxes, setBlindBoxes] = useState<BlindBox[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [availablePoints, setAvailablePoints] = useState(0);
+  const studentId = user?.studentId ?? null;
+  const { data: shopData, isLoading: loading, refetch: refetchShop } = useStudentShopData(studentId);
+  const { data: students = [] } = useQuery({
+    queryKey: ['students'],
+    queryFn: async () => {
+      const data = (await studentsApi.getStudents()) as any;
+      return data.students ?? [];
+    },
+  });
+  const buyMutation = useBuyShopItemMutation(studentId);
+  const buyBlindMutation = useBuyBlindBoxMutation(studentId);
+  const items = (shopData?.items ?? []) as ShopItem[];
+  const blindBoxes = ((shopData?.boxes ?? []) as BlindBox[]).filter((b) => b.is_active === 1);
+  const availablePoints = (students as any[]).find((s) => s.id === studentId)?.available_points ?? 0;
   const [activeTab, setActiveTab] = useState<'normal' | 'blindbox'>('normal');
   const [unboxingResult, setUnboxingResult] = useState<{show: boolean, reward: string, isConsolation: boolean}>({ show: false, reward: '', isConsolation: false });
   const [isUnboxing, setIsUnboxing] = useState(false);
 
-  const fetchData = async () => {
-    if (!user?.studentId) return;
-    try {
-      const [dataItems, dataBoxes, dataStudents] = await Promise.all([
-          apiGet('/api/shop/items'),
-          apiGet('/api/shop/blind_boxes'),
-          apiGet('/api/students')
-        ]);
-
-      if (dataItems.success) setItems(dataItems.items);
-      if (dataBoxes.success) setBlindBoxes(dataBoxes.boxes.filter((b: any) => b.is_active === 1));
-      
-      if (dataStudents.success) {
-        const student = dataStudents.students.find((s: any) => s.id === user.studentId);
-        if (student) setAvailablePoints(student.available_points);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [user]);
-
   const handleBuy = async (itemId: number) => {
     try {
-      const data = await apiPost('/api/shop/buy', { studentId: user?.studentId, itemId });
-      if (data.success) {
-        toast.success('兑换成功！已放入背包或生效');
-        fetchData();
-      } else {
-        toast.error(data.message);
-      }
+      await buyMutation.mutateAsync(itemId);
+      toast.success('兑换成功！已放入背包或生效');
+      await refetchShop();
     } catch (err) {
       console.error(err);
       toast.error('网络错误');
@@ -78,31 +60,24 @@ export default function StudentShop() {
   const handleBuyBlindBox = async (boxId: number) => {
     try {
       setIsUnboxing(true);
-      const data = await apiPost('/api/shop/blind_box', { studentId: user?.studentId, blindBoxId: boxId });
-
-      if (data.success) {
-        // Wait for unboxing animation
-        setTimeout(() => {
-          setIsUnboxing(false);
-          setUnboxingResult({ 
-            show: true, 
-            reward: data.reward,
-            isConsolation: data.reward.includes('安慰奖')
-          });
-          if (!data.reward.includes('安慰奖')) {
-            confetti({
-              particleCount: 150,
-              spread: 100,
-              origin: { y: 0.6 },
-              colors: ['#a855f7', '#ec4899', '#eab308']
-            });
-          }
-          fetchData();
-        }, 2000);
-      } else {
+      const data = await buyBlindMutation.mutateAsync(boxId);
+      setTimeout(async () => {
         setIsUnboxing(false);
-        toast.error(data.message);
-      }
+        setUnboxingResult({
+          show: true,
+          reward: data.reward,
+          isConsolation: data.reward.includes('安慰奖'),
+        });
+        if (!data.reward.includes('安慰奖')) {
+          confetti({
+            particleCount: 150,
+            spread: 100,
+            origin: { y: 0.6 },
+            colors: ['#a855f7', '#ec4899', '#eab308'],
+          });
+        }
+        await refetchShop();
+      }, 2000);
     } catch (err) {
       console.error(err);
       setIsUnboxing(false);

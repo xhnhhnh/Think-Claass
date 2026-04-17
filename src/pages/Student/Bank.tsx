@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Building2, TrendingUp, TrendingDown, RefreshCw, Wallet, PiggyBank, Briefcase, Coins, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { useEconomyBankMutation, useEconomyData, useEconomyTradeMutation } from '@/hooks/queries/useEconomy';
 
 interface BankAccount {
   student_id: number;
@@ -35,10 +35,14 @@ interface Portfolio {
 
 export default function StudentEconomy() {
   const user = useStore(state => state.user);
-  const [bank, setBank] = useState<BankAccount | null>(null);
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [portfolio, setPortfolio] = useState<Portfolio[]>([]);
-  const [loading, setLoading] = useState(true);
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const classId = user?.class_id ?? null;
+  const { data, isLoading: loading, refetch } = useEconomyData(studentId, classId);
+  const bank = (data?.bank ?? null) as BankAccount | null;
+  const stocks = (data?.stocks ?? []) as Stock[];
+  const portfolio = (data?.portfolio ?? []) as Portfolio[];
+  const bankMutation = useEconomyBankMutation(studentId);
+  const tradeMutation = useEconomyTradeMutation(studentId);
 
   // Modals
   const [showBankModal, setShowBankModal] = useState(false);
@@ -49,29 +53,6 @@ export default function StudentEconomy() {
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
   const [tradeShares, setTradeShares] = useState('');
 
-  const fetchEconomy = async () => {
-    if (!user) return;
-    try {
-      const [bankData, stocksData, portData] = await Promise.all([
-          apiGet(`/api/economy/bank/${user.id}`),
-          apiGet(`/api/economy/stocks/${user.class_id}`),
-          apiGet(`/api/economy/portfolio/${user.id}`)
-        ]);
-
-      if (bankData.success) setBank(bankData.account);
-      if (stocksData.success) setStocks(stocksData.stocks);
-      if (portData.success) setPortfolio(portData.portfolio);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEconomy();
-    const interval = setInterval(fetchEconomy, 15000); // Polling every 15s
-    return () => clearInterval(interval);
-  }, [user]);
-
   const handleBankSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -79,15 +60,11 @@ export default function StudentEconomy() {
     if (isNaN(amount) || amount <= 0) return toast.error('请输入有效金额');
 
     try {
-      const data = await apiPost(`/api/economy/bank/${bankAction}/${user.id}`, { amount });
-      if (data.success) {
-        toast.success(bankAction === 'deposit' ? '存款成功！' : '取款成功！');
-        fetchEconomy();
-        setShowBankModal(false);
-        setBankAmount('');
-      } else {
-        toast.error(data.message || '操作失败');
-      }
+      await bankMutation.mutateAsync({ action: bankAction, amount });
+      toast.success(bankAction === 'deposit' ? '存款成功！' : '取款成功！');
+      await refetch();
+      setShowBankModal(false);
+      setBankAmount('');
     } catch (err) {
       toast.error('网络错误');
     }
@@ -100,19 +77,11 @@ export default function StudentEconomy() {
     if (isNaN(shares) || shares <= 0) return toast.error('请输入有效股数');
 
     try {
-      const data = await apiPost(
-        `/api/economy/stocks/${tradeAction}/${user.id}`,
-        { stockId: selectedStock.id, shares }
-      );
-
-      if (data.success) {
-        toast.success(tradeAction === 'buy' ? '买入成功！' : '卖出成功！');
-        fetchEconomy();
-        setSelectedStock(null);
-        setTradeShares('');
-      } else {
-        toast.error(data.message || '操作失败');
-      }
+      await tradeMutation.mutateAsync({ action: tradeAction, stockId: selectedStock.id, shares });
+      toast.success(tradeAction === 'buy' ? '买入成功！' : '卖出成功！');
+      await refetch();
+      setSelectedStock(null);
+      setTradeShares('');
     } catch (err) {
       toast.error('网络错误');
     }

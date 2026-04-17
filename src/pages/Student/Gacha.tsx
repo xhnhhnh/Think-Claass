@@ -1,21 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Sparkles, Star, Zap, Shield, HelpCircle, ShieldAlert, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
-
-interface GachaPool {
-  id: number;
-  name: string;
-  cost_points: number;
-  ssr_rate: number;
-  sr_rate: number;
-  r_rate: number;
-  n_rate: number;
-}
+import { useGachaDrawMutation, useGachaPools } from '@/hooks/queries/useGacha';
 
 interface PetResult {
   id: number;
@@ -26,28 +16,16 @@ interface PetResult {
 
 export default function StudentGacha() {
   const user = useStore(state => state.user);
-  const [pools, setPools] = useState<GachaPool[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [drawing, setDrawing] = useState(false);
+  const classId = user?.class_id ?? null;
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const { data: pools = [], isLoading: loading } = useGachaPools(classId);
+  const drawMutation = useGachaDrawMutation(studentId);
   const [results, setResults] = useState<PetResult[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  useEffect(() => {
-    if (user?.class_id) {
-      fetch(`/api/gacha/pools/${user.class_id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) setPools(data.pools);
-          setLoading(false);
-        });
-    }
-  }, [user]);
-
   const handleDraw = async (poolId: number, times: number) => {
-    if (!user) return;
-    setDrawing(true);
     try {
-      const data = await apiPost(`/api/gacha/draw/${user.id}`, { poolId, times });
+      const data = await drawMutation.mutateAsync({ poolId, times });
       if (data.success) {
         setResults(data.results);
         setShowResults(true);
@@ -64,13 +42,9 @@ export default function StudentGacha() {
             });
           }, 500);
         }
-      } else {
-        toast.error(data.message || '召唤失败');
       }
     } catch (err) {
       toast.error('网络错误');
-    } finally {
-      setDrawing(false);
     }
   };
 
@@ -123,7 +97,7 @@ export default function StudentGacha() {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => handleDraw(pool.id, 1)}
-                  disabled={drawing}
+                  disabled={drawMutation.isPending}
                   className="flex flex-col items-center justify-center p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all disabled:opacity-50"
                 >
                   <span className="text-white font-bold text-lg mb-1">单次召唤</span>
@@ -131,7 +105,7 @@ export default function StudentGacha() {
                 </button>
                 <button
                   onClick={() => handleDraw(pool.id, 10)}
-                  disabled={drawing}
+                  disabled={drawMutation.isPending}
                   className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 border border-purple-400/50 rounded-2xl shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
                 >
                   <span className="text-white font-bold text-lg mb-1">十连召唤</span>

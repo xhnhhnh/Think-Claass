@@ -4,69 +4,58 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdminSettings from './Settings';
 
 const mocks = vi.hoisted(() => ({
-  apiGet: vi.fn(),
-  apiPut: vi.fn(),
-  apiPost: vi.fn(),
+  useAdminSystemSettingsQuery: vi.fn(),
+  useUpdateAdminSystemSettingsMutation: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
-  toastInfo: vi.fn(),
 }));
 
-vi.mock('@/lib/api', () => ({
-  apiGet: mocks.apiGet,
-  apiPut: mocks.apiPut,
-  apiPost: mocks.apiPost,
+vi.mock('@/features/admin/hooks/useAdminSystem', () => ({
+  useAdminSystemSettingsQuery: mocks.useAdminSystemSettingsQuery,
+  useUpdateAdminSystemSettingsMutation: mocks.useUpdateAdminSystemSettingsMutation,
 }));
 
 vi.mock('sonner', () => ({
   toast: {
     success: mocks.toastSuccess,
     error: mocks.toastError,
-    info: mocks.toastInfo,
   },
 }));
 
 describe('AdminSettings', () => {
+  const mutateAsync = vi.fn();
+
   beforeEach(() => {
-    mocks.apiGet.mockReset();
-    mocks.apiPut.mockReset();
-    mocks.apiPost.mockReset();
+    mutateAsync.mockReset();
     mocks.toastSuccess.mockReset();
     mocks.toastError.mockReset();
-    mocks.toastInfo.mockReset();
 
-    mocks.apiGet
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
-          site_title: 'Think-Class',
-          site_favicon: '/favicon.svg',
-          allow_teacher_registration: '1',
-          revenue_enabled: '0',
-          revenue_mode: 'activation_code',
-          enable_teacher_analytics: '1',
-          enable_parent_report: '1',
-          payment_price: '99.00',
-          payment_currency: 'CNY',
-          payment_description: 'Think-Class 平台激活',
-          payment_environment: 'mock',
-          payment_enable_wechat: '1',
-          payment_enable_alipay: '1',
-        },
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
-          currentVersion: '1.0.0',
-          latestVersion: '1.0.0',
-          hasUpdate: false,
-          platform: 'win32',
-        },
-      });
+    mocks.useAdminSystemSettingsQuery.mockReturnValue({
+      data: {
+        site_title: 'Think-Class',
+        site_favicon: '/favicon.svg',
+        allow_teacher_registration: '1',
+        revenue_enabled: '0',
+        revenue_mode: 'activation_code',
+        enable_teacher_analytics: '1',
+        enable_parent_report: '1',
+        payment_price: '99.00',
+        payment_currency: 'CNY',
+        payment_description: 'Think-Class 平台激活',
+        payment_environment: 'mock',
+        payment_enable_wechat: '1',
+        payment_enable_alipay: '1',
+      },
+      isPending: false,
+    });
+    mocks.useUpdateAdminSystemSettingsMutation.mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    });
   });
 
-  it('saves the expanded settings payload', async () => {
-    mocks.apiPut.mockResolvedValue({ success: true });
+  it('saves the expanded settings payload through the admin system mutation', async () => {
+    mutateAsync.mockResolvedValue({});
 
     render(<AdminSettings />);
 
@@ -75,7 +64,7 @@ describe('AdminSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
 
     await waitFor(() => {
-      expect(mocks.apiPut).toHaveBeenCalledWith('/api/admin/settings', {
+      expect(mutateAsync).toHaveBeenCalledWith({
         site_title: 'Think-Class',
         site_favicon: '/favicon.svg',
         allow_teacher_registration: '1',
@@ -93,36 +82,10 @@ describe('AdminSettings', () => {
     });
   });
 
-  it('sends update confirmation token when executing update', async () => {
-    vi.stubGlobal('confirm', vi.fn(() => true));
-    mocks.apiGet.mockResolvedValue({
-      success: true,
-      data: {
-        currentVersion: '1.0.0',
-        latestVersion: '1.1.0',
-        hasUpdate: true,
-        releaseNotes: 'bug fixes',
-        publishedAt: '2026-04-11T00:00:00.000Z',
-        platform: 'linux',
-      },
-    });
-    mocks.apiPost.mockResolvedValue({ success: true, message: 'ok' });
-
+  it('renders the phase-one module notice instead of calling missing update endpoints', async () => {
     render(<AdminSettings />);
 
-    const checkButtons = await screen.findAllByRole('button', { name: '检查更新' });
-    fireEvent.click(checkButtons[0]);
-    await screen.findByText('发现新版本可用');
-
-    fireEvent.change(screen.getByPlaceholderText('输入 UPDATE 以确认'), {
-      target: { value: 'UPDATE' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '一键更新并重启' }));
-
-    await waitFor(() => {
-      expect(mocks.apiPost).toHaveBeenCalledWith('/api/admin/system/update/execute', {
-        confirmation: 'UPDATE',
-      });
-    });
+    expect(await screen.findByText('管理后台核心设置链路已迁移到新架构')).toBeInTheDocument();
+    expect(screen.getByText(/不再主动请求不存在的升级接口/)).toBeInTheDocument();
   });
 });

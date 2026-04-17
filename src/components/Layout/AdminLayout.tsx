@@ -1,8 +1,7 @@
 import { ADMIN_PATH } from "@/constants";
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { LogOut, LayoutDashboard, Settings, Megaphone, FileText, Globe, Users, Shield, Server, Key } from 'lucide-react';
-import { useEffect } from 'react';
+import { LogOut, LayoutDashboard, Settings, Megaphone, FileText, Globe, Users, Shield, Server, Key, AlertTriangle } from 'lucide-react';
 
 export default function AdminLayout() {
   const user = useStore((state) => state.user);
@@ -22,6 +21,7 @@ export default function AdminLayout() {
     { path: `${ADMIN_PATH}/settings`, icon: Settings, label: '系统设置' },
     { path: `${ADMIN_PATH}/openapi`, icon: Server, label: '开发者与校园' },
     { path: `${ADMIN_PATH}/audit-logs`, icon: Shield, label: '审计日志' },
+    { path: `${ADMIN_PATH}/reset`, icon: AlertTriangle, label: '系统重置' },
   ];
 
   return (

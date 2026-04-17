@@ -19,5 +19,5 @@ export interface PublicSettings {
 export const settingsApi = {
   getSettings: () => apiGet<{ success: true; data: PublicSettings }>('/api/settings'),
   updateAdminSettings: (data: Partial<PublicSettings>) =>
-    apiPut<{ success: true }>('/api/admin/settings', data),
+    apiPut<{ success: true }>('/api/admin/system/settings', data),
 };

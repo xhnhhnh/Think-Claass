@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Map as MapIcon, Plus, Settings, Play, Database, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { useClasses } from '@/hooks/queries/useClasses';
+import { useCreateTerritoryMutation, useTerritoryMap, useTriggerYieldMutation } from '@/hooks/queries/useTerritory';
 
 interface Territory {
   id: number;
@@ -19,57 +21,38 @@ interface Territory {
 }
 
 export default function TeacherTerritory() {
-  const [territories, setTerrories] = useState<Territory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [classId, setClassId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const { data: classes = [] } = useClasses();
+  const classId = useMemo(() => classes[0]?.id ?? null, [classes]);
+  const { data } = useTerritoryMap(classId);
+  const territories = (data?.territories ?? []) as Territory[];
+  const createMutation = useCreateTerritoryMutation();
+  const yieldMutation = useTriggerYieldMutation();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'forest',
+    type: 'forest' as 'forest' | 'mine' | 'city' | 'magic_spring',
     cost_to_unlock: 1000,
     x_pos: 0,
     y_pos: 0
   });
 
-  useEffect(() => {
-    fetch('/api/classes')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.classes.length > 0) {
-          setClassId(data.classes[0].id);
-        }
-      });
-  }, []);
-
-  const fetchMap = async () => {
+  const reloadMap = async () => {
     if (!classId) return;
-    try {
-      const data = await apiGet(`/api/slg/map/${classId}`);
-      if (data.success) {
-        setTerrories(data.territories);
-      }
-    } finally {
-      setLoading(false);
-    }
+    await queryClient.invalidateQueries({ queryKey: ['territory-map', classId] });
   };
-
-  useEffect(() => {
-    if (classId) fetchMap();
-  }, [classId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!classId) return;
 
     try {
-      const data = await apiPost('/api/slg/teacher', { ...formData, class_id: classId });
+      const data = await createMutation.mutateAsync({ ...formData, class_id: classId });
       if (data.success) {
         toast.success('领地已创建');
         setIsModalOpen(false);
-        fetchMap();
-      } else {
-        toast.error(data.message || '操作失败');
+        await reloadMap();
       }
     } catch (err) {
       toast.error('网络错误');
@@ -79,10 +62,10 @@ export default function TeacherTerritory() {
   const triggerYield = async () => {
     if (!classId) return;
     try {
-      const data = await apiPost(`/api/slg/teacher/yield/${classId}`, undefined);
+      const data = await yieldMutation.mutateAsync(classId);
       if (data.success) {
         toast.success('已模拟产出资源');
-        fetchMap();
+        await reloadMap();
       }
     } catch (err) {
       toast.error('网络错误');

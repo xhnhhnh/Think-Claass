@@ -30,6 +30,10 @@ router.get('/config', (req: Request, res: Response) => {
 router.post('/config', (req: Request, res: Response) => {
   const { teacher_id, cost_points, configs } = req.body;
   // configs is an array of 9 items
+  if (!Array.isArray(configs) || configs.length !== 9) {
+    res.status(400).json({ success: false, message: 'configs 必须是长度为 9 的数组' });
+    return;
+  }
   try {
     let tId = teacher_id;
     if (!tId) {
@@ -79,14 +83,14 @@ router.post('/draw', (req: Request, res: Response) => {
     const configs = db.prepare('SELECT * FROM lucky_draw_config WHERE teacher_id = ? AND is_active = 1').all(student.teacher_id) as any[];
     
     if (configs.length === 0) {
-      res.status(400).json({ success: false, message: 'No active lucky draw config' });
+      res.status(404).json({ success: false, message: 'No active lucky draw config' });
       return;
     }
 
     const costPoints = configs[0].cost_points || 10;
 
     if (student.available_points < costPoints) {
-      res.status(400).json({ success: false, message: '积分不足' });
+      res.status(409).json({ success: false, message: '积分不足' });
       return;
     }
 
