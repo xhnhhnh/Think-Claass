@@ -35,10 +35,10 @@ import ParentTasks from '@/pages/Parent/Tasks';
 import StudentAchievements from '@/pages/Student/Achievements';
 import StudentAssignments from '@/pages/Student/Assignments';
 import StudentAuction from '@/pages/Student/Auction';
-import StudentBank from '@/pages/Student/Bank';
+import StudentBank from '@/features/economy/pages/StudentBankPage';
 import StudentBrawl from '@/pages/Student/Brawl';
 import StudentCertificates from '@/pages/Student/Certificates';
-import StudentChallenge from '@/pages/Student/Challenge';
+import StudentChallenge from '@/features/challenge/pages/StudentChallengePage';
 import StudentDungeon from '@/pages/Student/Dungeon';
 import StudentGacha from '@/pages/Student/Gacha';
 import StudentGuildPK from '@/pages/Student/GuildPK';
@@ -68,6 +68,7 @@ import TeacherCommunication from '@/pages/Teacher/Communication';
 import TeacherDashboard from '@/pages/Teacher/Dashboard';
 import TeacherExams from '@/pages/Teacher/Exams';
 import TeacherFeatures from '@/pages/Teacher/Features';
+import TeacherEconomy from '@/features/economy/pages/TeacherEconomyPage';
 import TeacherKnowledgeGraph from '@/pages/Teacher/KnowledgeGraph';
 import TeacherLuckyDrawConfig from '@/pages/Teacher/LuckyDrawConfig';
 import TeacherPaperEditor from '@/pages/Teacher/PaperEditor';
@@ -81,7 +82,7 @@ import TeacherTeamQuests from '@/pages/Teacher/TeamQuests';
 import TeacherTerritory from '@/pages/Teacher/Territory';
 import TeacherTools from '@/pages/Teacher/Tools';
 import TeacherVerification from '@/pages/Teacher/Verification';
-import TeacherWorldBoss from '@/pages/Teacher/WorldBoss';
+import TeacherWorldBoss from '@/features/challenge/pages/TeacherWorldBossPage';
 
 export default function AppRoutes() {
   return (
@@ -126,6 +127,7 @@ export default function AppRoutes() {
         <Route path="knowledge" element={<TeacherKnowledgeGraph />} />
         <Route path="attendance" element={<TeacherAttendance />} />
         <Route path="world-boss" element={<TeacherWorldBoss />} />
+        <Route path="economy" element={<TeacherEconomy />} />
         <Route path="blind-box" element={<TeacherBlindBox />} />
         <Route path="pets" element={<TeacherPets />} />
         <Route path="team-quests" element={<TeacherTeamQuests />} />

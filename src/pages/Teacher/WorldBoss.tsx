@@ -3,19 +3,7 @@ import { toast } from 'sonner';
 import { Swords, Plus, Trash2, ShieldAlert, Trophy, Users, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { useWorldBossMutation, useWorldBosses } from '@/hooks/queries/useWorldBoss';
-
-interface WorldBoss {
-  id: number;
-  name: string;
-  description: string;
-  hp: number;
-  max_hp: number;
-  level: number;
-  status: 'active' | 'defeated';
-  start_time: string;
-  end_time: string;
-}
+import { useWorldBossMutation, useWorldBosses } from '@/features/challenge/hooks/useChallenge';
 
 export default function TeacherWorldBoss() {
   const { data: bosses = [], isLoading: loading, refetch } = useWorldBosses();
