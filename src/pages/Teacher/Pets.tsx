@@ -4,35 +4,8 @@ import { Sparkles, Users, Upload, ImageIcon, XCircle, Plus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/queries/useClasses';
-import { useClassPets } from '@/hooks/queries/usePet';
-import { useTeacherPetMutation } from '@/hooks/queries/useTeacherPets';
-
-const ELEMENTS = [
-  { id: 'fire', name: '火系', color: 'bg-red-500', bg: 'bg-red-50', icon: '🔥' },
-  { id: 'water', name: '水系', color: 'bg-blue-500', bg: 'bg-blue-50', icon: '💧' },
-  { id: 'grass', name: '草系', color: 'bg-green-500', bg: 'bg-green-50', icon: '🌿' },
-  { id: 'electric', name: '电系', color: 'bg-yellow-400', bg: 'bg-yellow-50', icon: '⚡' },
-  { id: 'ice', name: '冰系', color: 'bg-cyan-300', bg: 'bg-cyan-50', icon: '❄️' },
-  { id: 'dragon', name: '龙系', color: 'bg-purple-500', bg: 'bg-purple-50', icon: '🐉' },
-];
-
-const getEvolutionStage = (level: number) => {
-  if (level === 1) return '萌蛋期';
-  if (level === 2) return '幼年期';
-  if (level === 3) return '成长期';
-  if (level === 4) return '成熟期';
-  if (level === 5) return '完全体';
-  return '究极体';
-};
-
-const getPetIcon = (level: number) => {
-  if (level === 1) return '🥚';
-  if (level === 2) return '🐣';
-  if (level === 3) return '🐥';
-  if (level === 4) return '🦅';
-  if (level === 5) return '🐉';
-  return '👑';
-};
+import { useClassPets, useTeacherPetMutation } from '@/features/pet/hooks/usePet';
+import { getEvolutionStage, getPetElement, getPetIcon, PET_ELEMENTS } from '@/features/pet/petConfig';
 
 export default function TeacherPets() {
   useStore((state) => state.user);
@@ -142,7 +115,7 @@ export default function TeacherPets() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {students.map((student) => {
             const pet = student.pet;
-            const element = pet ? ELEMENTS.find(e => e.id === pet.element_type) || ELEMENTS[0] : null;
+            const element = pet ? getPetElement(pet.element_type) : null;
 
             return (
               <motion.div
@@ -240,7 +213,7 @@ export default function TeacherPets() {
                     1. 选择精灵属性 (Element Type)
                   </h3>
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                    {ELEMENTS.map((el) => (
+                    {PET_ELEMENTS.map((el) => (
                       <div
                         key={el.id}
                         onClick={() => setEditingImages({ ...editingImages, element_type: el.id })}
