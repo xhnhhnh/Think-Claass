@@ -30,7 +30,7 @@ describe('battlesApi', () => {
   it('initiates battle with class ids', async () => {
     mocks.apiPost.mockResolvedValue({ success: true, battleId: 1 });
     await battlesApi.initiateBattle({ initiator_class_id: 1, target_class_id: 2 });
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/battles/teacher/initiate', {
+    expect(mocks.apiPost).toHaveBeenCalledWith('/api/battles', {
       initiator_class_id: 1,
       target_class_id: 2,
     });
