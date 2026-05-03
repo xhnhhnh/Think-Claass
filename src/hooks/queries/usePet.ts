@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { petApi } from '@/api/pet';
+import { praisesApi } from '@/api/praises';
 import { studentsApi } from '@/api/students';
-import { apiGet } from '@/lib/api';
 
 export function useStudentPetData(studentId: number | null) {
   return useQuery({
@@ -12,7 +12,7 @@ export function useStudentPetData(studentId: number | null) {
       const [petData, studentsData, praiseData, recordsData] = await Promise.all([
         petApi.getStudentPet(studentId),
         studentsApi.getStudents(),
-        apiGet(`/api/praises/student/${studentId}`),
+        praisesApi.getStudentPraises(studentId),
         studentsApi.getRecords({ studentId }),
       ]);
       const student = (studentsData as any).students?.find((s: any) => s.id === studentId);

@@ -1,12 +1,12 @@
 import { Router, type Request, type Response } from 'express';
-import db, { encrypt, decrypt } from '../db.js';
+import db, { decrypt } from '../db.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
-import {
-  assertClassFeatureEnabled,
-  assertStudentFeatureEnabled,
-  getClassFeaturesByClassId,
-} from '../utils/classFeatures.js';
-import { getRequestActor, requireActorRole } from '../utils/requestAuth.js';
+import { assertClassFeatureEnabled, assertStudentFeatureEnabled, getClassFeaturesByClassId } from '../services/featureService.js';
+import { adjustStudentPoints, addStudentPoints } from '../services/pointsService.js';
+import { createStudentAccount, decryptStudentList, getStudentOrThrow } from '../services/studentService.js';
+import { getRequestActor } from '../utils/requestAuth.js';
+import { hashPassword } from '../utils/password.js';
+import { sendSuccess } from '../utils/response.js';
 
 const router = Router();
 
@@ -50,16 +50,13 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   
   const students = db.prepare(query).all(...params) as any[];
   // Decrypt names
-  const decryptedStudents = students.map(s => ({
-    ...s,
-    name: decrypt(s.name)
-  }));
+  const decryptedStudents = decryptStudentList(students);
   
   res.json({ success: true, students: decryptedStudents });
 }));
 
 // Get a single student
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.get('/:id(\\d+)', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   
   const student = db.prepare('SELECT s.*, u.username, g.name as group_name FROM students s JOIN users u ON s.user_id = u.id LEFT JOIN student_groups g ON s.group_id = g.id WHERE s.id = ?').get(id) as any;
@@ -71,225 +68,148 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Daily check-in
-router.post('/checkin', (req: Request, res: Response) => {
+router.post('/checkin', asyncHandler(async (req: Request, res: Response) => {
   const { studentId } = req.body;
   if (!studentId) {
-    res.status(400).json({ success: false, message: 'Missing studentId' });
-    return;
+    throw new ApiError(400, 'Missing studentId');
   }
 
-  try {
-    const transaction = db.transaction(() => {
-      const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
-      if (!student) throw new Error('Student not found');
+  const transaction = db.transaction(() => {
+    const student = getStudentOrThrow(studentId);
 
-      const today = new Date().toISOString().split('T')[0];
-      if (student.last_checkin_date === today) {
-        throw new Error('Already checked in today');
-      }
+    const today = new Date().toISOString().split('T')[0];
+    if ((student as any).last_checkin_date === today) {
+      throw new ApiError(400, 'Already checked in today');
+    }
 
-      const amount = 5;
-      const newTotal = student.total_points + amount;
-      const newAvailable = student.available_points + amount;
+    const amount = 5;
+    const newTotal = student.total_points + amount;
+    const newAvailable = student.available_points + amount;
 
-      db.prepare('UPDATE students SET last_checkin_date = ?, total_points = ?, available_points = ? WHERE id = ?')
-        .run(today, newTotal, newAvailable, studentId);
+    db.prepare('UPDATE students SET last_checkin_date = ?, total_points = ?, available_points = ? WHERE id = ?')
+      .run(today, newTotal, newAvailable, student.id);
 
-      db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
-        .run(studentId, 'ADD_POINTS', amount, '每日签到奖励');
+    db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
+      .run(student.id, 'ADD_POINTS', amount, '每日签到奖励');
 
-      try {
-        db.prepare("UPDATE pets SET last_fed_at = datetime('now') WHERE student_id = ?").run(studentId);
-      } catch (e) {}
+    try {
+      db.prepare("UPDATE pets SET last_fed_at = datetime('now') WHERE student_id = ?").run(student.id);
+    } catch {}
 
-      return { total_points: newTotal, available_points: newAvailable };
-    });
+    return { total_points: newTotal, available_points: newAvailable };
+  });
 
-    const result = transaction();
-    res.json({ success: true, student: result, message: '签到成功，获得 5 积分' });
-  } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-});
+  const result = transaction();
+  sendSuccess(res, { student: result, message: '签到成功，获得 5 积分' });
+}));
 
 // Gift points
-router.post('/gift', (req: Request, res: Response) => {
+router.post('/gift', asyncHandler(async (req: Request, res: Response) => {
   const { senderId, receiverId, points, message } = req.body;
 
   if (!senderId || !receiverId || !points || !message) {
-    res.status(400).json({ success: false, message: 'Missing required fields' });
-    return;
+    throw new ApiError(400, 'Missing required fields');
   }
 
   const amount = parseInt(points);
   if (isNaN(amount) || amount <= 0) {
-    res.status(400).json({ success: false, message: 'Invalid points amount' });
-    return;
+    throw new ApiError(400, 'Invalid points amount');
   }
 
-  try {
-    const transaction = db.transaction(() => {
-      const sender = db.prepare('SELECT * FROM students WHERE id = ?').get(senderId) as any;
-      const receiver = db.prepare('SELECT * FROM students WHERE id = ?').get(receiverId) as any;
+  const transaction = db.transaction(() => {
+    const sender = getStudentOrThrow(senderId);
+    const receiver = getStudentOrThrow(receiverId);
 
-      if (!sender || !receiver) throw new Error('Student not found');
-      if (sender.available_points < amount) throw new Error('Insufficient points');
+    if (sender.available_points < amount) throw new ApiError(400, 'Insufficient points');
 
-      // Deduct from sender
-      db.prepare('UPDATE students SET available_points = available_points - ? WHERE id = ?')
-        .run(amount, senderId);
-      db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
-        .run(senderId, 'DEDUCT_POINTS', amount, `赠送积分给同学`);
+    db.prepare('UPDATE students SET available_points = available_points - ? WHERE id = ?').run(amount, sender.id);
+    db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
+      .run(sender.id, 'DEDUCT_POINTS', amount, '赠送积分给同学');
 
-      // Add to receiver
-      db.prepare('UPDATE students SET total_points = total_points + ?, available_points = available_points + ? WHERE id = ?')
-        .run(amount, amount, receiverId);
-      db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
-        .run(receiverId, 'ADD_POINTS', amount, `收到同学赠送积分`);
+    addStudentPoints(receiver.id, amount, 'ADD_POINTS', '收到同学赠送积分');
 
-      // Add message
-      const fullMessage = `[附赠 ${amount} 积分] ${message}`;
-      db.prepare('INSERT INTO messages (class_id, sender_id, receiver_id, content, type) VALUES (?, ?, ?, ?, ?)')
-        .run(sender.class_id, senderId, receiverId, fullMessage, 'PEER_REVIEW');
+    const fullMessage = `[附赠 ${amount} 积分] ${message}`;
+    db.prepare('INSERT INTO messages (class_id, sender_id, receiver_id, content, type) VALUES (?, ?, ?, ?, ?)')
+      .run(sender.class_id, sender.id, receiver.id, fullMessage, 'PEER_REVIEW');
 
-      return { success: true };
-    });
+    return { success: true };
+  });
 
-    transaction();
-    res.json({ success: true, message: 'Gift sent successfully' });
-  } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-});
+  transaction();
+  sendSuccess(res, { message: 'Gift sent successfully' });
+}));
 
 // Batch import students
-router.post('/batch-import', (req: Request, res: Response) => {
+router.post('/batch-import', asyncHandler(async (req: Request, res: Response) => {
   const { students, class_id } = req.body;
   
   if (!Array.isArray(students) || students.length === 0) {
-    res.status(400).json({ success: false, message: 'No students provided' });
-    return;
+    throw new ApiError(400, 'No students provided');
   }
 
-  try {
-    const transaction = db.transaction(() => {
-      let defaultClassId = class_id;
-      if (!defaultClassId) {
-        const defaultClass = db.prepare('SELECT id FROM classes LIMIT 1').get() as any;
-        defaultClassId = defaultClass ? defaultClass.id : 1;
-      }
+  const transaction = db.transaction(() => {
+    let importedCount = 0;
+    const createdStudents = [];
+    for (const student of students) {
+      const { username, name } = student;
+      if (!username || !name) continue;
 
-      let importedCount = 0;
-      for (const student of students) {
-        const { username, name } = student;
-        if (!username || !name) continue;
+      createdStudents.push(createStudentAccount({ username, name, classId: class_id, allowUsernameSuffix: true }));
+      importedCount++;
+    }
+    return { importedCount, createdStudents };
+  });
 
-        // Ensure unique username
-        let finalUsername = username;
-        let existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(finalUsername) as any;
-        let suffix = 1;
-        while (existingUser) {
-          finalUsername = `${username}${suffix}`;
-          existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(finalUsername) as any;
-          suffix++;
-        }
-
-        const insertUser = db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)');
-        const userResult = insertUser.run('student', finalUsername, '123456');
-        const userId = userResult.lastInsertRowid;
-
-        const insertStudent = db.prepare('INSERT INTO students (user_id, class_id, name) VALUES (?, ?, ?)');
-        insertStudent.run(userId, defaultClassId, encrypt(name));
-        importedCount++;
-      }
-    });
-
-    transaction();
-    res.json({ success: true, message: 'Students imported successfully' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  const result = transaction();
+  sendSuccess(res, {
+    message: `成功导入 ${result.importedCount} 个学生，初始密码已安全保存`,
+    importedCount: result.importedCount,
+    students: result.createdStudents,
+  });
+}));
 
 // Create a student
-router.post('/', (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { username, name, class_id } = req.body;
-  const password = '123456'; // Default password for students
 
   if (!username || typeof username !== 'string' || username.trim() === '' || 
       !name || typeof name !== 'string' || name.trim() === '') {
-    res.status(400).json({ success: false, message: 'Invalid input' });
-    return;
+    throw new ApiError(400, '请填写学生姓名和用户名');
   }
 
   try {
-    const transaction = db.transaction(() => {
-      // 1. Create user
-      const insertUser = db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)');
-      const userResult = insertUser.run('student', username, password);
-      const userId = userResult.lastInsertRowid;
-
-      // 2. Create student
-      let defaultClassId = class_id;
-      if (!defaultClassId) {
-        const defaultClass = db.prepare('SELECT id FROM classes LIMIT 1').get() as any;
-        defaultClassId = defaultClass ? defaultClass.id : 1;
-      }
-
-      const insertStudent = db.prepare('INSERT INTO students (user_id, class_id, name) VALUES (?, ?, ?)');
-      insertStudent.run(userId, defaultClassId, encrypt(name));
-    });
-
-    transaction();
-    res.json({ success: true, message: 'Student created successfully' });
+    const transaction = db.transaction(() => createStudentAccount({ username, name, classId: class_id }));
+    const student = transaction();
+    sendSuccess(res, { message: '学生创建成功，初始密码已安全保存', student });
   } catch (error: any) {
     if (error.message.includes('UNIQUE constraint failed')) {
-      res.status(400).json({ success: false, message: 'Username already exists' });
-    } else {
-      res.status(500).json({ success: false, message: 'Server error' });
+      throw new ApiError(409, '用户名已存在，请换一个用户名');
     }
+    throw error;
   }
-});
+}));
 
 // Batch update points
-router.post('/batch-points', (req: Request, res: Response) => {
+router.post('/batch-points', asyncHandler(async (req: Request, res: Response) => {
   const { studentIds, amount, reason } = req.body;
   
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
-    res.status(400).json({ success: false, message: 'No students selected' });
-    return;
+    throw new ApiError(400, 'No students selected');
   }
 
-  try {
-    const transaction = db.transaction(() => {
-      for (const studentId of studentIds) {
-        const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
-        if (!student) continue;
-
-        const newTotal = amount > 0 ? student.total_points + amount : student.total_points;
-        const newAvailable = Math.max(0, student.available_points + amount);
-
-        db.prepare('UPDATE students SET total_points = ?, available_points = ? WHERE id = ?')
-          .run(newTotal, newAvailable, studentId);
-
-        db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
-          .run(studentId, amount > 0 ? 'ADD_POINTS' : 'DEDUCT_POINTS', amount, reason);
-
-        // Auto-revive pet if teacher adds points
-        if (amount > 0) {
-          try {
-            db.prepare('UPDATE pets SET last_fed_at = CURRENT_TIMESTAMP WHERE student_id = ?').run(studentId);
-          } catch (e) {}
-        }
-      }
-    });
-
-    transaction();
-    res.json({ success: true, message: 'Points updated successfully' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+  if (typeof amount !== 'number' || isNaN(amount)) {
+    throw new ApiError(400, 'Invalid amount');
   }
-});
+
+  const transaction = db.transaction(() => {
+    for (const studentId of studentIds) {
+      adjustStudentPoints(studentId, amount, reason, { revivePetOnPositive: true });
+    }
+  });
+
+  transaction();
+  sendSuccess(res, { message: 'Points updated successfully' });
+}));
 
 router.put('/:id/class', asyncHandler(async (req: Request, res: Response) => {
   const studentId = Number(req.params.id);
@@ -352,207 +272,154 @@ router.put('/:id/password', asyncHandler(async (req: Request, res: Response) => 
     throw new ApiError(404, 'Student not found');
   }
 
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password, student.user_id);
-  res.json({ success: true });
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), student.user_id);
+  sendSuccess(res, { message: '密码重置成功' });
 }));
 
 // Batch edit students
-router.post('/batch-edit', (req: Request, res: Response) => {
+router.post('/batch-edit', asyncHandler(async (req: Request, res: Response) => {
   const { studentIds, action, value } = req.body;
   // action: 'change_class' | 'reset_password' | 'change_group'
 
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
-    res.status(400).json({ success: false, message: 'No students selected' });
-    return;
+    throw new ApiError(400, 'No students selected');
   }
 
-  try {
-    const transaction = db.transaction(() => {
-      for (const studentId of studentIds) {
-        const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
-        if (!student) continue;
+  const transaction = db.transaction(() => {
+    for (const studentId of studentIds) {
+      const student = getStudentOrThrow(studentId);
 
-        if (action === 'change_class') {
-          db.prepare('UPDATE students SET class_id = ? WHERE id = ?').run(value, studentId);
-        } else if (action === 'change_group') {
-          db.prepare('UPDATE students SET group_id = ? WHERE id = ?').run(value || null, studentId);
-        } else if (action === 'reset_password') {
-          // Note: In production this should be hashed
-          db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(value || '123456', student.user_id);
-        }
+      if (action === 'change_class') {
+        db.prepare('UPDATE students SET class_id = ? WHERE id = ?').run(value, student.id);
+      } else if (action === 'change_group') {
+        db.prepare('UPDATE students SET group_id = ? WHERE id = ?').run(value || null, student.id);
+      } else if (action === 'reset_password') {
+        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(value || '123456'), student.user_id);
+      } else {
+        throw new ApiError(400, 'Invalid batch action');
       }
-    });
+    }
+  });
 
-    transaction();
-    res.json({ success: true, message: 'Students updated successfully' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  transaction();
+  sendSuccess(res, { message: 'Students updated successfully' });
+}));
 
 // Update points
-router.post('/:id/points', (req: Request, res: Response) => {
+router.post('/:id/points', asyncHandler(async (req: Request, res: Response) => {
   const studentId = req.params.id;
   const { amount: rawAmount, reason } = req.body; // amount can be positive or negative
   
   if (typeof rawAmount !== 'number' || isNaN(rawAmount)) {
-    res.status(400).json({ success: false, message: 'Invalid amount' });
-    return;
+    throw new ApiError(400, 'Invalid amount');
   }
 
-  try {
-    const transaction = db.transaction(() => {
-      const student = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId) as any;
-      if (!student) throw new Error('Student not found');
+  const transaction = db.transaction(() => {
+    const student = getStudentOrThrow(studentId);
 
-      let amount = rawAmount;
-      let finalReason = reason;
+    let amount = rawAmount;
+    let finalReason = reason;
 
-      if (amount > 0) {
-        const classFeatures = getClassFeaturesByClassId(student.class_id);
-        if (classFeatures.enable_parent_buff) {
-          const today = new Date().toISOString().split('T')[0];
-          const hasBuff = db.prepare(`
-            SELECT 1 FROM parent_activity 
-            WHERE student_id = ? AND date(created_at) = ?
-          `).get(studentId, today);
+    if (amount > 0) {
+      const classFeatures = getClassFeaturesByClassId(student.class_id);
+      if (classFeatures.enable_parent_buff) {
+        const today = new Date().toISOString().split('T')[0];
+        const hasBuff = db.prepare(`
+          SELECT 1 FROM parent_activity 
+          WHERE student_id = ? AND date(created_at) = ?
+        `).get(student.id, today);
 
-          if (hasBuff) {
-            amount = Math.ceil(amount * 1.2);
-            finalReason = `${reason} (含20%家长增益)`;
-          }
+        if (hasBuff) {
+          amount = Math.ceil(amount * 1.2);
+          finalReason = `${reason} (含20%家长增益)`;
         }
       }
+    }
 
-      const newTotal = amount > 0 ? student.total_points + amount : student.total_points;
-      const newAvailable = Math.max(0, student.available_points + amount);
+    return adjustStudentPoints(student.id, amount, finalReason, { revivePetOnPositive: true });
+  });
 
-      db.prepare('UPDATE students SET total_points = ?, available_points = ? WHERE id = ?')
-        .run(newTotal, newAvailable, studentId);
-
-      db.prepare('INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)')
-        .run(studentId, amount > 0 ? 'ADD_POINTS' : 'DEDUCT_POINTS', amount, finalReason);
-      
-      // Auto-revive pet if teacher adds points
-      if (amount > 0) {
-        try {
-          db.prepare('UPDATE pets SET last_fed_at = CURRENT_TIMESTAMP WHERE student_id = ?').run(studentId);
-        } catch (e) {}
-      }
-
-      return { total_points: newTotal, available_points: newAvailable };
-    });
-
-    const result = transaction();
-    res.json({ success: true, student: result });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  const result = transaction();
+  sendSuccess(res, { student: result });
+}));
 
 // Get points records (all or by student_id)
-router.get('/records', (req: Request, res: Response) => {
+router.get('/records', asyncHandler(async (req: Request, res: Response) => {
   const { studentId, teacherId } = req.query;
-  try {
-    let records;
-    if (studentId) {
-      records = db.prepare('SELECT r.*, s.name as student_name FROM records r JOIN students s ON r.student_id = s.id WHERE r.student_id = ? ORDER BY r.created_at DESC').all(studentId) as any[];
-    } else if (teacherId) {
-      records = db.prepare(`
-        SELECT r.*, s.name as student_name 
-        FROM records r 
-        JOIN students s ON r.student_id = s.id 
-        JOIN classes c ON s.class_id = c.id
-        WHERE c.teacher_id = ? 
-        ORDER BY r.created_at DESC
-      `).all(teacherId) as any[];
-    } else {
-      records = db.prepare('SELECT r.*, s.name as student_name FROM records r JOIN students s ON r.student_id = s.id ORDER BY r.created_at DESC').all() as any[];
-    }
-    
-    records = records.map(r => ({ ...r, student_name: decrypt(r.student_name) }));
-    
-    res.json({ success: true, records });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Server error' });
+  let records;
+  if (studentId) {
+    records = db.prepare('SELECT r.*, s.name as student_name FROM records r JOIN students s ON r.student_id = s.id WHERE r.student_id = ? ORDER BY r.created_at DESC').all(studentId) as any[];
+  } else if (teacherId) {
+    records = db.prepare(`
+      SELECT r.*, s.name as student_name 
+      FROM records r 
+      JOIN students s ON r.student_id = s.id 
+      JOIN classes c ON s.class_id = c.id
+      WHERE c.teacher_id = ? 
+      ORDER BY r.created_at DESC
+    `).all(teacherId) as any[];
+  } else {
+    records = db.prepare('SELECT r.*, s.name as student_name FROM records r JOIN students s ON r.student_id = s.id ORDER BY r.created_at DESC').all() as any[];
   }
-});
+  
+  records = records.map(r => ({ ...r, student_name: decrypt(r.student_name) }));
+  
+  sendSuccess(res, { records });
+}));
 
 // Update student birthday
-router.put('/:id/birthday', (req: Request, res: Response) => {
+router.put('/:id/birthday', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { birthday } = req.body;
 
-  try {
-    const student = db.prepare('SELECT id FROM students WHERE id = ?').get(id);
-    if (!student) {
-      res.status(404).json({ success: false, message: 'Student not found' });
-      return;
-    }
-
-    db.prepare('UPDATE students SET birthday = ? WHERE id = ?').run(birthday, id);
-    res.json({ success: true, message: 'Birthday updated successfully' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  getStudentOrThrow(id);
+  db.prepare('UPDATE students SET birthday = ? WHERE id = ?').run(birthday, id);
+  sendSuccess(res, { message: 'Birthday updated successfully' });
+}));
 
 // Get progress stars (top students based on positive points in last 7 days)
-router.get('/progress-star', (req: Request, res: Response) => {
+router.get('/progress-star', asyncHandler(async (req: Request, res: Response) => {
   const { classId } = req.query;
   
-  try {
-    let query = `
-      SELECT s.id, s.name, COALESCE(SUM(r.amount), 0) as points_gained
-      FROM students s
-      LEFT JOIN records r ON s.id = r.student_id 
-        AND r.type = 'ADD_POINTS' 
-        AND r.amount > 0 
-        AND r.created_at >= datetime('now', '-7 days')
-    `;
-    const params: any[] = [];
+  let query = `
+    SELECT s.id, s.name, COALESCE(SUM(r.amount), 0) as points_gained
+    FROM students s
+    LEFT JOIN records r ON s.id = r.student_id 
+      AND r.type = 'ADD_POINTS' 
+      AND r.amount > 0 
+      AND r.created_at >= datetime('now', '-7 days')
+  `;
+  const params: any[] = [];
 
-    if (classId) {
-      query += ` WHERE s.class_id = ?`;
-      params.push(classId);
-    }
-
-    query += `
-      GROUP BY s.id
-      HAVING points_gained > 0
-      ORDER BY points_gained DESC
-      LIMIT 10
-    `;
-
-    const students = db.prepare(query).all(...params) as any[];
-    
-    const decryptedStudents = students.map(s => ({
-      ...s,
-      name: decrypt(s.name)
-    }));
-
-    res.json({ success: true, students: decryptedStudents });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+  if (classId) {
+    query += ` WHERE s.class_id = ?`;
+    params.push(classId);
   }
-});
+
+  query += `
+    GROUP BY s.id
+    HAVING points_gained > 0
+    ORDER BY points_gained DESC
+    LIMIT 10
+  `;
+
+  const students = db.prepare(query).all(...params) as any[];
+  const decryptedStudents = decryptStudentList(students);
+
+  sendSuccess(res, { students: decryptedStudents });
+}));
 
 // Get and evaluate student achievements
-router.get('/:id/achievements', (req: Request, res: Response) => {
+router.get('/:id/achievements', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   
-  try {
-    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(id) as any;
-    if (!student) {
-      res.status(404).json({ success: false, message: 'Student not found' });
-      return;
-    }
+  const student = getStudentOrThrow(id);
 
-    assertClassFeatureEnabled(student.class_id, 'enable_achievements');
+  assertClassFeatureEnabled(student.class_id, 'enable_achievements');
 
-    const existingAchievements = db.prepare('SELECT achievement_name FROM user_achievements WHERE student_id = ?').all(id) as { achievement_name: string }[];
-    const earnedSet = new Set(existingAchievements.map(a => a.achievement_name));
-    const newAchievements: string[] = [];
+  const existingAchievements = db.prepare('SELECT achievement_name FROM user_achievements WHERE student_id = ?').all(id) as { achievement_name: string }[];
+  const earnedSet = new Set(existingAchievements.map(a => a.achievement_name));
+  const newAchievements: string[] = [];
 
     // Helper to award achievement
     const award = (name: string, description: string) => {
@@ -606,23 +473,16 @@ router.get('/:id/achievements', (req: Request, res: Response) => {
       }
     }
 
-    const allAchievements = Array.from(earnedSet);
-    res.json({ success: true, achievements: allAchievements, newAchievements });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  const allAchievements = Array.from(earnedSet);
+  sendSuccess(res, { achievements: allAchievements, newAchievements });
+}));
 
 // Get peer review targets (students in the same group, or same class if no group)
-router.get('/:id/peer-reviews/pending', (req: Request, res: Response) => {
+router.get('/:id/peer-reviews/pending', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  try {
-    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(id) as any;
-    if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
-    }
+  const student = getStudentOrThrow(id);
 
-    assertClassFeatureEnabled(student.class_id, 'enable_peer_review');
+  assertClassFeatureEnabled(student.class_id, 'enable_peer_review');
 
     let peers: any[] = [];
     if (student.group_id) {
@@ -645,23 +505,19 @@ router.get('/:id/peer-reviews/pending', (req: Request, res: Response) => {
       .filter(p => !reviewedIds.has(p.id))
       .map(p => ({ id: p.id, name: decrypt(p.name) }));
 
-    res.json({ success: true, pending: pendingPeers });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  sendSuccess(res, { pending: pendingPeers });
+}));
 
 // Submit a peer review
-router.post('/:id/peer-reviews', (req: Request, res: Response) => {
+router.post('/:id/peer-reviews', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params; // reviewer
   const { reviewee_id, score, comment, is_anonymous } = req.body;
 
   if (!reviewee_id || typeof score !== 'number' || score < 1 || score > 5) {
-    return res.status(400).json({ success: false, message: 'Invalid review data' });
+    throw new ApiError(400, 'Invalid review data');
   }
 
-  try {
-    assertStudentFeatureEnabled(Number(id), 'enable_peer_review');
+  assertStudentFeatureEnabled(Number(id), 'enable_peer_review');
 
     db.prepare('INSERT INTO peer_reviews (reviewer_id, reviewee_id, score, comment) VALUES (?, ?, ?, ?)')
       .run(id, reviewee_id, score, comment || '');
@@ -688,10 +544,7 @@ router.post('/:id/peer-reviews', (req: Request, res: Response) => {
         .run(reviewee_id, senderName, 'student', 'PEER_REVIEW', messageContent, is_anonymous ? 1 : 0);
     })();
 
-    res.json({ success: true, message: '互评提交成功，已发放积分奖励！' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+  sendSuccess(res, { message: '互评提交成功，已发放积分奖励！' });
+}));
 
 export default router;
