@@ -5,39 +5,16 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 
-import { usePetActionMutation, useStudentPetData } from '@/hooks/queries/usePet';
-
-interface Pet {
-  id: number;
-  element_type: string;
-  custom_image?: string;
-  image_stage1?: string;
-  image_stage2?: string;
-  image_stage3?: string;
-  image_stage4?: string;
-  image_stage5?: string;
-  image_stage6?: string;
-  level: number;
-  experience: number;
-  attack_power: number;
-  has_parent_buff?: boolean;
-}
-
-const ELEMENTS = [
-  { id: 'fire', name: '火系', color: 'bg-red-500', bg: 'bg-red-50', icon: '🔥' },
-  { id: 'water', name: '水系', color: 'bg-blue-500', bg: 'bg-blue-50', icon: '💧' },
-  { id: 'grass', name: '草系', color: 'bg-green-500', bg: 'bg-green-50', icon: '🌿' },
-  { id: 'electric', name: '电系', color: 'bg-yellow-400', bg: 'bg-yellow-50', icon: '⚡' },
-  { id: 'ice', name: '冰系', color: 'bg-cyan-300', bg: 'bg-cyan-50', icon: '❄️' },
-  { id: 'dragon', name: '龙系', color: 'bg-purple-500', bg: 'bg-purple-50', icon: '🐉' },
-];
+import { getEvolutionStage, getPetElement, getPetIcon, PET_ELEMENTS } from '@/features/pet/petConfig';
+import type { PetDto } from '@/features/pet/types';
+import { usePetActionMutation, useStudentPetData } from '@/features/pet/hooks/usePet';
 
 export default function StudentPet() {
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
   const { data, isLoading, refetch } = useStudentPetData(studentId);
   const petMutation = usePetActionMutation(studentId);
-  const [pet, setPet] = useState<Pet | null>(null);
+  const [pet, setPet] = useState<PetDto | null>(null);
   const loading = isLoading;
   const [adopting, setAdopting] = useState(false);
   const [selectedElement, setSelectedElement] = useState('');
@@ -52,7 +29,7 @@ export default function StudentPet() {
 
   useEffect(() => {
     if (!data) return;
-    setPet((data.pet as Pet) ?? null);
+    setPet((data.pet as PetDto) ?? null);
     setAvailablePoints(data.availablePoints ?? 0);
     setPraises(data.praises ?? []);
     setRecords(data.records ?? []);
@@ -152,24 +129,6 @@ export default function StudentPet() {
     }
   };
 
-  const getEvolutionStage = (level: number) => {
-    if (level === 1) return '萌蛋期';
-    if (level === 2) return '幼年期';
-    if (level === 3) return '成长期';
-    if (level === 4) return '成熟期';
-    if (level === 5) return '完全体';
-    return '究极体';
-  };
-
-  const getPetIcon = (level: number) => {
-    if (level === 1) return '🥚';
-    if (level === 2) return '🐣';
-    if (level === 3) return '🐥';
-    if (level === 4) return '🦅';
-    if (level === 5) return '🐉';
-    return '👑';
-  };
-
   const triggerEvolutionEffect = () => {
     import('canvas-confetti').then((confetti) => {
       const duration = 3 * 1000;
@@ -222,7 +181,7 @@ export default function StudentPet() {
         <div className="p-8">
           <h3 className="text-2xl font-black text-gray-800 mb-6 text-center">选择精灵属性</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            {ELEMENTS.map((el) => (
+            {PET_ELEMENTS.map((el) => (
               <motion.div
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
@@ -292,11 +251,11 @@ export default function StudentPet() {
     );
   }
 
-  const element = ELEMENTS.find(e => e.id === pet.element_type) || ELEMENTS[0];
+  const element = getPetElement(pet.element_type);
   const progressPercent = ((pet.experience % 100) / 100) * 100;
 
   const getPetImage = () => {
-    const stageKey = `image_stage${pet.level}` as keyof Pet;
+    const stageKey = `image_stage${pet.level}` as keyof PetDto;
     if (pet[stageKey]) return pet[stageKey] as string;
     if (pet.custom_image) return pet.custom_image;
     return null;
