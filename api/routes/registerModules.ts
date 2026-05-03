@@ -44,6 +44,8 @@ import wrongQuestionRoutes from './wrongQuestions.js';
 import studyPlanRoutes from './studyPlans.js';
 import { createAdminModule } from '../modules/admin/admin.module.js';
 import { createPetModule } from '../modules/pet/pet.module.js';
+import { createEconomyModule } from '../modules/economy/economy.module.js';
+import { createChallengeModule } from '../modules/challenge/challenge.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -94,6 +96,8 @@ const legacyRoutes: Array<[string, any]> = [
 export function registerApiRoutes(app: Application) {
   app.use('/api/admin', createAdminModule());
   app.use('/api/pet', createPetModule());
+  app.use('/api/economy', createEconomyModule());
+  app.use('/api/challenge', createChallengeModule());
 
   for (const [prefix, routeModule] of legacyRoutes) {
     app.use(prefix, routeModule);

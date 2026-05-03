@@ -1,6 +1,6 @@
 # ThinkClass Refactor Architecture
 
-This branch establishes a vertical-domain migration pattern. Pet is the first full sample and later domains should follow the same shape.
+This branch establishes a vertical-domain migration pattern. Pet is the first full sample; Economy and Challenge/Boss extend the same shape across data-heavy student workflows and teacher management pages.
 
 ## Core
 
@@ -25,4 +25,5 @@ This branch establishes a vertical-domain migration pattern. Pet is the first fu
 | Domain | Legacy Backend | New Backend | Legacy Frontend | New Frontend |
 | --- | --- | --- | --- | --- |
 | Pet | `api/routes/pet.ts` at `/api/pets/*` | `api/modules/pet` at `/api/pet/*` | `src/api/pet.ts`, `src/hooks/queries/usePet.ts`, `src/pages/Student/Pet.tsx`, `src/pages/Teacher/Pets.tsx` | `src/features/pet` |
-
+| Economy | `api/routes/economy.ts` legacy bank/stock paths | `api/modules/economy` at `/api/economy/students/*`, `/classes/*`, `/teacher/*` | `src/api/economy.ts`, `src/hooks/queries/useEconomy.ts`, `src/pages/Student/Bank.tsx` | `src/features/economy` |
+| Challenge/Boss | `api/routes/challenge.ts` legacy challenge/boss paths | `api/modules/challenge` at `/api/challenge/students/*`, `/classes/*`, `/bosses/*` | `src/api/challenge.ts`, `src/hooks/queries/useChallenge.ts`, `src/hooks/queries/useWorldBoss.ts`, student/teacher pages | `src/features/challenge` |

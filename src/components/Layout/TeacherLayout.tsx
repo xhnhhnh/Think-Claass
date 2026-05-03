@@ -4,7 +4,7 @@ import {
   Users, ClipboardList, LogOut, Award, Store, Settings, MonitorPlay, 
   BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, 
   FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, 
-  Gavel, Swords, Map, FileText, Network
+  Gavel, Swords, Map, FileText, Network, Landmark
 } from "lucide-react";
 import { useEffect, useMemo } from 'react';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
@@ -30,6 +30,7 @@ const navItems = [
   { path: '/teacher/records', icon: ClipboardList, label: '积分与兑换记录' },
   { path: '/teacher/certificates', icon: Award, label: '荣誉奖状' },
   { path: '/teacher/shop', icon: Store, label: '商品管理' },
+  { path: '/teacher/economy', icon: Landmark, label: '股票管理' },
   { path: '/teacher/auction', icon: Gavel, label: '拍卖行管理' },
   { path: '/teacher/blind-box', icon: Package, label: '盲盒管理' },
   { path: '/teacher/features', icon: Settings, label: '功能开关' },
@@ -45,6 +46,7 @@ const navItems = [
 
 const teacherFeatureRequirements: Partial<Record<string, FeatureRequirement>> = {
   '/teacher/shop': { key: 'enable_shop' },
+  '/teacher/economy': { key: 'enable_economy' },
   '/teacher/lucky-draw-config': { key: 'enable_lucky_draw' },
   '/teacher/verification': { key: 'enable_lucky_draw' },
   '/teacher/brawl': { key: 'enable_class_brawl' },

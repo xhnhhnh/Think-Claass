@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   getWorldBosses: vi.fn(),
 }));
 
-vi.mock('@/api/challenge', () => ({
+vi.mock('@/features/challenge/api/challengeApi', () => ({
   challengeApi: {
     createWorldBoss: mocks.createWorldBoss,
     deleteWorldBoss: mocks.deleteWorldBoss,
@@ -37,7 +37,7 @@ describe('useWorldBoss hooks', () => {
   });
 
   it('loads world bosses through challengeApi', async () => {
-    mocks.getWorldBosses.mockResolvedValue({ success: true, bosses: [{ id: 1, name: 'Boss' }] });
+    mocks.getWorldBosses.mockResolvedValue({ success: true, data: { bosses: [{ id: 1, name: 'Boss' }] } });
     const { result } = renderHook(() => useWorldBosses(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -51,11 +51,10 @@ describe('useWorldBoss hooks', () => {
     mocks.deleteWorldBoss.mockResolvedValue({ success: true });
     const { result } = renderHook(() => useWorldBossMutation(), { wrapper: createWrapper() });
 
-    await result.current.mutateAsync({ type: 'create', data: { name: 'Boss' } });
+    await result.current.mutateAsync({ type: 'create', data: { name: 'Boss', hp: 1000 } });
     await result.current.mutateAsync({ type: 'delete', id: 3 });
 
-    expect(mocks.createWorldBoss).toHaveBeenCalledWith({ name: 'Boss' });
+    expect(mocks.createWorldBoss).toHaveBeenCalledWith({ name: 'Boss', hp: 1000 });
     expect(mocks.deleteWorldBoss).toHaveBeenCalledWith(3);
   });
 });
-
