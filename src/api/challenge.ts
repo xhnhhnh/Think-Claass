@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPost } from '@/lib/api';
 
 export interface ChallengeQuestion {
   id: number;
@@ -48,6 +48,12 @@ export const challengeApi = {
 
   getActiveBoss: (classId: number) =>
     apiGet<{ success: true; boss: WorldBoss | null }>(`/api/challenge/boss/active/${classId}`),
+
+  getWorldBosses: () => apiGet<{ success: true; bosses: WorldBoss[] }>('/api/challenge/boss'),
+
+  createWorldBoss: (payload: Partial<WorldBoss>) => apiPost<{ success: true }>('/api/challenge/boss', payload),
+
+  deleteWorldBoss: (bossId: number) => apiDelete<{ success: true }>(`/api/challenge/boss/${bossId}`),
 
   attackBoss: (bossId: number, studentId: number) =>
     apiPost<BossAttackResponse>(`/api/challenge/boss/${bossId}/attack`, { studentId }),
