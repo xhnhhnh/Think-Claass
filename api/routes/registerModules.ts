@@ -46,6 +46,10 @@ import { createAdminModule } from '../modules/admin/admin.module.js';
 import { createPetModule } from '../modules/pet/pet.module.js';
 import { createEconomyModule } from '../modules/economy/economy.module.js';
 import { createChallengeModule } from '../modules/challenge/challenge.module.js';
+import { createDungeonModule } from '../modules/dungeon/dungeon.module.js';
+import { createGachaModule } from '../modules/gacha/gacha.module.js';
+import { createBattlesModule } from '../modules/battles/battles.module.js';
+import { createSlgModule } from '../modules/slg/slg.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -98,6 +102,10 @@ export function registerApiRoutes(app: Application) {
   app.use('/api/pet', createPetModule());
   app.use('/api/economy', createEconomyModule());
   app.use('/api/challenge', createChallengeModule());
+  app.use('/api/dungeon', createDungeonModule());
+  app.use('/api/gacha', createGachaModule());
+  app.use('/api/battles', createBattlesModule());
+  app.use('/api/slg', createSlgModule());
 
   for (const [prefix, routeModule] of legacyRoutes) {
     app.use(prefix, routeModule);

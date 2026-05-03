@@ -1,65 +1,16 @@
-import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { Swords, RefreshCw, Flame, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { apiGet } from "@/lib/api";
-
-interface Battle {
-  id: number;
-  initiator_class_id: number;
-  target_class_id: number;
-  initiator_class_name: string;
-  target_class_name: string;
-  status: 'pending' | 'active' | 'ended' | 'rejected';
-  start_time: string;
-  end_time: string;
-  winner_class_id: number | null;
-}
+import { useBattleStats, useTeacherBattles } from '@/features/battles/hooks/useBattles';
 
 export default function StudentBrawl() {
   const user = useStore((state) => state.user);
-  const [activeBattle, setActiveBattle] = useState<Battle | null>(null);
-  const [stats, setStats] = useState<{initiatorScore: number, targetScore: number} | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchActiveBattle = async () => {
-    if (!user?.class_id) return;
-    try {
-      const data = await apiGet(`/api/battles/teacher/${user.class_id}`);
-      if (data.success) {
-        const active = data.battles.find((b: Battle) => b.status === 'active');
-        setActiveBattle(active || null);
-        if (active) {
-          fetchStats(active.id);
-        } else {
-          setStats(null);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async (battleId: number) => {
-    try {
-      const data = await apiGet(`/api/battles/stats/${battleId}`);
-      if (data.success) {
-        setStats(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    if (user?.class_id) {
-      fetchActiveBattle();
-      const interval = setInterval(fetchActiveBattle, 5000); // Fast poll 5s for student
-      return () => clearInterval(interval);
-    }
-  }, [user?.class_id]);
+  const classId = user?.class_id ?? null;
+  const { data: battles = [], isLoading: loading } = useTeacherBattles(classId, 5000);
+  const activeBattle = battles.find((battle) => battle.status === 'active') ?? null;
+  const { data: stats } = useBattleStats(activeBattle?.id ?? null, !!activeBattle, 5000);
 
   if (loading) {
     return <div className="p-12 flex justify-center"><RefreshCw className="w-8 h-8 animate-spin text-indigo-500" /></div>;

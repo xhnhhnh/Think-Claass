@@ -24,12 +24,12 @@ describe('gachaApi', () => {
   it('requests pools by class id', async () => {
     mocks.apiGet.mockResolvedValue({ success: true, pools: [] });
     await gachaApi.getPools(7);
-    expect(mocks.apiGet).toHaveBeenCalledWith('/api/gacha/pools/7');
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/gacha/classes/7/pools');
   });
 
   it('posts draw payload', async () => {
     mocks.apiPost.mockResolvedValue({ success: true, results: [] });
     await gachaApi.draw(99, { poolId: 3, times: 10 });
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/gacha/draw/99', { poolId: 3, times: 10 });
+    expect(mocks.apiPost).toHaveBeenCalledWith('/api/gacha/students/99/draws', { poolId: 3, times: 10 });
   });
 });

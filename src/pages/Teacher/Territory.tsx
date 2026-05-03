@@ -5,20 +5,8 @@ import { Map as MapIcon, Plus, Settings, Play, Database, XCircle } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useClasses } from '@/hooks/queries/useClasses';
-import { useCreateTerritoryMutation, useTerritoryMap, useTriggerYieldMutation } from '@/hooks/queries/useTerritory';
-
-interface Territory {
-  id: number;
-  class_id: number;
-  name: string;
-  type: 'forest' | 'mine' | 'city' | 'magic_spring';
-  level: number;
-  cost_to_unlock: number;
-  current_contribution: number;
-  x_pos: number;
-  y_pos: number;
-  status: 'locked' | 'unlocking' | 'owned';
-}
+import { useCreateTerritoryMutation, useTerritoryMap, useTriggerYieldMutation } from '@/features/slg/hooks/useTerritory';
+import type { Territory, TerritoryType } from '@/features/slg/api/slgApi';
 
 export default function TeacherTerritory() {
   const queryClient = useQueryClient();
@@ -32,7 +20,7 @@ export default function TeacherTerritory() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'forest' as 'forest' | 'mine' | 'city' | 'magic_spring',
+    type: 'forest' as TerritoryType,
     cost_to_unlock: 1000,
     x_pos: 0,
     y_pos: 0
@@ -178,7 +166,7 @@ export default function TeacherTerritory() {
                     <label className="block text-sm font-bold text-slate-700 mb-1">地形产出类型</label>
                     <select
                       value={formData.type}
-                      onChange={e => setFormData({...formData, type: e.target.value as any})}
+                      onChange={e => setFormData({...formData, type: e.target.value as TerritoryType})}
                       className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="forest">森林 (木材)</option>
