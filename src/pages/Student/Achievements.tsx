@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { Trophy, Star, Shield, Zap, Medal, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { apiGet } from "@/lib/api";
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 
 interface Achievement {
   id: number;
@@ -45,7 +45,8 @@ export default function StudentAchievements() {
 
   const fetchAchievements = async () => {
     try {
-      const data = await apiGet(`/api/students/${user?.studentId}/achievements`);
+      if (!user?.studentId) return;
+      const data = await studentsApi.getAchievements(user.studentId);
       if (data.success) {
         setAchievements(data.achievements);
       }

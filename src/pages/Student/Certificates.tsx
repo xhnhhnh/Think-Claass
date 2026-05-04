@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { Award, Trophy, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { apiGet } from "@/lib/api";
+import { certificatesApi } from '@/features/engagement/api/certificatesApi';
 
 interface Certificate {
   id: number;
@@ -27,7 +27,7 @@ export default function StudentCertificates() {
 
   const fetchCertificates = async () => {
     try {
-      const data = await apiGet(`/api/certificates?studentId=${user?.studentId}`);
+      const data = await certificatesApi.getStudentCertificates(user.studentId);
       if (data.success) {
         setCertificates(data.certificates);
       }

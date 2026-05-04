@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, CheckCircle2, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 
-import { apiGet } from "@/lib/api";
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 
 interface Record {
   id: number;
@@ -19,7 +19,7 @@ export default function TeacherRecords() {
 
   const fetchRecords = async () => {
     try {
-      const data = await apiGet('/api/students/records');
+      const data = await studentsApi.getRecords({});
       if (data.success) {
         setRecords(data.records);
       }

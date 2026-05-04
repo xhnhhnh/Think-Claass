@@ -69,6 +69,9 @@ export const shopApi = {
 
   deleteAuction: (auctionId: number) => apiDelete<{ success: true }>(`/api/shop/auctions/${auctionId}`),
 
+  bidAuction: (auctionId: number, payload: { studentId: number; bid_amount: number }) =>
+    apiPost<{ success: true; message?: string }>(`/api/shop/auctions/${auctionId}/bid`, payload),
+
   createBlindBox: (payload: BlindBoxPayload) => apiPost<{ success: true; id: number }>('/api/shop/blind_boxes', payload),
 
   updateBlindBox: (boxId: number, payload: BlindBoxPayload) => apiPut<{ success: true }>(`/api/shop/blind_boxes/${boxId}`, payload),

@@ -7,7 +7,7 @@ import confetti from 'canvas-confetti';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 import ClassFeaturePanel from './components/ClassFeaturePanel';
 
-import { apiGet } from "@/lib/api";
+import { classroomApi } from '@/features/classroom/api/classesApi';
 import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import { defaultClassFeatures } from '@/lib/classFeatures';
 
@@ -59,7 +59,7 @@ export default function TeacherBigscreen() {
 
   const fetchClasses = async () => {
     try {
-      const data = await apiGet('/api/classes');
+      const data = await classroomApi.getClasses();
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -83,7 +83,7 @@ export default function TeacherBigscreen() {
     if (!selectedClassId) return;
     setLoading(true);
     try {
-      const data = await apiGet(`/api/classes/${selectedClassId}/bigscreen`);
+      const data = await classroomApi.getBigscreen(selectedClassId);
       if (data.success) {
         setBigscreenData(data);
       }
