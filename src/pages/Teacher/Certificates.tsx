@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { certificatesApi } from '@/features/engagement/api/certificatesApi';
 
 interface Student {
   id: number;
@@ -44,8 +45,8 @@ export default function TeacherCertificates() {
     setLoading(true);
     try {
       const [studentsData, certsData] = await Promise.all([
-          apiGet('/api/students'),
-          apiGet('/api/certificates')
+          studentsApi.getStudents(),
+          certificatesApi.getCertificates()
         ]);
 
       if (studentsData.success) {
@@ -70,7 +71,7 @@ export default function TeacherCertificates() {
 
     setSubmitting(true);
     try {
-      const data = await apiPost('/api/certificates', {
+      const data = await certificatesApi.issueCertificate({
         student_id: selectedStudent,
         title: title.trim(),
         description: description.trim()

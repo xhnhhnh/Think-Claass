@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { UserCog, Save, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiPut } from "@/lib/api";
+import { adminApi } from '@/api/admin';
 
 export default function TeacherSettings() {
   const { user, setUser } = useStore();
@@ -31,10 +31,7 @@ export default function TeacherSettings() {
 
     setSaving(true);
     try {
-      const data = await apiPut(
-        `/api/admin/users/${user?.id}`,
-        { username: username.trim(), password: password || undefined }
-      );
+      const data = await adminApi.updateTeacher(user!.id, { username: username.trim(), password: password || undefined }) as any;
 
       if (data.success) {
         toast.success('个人信息更新成功');

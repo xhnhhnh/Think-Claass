@@ -60,6 +60,19 @@ import { createStudyPlansModule } from '../modules/learning/studyPlans.module.js
 import { createTaskTreeModule } from '../modules/collaboration/taskTree.module.js';
 import { createTeamQuestsModule } from '../modules/collaboration/teamQuests.module.js';
 import { createPeerReviewsModule } from '../modules/collaboration/peerReviews.module.js';
+import { createStudentsModule } from '../modules/classroom/students.module.js';
+import { createClassesModule } from '../modules/classroom/classes.module.js';
+import { createGroupsModule } from '../modules/classroom/groups.module.js';
+import { createPresetsModule } from '../modules/classroom/presets.module.js';
+import { createAttendanceModule } from '../modules/classroom/attendance.module.js';
+import { createLeavesModule } from '../modules/classroom/leaves.module.js';
+import { createAnalyticsModule } from '../modules/insights/analytics.module.js';
+import { createMessagesModule } from '../modules/engagement/messages.module.js';
+import { createFamilyTasksModule } from '../modules/engagement/familyTasks.module.js';
+import { createPraisesModule } from '../modules/engagement/praises.module.js';
+import { createCertificatesModule } from '../modules/engagement/certificates.module.js';
+import { createRedemptionModule } from '../modules/engagement/redemption.module.js';
+import { createLuckyDrawModule } from '../modules/engagement/luckyDraw.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -126,6 +139,20 @@ export function registerApiRoutes(app: Application) {
   app.use('/api/task-tree', createTaskTreeModule());
   app.use('/api/team-quests', createTeamQuestsModule());
   app.use('/api/peer-reviews', createPeerReviewsModule());
+  app.use('/api/students', createStudentsModule());
+  app.use('/api/classes', createClassesModule());
+  app.use('/api/class', createClassesModule());
+  app.use('/api/groups', createGroupsModule());
+  app.use('/api/presets', createPresetsModule());
+  app.use('/api/attendance', createAttendanceModule());
+  app.use('/api/leaves', createLeavesModule());
+  app.use('/api/analytics', createAnalyticsModule());
+  app.use('/api/messages', createMessagesModule());
+  app.use('/api/family-tasks', createFamilyTasksModule());
+  app.use('/api/praises', createPraisesModule());
+  app.use('/api/certificates', createCertificatesModule());
+  app.use('/api/redemption', createRedemptionModule());
+  app.use('/api/lucky-draw', createLuckyDrawModule());
 
   for (const [prefix, routeModule] of legacyRoutes) {
     app.use(prefix, routeModule);

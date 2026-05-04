@@ -5,7 +5,8 @@ import { Gavel, Clock, Coins, Flame, AlertCircle, ArrowUpRight, SearchX, Zap, Ch
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { shopApi } from '@/api/shop';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 
 interface Auction {
   id: number;
@@ -30,8 +31,8 @@ export default function StudentAuction() {
     if (!user?.studentId) return;
     try {
       const [dataAuctions, dataStudents] = await Promise.all([
-          apiGet('/api/shop/auctions'),
-          apiGet('/api/students')
+          shopApi.getAuctions(),
+          studentsApi.getStudents()
         ]);
 
       if (dataAuctions.success) {
@@ -74,10 +75,7 @@ export default function StudentAuction() {
 
     setBidding(auction.id);
     try {
-      const data = await apiPost(
-        `/api/shop/auctions/${auction.id}/bid`,
-        { studentId: user?.studentId, bid_amount: amount }
-      );
+      const data = await shopApi.bidAuction(auction.id, { studentId: user!.studentId!, bid_amount: amount });
 
       if (data.success) {
         toast.success(`成功出价 ${amount} 积分！`);
