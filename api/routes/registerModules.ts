@@ -50,6 +50,13 @@ import { createDungeonModule } from '../modules/dungeon/dungeon.module.js';
 import { createGachaModule } from '../modules/gacha/gacha.module.js';
 import { createBattlesModule } from '../modules/battles/battles.module.js';
 import { createSlgModule } from '../modules/slg/slg.module.js';
+import { createAssignmentsModule } from '../modules/learning/assignments.module.js';
+import { createExamsModule } from '../modules/learning/exams.module.js';
+import { createPapersModule } from '../modules/learning/papers.module.js';
+import { createPaperSubmissionsModule } from '../modules/learning/paperSubmissions.module.js';
+import { createKnowledgeModule } from '../modules/learning/knowledge.module.js';
+import { createWrongQuestionsModule } from '../modules/learning/wrongQuestions.module.js';
+import { createStudyPlansModule } from '../modules/learning/studyPlans.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -106,6 +113,13 @@ export function registerApiRoutes(app: Application) {
   app.use('/api/gacha', createGachaModule());
   app.use('/api/battles', createBattlesModule());
   app.use('/api/slg', createSlgModule());
+  app.use('/api/assignments', createAssignmentsModule());
+  app.use('/api/exams', createExamsModule());
+  app.use('/api/papers', createPapersModule());
+  app.use('/api/paper-submissions', createPaperSubmissionsModule());
+  app.use('/api/knowledge', createKnowledgeModule());
+  app.use('/api/wrong-questions', createWrongQuestionsModule());
+  app.use('/api/study-plans', createStudyPlansModule());
 
   for (const [prefix, routeModule] of legacyRoutes) {
     app.use(prefix, routeModule);

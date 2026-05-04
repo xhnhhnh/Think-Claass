@@ -19,12 +19,12 @@ vi.mock('@/store/useStore', () => ({
   useStore: mocks.useStore,
 }));
 
-vi.mock('@/hooks/queries/useExams', () => ({
+vi.mock('@/features/learning/hooks/useExams', () => ({
   useExams: mocks.useExams,
   useExamGrades: mocks.useExamGrades,
 }));
 
-vi.mock('@/api/exams', () => ({
+vi.mock('@/features/learning/api/examsApi', () => ({
   examsApi: {
     createExam: mocks.createExam,
     deleteExam: mocks.deleteExam,

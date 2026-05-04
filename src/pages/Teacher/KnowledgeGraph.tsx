@@ -3,8 +3,8 @@ import { LoaderCircle, Plus, Trash2, Link2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { knowledgeApi } from '@/api/knowledge';
-import { useKnowledgeEdges, useKnowledgeNodes, useSubjects } from '@/hooks/queries/useKnowledge';
+import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
+import { useKnowledgeEdges, useKnowledgeNodes, useSubjects } from '@/features/learning/hooks/useKnowledge';
 
 export default function TeacherKnowledgeGraph() {
   const queryClient = useQueryClient();
@@ -267,4 +267,3 @@ export default function TeacherKnowledgeGraph() {
     </div>
   );
 }
-
