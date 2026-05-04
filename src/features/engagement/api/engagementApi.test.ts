@@ -15,6 +15,8 @@ vi.mock('@/lib/api', () => ({
 }));
 
 import { certificatesApi } from './certificatesApi';
+import { announcementsApi } from './announcementsApi';
+import { danmakuApi } from './danmakuApi';
 import { familyTasksApi } from './familyTasksApi';
 import { luckyDrawApi } from './luckyDrawApi';
 import { messagesApi } from './messagesApi';
@@ -61,5 +63,23 @@ describe('engagement feature APIs', () => {
     expect(mocks.apiPost).toHaveBeenCalledWith('/api/certificates', { student_id: 7, title: '阅读之星' });
     expect(mocks.apiPost).toHaveBeenCalledWith('/api/redemption/verify', { code: 'ABC123', teacherId: 1 });
     expect(mocks.apiPost).toHaveBeenCalledWith('/api/lucky-draw/draw', { studentId: 7 });
+  });
+
+  it('uses announcement and danmaku paths', async () => {
+    mocks.apiGet.mockResolvedValue({ success: true });
+    mocks.apiPost.mockResolvedValue({ success: true });
+    mocks.apiDelete.mockResolvedValue({ success: true });
+
+    await announcementsApi.getActiveAnnouncement();
+    await announcementsApi.getClassAnnouncements(3);
+    await danmakuApi.getMessages(3, 9);
+    await danmakuApi.sendMessage({ class_id: 3, sender_name: '小明', content: '加油', color: '#fff' });
+    await danmakuApi.cleanup();
+
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/announcements/active');
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/class-announcements?classId=3');
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/danmaku?classId=3&since=9');
+    expect(mocks.apiPost).toHaveBeenCalledWith('/api/danmaku', { class_id: 3, sender_name: '小明', content: '加油', color: '#fff' });
+    expect(mocks.apiDelete).toHaveBeenCalledWith('/api/danmaku/cleanup');
   });
 });

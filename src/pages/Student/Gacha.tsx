@@ -3,10 +3,10 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Sparkles, Star, Zap, Shield, HelpCircle, ShieldAlert, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
 import { useGachaDrawMutation, useGachaPools } from '@/features/gacha/hooks/useGacha';
 import type { GachaPetResult } from '@/features/gacha/api/gachaApi';
+import { launchConfetti } from '@/lib/confetti';
 
 export default function StudentGacha() {
   const user = useStore(state => state.user);
@@ -29,7 +29,7 @@ export default function StudentGacha() {
         const hasHighRarity = results.some((r) => r.rarity === 'SSR' || r.rarity === 'SR');
         if (hasHighRarity) {
           setTimeout(() => {
-            confetti({
+            void launchConfetti({
               particleCount: 150,
               spread: 100,
               origin: { y: 0.6 },

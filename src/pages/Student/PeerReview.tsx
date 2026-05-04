@@ -3,9 +3,9 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Star, MessageSquareHeart, UserCircle2, Send, CheckCircle2, Sparkles, Ghost, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { launchConfetti } from '@/lib/confetti';
 
 interface PendingPeer {
   id: number;
@@ -71,7 +71,7 @@ export default function StudentPeerReview() {
 
       if (data.success) {
         toast.success(data.message);
-        confetti({
+        void launchConfetti({
           particleCount: 100,
           spread: 70,
           origin: { y: 0.6 },

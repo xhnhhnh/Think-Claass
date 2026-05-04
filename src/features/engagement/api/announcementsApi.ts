@@ -1,4 +1,5 @@
 import { apiGet } from '@/lib/api';
+import type { PublicAnnouncementDto } from '@/shared/engagement/contracts';
 
 export interface ClassAnnouncement {
   id: number;
@@ -8,6 +9,9 @@ export interface ClassAnnouncement {
 }
 
 export const announcementsApi = {
+  getActiveAnnouncement: () =>
+    apiGet<{ success: true; announcement?: PublicAnnouncementDto | null }>('/api/announcements/active'),
+
   getClassAnnouncements: (classId: number) =>
     apiGet<{ success: true; announcements: ClassAnnouncement[] }>(`/api/class-announcements?classId=${classId}`),
 };

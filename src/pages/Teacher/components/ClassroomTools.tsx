@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Dice5, Timer } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { launchConfetti } from '@/lib/confetti';
+
 export function ClassroomTools({ students }: { students: { id: number; name: string }[] }) {
   const [rollCallState, setRollCallState] = useState({ isRolling: false, currentName: '点击开始' });
   const rollIntervalRef = useRef<any>(null);
@@ -58,12 +60,10 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
   };
 
   const triggerConfetti = () => {
-    import('canvas-confetti').then((confetti) => {
-      confetti.default({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+    void launchConfetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
     });
   };
 

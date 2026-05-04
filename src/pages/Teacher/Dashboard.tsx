@@ -17,6 +17,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { teacherApi } from '@/api/teacher';
 import { analyticsApi } from '@/api/analytics';
 import { useStore } from '@/store/useStore';
+import { launchConfetti } from '@/lib/confetti';
 
 import { PointsModal } from './components/PointsModal';
 import { CreateClassModal } from './components/CreateClassModal';
@@ -140,9 +141,7 @@ export default function TeacherDashboard() {
   }, [selectedClassId]);
 
   const triggerConfetti = () => {
-    import('canvas-confetti').then((confetti) => {
-      confetti.default({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-    });
+    void launchConfetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
   };
 
   const filteredStudents = students.filter(s => s.name.includes(search) || s.username.includes(search));

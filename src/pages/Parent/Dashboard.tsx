@@ -3,9 +3,10 @@ import { CheckCircle, Clock, Star, TrendingUp, AlertCircle, ChevronRight, Heart,
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
 import { useParentBuffMutation, useParentDashboard } from '@/hooks/queries/useParentDashboard';
+import { launchConfetti } from '@/lib/confetti';
+import { getRankTier } from '@/lib/rankTier';
 
 interface StudentInfo {
   id: number;
@@ -31,13 +32,6 @@ interface FamilyTask {
   status: string;
 }
 
-export const getRankTier = (points: number) => {
-  const level = Math.floor(points / 100) + 1;
-  const tiers = ['青铜', '白银', '黄金', '铂金', '钻石', '战神'];
-  const tierIndex = Math.min(Math.floor((level - 1) / 5), 5);
-  return `${tiers[tierIndex]} Lv.${level}`;
-};
-
 export default function ParentDashboard() {
   const user = useStore(state => state.user);
   const navigate = useNavigate();
@@ -58,7 +52,7 @@ export default function ParentDashboard() {
     try {
       await castBuffMutation.mutateAsync();
       toast.success('✨ 母爱的祝福已施放！');
-      confetti({
+      void launchConfetti({
         particleCount: 150,
         spread: 100,
         origin: { y: 0.6 },
