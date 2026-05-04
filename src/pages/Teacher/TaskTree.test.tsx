@@ -36,7 +36,7 @@ vi.mock('@/hooks/queries/useClasses', () => ({
   useClasses: mocks.useClasses,
 }));
 
-vi.mock('@/hooks/queries/useTaskTree', () => ({
+vi.mock('@/features/collaboration/hooks/useTaskTree', () => ({
   useTeacherTaskNodes: mocks.useTeacherTaskNodes,
   useCreateTaskNodeMutation: mocks.useCreateTaskNodeMutation,
   useUpdateTaskNodeMutation: mocks.useUpdateTaskNodeMutation,

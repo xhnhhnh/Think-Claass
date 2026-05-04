@@ -1,61 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { GitBranch, Plus, Lock, CheckCircle2, Unlock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
-
-interface TaskNode {
-  id: number;
-  title: string;
-  description: string;
-  points_reward: number;
-  parent_node_id: number | null;
-  x_pos: number;
-  y_pos: number;
-  status: 'locked' | 'unlocked' | 'completed';
-}
+import { useCompleteTaskNodeMutation, useStudentTaskNodes } from '@/features/collaboration/hooks/useTaskTree';
+import type { StudentTaskNode } from '@/features/collaboration/api/taskTreeApi';
 
 export default function StudentTaskTree() {
   const user = useStore(state => state.user);
-  const [nodes, setNodes] = useState<TaskNode[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedNode, setSelectedNode] = useState<TaskNode | null>(null);
-  const [completing, setCompleting] = useState(false);
-
-  const fetchNodes = async () => {
-    if (!user) return;
-    try {
-      const data = await apiGet(`/api/task-tree/student/${user.id}`);
-      if (data.success) {
-        setNodes(data.nodes);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchNodes();
-  }, [user]);
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const { data: nodes = [], isLoading: loading } = useStudentTaskNodes(studentId);
+  const completeMutation = useCompleteTaskNodeMutation(studentId);
+  const [selectedNode, setSelectedNode] = useState<StudentTaskNode | null>(null);
+  const completing = completeMutation.isPending;
 
   const handleComplete = async () => {
     if (!selectedNode || !user) return;
-    setCompleting(true);
     try {
-      const data = await apiPost(`/api/task-tree/student/${user.id}/complete/${selectedNode.id}`, undefined);
-      if (data.success) {
-        toast.success(`成功完成节点：${selectedNode.title}，获得 ${selectedNode.points_reward} 积分！`);
-        fetchNodes();
-        setSelectedNode(null);
-      } else {
-        toast.error(data.message || '完成失败');
-      }
+      await completeMutation.mutateAsync(selectedNode.id);
+      toast.success(`成功完成节点：${selectedNode.title}，获得 ${selectedNode.points_reward} 积分！`);
+      setSelectedNode(null);
     } catch (err) {
       toast.error('网络错误');
-    } finally {
-      setCompleting(false);
     }
   };
 
