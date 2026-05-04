@@ -73,6 +73,13 @@ import { createPraisesModule } from '../modules/engagement/praises.module.js';
 import { createCertificatesModule } from '../modules/engagement/certificates.module.js';
 import { createRedemptionModule } from '../modules/engagement/redemption.module.js';
 import { createLuckyDrawModule } from '../modules/engagement/luckyDraw.module.js';
+import { createOpenApiModule } from '../modules/admin/openapi.module.js';
+import { createAuditLogsModule } from '../modules/admin/auditLogs.module.js';
+import { createPortalModule } from '../modules/portal/portal.module.js';
+import { createSettingsModule } from '../modules/platform/settings.module.js';
+import { createPaymentModule } from '../modules/platform/payment.module.js';
+import { createParentBuffModule } from '../modules/platform/parentBuff.module.js';
+import { createSystemModule } from '../modules/platform/system.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -153,6 +160,13 @@ export function registerApiRoutes(app: Application) {
   app.use('/api/certificates', createCertificatesModule());
   app.use('/api/redemption', createRedemptionModule());
   app.use('/api/lucky-draw', createLuckyDrawModule());
+  app.use('/api/openapi', createOpenApiModule());
+  app.use('/api/audit-logs', createAuditLogsModule());
+  app.use('/api/website', createPortalModule());
+  app.use('/api/settings', createSettingsModule());
+  app.use('/api/payment', createPaymentModule());
+  app.use('/api/parent-buff', createParentBuffModule());
+  app.use('/api/system', createSystemModule());
 
   for (const [prefix, routeModule] of legacyRoutes) {
     app.use(prefix, routeModule);

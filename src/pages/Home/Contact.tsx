@@ -4,7 +4,7 @@ import { ArrowLeft, MessageSquare, Send, Mail, Phone, MapPin } from 'lucide-reac
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
-import { apiPost } from "@/lib/api";
+import { portalApi } from '@/features/portal/api/portalApi';
 
 export default function HomeContact() {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ export default function HomeContact() {
 
     setLoading(true);
     try {
-      const data = await apiPost('/api/website/contact', formData);
+      const data = await portalApi.submitContact(formData);
 
       if (data.success) {
         toast.success('留言提交成功，我们会尽快与您联系！');

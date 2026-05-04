@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Shield, Search, RefreshCw, Calendar, User, Tag } from 'lucide-react';
 
-import { apiGet } from "@/lib/api";
+import { adminClient } from '@/features/admin/api/adminClient';
 
 interface AuditLog {
   id: number;
@@ -30,21 +30,26 @@ export default function AdminAuditLogs() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        limit: limit.toString(),
-        offset: ((page - 1) * limit).toString()
+      const data = await adminClient.getAuditLogs({
+        limit,
+        offset: (page - 1) * limit,
+        teacherId: teacherId ? Number(teacherId) : undefined,
+        userId: userId ? Number(userId) : undefined,
+        action: actionFilter || undefined,
       });
-
-      if (teacherId) queryParams.append('teacher_id', teacherId);
-      if (userId) queryParams.append('user_id', userId);
-      if (actionFilter) queryParams.append('action', actionFilter);
-
-      const data = await apiGet(`/api/audit-logs?${queryParams.toString()}`);
       if (data.success) {
-        setLogs(data.data);
+        setLogs(data.data.map((log) => ({
+          id: log.id,
+          teacher_id: log.teacherId ?? 0,
+          user_id: log.userId ?? 0,
+          action: log.action,
+          details: log.details,
+          ip_address: log.ipAddress,
+          created_at: log.createdAt ?? '',
+        })));
         setTotal(data.total);
       } else {
-        toast.error(data.message || '获取审计日志失败');
+        toast.error('获取审计日志失败');
       }
     } catch (error) {
       toast.error('网络错误，无法获取审计日志');
