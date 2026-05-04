@@ -5,19 +5,8 @@ import { Gavel, Clock, Coins, Flame, AlertCircle, ArrowUpRight, SearchX, Zap, Ch
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-import { shopApi } from '@/api/shop';
+import { shopApi, type Auction } from '@/features/marketplace/api/shopApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
-
-interface Auction {
-  id: number;
-  item_name: string;
-  description: string;
-  starting_price: number;
-  current_price: number;
-  highest_bidder_id: number | null;
-  status: 'active' | 'ended';
-  end_time: string;
-}
 
 export default function StudentAuction() {
   const user = useStore((state) => state.user);

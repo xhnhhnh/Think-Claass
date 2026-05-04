@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   updateBlindBox: vi.fn(),
 }));
 
-vi.mock('@/api/shop', () => ({
+vi.mock('@/features/marketplace/api/shopApi', () => ({
   shopApi: {
     createAuction: mocks.createAuction,
     createBlindBox: mocks.createBlindBox,

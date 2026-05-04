@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 import { Coins, Edit2, Eye, EyeOff, Package, Trash2 } from 'lucide-react';
 
-import { type BlindBox, type BlindBoxPayload } from '@/api/shop';
+import { type BlindBox, type BlindBoxPayload } from '@/features/marketplace/api/shopApi';
 import { CrudPage, type CrudField } from '@/components/crud/CrudPage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

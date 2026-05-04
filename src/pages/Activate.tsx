@@ -5,7 +5,7 @@ import { Key, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
-import { authApi } from '@/api/auth';
+import { authApi } from '@/features/auth/api/authApi';
 
 export default function Activate() {
   const [code, setCode] = useState('');

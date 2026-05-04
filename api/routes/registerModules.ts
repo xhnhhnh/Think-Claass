@@ -80,6 +80,8 @@ import { createSettingsModule } from '../modules/platform/settings.module.js';
 import { createPaymentModule } from '../modules/platform/payment.module.js';
 import { createParentBuffModule } from '../modules/platform/parentBuff.module.js';
 import { createSystemModule } from '../modules/platform/system.module.js';
+import { createAuthModule } from '../modules/auth/auth.module.js';
+import { createMarketplaceModule } from '../modules/marketplace/marketplace.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -128,6 +130,8 @@ const legacyRoutes: Array<[string, any]> = [
 ];
 
 export function registerApiRoutes(app: Application) {
+  app.use('/api/auth', createAuthModule());
+  app.use('/api/shop', createMarketplaceModule());
   app.use('/api/admin', createAdminModule());
   app.use('/api/pet', createPetModule());
   app.use('/api/economy', createEconomyModule());
