@@ -3,8 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { LoaderCircle, Save, Send, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { paperSubmissionsApi, type PaperSubmission } from '@/api/paperSubmissions';
-import type { PaperItem } from '@/api/papers';
+import { paperSubmissionsApi, type PaperSubmission } from '@/features/learning/api/paperSubmissionsApi';
+import type { PaperItem } from '@/features/learning/api/papersApi';
 
 export default function StudentPaperAttempt() {
   const { id } = useParams();
@@ -168,4 +168,3 @@ export default function StudentPaperAttempt() {
     </div>
   );
 }
-

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { PlusCircle, Search, FileText, CheckCircle, Edit, Trash2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
+import { useAssignments, useCreateAssignmentMutation, useDeleteAssignmentMutation } from '@/features/learning/hooks/useAssignments';
 
 interface Assignment {
   id: number;
@@ -22,10 +24,20 @@ interface Submission {
 }
 
 export default function TeacherAssignments() {
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    { id: 1, title: '第一单元数学练习', description: '完成课本P12-P15的练习题', dueDate: '2026-04-10', classId: 1, status: 'active' },
-    { id: 2, title: '语文作文', description: '写一篇关于春天的作文，不少于400字', dueDate: '2026-04-12', classId: 1, status: 'active' }
-  ]);
+  const user = useStore((state) => state.user);
+  const classId = user?.class_id ?? 1;
+  const teacherId = user?.id ?? 1;
+  const { data: assignmentRows = [] } = useAssignments(classId);
+  const createAssignmentMutation = useCreateAssignmentMutation(classId);
+  const deleteAssignmentMutation = useDeleteAssignmentMutation(classId);
+  const assignments: Assignment[] = assignmentRows.map((assignment) => ({
+    id: assignment.id,
+    title: assignment.title,
+    description: assignment.description ?? '',
+    dueDate: assignment.due_date ?? '',
+    classId: assignment.class_id,
+    status: 'active',
+  }));
   const [submissions, setSubmissions] = useState<Submission[]>([
     { id: 1, studentName: '张三', assignmentId: 1, content: '已完成所有练习题，拍照上传。', status: 'submitted' },
     { id: 2, studentName: '李四', assignmentId: 1, content: '最后一题不会做。', status: 'graded', grade: 85, feedback: '再接再厉' }
@@ -41,18 +53,17 @@ export default function TeacherAssignments() {
   const [gradeInput, setGradeInput] = useState('');
   const [feedbackInput, setFeedbackInput] = useState('');
 
-  const handleCreateAssignment = (e: React.FormEvent) => {
+  const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    const newAssignment: Assignment = {
-      id: Date.now(),
-      title: newTitle,
-      description: newDesc,
-      dueDate: newDueDate,
-      classId: 1,
-      status: 'active'
-    };
-    setAssignments([...assignments, newAssignment]);
+    await createAssignmentMutation.mutateAsync({
+      class_id: classId,
+      teacher_id: teacherId,
+      title: newTitle.trim(),
+      description: newDesc.trim() || null,
+      due_date: newDueDate || null,
+      reward_points: 0,
+    });
     setShowCreateModal(false);
     setNewTitle('');
     setNewDesc('');
@@ -73,8 +84,8 @@ export default function TeacherAssignments() {
     toast.success('批改完成');
   };
 
-  const deleteAssignment = (id: number) => {
-    setAssignments(assignments.filter(a => a.id !== id));
+  const deleteAssignment = async (id: number) => {
+    await deleteAssignmentMutation.mutateAsync(id);
     toast.success('作业已删除');
   };
 

@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { BookOpen, CheckCircle, FileText, Award, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAssignments, useStudentAssignments, useUpdateStudentAssignmentMutation } from '@/features/learning/hooks/useAssignments';
+import { examsApi } from '@/features/learning/api/examsApi';
+import { useQuery } from '@tanstack/react-query';
 
 interface Assignment {
   id: number;
@@ -24,25 +27,66 @@ interface Exam {
 export default function StudentAssignments() {
   const user = useStore((state) => state.user);
   const [activeTab, setActiveTab] = useState<'assignments' | 'exams'>('assignments');
-  
-  // Mock data for assignments
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    { id: 1, title: '数学课后作业', description: '完成课本第32页练习题1-5', dueDate: '2023-11-15', status: 'pending' },
-    { id: 2, title: '语文阅读理解', description: '阅读《背影》并写一篇不少于300字的读后感', dueDate: '2023-11-14', status: 'submitted' },
-    { id: 3, title: '英语单词抄写', description: '抄写Unit 3单词各5遍', dueDate: '2023-11-10', status: 'graded', score: 95 },
-  ]);
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const classId = user?.class_id ?? null;
+  const { data: assignmentRows = [] } = useAssignments(classId);
+  const { data: studentAssignmentRows = [] } = useStudentAssignments(studentId);
+  const updateStudentAssignmentMutation = useUpdateStudentAssignmentMutation(studentId);
+  const { data: studentExamRows = [] } = useQuery({
+    queryKey: ['student-exams', studentId],
+    queryFn: async () => {
+      if (!studentId) return [] as any[];
+      return (await examsApi.listStudentExams({ studentId })).data as any[];
+    },
+    enabled: !!studentId,
+  });
+  const { data: examRows = [] } = useQuery({
+    queryKey: ['exams', classId],
+    queryFn: async () => {
+      if (!classId) return [] as any[];
+      return (await examsApi.getExams(classId)).data;
+    },
+    enabled: !!classId,
+  });
 
-  // Mock data for exams
-  const [exams, setExams] = useState<Exam[]>([
-    { id: 1, title: '期中数学考试', date: '2023-11-01', score: 92, totalScore: 100 },
-    { id: 2, title: '期中语文考试', date: '2023-11-02', score: 88, totalScore: 100 },
-    { id: 3, title: '英语单元测试', date: '2023-10-20', score: 95, totalScore: 100 },
-  ]);
+  const assignments = useMemo<Assignment[]>(
+    () =>
+      assignmentRows.map((assignment) => {
+        const record = studentAssignmentRows.find((item) => item.assignment_id === assignment.id);
+        return {
+          id: assignment.id,
+          title: assignment.title,
+          description: assignment.description ?? '',
+          dueDate: assignment.due_date ?? '无',
+          status: (record?.status as Assignment['status']) ?? 'pending',
+          score: record?.score ?? undefined,
+        };
+      }),
+    [assignmentRows, studentAssignmentRows],
+  );
 
-  const handleSubmit = (id: number) => {
-    setAssignments(assignments.map(a => 
-      a.id === id ? { ...a, status: 'submitted' } : a
-    ));
+  const exams = useMemo<Exam[]>(
+    () =>
+      studentExamRows.map((studentExam) => {
+        const exam = examRows.find((item) => item.id === studentExam.exam_id);
+        return {
+          id: studentExam.id,
+          title: exam?.title ?? `考试 #${studentExam.exam_id}`,
+          date: exam?.exam_date ?? '未定',
+          score: studentExam.score ?? 0,
+          totalScore: exam?.total_score ?? 100,
+        };
+      }),
+    [examRows, studentExamRows],
+  );
+
+  const handleSubmit = async (id: number) => {
+    const record = studentAssignmentRows.find((item) => item.assignment_id === id);
+    if (!record) {
+      toast.error('暂无可提交记录');
+      return;
+    }
+    await updateStudentAssignmentMutation.mutateAsync({ id: record.id, payload: { status: 'submitted' } });
     toast.success('作业提交成功！');
   };
 

@@ -4,9 +4,8 @@ import { LoaderCircle, Save, Plus, ArrowLeft, UploadCloud, Trash2 } from 'lucide
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { papersApi, type PaperDetail } from '@/api/papers';
-import { apiPost } from '@/lib/api';
-import { usePaper } from '@/hooks/queries/usePapers';
+import { papersApi, type PaperDetail } from '@/features/learning/api/papersApi';
+import { usePaper } from '@/features/learning/hooks/usePapers';
 
 type EditorSection = { title: string; order_no: number };
 type EditorItem = {
@@ -111,7 +110,7 @@ export default function TeacherPaperEditor() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await apiPost(`/api/papers/${paperId}/assets`, formData);
+      await papersApi.uploadAsset(paperId, formData);
       setFile(null);
       await queryClient.invalidateQueries({ queryKey: ['paper', paperId] });
       toast.success('已上传');
