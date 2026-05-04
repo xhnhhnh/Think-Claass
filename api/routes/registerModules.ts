@@ -57,6 +57,9 @@ import { createPaperSubmissionsModule } from '../modules/learning/paperSubmissio
 import { createKnowledgeModule } from '../modules/learning/knowledge.module.js';
 import { createWrongQuestionsModule } from '../modules/learning/wrongQuestions.module.js';
 import { createStudyPlansModule } from '../modules/learning/studyPlans.module.js';
+import { createTaskTreeModule } from '../modules/collaboration/taskTree.module.js';
+import { createTeamQuestsModule } from '../modules/collaboration/teamQuests.module.js';
+import { createPeerReviewsModule } from '../modules/collaboration/peerReviews.module.js';
 
 const legacyRoutes: Array<[string, any]> = [
   ['/api/auth', authRoutes],
@@ -120,6 +123,9 @@ export function registerApiRoutes(app: Application) {
   app.use('/api/knowledge', createKnowledgeModule());
   app.use('/api/wrong-questions', createWrongQuestionsModule());
   app.use('/api/study-plans', createStudyPlansModule());
+  app.use('/api/task-tree', createTaskTreeModule());
+  app.use('/api/team-quests', createTeamQuestsModule());
+  app.use('/api/peer-reviews', createPeerReviewsModule());
 
   for (const [prefix, routeModule] of legacyRoutes) {
     app.use(prefix, routeModule);

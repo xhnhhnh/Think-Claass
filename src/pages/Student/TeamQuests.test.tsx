@@ -16,11 +16,11 @@ vi.mock('@/store/useStore', () => ({
   useStore: mocks.useStore,
 }));
 
-vi.mock('@/hooks/queries/useTeamQuests', () => ({
+vi.mock('@/features/collaboration/hooks/useTeamQuests', () => ({
   useStudentCurrentTeamQuest: mocks.useStudentCurrentTeamQuest,
 }));
 
-vi.mock('@/api/teamQuests', () => ({
+vi.mock('@/features/collaboration/api/teamQuestsApi', () => ({
   teamQuestsApi: {
     submitPeerReview: mocks.submitPeerReview,
   },

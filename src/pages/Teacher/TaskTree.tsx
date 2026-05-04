@@ -9,7 +9,7 @@ import {
   useDeleteTaskNodeMutation,
   useTeacherTaskNodes,
   useUpdateTaskNodeMutation,
-} from '@/hooks/queries/useTaskTree';
+} from '@/features/collaboration/hooks/useTaskTree';
 import { useClasses } from '@/hooks/queries/useClasses';
 
 interface TaskNode {
