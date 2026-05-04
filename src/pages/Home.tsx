@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, Users, Phone, Newspaper, ArrowRight, Heart, Calendar, Eye, ChevronRight } from 'lucide-react';
-import { apiGet } from '@/lib/api';
+import { portalApi } from '@/features/portal/api/portalApi';
 
 export default function Home() {
   const [homeData, setHomeData] = useState<any>({});
@@ -14,8 +14,8 @@ export default function Home() {
     const fetchData = async () => {
       try {
         const [homeRes, articlesRes] = await Promise.all([
-          apiGet<{ data?: any }>('/api/website/home'),
-          apiGet<{ articles?: any[] }>('/api/website/articles?is_published=true&limit=3')
+          portalApi.getHomeContent(),
+          portalApi.getArticles({ is_published: true, limit: 3 })
         ]);
         setHomeData(homeRes.data || {});
         setArticles(articlesRes.articles || []);
