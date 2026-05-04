@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 import { Clock, Coins, Edit2, Gavel, Tag, Trash2 } from 'lucide-react';
 
-import { type Auction, type AuctionPayload } from '@/api/shop';
+import { type Auction, type AuctionPayload } from '@/features/marketplace/api/shopApi';
 import { CrudPage, type CrudField } from '@/components/crud/CrudPage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
