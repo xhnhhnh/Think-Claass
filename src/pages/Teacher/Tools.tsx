@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { launchConfetti } from '@/lib/confetti';
 
 interface Student {
   id: number;
@@ -134,12 +135,10 @@ export default function TeacherTools() {
   };
 
   const triggerConfetti = () => {
-    import('canvas-confetti').then((confetti) => {
-      confetti.default({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+    void launchConfetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
     });
   };
 

@@ -1,7 +1,6 @@
 import { useStore } from '@/store/useStore';
 import { Swords, RefreshCw, Flame, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
 import { useBattleStats, useTeacherBattles } from '@/features/battles/hooks/useBattles';
 

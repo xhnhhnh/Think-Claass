@@ -3,10 +3,10 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Gavel, Clock, Coins, Flame, AlertCircle, ArrowUpRight, SearchX, Zap, CheckCircle2, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
 import { shopApi, type Auction } from '@/features/marketplace/api/shopApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { launchConfetti } from '@/lib/confetti';
 
 export default function StudentAuction() {
   const user = useStore((state) => state.user);
@@ -68,7 +68,7 @@ export default function StudentAuction() {
 
       if (data.success) {
         toast.success(`成功出价 ${amount} 积分！`);
-        confetti({
+        void launchConfetti({
           particleCount: 50,
           spread: 60,
           origin: { y: 0.8 },

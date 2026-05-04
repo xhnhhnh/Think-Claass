@@ -86,3 +86,25 @@ export interface LuckyDrawConfigPayload {
   cost_points: number;
   configs: LuckyDrawPrizeDto[];
 }
+
+export interface PublicAnnouncementDto {
+  id: number;
+  title: string;
+  content: string;
+}
+
+export interface DanmakuMessageDto {
+  id: number;
+  class_id: number;
+  sender_name: string;
+  content: string;
+  color: string;
+  created_at: string;
+}
+
+export interface SendDanmakuPayload {
+  class_id: number;
+  sender_name: string;
+  content: string;
+  color?: string;
+}
