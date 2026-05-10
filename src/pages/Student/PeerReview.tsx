@@ -3,9 +3,9 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Star, MessageSquareHeart, UserCircle2, Send, CheckCircle2, Sparkles, Ghost, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { launchConfetti } from '@/lib/confetti';
 
 interface PendingPeer {
   id: number;
@@ -30,7 +30,8 @@ export default function StudentPeerReview() {
 
   const fetchPendingPeers = async () => {
     try {
-      const data = await apiGet(`/api/students/${user?.studentId}/peer-reviews/pending`);
+      if (!user?.studentId) return;
+      const data = await studentsApi.getPendingPeerReviews(user.studentId);
       if (data.success) {
         setPendingPeers(data.pending);
       }
@@ -61,7 +62,7 @@ export default function StudentPeerReview() {
 
     setSubmitting(true);
     try {
-      const data = await apiPost(`/api/students/${user?.studentId}/peer-reviews`, {
+      const data = await studentsApi.submitPeerReview(user!.studentId!, {
         reviewee_id: selectedPeer.id,
         score,
         comment,
@@ -70,7 +71,7 @@ export default function StudentPeerReview() {
 
       if (data.success) {
         toast.success(data.message);
-        confetti({
+        void launchConfetti({
           particleCount: 100,
           spread: 70,
           origin: { y: 0.6 },

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@/store/useStore';
 import { Swords, Shield, Trophy, Flame, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,27 +9,10 @@ import {
   useAttackBossMutation,
   useChallengeQuestions,
   useChallengeSubmitMutation,
-} from '@/hooks/queries/useChallenge';
-
-interface Question {
-  id: number;
-  title: string;
-  type: 'SINGLE' | 'MULTIPLE' | 'JUDGE';
-  options: string[] | string;
-}
-
-interface Boss {
-  id: number;
-  name: string;
-  description: string;
-  hp: number;
-  max_hp: number;
-  level: number;
-  status: string;
-}
+} from '@/features/challenge/hooks/useChallenge';
+import type { WorldBossDto } from '@/features/challenge/types';
 
 export default function StudentChallenge() {
-  const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
   const [activeTab, setActiveTab] = useState<'questions' | 'boss'>('questions');
   
@@ -40,16 +22,16 @@ export default function StudentChallenge() {
   const [result, setResult] = useState<any>(null);
 
   // Boss State
-  const [boss, setBoss] = useState<Boss | null>(null);
+  const [boss, setBoss] = useState<WorldBossDto | null>(null);
   const classId = user?.class_id ?? null;
   const studentId = user?.studentId ?? user?.id ?? null;
-  const { data: questions = [], refetch: refetchQuestions } = useChallengeQuestions(5);
+  const { data: questions = [], refetch: refetchQuestions } = useChallengeQuestions(studentId, 5);
   const submitMutation = useChallengeSubmitMutation(studentId);
   const { data: queriedBoss } = useActiveBoss(classId);
-  const attackMutation = useAttackBossMutation(studentId);
+  const attackMutation = useAttackBossMutation(studentId, classId);
 
   useEffect(() => {
-    setBoss((queriedBoss as Boss | null) ?? null);
+    setBoss((queriedBoss as WorldBossDto | null) ?? null);
   }, [queriedBoss]);
 
   const fetchQuestions = async () => {
@@ -107,7 +89,6 @@ export default function StudentChallenge() {
         } else {
           setBoss(prev => prev ? { ...prev, hp: data.newHp } : null);
         }
-        await queryClient.invalidateQueries({ queryKey: ['active-world-boss', classId] });
       }
     } catch (err) {
       toast.error('攻击失败');

@@ -1,85 +1,62 @@
-#!/bin/bash
-# 学习王国 - 一键打包脚本
+#!/usr/bin/env bash
+# Think-Class one-click release package builder.
 
-set -e
-trap 'echo -e "\n========================================================"; echo -e "❌ [错误] 打包脚本在第 $LINENO 行执行失败！"; echo -e "========================================================\n"; exit 1' ERR
+set -Eeo pipefail
+trap 'echo; echo "================================================="; echo "[错误] 打包脚本在第 $LINENO 行执行失败。"; echo "================================================="; exit 1' ERR
 
-# --- 全局变量配置 ---
-PROJECT_NAME=${PROJECT_NAME:-"Think-Class"}
-APP_NAME=${APP_NAME:-"think-class"}
-RELEASE_DIR="release_build"
-ZIP_NAME="${APP_NAME}-release.zip"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/deploy-common.sh
+source "$SCRIPT_DIR/scripts/deploy-common.sh"
 
-# --- 打印欢迎信息 ---
-print_welcome() {
-    echo "========================================================"
-    echo "📦 开始打包 ${PROJECT_NAME} 最新完整部署包"
-    echo "========================================================"
-}
+RELEASE_DIR=${RELEASE_DIR:-release_build}
+ZIP_NAME=${ZIP_NAME:-"${APP_NAME}-release.zip"}
 
-# --- 编译前端代码 ---
 build_frontend() {
-    echo "🛠️ [1/4] 编译前端代码 (Vite Build)..."
-    if ! npm run build; then
-        echo "❌ [错误] 前端编译 (npm run build) 失败，请检查代码或依赖后重试。"
-        exit 1
-    fi
+    ensure_commands zip
+    install_project_dependencies
+    log "构建前端静态资源..."
+    npm run build
 }
 
-# --- 整理打包文件目录 ---
 prepare_release_dir() {
-    echo "📂 [2/4] 整理打包文件目录..."
+    log "整理发布目录 ${RELEASE_DIR}..."
     rm -rf "$RELEASE_DIR"
-    mkdir -p "$RELEASE_DIR"
+    mkdir -p "$RELEASE_DIR/scripts"
 
-    # 拷贝核心代码
-    cp -r dist "$RELEASE_DIR"/
-    cp -r api "$RELEASE_DIR"/
-    if [ -d prisma ]; then
-        cp -r prisma "$RELEASE_DIR"/
+    cp -r dist "$RELEASE_DIR/"
+    cp -r api "$RELEASE_DIR/"
+    [ -d prisma ] && cp -r prisma "$RELEASE_DIR/"
+    cp package.json package-lock.json tsconfig.json "$RELEASE_DIR/"
+    cp install.sh update.sh "$RELEASE_DIR/"
+    cp scripts/deploy-common.sh "$RELEASE_DIR/scripts/"
+
+    if [ -f ".tmp/deploy/ecosystem.config.cjs" ]; then
+        cp .tmp/deploy/ecosystem.config.cjs "$RELEASE_DIR/"
     fi
-    cp package.json "$RELEASE_DIR"/
-    cp package-lock.json "$RELEASE_DIR"/
-    cp tsconfig.json "$RELEASE_DIR"/
-
-    # 拷贝部署所需的脚本和配置文件（从原来的临时目录中提取）
-    cp .tmp/deploy/ecosystem.config.cjs "$RELEASE_DIR"/ 2>/dev/null || true
-    cp .tmp/deploy/deploy.sh "$RELEASE_DIR"/ 2>/dev/null || true
-    cp .tmp/deploy/update.sh "$RELEASE_DIR"/ 2>/dev/null || true
-    cp .tmp/deploy/install.sh "$RELEASE_DIR"/ 2>/dev/null || true
-    cp .tmp/deploy/DEPLOYMENT.md "$RELEASE_DIR"/ 2>/dev/null || true
+    if [ -f ".tmp/deploy/DEPLOYMENT.md" ]; then
+        cp .tmp/deploy/DEPLOYMENT.md "$RELEASE_DIR/"
+    fi
 }
 
-# --- 压缩生成 zip 文件 ---
 create_zip() {
-    echo "🤐 [3/4] 压缩生成 zip 文件..."
-    cd "$RELEASE_DIR"
-    zip -r -q "../$ZIP_NAME" .
-    cd ..
+    log "压缩生成 ${ZIP_NAME}..."
+    rm -f "$ZIP_NAME"
+    (cd "$RELEASE_DIR" && zip -r -q "../$ZIP_NAME" .)
 }
 
-# --- 清理临时文件 ---
 cleanup() {
-    echo "🧹 [4/4] 清理临时文件..."
     rm -rf "$RELEASE_DIR"
 }
 
-# --- 打印成功信息 ---
-print_success() {
-    echo "========================================================"
-    echo "🎉 打包大功告成！"
-    echo "👉 生成文件: $ZIP_NAME"
-    echo "========================================================"
-}
-
-# --- 主执行流程 ---
 main() {
-    print_welcome
+    print_banner "Think-Class 一键打包"
     build_frontend
     prepare_release_dir
     create_zip
     cleanup
-    print_success
+    print_banner "打包完成"
+    echo "生成文件: ${ZIP_NAME}"
 }
 
-main
+main "$@"
+

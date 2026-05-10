@@ -312,6 +312,16 @@ export function initDb() {
       used_at DATETIME
     );
 
+    CREATE TABLE IF NOT EXISTS activation_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      source TEXT NOT NULL,
+      activation_code TEXT,
+      order_id INTEGER,
+      remark TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS system_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT UNIQUE NOT NULL,
@@ -1271,6 +1281,8 @@ export function initDb() {
     'CREATE INDEX IF NOT EXISTS idx_messages_class_id ON messages(class_id);',
     'CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);',
     'CREATE INDEX IF NOT EXISTS idx_operation_logs_teacher_id ON operation_logs(teacher_id);',
+    'CREATE INDEX IF NOT EXISTS idx_activation_events_user_id ON activation_events(user_id);',
+    'CREATE INDEX IF NOT EXISTS idx_activation_events_order_id ON activation_events(order_id);',
     
     // SLG 及其他
     'CREATE INDEX IF NOT EXISTS idx_territories_class_id ON territories(class_id);',

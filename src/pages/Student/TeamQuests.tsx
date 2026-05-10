@@ -4,8 +4,8 @@ import { CheckSquare, LoaderCircle, MessageCircle, ShieldAlert, Star, Target, Us
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
-import { teamQuestsApi } from '@/api/teamQuests';
-import { useStudentCurrentTeamQuest } from '@/hooks/queries/useTeamQuests';
+import { teamQuestsApi } from '@/features/collaboration/api/teamQuestsApi';
+import { useStudentCurrentTeamQuest } from '@/features/collaboration/hooks/useTeamQuests';
 import { useStore } from '@/store/useStore';
 
 export default function StudentTeamQuests() {

@@ -4,6 +4,7 @@ import { prisma } from '../prismaClient.js';
 import { asyncHandler, ApiError } from '../utils/asyncHandler.js';
 import { activateUser } from '../services/activationService.js';
 import { pickClassFeatures } from '../utils/classFeatures.js';
+import { hashPassword, isPasswordHash, verifyPassword } from '../utils/password.js';
 
 const router = Router();
 
@@ -11,11 +12,18 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   const { username, password, role } = req.body;
 
   const user = await prisma.users.findFirst({
-    where: { username, password_hash: password, role }
+    where: { username, role }
   });
 
-  if (!user) {
+  if (!user || !verifyPassword(String(password ?? ''), user.password_hash)) {
     throw new ApiError(401, '账号或密码错误，请重试');
+  }
+
+  if (!isPasswordHash(user.password_hash)) {
+    await prisma.users.update({
+      where: { id: user.id },
+      data: { password_hash: hashPassword(String(password)) },
+    });
   }
 
   if (role === 'student') {
@@ -104,7 +112,7 @@ router.post('/register', asyncHandler(async (req: Request, res: Response) => {
   try {
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.users.create({
-        data: { role, username, password_hash: password }
+        data: { role, username, password_hash: hashPassword(String(password ?? '')) }
       });
       
       if (role === 'student') {

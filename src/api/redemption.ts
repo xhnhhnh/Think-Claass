@@ -1,6 +1,2 @@
-import { apiPost } from '@/lib/api';
-
-export const redemptionApi = {
-  verify: (payload: { code: string; teacherId?: number }) =>
-    apiPost<{ success: true; ticket: any }>('/api/redemption/verify', payload),
-};
+export { redemptionApi } from '@/features/engagement/api/redemptionApi';
+export type { RedemptionTicketDto as RedemptionTicket } from '@/shared/engagement/contracts';

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Megaphone } from 'lucide-react';
 
-import { apiGet, apiDelete } from "@/lib/api";
+import { adminClient } from '@/features/admin/api/adminClient';
 
 interface Announcement {
   id: number;
@@ -27,12 +27,14 @@ export default function AdminAnnouncements() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/api/admin/announcements');
-      if (data.success) {
-        setAnnouncements(data.announcements);
-      } else {
-        toast.error(data.message || '获取公告失败');
-      }
+      const items = await adminClient.getAnnouncements();
+      setAnnouncements(items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        created_at: item.createdAt ?? '',
+        is_active: item.isActive ? 1 : 0,
+      })));
     } catch (error) {
       toast.error('网络错误，无法获取公告数据');
     } finally {
@@ -76,12 +78,10 @@ export default function AdminAnnouncements() {
     }
 
     try {
-      const url = editingId 
-        ? `/api/admin/announcements/${editingId}` 
-        : '/api/admin/announcements';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const data = await apiGet(url);
+      const payload = { title: formData.title.trim(), content: formData.content.trim(), isActive: formData.is_active };
+      const data = editingId
+        ? await adminClient.updateAnnouncement(editingId, payload)
+        : await adminClient.createAnnouncement(payload);
       if (data.success) {
         toast.success(editingId ? '公告更新成功' : '公告创建成功');
         handleCloseModal();
@@ -98,7 +98,7 @@ export default function AdminAnnouncements() {
     if (!confirm('确定要删除这条公告吗？')) return;
 
     try {
-      const data = await apiDelete(`/api/admin/announcements/${id}`);
+      const data = await adminClient.deleteAnnouncement(id);
 
       if (data.success) {
         toast.success('公告已删除');

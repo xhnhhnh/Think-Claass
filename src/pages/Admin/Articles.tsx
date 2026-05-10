@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, FileText } from 'lucide-react';
 
-import { apiGet, apiDelete } from "@/lib/api";
+import { portalApi } from '@/features/portal/api/portalApi';
 
 interface Article {
   id: number;
@@ -34,11 +34,11 @@ export default function AdminArticles() {
   const fetchArticles = async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/api/website/articles');
+      const data = await portalApi.getArticles();
       if (data.success) {
         setArticles(data.articles);
       } else {
-        toast.error(data.message || '获取文章失败');
+        toast.error('获取文章失败');
       }
     } catch (error) {
       toast.error('网络错误，无法获取文章数据');
@@ -89,12 +89,15 @@ export default function AdminArticles() {
     }
 
     try {
-      const url = editingId 
-        ? `/api/website/articles/${editingId}` 
-        : '/api/website/articles';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const data = await apiGet(url);
+      const payload = {
+        title: formData.title.trim(),
+        summary: formData.summary,
+        content: formData.content.trim(),
+        cover_image: formData.cover_image,
+        category: formData.category,
+        is_published: formData.is_published,
+      };
+      const data = editingId ? await portalApi.updateArticle(editingId, payload) : await portalApi.createArticle(payload);
       if (data.success) {
         toast.success(editingId ? '文章更新成功' : '文章创建成功');
         handleCloseModal();
@@ -111,7 +114,7 @@ export default function AdminArticles() {
     if (!confirm('确定要删除这篇文章吗？')) return;
 
     try {
-      const data = await apiDelete(`/api/website/articles/${id}`);
+      const data = await portalApi.deleteArticle(id);
 
       if (data.success) {
         toast.success('文章已删除');

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Users, Star, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { apiGet } from "@/lib/api";
+import { portalApi } from '@/features/portal/api/portalApi';
 
 export default function HomeAbout() {
   const navigate = useNavigate();
@@ -13,9 +13,12 @@ export default function HomeAbout() {
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const data = await apiGet('/api/website/home');
+        const data = await portalApi.getHomeContent();
         if (data.success && data.data.about) {
-          setAboutData(data.data.about);
+          setAboutData({
+            title: data.data.about.title || '',
+            content: data.data.about.content || '',
+          });
         }
       } catch (error) {
         console.error('获取关于我们数据失败:', error);

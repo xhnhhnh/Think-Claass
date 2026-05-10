@@ -3,8 +3,8 @@ import { LoaderCircle, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { wrongQuestionsApi } from '@/api/wrongQuestions';
-import { useWrongQuestions } from '@/hooks/queries/useWrongQuestions';
+import { wrongQuestionsApi } from '@/features/learning/api/wrongQuestionsApi';
+import { useWrongQuestions } from '@/features/learning/hooks/useWrongQuestions';
 
 export default function StudentWrongQuestions() {
   const queryClient = useQueryClient();
@@ -99,4 +99,3 @@ export default function StudentWrongQuestions() {
     </div>
   );
 }
-

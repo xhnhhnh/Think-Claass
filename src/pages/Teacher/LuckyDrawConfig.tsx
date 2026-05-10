@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { shopApi } from '@/api/shop';
+import { shopApi } from '@/features/marketplace/api/shopApi';
 import { useLuckyDrawConfig, useSaveLuckyDrawConfigMutation } from '@/hooks/queries/useLuckyDraw';
 
 interface ShopItem {

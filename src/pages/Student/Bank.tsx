@@ -4,43 +4,17 @@ import { toast } from 'sonner';
 import { Building2, TrendingUp, TrendingDown, RefreshCw, Wallet, PiggyBank, Briefcase, Coins, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { useEconomyBankMutation, useEconomyData, useEconomyTradeMutation } from '@/hooks/queries/useEconomy';
-
-interface BankAccount {
-  student_id: number;
-  deposit_amount: number;
-  interest_rate: number;
-  last_interest_date: string | null;
-}
-
-interface Stock {
-  id: number;
-  class_id: number;
-  name: string;
-  symbol: string;
-  current_price: number;
-  trend_history: string;
-}
-
-interface Portfolio {
-  id: number;
-  stock_id: number;
-  student_id: number;
-  shares: number;
-  average_buy_price: number;
-  name: string;
-  symbol: string;
-  current_price: number;
-}
+import { useEconomyBankMutation, useEconomyData, useEconomyTradeMutation } from '@/features/economy/hooks/useEconomy';
+import type { BankAccountDto, PortfolioItemDto, StockDto } from '@/features/economy/types';
 
 export default function StudentEconomy() {
   const user = useStore(state => state.user);
   const studentId = user?.studentId ?? user?.id ?? null;
   const classId = user?.class_id ?? null;
   const { data, isLoading: loading, refetch } = useEconomyData(studentId, classId);
-  const bank = (data?.bank ?? null) as BankAccount | null;
-  const stocks = (data?.stocks ?? []) as Stock[];
-  const portfolio = (data?.portfolio ?? []) as Portfolio[];
+  const bank = (data?.bank ?? null) as BankAccountDto | null;
+  const stocks = (data?.stocks ?? []) as StockDto[];
+  const portfolio = (data?.portfolio ?? []) as PortfolioItemDto[];
   const bankMutation = useEconomyBankMutation(studentId);
   const tradeMutation = useEconomyTradeMutation(studentId);
 
@@ -49,7 +23,7 @@ export default function StudentEconomy() {
   const [bankAction, setBankAction] = useState<'deposit' | 'withdraw'>('deposit');
   const [bankAmount, setBankAmount] = useState('');
 
-  const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
+  const [selectedStock, setSelectedStock] = useState<StockDto | null>(null);
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell'>('buy');
   const [tradeShares, setTradeShares] = useState('');
 
@@ -88,9 +62,9 @@ export default function StudentEconomy() {
   };
 
   // Sparkline Chart Component
-  const Sparkline = ({ history }: { history: string }) => {
+  const Sparkline = ({ history }: { history: string | null }) => {
     try {
-      const points = JSON.parse(history) as number[];
+      const points = JSON.parse(history || '[]') as number[];
       if (points.length < 2) return <div className="h-10 flex items-center text-slate-400 text-xs">无数据</div>;
       
       const max = Math.max(...points);

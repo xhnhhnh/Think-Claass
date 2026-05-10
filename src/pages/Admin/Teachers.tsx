@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
 
-import { apiGet, apiDelete } from "@/lib/api";
+import { adminClient } from '@/features/admin/api/adminClient';
 
 interface Teacher {
   id: number;
@@ -24,12 +24,7 @@ export default function AdminTeachers() {
   const fetchTeachers = async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/api/admin/users');
-      if (data.success) {
-        setTeachers(data.users);
-      } else {
-        toast.error(data.message || '获取教师列表失败');
-      }
+      setTeachers(await adminClient.getTeachers());
     } catch (error) {
       toast.error('网络错误，无法获取教师数据');
     } finally {
@@ -75,12 +70,9 @@ export default function AdminTeachers() {
     }
 
     try {
-      const url = editingId 
-        ? `/api/admin/users/${editingId}` 
-        : '/api/admin/users';
-      const method = editingId ? 'PUT' : 'POST';
-
-      const data = await apiGet(url);
+      const data = editingId
+        ? await adminClient.updateTeacher(editingId, { username: formData.username.trim(), password: formData.password || undefined })
+        : await adminClient.createTeacher({ username: formData.username.trim(), password: formData.password });
       if (data.success) {
         toast.success(editingId ? '教师更新成功' : '教师创建成功');
         handleCloseModal();
@@ -97,7 +89,7 @@ export default function AdminTeachers() {
     if (!confirm('确定要删除这位教师吗？所有相关的班级、学生和记录将被永久删除！')) return;
 
     try {
-      const data = await apiDelete(`/api/admin/users/${id}`);
+      const data = await adminClient.deleteTeacher(id);
 
       if (data.success) {
         toast.success('教师已删除');

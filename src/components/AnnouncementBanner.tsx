@@ -1,38 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
 
-import { apiGet } from "@/lib/api";
-
-interface Announcement {
-  id: number;
-  title: string;
-  content: string;
-}
+import { useActiveAnnouncement } from '@/features/engagement/hooks/useAnnouncements';
 
 export default function AnnouncementBanner() {
-  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const { data: announcement = null } = useActiveAnnouncement();
 
   useEffect(() => {
-    const fetchActiveAnnouncement = async () => {
-      try {
-        const data = await apiGet('/api/announcements/active');
-        if (data.success && data.announcement) {
-          setAnnouncement(data.announcement);
-          
-          // Check if user already dismissed this specific announcement
-          const dismissedId = localStorage.getItem('dismissed_announcement');
-          if (dismissedId === data.announcement.id.toString()) {
-            setIsVisible(false);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch active announcement', error);
-      }
-    };
-
-    fetchActiveAnnouncement();
-  }, []);
+    if (!announcement) return;
+    const dismissedId = localStorage.getItem('dismissed_announcement');
+    setIsVisible(dismissedId !== announcement.id.toString());
+  }, [announcement]);
 
   const handleDismiss = () => {
     if (announcement) {

@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Key, Plus, Download, Copy, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { adminClient } from '@/features/admin/api/adminClient';
 
 export default function AdminCodes() {
   const [codes, setCodes] = useState<any[]>([]);
@@ -15,12 +15,7 @@ export default function AdminCodes() {
   const fetchCodes = async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/api/admin/codes');
-      if (data.success) {
-        setCodes(data.codes);
-      } else {
-        toast.error(data.message || '获取激活码失败');
-      }
+      setCodes(await adminClient.getActivationCodes());
     } catch (error) {
       toast.error('网络错误');
     } finally {
@@ -39,7 +34,7 @@ export default function AdminCodes() {
     }
     setGenerating(true);
     try {
-      const data = await apiPost('/api/admin/codes', { count: generateCount });
+      const data = await adminClient.generateActivationCodes(generateCount);
       if (data.success) {
         toast.success(data.message);
         fetchCodes();

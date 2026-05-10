@@ -3,7 +3,9 @@ import { useStore } from '@/store/useStore';
 import { Dice5, Timer, Clock, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiGet } from "@/lib/api";
+import { classroomApi } from '@/features/classroom/api/classesApi';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { launchConfetti } from '@/lib/confetti';
 
 interface Student {
   id: number;
@@ -40,7 +42,7 @@ export default function TeacherTools() {
 
   const fetchClasses = async () => {
     try {
-      const data = await apiGet('/api/classes');
+      const data = await classroomApi.getClasses();
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -60,7 +62,7 @@ export default function TeacherTools() {
 
   const fetchStudents = async () => {
     try {
-      const data = await apiGet(`/api/students?classId=${selectedClassId}`);
+      const data = await studentsApi.getStudents(selectedClassId);
       if (data.success) {
         setStudents(data.students);
       }
@@ -133,12 +135,10 @@ export default function TeacherTools() {
   };
 
   const triggerConfetti = () => {
-    import('canvas-confetti').then((confetti) => {
-      confetti.default({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+    void launchConfetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
     });
   };
 

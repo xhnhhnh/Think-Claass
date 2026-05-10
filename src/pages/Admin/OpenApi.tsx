@@ -3,7 +3,7 @@ import { Key, Building2, Plus, Trash2, Copy, CheckCircle, Search, Server } from 
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { adminClient } from '@/features/admin/api/adminClient';
 
 interface ApiKey {
   id: number;
@@ -48,11 +48,20 @@ export default function AdminOpenApi() {
     setLoading(true);
     try {
       if (activeTab === 'API_KEYS') {
-        const data = await apiGet('/api/openapi/keys');
-        if (data.success) setApiKeys(data.keys);
+        setApiKeys((await adminClient.getOpenApiKeys()).map((key) => ({
+          id: key.id,
+          name: key.name,
+          api_key: key.apiKey,
+          created_at: key.createdAt ?? '',
+        })));
       } else {
-        const data = await apiGet('/api/openapi/schools');
-        if (data.success) setSchools(data.schools);
+        setSchools((await adminClient.getSchools()).map((school) => ({
+          id: school.id,
+          name: school.name,
+          description: school.description,
+          contact_info: school.contactInfo,
+          created_at: school.createdAt ?? '',
+        })));
       }
     } catch (error) {
       toast.error('数据加载失败');
@@ -67,14 +76,14 @@ export default function AdminOpenApi() {
 
     setSubmitting(true);
     try {
-      const data = await apiPost('/api/openapi/keys', { name: keyName.trim() });
+      const data = await adminClient.createOpenApiKey(keyName.trim());
       if (data.success) {
         toast.success('API 密钥生成成功');
         setIsKeyModalOpen(false);
         setKeyName('');
         fetchData();
       } else {
-        toast.error(data.message || '生成失败');
+        toast.error('生成失败');
       }
     } catch (error) {
       toast.error('网络错误');
@@ -86,7 +95,7 @@ export default function AdminOpenApi() {
   const handleDeleteKey = async (id: number) => {
     if (!confirm('确定要删除该 API 密钥吗？删除后相关接口调用将失效！')) return;
     try {
-      const data = await apiDelete(`/api/openapi/keys/${id}`);
+      const data = await adminClient.deleteOpenApiKey(id);
       if (data.success) {
         toast.success('密钥已删除');
         fetchData();
@@ -102,10 +111,10 @@ export default function AdminOpenApi() {
 
     setSubmitting(true);
     try {
-      const data = await apiPost('/api/openapi/schools', { 
+      const data = await adminClient.createSchool({ 
         name: schoolName.trim(),
         description: schoolDesc.trim(),
-        contact_info: schoolContact.trim()
+        contactInfo: schoolContact.trim()
       });
 
       if (data.success) {
@@ -116,7 +125,7 @@ export default function AdminOpenApi() {
         setSchoolContact('');
         fetchData();
       } else {
-        toast.error(data.message || '添加失败');
+        toast.error('添加失败');
       }
     } catch (error) {
       toast.error('网络错误');
@@ -128,7 +137,7 @@ export default function AdminOpenApi() {
   const handleDeleteSchool = async (id: number) => {
     if (!confirm('确定要删除该学校信息吗？')) return;
     try {
-      const data = await apiDelete(`/api/openapi/schools/${id}`);
+      const data = await adminClient.deleteSchool(id);
       if (data.success) {
         toast.success('学校信息已删除');
         fetchData();

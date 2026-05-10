@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import { Swords, ShieldAlert, Crosshair, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { battlesApi, type Battle } from '@/api/battles';
-import { useBattleActionMutation, useBattleStats, useInitiateBattleMutation, useTeacherBattles } from '@/hooks/queries/useBattles';
+import { battlesApi, type Battle } from '@/features/battles/api/battlesApi';
+import { useBattleActionMutation, useBattleStats, useInitiateBattleMutation, useTeacherBattles } from '@/features/battles/hooks/useBattles';
 import { useClasses } from '@/hooks/queries/useClasses';
 
 export default function TeacherBrawl() {
@@ -15,8 +15,8 @@ export default function TeacherBrawl() {
   const { data: battles = [] } = useTeacherBattles(classId);
   const activeBattle = battles.find(b => b.status === 'active') ?? null;
   const { data: activeStats } = useBattleStats(activeBattle?.id ?? null, !!activeBattle);
-  const initiateMutation = useInitiateBattleMutation();
-  const actionMutation = useBattleActionMutation();
+  const initiateMutation = useInitiateBattleMutation(classId);
+  const actionMutation = useBattleActionMutation(classId);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,8 +39,9 @@ export default function TeacherBrawl() {
       );
 
       if (data.success) {
-        setSearchResults(data.classes);
-        if (data.classes.length === 0) toast.info('未找到其他班级');
+        const classes = data.data?.classes ?? data.classes ?? [];
+        setSearchResults(classes);
+        if (classes.length === 0) toast.info('未找到其他班级');
       }
     } finally {
       setIsSearching(false);

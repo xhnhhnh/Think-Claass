@@ -3,16 +3,10 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Sparkles, Star, Zap, Shield, HelpCircle, ShieldAlert, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
-import { useGachaDrawMutation, useGachaPools } from '@/hooks/queries/useGacha';
-
-interface PetResult {
-  id: number;
-  name: string;
-  rarity: 'N' | 'R' | 'SR' | 'SSR';
-  element: string;
-}
+import { useGachaDrawMutation, useGachaPools } from '@/features/gacha/hooks/useGacha';
+import type { GachaPetResult } from '@/features/gacha/api/gachaApi';
+import { launchConfetti } from '@/lib/confetti';
 
 export default function StudentGacha() {
   const user = useStore(state => state.user);
@@ -20,21 +14,22 @@ export default function StudentGacha() {
   const studentId = user?.studentId ?? user?.id ?? null;
   const { data: pools = [], isLoading: loading } = useGachaPools(classId);
   const drawMutation = useGachaDrawMutation(studentId);
-  const [results, setResults] = useState<PetResult[]>([]);
+  const [results, setResults] = useState<GachaPetResult[]>([]);
   const [showResults, setShowResults] = useState(false);
 
   const handleDraw = async (poolId: number, times: number) => {
     try {
       const data = await drawMutation.mutateAsync({ poolId, times });
       if (data.success) {
-        setResults(data.results);
+        const results = data.data?.results ?? data.results ?? [];
+        setResults(results);
         setShowResults(true);
         
         // Trigger confetti for SSR or SR
-        const hasHighRarity = data.results.some((r: PetResult) => r.rarity === 'SSR' || r.rarity === 'SR');
+        const hasHighRarity = results.some((r) => r.rarity === 'SSR' || r.rarity === 'SR');
         if (hasHighRarity) {
           setTimeout(() => {
-            confetti({
+            void launchConfetti({
               particleCount: 150,
               spread: 100,
               origin: { y: 0.6 },

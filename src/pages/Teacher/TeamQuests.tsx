@@ -3,8 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Award, CheckCircle, LoaderCircle, PlusCircle, Target, Trash2, Users, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { teamQuestsApi, type TeamQuest } from '@/api/teamQuests';
-import { useTeamQuestGroupProgress, useTeamQuests } from '@/hooks/queries/useTeamQuests';
+import { teamQuestsApi, type TeamQuest } from '@/features/collaboration/api/teamQuestsApi';
+import { useTeamQuestGroupProgress, useTeamQuests } from '@/features/collaboration/hooks/useTeamQuests';
 import { useStore } from '@/store/useStore';
 
 export default function TeacherTeamQuests() {

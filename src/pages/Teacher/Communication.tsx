@@ -3,7 +3,8 @@ import { useStore } from '@/store/useStore';
 import { MessageCircle, Send, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { classroomApi } from '@/features/classroom/api/classesApi';
+import { messagesApi } from '@/features/engagement/api/messagesApi';
 
 interface ClassItem {
   id: number;
@@ -40,7 +41,7 @@ export default function TeacherCommunication() {
 
   const fetchClasses = async () => {
     try {
-      const data = await apiGet('/api/classes');
+      const data = await classroomApi.getClasses();
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -61,7 +62,7 @@ export default function TeacherCommunication() {
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const data = await apiGet(`/api/messages?classId=${selectedClassId}&type=${msgType}&role=teacher`);
+      const data = await messagesApi.getMessages(selectedClassId!, msgType, { role: 'teacher' });
       if (data.success) {
         setMessages(data.messages);
       }
@@ -75,7 +76,7 @@ export default function TeacherCommunication() {
   const handleReply = async (receiverId: number) => {
     if (!replyContent.trim()) return;
     try {
-      const data = await apiPost('/api/messages', {
+      const data = await messagesApi.sendMessage({
         class_id: selectedClassId,
         sender_id: user?.id,
         receiver_id: receiverId,
