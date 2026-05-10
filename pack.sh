@@ -12,7 +12,6 @@ RELEASE_DIR=${RELEASE_DIR:-release_build}
 ZIP_NAME=${ZIP_NAME:-"${APP_NAME}-release.zip"}
 
 build_frontend() {
-    ensure_commands zip
     install_project_dependencies
     log "构建前端静态资源..."
     npm run build
@@ -41,7 +40,17 @@ prepare_release_dir() {
 create_zip() {
     log "压缩生成 ${ZIP_NAME}..."
     rm -f "$ZIP_NAME"
-    (cd "$RELEASE_DIR" && zip -r -q "../$ZIP_NAME" .)
+    if command -v zip >/dev/null 2>&1; then
+        (cd "$RELEASE_DIR" && zip -r -q "../$ZIP_NAME" .)
+        return 0
+    fi
+
+    if command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "\$ErrorActionPreference='Stop'; Compress-Archive -Path '${RELEASE_DIR}\\*' -DestinationPath '${ZIP_NAME}' -Force"
+        return 0
+    fi
+
+    die "未找到 zip，也无法调用 PowerShell Compress-Archive，请先安装 zip 后重试。"
 }
 
 cleanup() {
