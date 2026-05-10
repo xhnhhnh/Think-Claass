@@ -4,7 +4,7 @@ import { useStore } from '@/store/useStore';
 import { BookOpen, User, Lock, Loader2, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { authApi } from '@/api/auth';
+import { authApi } from '@/features/auth/api/authApi';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);

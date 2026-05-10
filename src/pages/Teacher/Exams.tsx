@@ -3,8 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Award, FileSpreadsheet, LoaderCircle, PlusCircle, Trash2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { examsApi, type Exam } from '@/api/exams';
-import { useExamGrades, useExams } from '@/hooks/queries/useExams';
+import { examsApi, type Exam } from '@/features/learning/api/examsApi';
+import { useExamGrades, useExams } from '@/features/learning/hooks/useExams';
 import { useStore } from '@/store/useStore';
 
 export default function TeacherExams() {

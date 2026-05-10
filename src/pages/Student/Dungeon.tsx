@@ -1,119 +1,60 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Skull, Heart, Shield, Swords, Sparkles, Tent, Zap, ArrowRight, ArrowDownToLine, RefreshCw, Box, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
-
-interface DungeonRun {
-  id: number;
-  current_floor: number;
-  max_floor: number;
-  active_buffs: string[];
-  current_hp: number;
-  max_hp: number;
-  status: 'active' | 'died' | 'completed';
-}
-
-interface Choice {
-  id: string;
-  title: string;
-  description: string;
-  type: 'combat' | 'event' | 'treasure' | 'rest';
-  hpCost: number;
-  rewardType: 'points' | 'buff' | 'heal';
-  rewardValue: string | number;
-}
+import { useDungeonActionMutation, useDungeonRun } from '@/features/dungeon/hooks/useDungeon';
+import type { FloorChoice } from '@/features/dungeon/api/dungeonApi';
 
 export default function StudentDungeon() {
   const user = useStore(state => state.user);
-  const [run, setRun] = useState<DungeonRun | null>(null);
-  const [choices, setChoices] = useState<Choice[]>([]);
-  const [bestFloor, setBestFloor] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
-
-  const fetchDungeon = async () => {
-    if (!user) return;
-    try {
-      const data = await apiGet(`/api/dungeon/${user.id}`);
-      if (data.success) {
-        if (data.run) {
-          setRun(data.run);
-          setChoices(data.choices);
-        } else {
-          setRun(null);
-          setBestFloor(data.best_floor);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDungeon();
-  }, [user]);
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const { data, isLoading: loading } = useDungeonRun(studentId);
+  const actionMutation = useDungeonActionMutation(studentId);
+  const run = data?.run ?? null;
+  const choices = data?.choices ?? [];
+  const bestFloor = data?.best_floor ?? 0;
+  const processing = actionMutation.isPending;
 
   const startRun = async () => {
     if (!user) return;
-    setProcessing(true);
     try {
-      const data = await apiPost(`/api/dungeon/start/${user.id}`, undefined);
-      if (data.success) {
-        toast.success('深入地下城...');
-        fetchDungeon();
-      } else {
-        toast.error(data.message || '启动失败');
-      }
+      await actionMutation.mutateAsync({ action: 'start' });
+      toast.success('深入地下城...');
     } catch (err) {
       toast.error('网络错误');
-    } finally {
-      setProcessing(false);
     }
   };
 
-  const makeChoice = async (choice: Choice) => {
+  const makeChoice = async (choice: FloorChoice) => {
     if (!user || !run) return;
     
     if (run.current_hp - choice.hpCost <= 0) {
       if (!window.confirm('此选择会导致生命值归零，确定要赴死吗？')) return;
     }
 
-    setProcessing(true);
     try {
-      const data = await apiPost(`/api/dungeon/choice/${user.id}`, choice);
+      const response = await actionMutation.mutateAsync({ action: 'choice', choice });
+      const result = (response.data ?? response) as { status?: string };
 
-      if (data.success) {
-        if (data.status === 'died') {
-          toast.error(`你在第 ${run.current_floor} 层倒下了...`);
-          setRun(null);
-        } else {
-          toast.success('成功推进至下一层！');
-        }
-        fetchDungeon();
+      if (result.status === 'died') {
+        toast.error(`你在第 ${run.current_floor} 层倒下了...`);
       } else {
-        toast.error(data.message || '操作失败');
+        toast.success('成功推进至下一层！');
       }
     } catch (err) {
       toast.error('网络错误');
-    } finally {
-      setProcessing(false);
     }
   };
 
   const abandonRun = async () => {
     if (!user || !window.confirm('确定要放弃本次探索吗？(生命值将归零，进度重置)')) return;
-    setProcessing(true);
     try {
-      const data = await apiPost(`/api/dungeon/abandon/${user.id}`);
-      if (data.success !== false) {
-        toast.success('已逃离地下城');
-        fetchDungeon();
-      }
-    } finally {
-      setProcessing(false);
+      await actionMutation.mutateAsync({ action: 'abandon' });
+      toast.success('已逃离地下城');
+    } catch (err) {
+      toast.error('网络错误');
     }
   };
 

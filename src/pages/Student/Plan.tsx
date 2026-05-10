@@ -3,8 +3,8 @@ import { Calendar, CheckCircle2, LoaderCircle, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { studyPlansApi } from '@/api/studyPlans';
-import { useStudyPlan } from '@/hooks/queries/useStudyPlan';
+import { studyPlansApi } from '@/features/learning/api/studyPlansApi';
+import { useStudyPlan } from '@/features/learning/hooks/useStudyPlan';
 
 export default function StudentPlan() {
   const queryClient = useQueryClient();
@@ -98,4 +98,3 @@ export default function StudentPlan() {
     </div>
   );
 }
-

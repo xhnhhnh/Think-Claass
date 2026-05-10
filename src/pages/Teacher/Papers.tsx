@@ -4,11 +4,11 @@ import { FileText, LoaderCircle, Plus, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { papersApi } from '@/api/papers';
-import { knowledgeApi } from '@/api/knowledge';
+import { papersApi } from '@/features/learning/api/papersApi';
+import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
 import { useClasses } from '@/hooks/queries/useClasses';
-import { usePapers } from '@/hooks/queries/usePapers';
-import { useSubjects } from '@/hooks/queries/useKnowledge';
+import { usePapers } from '@/features/learning/hooks/usePapers';
+import { useSubjects } from '@/features/learning/hooks/useKnowledge';
 
 export default function TeacherPapers() {
   const navigate = useNavigate();
@@ -203,4 +203,3 @@ export default function TeacherPapers() {
     </div>
   );
 }
-

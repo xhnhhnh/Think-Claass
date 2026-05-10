@@ -2,12 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { CheckSquare, Square, GripHorizontal, PlusCircle, Star, BrainCircuit } from 'lucide-react';
 
-export const getRankTier = (points: number) => {
-  const level = Math.floor(points / 100) + 1;
-  const tiers = ['青铜', '白银', '黄金', '铂金', '钻石', '战神'];
-  const tierIndex = Math.min(Math.floor((level - 1) / 5), 5);
-  return `${tiers[tierIndex]} Lv.${level}`;
-};
+import { getRankTier } from '@/lib/rankTier';
 
 export function DraggableStudent({ student, selectedStudents, toggleSelectStudent, openPointsModal, openPraiseModal, openAIModal }: any) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({

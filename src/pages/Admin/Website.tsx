@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Save, Globe } from 'lucide-react';
 
-import { apiGet, apiPut } from "@/lib/api";
+import { portalApi } from '@/features/portal/api/portalApi';
 
 export default function AdminWebsite() {
   const [loading, setLoading] = useState(true);
@@ -16,7 +16,7 @@ export default function AdminWebsite() {
   const fetchWebsiteData = async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/api/website/home');
+      const data = await portalApi.getHomeContent();
       if (data.success) {
         setSections({
           hero: data.data.hero || { title: '', subtitle: '', buttonText: '' },
@@ -24,7 +24,7 @@ export default function AdminWebsite() {
           about: data.data.about || { title: '', content: '' }
         });
       } else {
-        toast.error(data.message || '获取网站内容失败');
+        toast.error('获取网站内容失败');
       }
     } catch (error) {
       toast.error('网络错误，无法获取网站内容');
@@ -55,7 +55,7 @@ export default function AdminWebsite() {
     e.preventDefault();
     setSaving(true);
     try {
-      const data = await apiPut('/api/website/home', sections);
+      const data = await portalApi.updateHomeContent(sections);
       if (data.success) {
         toast.success('网站内容已更新');
       } else {

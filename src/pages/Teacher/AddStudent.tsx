@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { UserPlus, ArrowLeft, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { classroomApi } from '@/features/classroom/api/classesApi';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 
 export default function AddStudent() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function AddStudent() {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const data = await apiGet('/api/classes');
+        const data = await classroomApi.getClasses();
         if (data.success) {
           setClasses(data.classes);
           if (data.classes.length > 0 && !defaultClassId) {
@@ -42,7 +43,7 @@ export default function AddStudent() {
     setError('');
 
     try {
-      const data = await apiPost('/api/students', newStudent);
+      const data = await studentsApi.createStudent(newStudent);
 
       if (data.success) {
         toast.success('学生添加成功');
@@ -88,7 +89,7 @@ export default function AddStudent() {
     }
 
     try {
-      const data = await apiPost('/api/students/batch-import', { students, class_id: batchClassId });
+      const data = await studentsApi.batchImportStudents({ students, class_id: batchClassId });
 
       if (data.success) {
         toast.success(`成功导入 ${students.length} 名学生`);

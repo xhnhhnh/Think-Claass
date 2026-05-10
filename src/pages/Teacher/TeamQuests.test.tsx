@@ -18,12 +18,12 @@ vi.mock('@/store/useStore', () => ({
   useStore: mocks.useStore,
 }));
 
-vi.mock('@/hooks/queries/useTeamQuests', () => ({
+vi.mock('@/features/collaboration/hooks/useTeamQuests', () => ({
   useTeamQuests: mocks.useTeamQuests,
   useTeamQuestGroupProgress: mocks.useTeamQuestGroupProgress,
 }));
 
-vi.mock('@/api/teamQuests', () => ({
+vi.mock('@/features/collaboration/api/teamQuestsApi', () => ({
   teamQuestsApi: {
     createTeamQuest: mocks.createTeamQuest,
     deleteTeamQuest: mocks.deleteTeamQuest,

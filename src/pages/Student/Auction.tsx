@@ -3,20 +3,10 @@ import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Gavel, Clock, Coins, Flame, AlertCircle, ArrowUpRight, SearchX, Zap, CheckCircle2, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
-
-interface Auction {
-  id: number;
-  item_name: string;
-  description: string;
-  starting_price: number;
-  current_price: number;
-  highest_bidder_id: number | null;
-  status: 'active' | 'ended';
-  end_time: string;
-}
+import { shopApi, type Auction } from '@/features/marketplace/api/shopApi';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { launchConfetti } from '@/lib/confetti';
 
 export default function StudentAuction() {
   const user = useStore((state) => state.user);
@@ -30,8 +20,8 @@ export default function StudentAuction() {
     if (!user?.studentId) return;
     try {
       const [dataAuctions, dataStudents] = await Promise.all([
-          apiGet('/api/shop/auctions'),
-          apiGet('/api/students')
+          shopApi.getAuctions(),
+          studentsApi.getStudents()
         ]);
 
       if (dataAuctions.success) {
@@ -74,14 +64,11 @@ export default function StudentAuction() {
 
     setBidding(auction.id);
     try {
-      const data = await apiPost(
-        `/api/shop/auctions/${auction.id}/bid`,
-        { studentId: user?.studentId, bid_amount: amount }
-      );
+      const data = await shopApi.bidAuction(auction.id, { studentId: user!.studentId!, bid_amount: amount });
 
       if (data.success) {
         toast.success(`成功出价 ${amount} 积分！`);
-        confetti({
+        void launchConfetti({
           particleCount: 50,
           spread: 60,
           origin: { y: 0.8 },

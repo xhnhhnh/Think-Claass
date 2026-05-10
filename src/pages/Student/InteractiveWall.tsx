@@ -4,7 +4,9 @@ import { MessageSquare, Megaphone, Loader2, Send, MessageCircle } from 'lucide-r
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { announcementsApi } from '@/features/engagement/api/announcementsApi';
+import { messagesApi } from '@/features/engagement/api/messagesApi';
 
 interface Announcement {
   id: number;
@@ -50,7 +52,7 @@ export default function StudentInteractiveWall() {
 
   const fetchStudentClass = async () => {
     try {
-      const data = await apiGet(`/api/students`);
+      const data = await studentsApi.getStudents();
       if (data.success) {
         const student = data.students.find((s: any) => s.id === user?.studentId);
         if (student && student.class_id) {
@@ -84,7 +86,7 @@ export default function StudentInteractiveWall() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const data = await apiGet(`/api/class-announcements?classId=${classId}`);
+      const data = await announcementsApi.getClassAnnouncements(classId!);
       if (data.success) {
         setAnnouncements(data.announcements);
       }
@@ -98,9 +100,7 @@ export default function StudentInteractiveWall() {
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const data = await apiGet(
-        `/api/messages?classId=${classId}&type=TREE_HOLE&involvedId=${user?.studentId}`
-      );
+      const data = await messagesApi.getMessages(classId!, 'TREE_HOLE', { involvedId: user?.studentId });
 
       if (data.success) {
         setMessages(data.messages.reverse()); // Chronological order
@@ -119,7 +119,7 @@ export default function StudentInteractiveWall() {
     try {
       setSending(true);
 
-      const data = await apiPost('/api/messages', {
+      const data = await messagesApi.sendMessage({
         class_id: classId,
         sender_id: user.studentId,
         content: newMessage.trim(),

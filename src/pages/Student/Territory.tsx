@@ -1,39 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Map as MapIcon, Lock, Unlock, Pickaxe, Trees, Droplets, Coins, ArrowUpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { apiGet, apiPost } from "@/lib/api";
-
-interface Territory {
-  id: number;
-  class_id: number;
-  name: string;
-  type: 'forest' | 'mine' | 'city' | 'magic_spring';
-  level: number;
-  cost_to_unlock: number;
-  current_contribution: number;
-  x_pos: number;
-  y_pos: number;
-  status: 'locked' | 'unlocking' | 'owned';
-}
-
-interface Resources {
-  wood: number;
-  stone: number;
-  magic_dust: number;
-  gold: number;
-}
+import { useContributeTerritoryMutation, useTerritoryMap } from '@/features/slg/hooks/useTerritory';
+import type { ClassResources, Territory } from '@/features/slg/api/slgApi';
 
 export default function StudentTerritory() {
   const user = useStore(state => state.user);
-  const [territories, setTerrories] = useState<Territory[]>([]);
-  const [resources, setResources] = useState<Resources | null>(null);
-  const [loading, setLoading] = useState(true);
+  const classId = user?.class_id ?? null;
+  const studentId = user?.studentId ?? user?.id ?? null;
+  const { data, isLoading: loading } = useTerritoryMap(classId, 10000);
+  const territories = data?.territories ?? [];
+  const resources = data?.resources as ClassResources | null | undefined;
+  const contributeMutation = useContributeTerritoryMutation(classId, studentId);
   const [selectedNode, setSelectedNode] = useState<Territory | null>(null);
   const [contributeAmount, setContributeAmount] = useState<string>('');
-  const [isContributing, setIsContributing] = useState(false);
+  const isContributing = contributeMutation.isPending;
 
   // Dragging Map State
   const mapRef = useRef<HTMLDivElement>(null);
@@ -41,45 +25,18 @@ export default function StudentTerritory() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  const fetchMap = async () => {
-    if (!user?.class_id) return;
-    try {
-      const data = await apiGet(`/api/slg/map/${user.class_id}`);
-      if (data.success) {
-        setTerrories(data.territories);
-        setResources(data.resources);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMap();
-    const interval = setInterval(fetchMap, 10000); // Polling every 10s
-    return () => clearInterval(interval);
-  }, [user]);
-
   const handleContribute = async () => {
     if (!selectedNode || !user) return;
     const amount = parseInt(contributeAmount, 10);
     if (isNaN(amount) || amount <= 0) return toast.error('请输入有效积分');
     
-    setIsContributing(true);
     try {
-      const data = await apiPost(`/api/slg/student/${user.id}/contribute/${selectedNode.id}`, { amount });
-      if (data.success) {
-        toast.success('捐献成功！');
-        fetchMap();
-        setContributeAmount('');
-        setSelectedNode(null);
-      } else {
-        toast.error(data.message || '捐献失败');
-      }
+      await contributeMutation.mutateAsync({ territoryId: selectedNode.id, amount });
+      toast.success('捐献成功！');
+      setContributeAmount('');
+      setSelectedNode(null);
     } catch (err) {
       toast.error('网络错误');
-    } finally {
-      setIsContributing(false);
     }
   };
 

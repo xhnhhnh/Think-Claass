@@ -3,9 +3,10 @@ import { useStore } from '@/store/useStore';
 import { Award, Search, Plus, User, Calendar, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
-import { apiGet, apiPost } from "@/lib/api";
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { certificatesApi } from '@/features/engagement/api/certificatesApi';
+import { launchConfetti } from '@/lib/confetti';
 
 interface Student {
   id: number;
@@ -44,8 +45,8 @@ export default function TeacherCertificates() {
     setLoading(true);
     try {
       const [studentsData, certsData] = await Promise.all([
-          apiGet('/api/students'),
-          apiGet('/api/certificates')
+          studentsApi.getStudents(),
+          certificatesApi.getCertificates()
         ]);
 
       if (studentsData.success) {
@@ -70,7 +71,7 @@ export default function TeacherCertificates() {
 
     setSubmitting(true);
     try {
-      const data = await apiPost('/api/certificates', {
+      const data = await certificatesApi.issueCertificate({
         student_id: selectedStudent,
         title: title.trim(),
         description: description.trim()
@@ -78,7 +79,7 @@ export default function TeacherCertificates() {
 
       if (data.success) {
         toast.success('奖状颁发成功！');
-        confetti({
+        void launchConfetti({
           particleCount: 100,
           spread: 70,
           origin: { y: 0.6 }

@@ -3,13 +3,13 @@ import { useStore } from '@/store/useStore';
 import { Maximize, Users, Award, Star, TrendingUp, ShieldAlert, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 import ClassFeaturePanel from './components/ClassFeaturePanel';
 
-import { apiGet } from "@/lib/api";
+import { classroomApi } from '@/features/classroom/api/classesApi';
 import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import { defaultClassFeatures } from '@/lib/classFeatures';
+import { launchConfetti } from '@/lib/confetti';
 
 interface ClassItem {
   id: number;
@@ -39,7 +39,7 @@ export default function TeacherBigscreen() {
   useEffect(() => {
     if (classFeatures.enable_world_boss && bigscreenData?.activeBoss) {
       if (prevBossHp !== null && bigscreenData.activeBoss.hp === 0 && prevBossHp > 0) {
-        confetti({
+        void launchConfetti({
           particleCount: 200,
           spread: 160,
           origin: { y: 0.3 },
@@ -59,7 +59,7 @@ export default function TeacherBigscreen() {
 
   const fetchClasses = async () => {
     try {
-      const data = await apiGet('/api/classes');
+      const data = await classroomApi.getClasses();
       if (data.success) {
         setClasses(data.classes);
         if (data.classes.length > 0) {
@@ -83,7 +83,7 @@ export default function TeacherBigscreen() {
     if (!selectedClassId) return;
     setLoading(true);
     try {
-      const data = await apiGet(`/api/classes/${selectedClassId}/bigscreen`);
+      const data = await classroomApi.getBigscreen(selectedClassId);
       if (data.success) {
         setBigscreenData(data);
       }

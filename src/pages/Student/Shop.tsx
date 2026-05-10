@@ -3,12 +3,12 @@ import { useStore } from '@/store/useStore';
 import { ShoppingCart, Check, Star, Package, Gift, Sparkles, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 
 import { useQuery } from '@tanstack/react-query';
 
 import { studentsApi } from '@/api/students';
 import { useBuyBlindBoxMutation, useBuyShopItemMutation, useStudentShopData } from '@/hooks/queries/useShop';
+import { launchConfetti } from '@/lib/confetti';
 
 interface ShopItem {
   id: number;
@@ -69,7 +69,7 @@ export default function StudentShop() {
           isConsolation: data.reward.includes('安慰奖'),
         });
         if (!data.reward.includes('安慰奖')) {
-          confetti({
+          void launchConfetti({
             particleCount: 150,
             spread: 100,
             origin: { y: 0.6 },
