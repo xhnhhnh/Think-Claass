@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { studentsApi } from '@/api/students';
-import { teacherApi } from '@/api/teacher';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { teacherApi } from '@/features/classroom/api/classesApi';
 import { useLuckyDrawConfig, useLuckyDrawMutation } from '@/hooks/queries/useLuckyDraw';
 
 interface PrizeConfig {

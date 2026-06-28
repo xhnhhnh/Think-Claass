@@ -10,6 +10,7 @@ import {
   type FeatureRequirement,
 } from '@/lib/classFeatures';
 import { useStore } from '@/store/useStore';
+import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 
 export default function FeatureRouteGuard({
   role,
@@ -26,7 +27,11 @@ export default function FeatureRouteGuard({
 }) {
   const navigate = useNavigate();
   const user = useStore((state) => state.user);
-  const features = (user?.classFeatures ?? defaultClassFeatures) as ClassFeatures;
+  const classId = Number(user?.classId ?? user?.class_id) || null;
+  const { data: classFeatureData } = useClassFeatures(classId, { refetchInterval: 5000 });
+  const features = (classId
+    ? classFeatureData?.features ?? defaultClassFeatures
+    : user?.classFeatures ?? defaultClassFeatures) as ClassFeatures;
 
   if (!isFeatureRequirementEnabled(features, requirement)) {
     const nextPath = fallbackPath ?? getFirstEnabledRoute(role, features);

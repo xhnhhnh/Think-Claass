@@ -1,5 +1,10 @@
-import websiteRoutes from '../../routes/website.js';
+import { Module } from '@nestjs/common';
 
-export function createPortalModule() {
-  return websiteRoutes;
-}
+import { WebsiteController } from './portal.controllers.js';
+import { PortalService } from './portal.service.js';
+
+@Module({
+  controllers: [WebsiteController],
+  providers: [PortalService],
+})
+export class PortalModule {}

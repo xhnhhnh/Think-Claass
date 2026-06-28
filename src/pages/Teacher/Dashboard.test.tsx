@@ -54,7 +54,7 @@ vi.mock('@/hooks/queries/useStudentMutations', () => ({
   useStudentMutations: mocks.useStudentMutations,
 }));
 
-vi.mock('@/api/teacher', () => ({
+vi.mock('@/features/classroom/api/classesApi', () => ({
   teacherApi: {
     createClass: vi.fn(),
     createGroup: vi.fn(),
@@ -64,7 +64,7 @@ vi.mock('@/api/teacher', () => ({
   },
 }));
 
-vi.mock('@/api/analytics', () => ({
+vi.mock('@/features/classroom/api/analyticsApi', () => ({
   analyticsApi: {
     getStudentRadar: mocks.getStudentRadar,
   },

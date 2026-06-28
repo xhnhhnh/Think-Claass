@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../../utils/classFeatures.js';
 import type { CreatePetDictionaryPayload, GachaDrawPayload, GachaRepository, GachaRarity, PetDictionaryEntry } from './gacha.types.js';
 

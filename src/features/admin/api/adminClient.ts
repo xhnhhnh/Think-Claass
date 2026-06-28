@@ -10,6 +10,7 @@ import type {
   GenerateActivationCodesResult,
   OpenApiKeyListItem,
   OpenSchoolListItem,
+  ReleaseUpdateStatus,
   SystemSettings,
   SystemStatsResponse,
   TeacherListItem,
@@ -65,6 +66,21 @@ export const adminClient = {
   },
 
   getDatabaseExportUrl: (): string => '/api/admin/system/database/export',
+
+  getReleaseUpdateStatus: async (): Promise<ReleaseUpdateStatus> => {
+    const response = await apiGet<{ success: true; data: ReleaseUpdateStatus }>('/api/admin/system/update/status');
+    return unwrapData(response);
+  },
+
+  checkLatestRelease: async (): Promise<ReleaseUpdateStatus> => {
+    const response = await apiGet<{ success: true; data: ReleaseUpdateStatus }>('/api/admin/system/update/check');
+    return unwrapData(response);
+  },
+
+  startReleaseUpdate: async (): Promise<ReleaseUpdateStatus> => {
+    const response = await apiPost<{ success: true; data: ReleaseUpdateStatus }>('/api/admin/system/update');
+    return unwrapData(response);
+  },
 
   getTeachers: async () => {
     const response = await apiGet<{ success: true; data?: { items: TeacherListItem[]; total: number }; users?: TeacherListItem[] }>('/api/admin/users');

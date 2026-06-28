@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { assertStudentFeatureEnabled } from '../../utils/classFeatures.js';
 import type { DungeonChoicePayload, DungeonRepository, DungeonRunRow, FloorChoice } from './dungeon.types.js';
 

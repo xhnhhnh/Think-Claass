@@ -5,6 +5,7 @@ import type {
   AdminSession,
   DatabaseImportResult,
   DatabaseResetResult,
+  ReleaseUpdateStatus,
   SystemSettings,
   SystemStatsResponse,
 } from '@/shared/admin/contracts';
@@ -12,6 +13,7 @@ import type {
 export const adminQueryKeys = {
   stats: ['admin', 'system', 'stats'] as const,
   settings: ['admin', 'system', 'settings'] as const,
+  updateStatus: ['admin', 'system', 'update', 'status'] as const,
 };
 
 export function useAdminSessionMutation() {
@@ -66,6 +68,36 @@ export function useDatabaseResetMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.stats });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.settings });
+    },
+  });
+}
+
+export function useAdminReleaseUpdateStatusQuery() {
+  return useQuery<ReleaseUpdateStatus>({
+    queryKey: adminQueryKeys.updateStatus,
+    queryFn: () => adminClient.getReleaseUpdateStatus(),
+    refetchInterval: (query) => (query.state.data?.state === 'running' ? 2_000 : false),
+  });
+}
+
+export function useCheckLatestReleaseMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ReleaseUpdateStatus, Error, void>({
+    mutationFn: () => adminClient.checkLatestRelease(),
+    onSuccess: (status) => {
+      queryClient.setQueryData(adminQueryKeys.updateStatus, status);
+    },
+  });
+}
+
+export function useStartReleaseUpdateMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ReleaseUpdateStatus, Error, void>({
+    mutationFn: () => adminClient.startReleaseUpdate(),
+    onSuccess: (status) => {
+      queryClient.setQueryData(adminQueryKeys.updateStatus, status);
     },
   });
 }

@@ -135,12 +135,10 @@ download_latest_release() {
     log "获取 GitHub 最新 Release..."
     local release_json
     release_json=$(github_latest_release_json)
-    DOWNLOAD_URL=$(extract_latest_asset_url "$release_json")
+    DOWNLOAD_URL=$(latest_release_download_url "$release_json")
     LATEST_TAG=$(extract_latest_tag "$release_json")
-
-    if [ -z "$DOWNLOAD_URL" ]; then
-        warn "未找到 Release 部署包，将使用当前目录源码构建。"
-        return 0
+    if [ -z "$LATEST_TAG" ]; then
+        LATEST_TAG=$(github_latest_tag_from_redirect)
     fi
 
     log "发现版本 ${LATEST_TAG:-未知}，正在安装部署包。"

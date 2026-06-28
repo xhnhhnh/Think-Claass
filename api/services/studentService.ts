@@ -1,5 +1,5 @@
 import db, { decrypt, encrypt } from '../db.js';
-import { ApiError } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/apiError.js';
 import { hashPassword } from '../utils/password.js';
 
 export interface StudentRow {

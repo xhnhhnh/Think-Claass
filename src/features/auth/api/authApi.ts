@@ -1,5 +1,12 @@
-import { apiGet, apiPost } from '@/lib/api';
-import type { ActivatePayload, AuthResponse, InviteCodeResponse, LoginPayload, RegisterPayload } from '@/shared/auth/contracts';
+import { apiGet, apiPost, apiPut } from '@/lib/api';
+import type {
+  ActivatePayload,
+  AuthResponse,
+  InviteCodeResponse,
+  LoginPayload,
+  RegisterPayload,
+  UpdateProfilePayload,
+} from '@/shared/auth/contracts';
 
 export const authApi = {
   login: (data: LoginPayload) => apiPost<AuthResponse>('/api/auth/login', data),
@@ -17,8 +24,18 @@ export const authApi = {
 
   activate: (data: ActivatePayload) => apiPost<AuthResponse>('/api/auth/activate', data),
 
+  updateProfile: (data: UpdateProfilePayload) => apiPut<AuthResponse>('/api/auth/profile', data),
+
   verifyInviteCode: (code: string, role?: string) =>
     apiGet<InviteCodeResponse>(`/api/classes/invite/${code}${role ? `?role=${role}` : ''}`),
 };
 
-export type { ActivatePayload, AuthResponse, AuthUser, InviteCodeResponse, LoginPayload, RegisterPayload } from '@/shared/auth/contracts';
+export type {
+  ActivatePayload,
+  AuthResponse,
+  AuthUser,
+  InviteCodeResponse,
+  LoginPayload,
+  RegisterPayload,
+  UpdateProfilePayload,
+} from '@/shared/auth/contracts';

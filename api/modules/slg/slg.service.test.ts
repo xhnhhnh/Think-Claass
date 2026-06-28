@@ -5,7 +5,7 @@ vi.mock('../../utils/classFeatures.js', () => ({
   assertStudentFeatureEnabled: vi.fn(),
 }));
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { SlgService } from './slg.service';
 import type { ClassResources, CreateTerritoryPayload, SlgRepository, SlgStudentRow, Territory } from './slg.types';
 

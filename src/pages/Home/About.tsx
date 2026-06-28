@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Users, Star, Heart } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, BookOpen, Heart, Star } from "lucide-react";
+import { motion } from "framer-motion";
 
-import { portalApi } from '@/features/portal/api/portalApi';
+import { portalApi } from "@/features/portal/api/portalApi";
 
 export default function HomeAbout() {
   const navigate = useNavigate();
@@ -15,13 +15,10 @@ export default function HomeAbout() {
       try {
         const data = await portalApi.getHomeContent();
         if (data.success && data.data.about) {
-          setAboutData({
-            title: data.data.about.title || '',
-            content: data.data.about.content || '',
-          });
+          setAboutData({ title: data.data.about.title || "", content: data.data.about.content || "" });
         }
       } catch (error) {
-        console.error('获取关于我们数据失败:', error);
+        console.error("获取关于我们数据失败:", error);
       } finally {
         setLoading(false);
       }
@@ -30,99 +27,87 @@ export default function HomeAbout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fcfaf5] text-[#5c4b3a] selection:bg-[#f2c779] selection:text-white font-sans overflow-hidden relative flex flex-col">
-      {/* Background Texture Overlay */}
-      <div 
-        className="fixed inset-0 opacity-[0.03] pointer-events-none z-0" 
-        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
-      />
-
+    <div className="public-campus-page flex min-h-screen flex-col bg-[var(--campus-canvas)] text-slate-800 selection:bg-emerald-100 selection:text-emerald-700 font-sans">
       {/* Header */}
-      <header className="relative z-10 bg-white/50 backdrop-blur-md border-b border-[#f0e6d3] sticky top-0">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center space-x-2 text-[#d97757]"
+            className="flex items-center gap-3"
           >
-            <BookOpen className="w-6 h-6" />
-            <span className="text-xl font-bold tracking-wide">关于我们</span>
+            <div className="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base font-semibold text-slate-900">关于我们</span>
           </motion.div>
           <motion.button
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={() => navigate(-1)}
-            className="flex items-center text-[#7d6b5a] hover:text-[#d97757] transition-colors font-medium bg-white px-4 py-2 rounded-full shadow-sm border border-[#f0e6d3]"
+            className="flex items-center text-sm text-slate-500 hover:text-indigo-600 transition-colors font-medium bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
             返回首页
           </motion.button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 max-w-4xl mx-auto w-full px-6 py-12 md:py-20">
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 md:py-20">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-[#f0e6d3]"
+          className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
         >
-          <div className="bg-[#fdf4f1] px-8 py-16 text-center relative overflow-hidden">
-            {/* Decorative circles */}
-            <div className="absolute top-0 left-0 w-32 h-32 bg-[#f2c779] rounded-full mix-blend-multiply filter blur-2xl opacity-40 animate-pulse"></div>
-            <div className="absolute bottom-0 right-0 w-32 h-32 bg-[#8fb9a8] rounded-full mix-blend-multiply filter blur-2xl opacity-40 animate-pulse animation-delay-2000"></div>
-            
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-[#4a3b2c] relative z-10">
-              {aboutData?.title || '致力于更好的教育管理'}
+          <div className="bg-gradient-to-br from-indigo-50 to-violet-50 px-8 py-16 text-center relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-200/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-200/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3 relative z-10">
+              {aboutData?.title || "致力于更好的教育管理"}
             </h1>
-            <p className="text-[#7d6b5a] text-lg max-w-2xl mx-auto relative z-10">
+            <p className="text-slate-500 text-base max-w-2xl mx-auto relative z-10">
               通过科技赋能教育，让家校沟通更顺畅，让班级管理更高效。
             </p>
           </div>
 
           <div className="p-8 md:p-12">
             {loading ? (
-              <div className="flex justify-center items-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#d97757]"></div>
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500" />
               </div>
             ) : (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="prose prose-lg max-w-none text-[#5c4b3a] leading-relaxed whitespace-pre-line"
+                transition={{ delay: 0.15 }}
+                className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-line"
               >
-                {aboutData?.content || '暂无关于我们内容的详细介绍。请在后台管理系统中添加。'}
+                {aboutData?.content || "暂无关于我们内容的详细介绍。请在后台管理系统中添加。"}
               </motion.div>
             )}
 
-            {/* Feature Cards */}
-            <div className="grid md:grid-cols-2 gap-6 mt-16 pt-12 border-t border-[#f0e6d3]">
-              <motion.div 
-                whileHover={{ y: -5 }}
-                className="bg-[#f1f8f5] p-8 rounded-3xl border border-transparent hover:border-[#8fb9a8] transition-all"
-              >
-                <Heart className="w-10 h-10 text-[#8fb9a8] mb-4" />
-                <h3 className="text-xl font-bold text-[#4a3b2c] mb-3">家校共育</h3>
-                <p className="text-[#7d6b5a] leading-relaxed">打破信息孤岛，实现教师与家长之间的无缝对接，共同关注孩子的成长与发展。</p>
+            <div className="grid md:grid-cols-2 gap-5 mt-12 pt-10 border-t border-slate-100">
+              <motion.div whileHover={{ y: -2 }} className="bg-indigo-50/50 p-7 rounded-xl border border-indigo-100/50 transition-all">
+                <div className="h-10 w-10 rounded-lg bg-indigo-500 flex items-center justify-center mb-3">
+                  <Heart className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">家校共育</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">打破信息孤岛，实现教师与家长之间的无缝对接，共同关注孩子的成长与发展。</p>
               </motion.div>
-              <motion.div 
-                whileHover={{ y: -5 }}
-                className="bg-[#fcf8f0] p-8 rounded-3xl border border-transparent hover:border-[#e8b560] transition-all"
-              >
-                <Star className="w-10 h-10 text-[#e8b560] mb-4" />
-                <h3 className="text-xl font-bold text-[#4a3b2c] mb-3">科学评价</h3>
-                <p className="text-[#7d6b5a] leading-relaxed">多维度的学生评价体系，发现每个孩子的闪光点，激发内在学习动力。</p>
+              <motion.div whileHover={{ y: -2 }} className="bg-amber-50/50 p-7 rounded-xl border border-amber-100/50 transition-all">
+                <div className="h-10 w-10 rounded-lg bg-amber-500 flex items-center justify-center mb-3">
+                  <Star className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">科学评价</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">多维度的学生评价体系，发现每个孩子的闪光点，激发内在学习动力。</p>
               </motion.div>
             </div>
           </div>
         </motion.div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 bg-white/80 border-t border-[#f0e6d3] text-[#7d6b5a] py-8 text-center mt-auto">
-        <p>© {new Date().getFullYear()} Think-Class. 保留所有权利。</p>
+      <footer className="border-t border-slate-100 bg-white py-6 text-center">
+        <p className="text-sm text-slate-400">&copy; {new Date().getFullYear()} Think-Class. 保留所有权利。</p>
       </footer>
     </div>
   );

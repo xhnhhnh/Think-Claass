@@ -1,7 +1,8 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { LogOut, Home, MessageSquare, PieChart, CheckSquare, Calendar, BookOpen, Heart } from 'lucide-react';
+import { Home, MessageSquare, PieChart, CheckSquare, Calendar, BookOpen } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
+import CampusShell from '@/components/Layout/CampusShell';
 import {
   defaultClassFeatures,
   getFirstEnabledRoute,
@@ -52,67 +53,25 @@ export default function ParentLayout() {
 
   if (!user) return null;
 
+  const currentTitle = filteredNavItems.find(item => item.path === location.pathname)?.label || '温馨家园';
+
   return (
-    <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans theme-parent relative overflow-hidden">
-      {/* Decorative ambient background elements */}
-      <div className="absolute top-[-10%] right-[-5%] w-[30%] h-[40%] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-pink-400/10 blur-[100px] pointer-events-none" />
-
-      <div className="flex-1 flex overflow-hidden p-4 gap-6 z-10">
-        {/* Sidebar */}
-        <aside className="w-64 glass rounded-3xl flex flex-col z-10 relative overflow-hidden soft-shadow">
-          <div className="h-20 flex items-center px-8 border-b border-white/20 flex-shrink-0">
-            <Heart className="mr-3 h-8 w-8 text-primary" />
-            <span className="font-bold text-xl tracking-wide gemini-gradient-text">成长日记</span>
-          </div>
-          
-          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-            {filteredNavItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-300 ${
-                    isActive 
-                      ? 'bg-primary/10 text-primary shadow-sm border border-primary/20 glow-shadow' 
-                      : 'text-gray-500 hover:bg-black/5 hover:text-gray-900'
-                  }`}
-                >
-                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-primary' : 'text-gray-400'}`} />
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-          
-          <div className="p-4 border-t border-white/20 bg-white/30">
-            <button
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-              className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-            >
-              <LogOut className="mr-3 h-5 w-5" />
-              轻轻离开
-            </button>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 glass rounded-3xl overflow-hidden relative soft-shadow">
-          <header className="h-20 border-b border-white/20 flex items-center px-8 flex-shrink-0 z-10 relative bg-white/40">
-            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-              {filteredNavItems.find(item => item.path === location.pathname)?.label || '温馨家园'}
-            </h1>
-          </header>
-          <main className="flex-1 overflow-auto p-8 relative bg-white/50">
-            <Outlet />
-          </main>
-        </div>
-      </div>
-    </div>
+    <CampusShell
+      role="parent"
+      title={currentTitle}
+      subtitle="用温暖的成长记录、老师反馈和家校消息陪你看见孩子的每一步。"
+      navItems={filteredNavItems}
+      brandLabel="成长日记"
+      userLabel={user.name || user.username || '家长'}
+      userMeta="家校陪伴"
+      homePath={fallbackPath}
+      logoutLabel="轻轻离开"
+      onLogout={() => {
+        logout();
+        navigate('/login');
+      }}
+    >
+      <Outlet />
+    </CampusShell>
   );
 }

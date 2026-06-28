@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { studentsApi } from '@/api/students';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { useBuyBlindBoxMutation, useBuyShopItemMutation, useStudentShopData } from '@/hooks/queries/useShop';
 import { launchConfetti } from '@/lib/confetti';
 

@@ -1,32 +1,32 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { ShieldAlert, Zap, Cookie, Play, Star, Plus, Upload, Image as ImageIcon, Heart, List, ArrowUpRight, ArrowDownRight, XCircle } from 'lucide-react';
+import { ShieldAlert, Zap, Cookie, Play, Star, Plus, Heart, List, ArrowUpRight, ArrowDownRight, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
 
-import { getEvolutionStage, getPetElement, getPetIcon, PET_ELEMENTS } from '@/features/pet/petConfig';
+import { getEvolutionStage, getPetDisplayImage, getPetElement, PET_ELEMENTS } from '@/features/pet/petConfig';
 import type { PetDto } from '@/features/pet/types';
 import { usePetActionMutation, useStudentPetData } from '@/features/pet/hooks/usePet';
 import { launchConfetti } from '@/lib/confetti';
+import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 
 export default function StudentPet() {
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
+  const classId = Number(user?.classId ?? user?.class_id) || null;
+  const { data: classFeatureData } = useClassFeatures(classId, { refetchInterval: 5000 });
+  const showDanmaku = Boolean(classFeatureData?.features.enable_danmaku);
   const { data, isLoading, refetch } = useStudentPetData(studentId);
   const petMutation = usePetActionMutation(studentId);
   const [pet, setPet] = useState<PetDto | null>(null);
   const loading = isLoading;
   const [adopting, setAdopting] = useState(false);
   const [selectedElement, setSelectedElement] = useState('');
-  const [customImage, setCustomImage] = useState<string | null>(null);
   const [availablePoints, setAvailablePoints] = useState(0);
   const [praises, setPraises] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [showRecords, setShowRecords] = useState(false);
-  const [showEditImages, setShowEditImages] = useState(false);
-  const [editingImages, setEditingImages] = useState<Record<string, string>>({});
-  const [savingImages, setSavingImages] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -36,58 +36,11 @@ export default function StudentPet() {
     setRecords(data.records ?? []);
   }, [data]);
 
-  const handleStageImageUpload = (e: React.ChangeEvent<HTMLInputElement>, stage: number) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 1024 * 1024 * 5) {
-        toast.error('图片/动图大小不能超过 5MB');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditingImages(prev => ({
-          ...prev,
-          [`image_stage${stage}`]: reader.result as string
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 1024 * 1024 * 5) {
-        toast.error('图片/动图大小不能超过 5MB');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCustomImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSaveImages = async () => {
-    setSavingImages(true);
-    try {
-      await petMutation.mutateAsync({ type: 'update', data: editingImages });
-      toast.success('外观保存成功！');
-      setShowEditImages(false);
-      await refetch();
-    } catch (err) {
-      toast.error('网络错误');
-    } finally {
-      setSavingImages(false);
-    }
-  };
-
   const handleAdopt = async () => {
     if (!selectedElement) return;
     setAdopting(true);
     try {
-      await petMutation.mutateAsync({ type: 'adopt', elementType: selectedElement, customImage });
+      await petMutation.mutateAsync({ type: 'adopt', elementType: selectedElement });
       toast.success('领养成功！开启你的学习之旅吧');
       await refetch();
     } catch (err) {
@@ -199,37 +152,6 @@ export default function StudentPet() {
             ))}
           </div>
 
-          {/* Custom Image Upload */}
-          <div className="mt-10 pt-8 border-t-4 border-gray-100 border-dashed">
-            <h4 className="text-xl font-black text-gray-800 mb-4 text-center">或者：上传你自己的精灵图片 (可选)</h4>
-            <div className="flex justify-center">
-              <label role="button" className="cursor-pointer group relative">
-                <div className={`w-32 h-32 rounded-[2rem] border-8 flex flex-col items-center justify-center overflow-hidden transition-all ${customImage ? 'border-orange-500 shadow-xl' : 'border-dashed border-gray-300 hover:border-orange-400 bg-gray-50'}`}>
-                  {customImage ? (
-                    <img src={customImage} alt="自定义精灵" className="w-full h-full object-cover" />
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-gray-400 group-hover:text-orange-500 mb-2" />
-                      <span className="text-sm text-gray-500 group-hover:text-orange-500 font-bold">点击上传</span>
-                    </>
-                  )}
-                </div>
-                {customImage && (
-                  <div className="absolute inset-0 bg-black/40 rounded-[2rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-white text-sm font-bold flex items-center"><ImageIcon className="w-4 h-4 mr-1" /> 更换图片</span>
-                  </div>
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleImageUpload}
-                />
-              </label>
-            </div>
-            <p className="text-center text-sm font-bold text-gray-400 mt-3">支持 JPG/PNG 格式，不超过 2MB</p>
-          </div>
-
           <div className="mt-10 text-center">
             <motion.button
               whileHover={selectedElement && !adopting ? { scale: 1.05, y: -5 } : {}}
@@ -253,14 +175,7 @@ export default function StudentPet() {
   const element = getPetElement(pet.element_type);
   const progressPercent = ((pet.experience % 100) / 100) * 100;
 
-  const getPetImage = () => {
-    const stageKey = `image_stage${pet.level}` as keyof PetDto;
-    if (pet[stageKey]) return pet[stageKey] as string;
-    if (pet.custom_image) return pet.custom_image;
-    return null;
-  };
-
-  const currentPetImage = getPetImage();
+  const currentPetImage = getPetDisplayImage(pet as unknown as Record<string, unknown>) ?? '';
 
   return (
     <motion.div 
@@ -268,7 +183,7 @@ export default function StudentPet() {
       animate={{ opacity: 1 }}
       className="max-w-4xl mx-auto space-y-6"
     >
-      {user?.class_id && <DanmakuOverlay classId={user.class_id} />}
+      {classId && showDanmaku ? <DanmakuOverlay classId={classId} /> : null}
       {/* Top Status */}
       <div className="bg-white rounded-[2rem] p-6 shadow-xl border-b-8 border-gray-200 flex justify-between items-center">
         <div className="flex items-center space-x-4">
@@ -368,13 +283,7 @@ export default function StudentPet() {
             className="w-72 h-72 bg-white rounded-full shadow-2xl flex items-center justify-center border-8 border-white relative group-hover:scale-105 transition-transform duration-300"
           >
             <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative">
-              {currentPetImage ? (
-                <img src={currentPetImage} alt="我的精灵" className="w-full h-full object-cover" />
-              ) : (
-                <div className="text-[10rem] relative drop-shadow-xl">
-                  {getPetIcon(pet.level)}
-                </div>
-              )}
+              <img src={currentPetImage} alt="我的精灵" className="w-full h-full object-contain" />
             </div>
             
             {pet.level > 1 && (
@@ -382,17 +291,6 @@ export default function StudentPet() {
                 Lv.{pet.level}
               </div>
             )}
-
-            {/* Edit Appearance Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={(e) => { e.stopPropagation(); setEditingImages(pet as any); setShowEditImages(true); }}
-              className="absolute -top-4 -right-4 bg-purple-500 text-white p-3 rounded-full shadow-xl border-4 border-white z-30 hover:bg-purple-600 transition-colors"
-              title="编辑外观"
-            >
-              <ImageIcon className="w-6 h-6" />
-            </motion.button>
 
             {/* Mood Badge */}
             <div className="absolute top-0 right-0 w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-xl z-20 border-4 border-gray-100">
@@ -537,93 +435,6 @@ export default function StudentPet() {
                   ))}
                 </div>
               )}
-            </div>
-          </motion.div>
-        </div>
-      )}
-      {/* Evolution Images Editor Modal */}
-      {showEditImages && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border-8 border-purple-200"
-          >
-            <div className="p-6 border-b-4 border-purple-100 flex justify-between items-center bg-purple-50">
-              <h2 className="text-2xl font-black text-purple-800 flex items-center">
-                <ImageIcon className="w-8 h-8 mr-3 text-purple-500" />
-                编辑进化外观
-              </h2>
-              <button 
-                onClick={() => setShowEditImages(false)}
-                className="p-2 hover:bg-purple-200 rounded-full transition-colors text-purple-400 hover:text-purple-600"
-              >
-                <XCircle className="w-8 h-8" />
-              </button>
-            </div>
-            
-            <div className="p-8 overflow-y-auto flex-1">
-              <p className="text-gray-500 font-bold mb-8 text-center text-lg bg-purple-50 py-3 rounded-2xl">
-                为你的精灵在不同的成长阶段上传专属形象（支持 JPG/PNG/GIF 动图）
-              </p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
-                {[1, 2, 3, 4, 5, 6].map((level) => {
-                  const stageKey = `image_stage${level}`;
-                  const currentImage = editingImages[stageKey] || (level === 1 ? null : editingImages.custom_image);
-                  
-                  return (
-                    <div key={level} className="flex flex-col items-center">
-                      <div className="text-lg font-black text-purple-700 mb-3 bg-purple-100 px-4 py-1 rounded-full">
-                        Lv.{level} {getEvolutionStage(level)}
-                      </div>
-                      
-                      <label className="cursor-pointer group relative w-full aspect-square max-w-[200px]">
-                        <div className={`w-full h-full rounded-[2rem] border-8 flex flex-col items-center justify-center overflow-hidden transition-all ${currentImage ? 'border-purple-500 shadow-xl bg-white' : 'border-dashed border-gray-300 hover:border-purple-400 bg-gray-50'}`}>
-                          {currentImage ? (
-                            <img src={currentImage} alt={`Lv.${level}`} className="w-full h-full object-cover" />
-                          ) : (
-                            <>
-                              <Upload className="h-10 w-10 text-gray-400 group-hover:text-purple-500 mb-3" />
-                              <span className="text-sm text-gray-500 group-hover:text-purple-500 font-bold">点击上传</span>
-                            </>
-                          )}
-                        </div>
-                        
-                        <div className="absolute inset-0 bg-black/40 rounded-[2rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-white font-bold flex flex-col items-center">
-                            <Upload className="w-8 h-8 mb-2" />
-                            更换图片/GIF
-                          </span>
-                        </div>
-                        
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => handleStageImageUpload(e, level)}
-                        />
-                      </label>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="p-6 border-t-4 border-purple-100 bg-gray-50 flex justify-end space-x-4">
-              <button 
-                onClick={() => setShowEditImages(false)}
-                className="px-8 py-3 rounded-[1.5rem] font-bold text-gray-600 hover:bg-gray-200 transition-colors border-4 border-transparent"
-              >
-                取消
-              </button>
-              <button 
-                onClick={handleSaveImages}
-                disabled={savingImages}
-                className="px-8 py-3 rounded-[1.5rem] font-black text-white bg-purple-500 hover:bg-purple-600 transition-colors border-b-4 border-purple-700 shadow-lg disabled:opacity-50"
-              >
-                {savingImages ? '保存中...' : '保存外观'}
-              </button>
             </div>
           </motion.div>
         </div>

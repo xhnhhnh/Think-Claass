@@ -54,7 +54,10 @@ export function usePresets() {
   });
 }
 
-export function useClassFeatures(classId: number | null) {
+export function useClassFeatures(
+  classId: number | null,
+  options: { refetchInterval?: number | false } = {},
+) {
   return useQuery({
     queryKey: classQueryKeys.features(classId),
     queryFn: async () => {
@@ -63,5 +66,6 @@ export function useClassFeatures(classId: number | null) {
       return { features: data.features, pet_selection_mode: data.pet_selection_mode };
     },
     enabled: !!classId,
+    refetchInterval: options.refetchInterval,
   });
 }

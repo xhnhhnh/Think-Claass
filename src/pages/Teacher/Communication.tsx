@@ -82,7 +82,7 @@ export default function TeacherCommunication() {
         receiver_id: receiverId,
         content: replyContent,
         type: msgType,
-        sender_role: 'user', // use 'user' so backend joins with users table
+        sender_role: 'teacher',
         is_anonymous: false
       });
 
@@ -162,71 +162,75 @@ export default function TeacherCommunication() {
               暂无消息记录
             </div>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-indigo-100/50 rounded-full flex items-center justify-center mr-3">
-                      <User className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800 flex items-center">
-                        {msg.sender_role === 'user' ? '老师' : (msg.is_anonymous ? `${msg.sender_name} (匿名)` : msg.sender_name)}
-                        {msg.sender_role !== 'user' && msg.receiver_name && (
-                          <span className="text-sm font-normal text-slate-500 ml-2">
-                            发给 {msg.receiver_name}
-                          </span>
-                        )}
+            messages.map((msg) => {
+              const isTeacherMessage = msg.sender_role === 'teacher' || (msg.sender_role === 'user' && msg.sender_id === user?.id);
+
+              return (
+                <div key={msg.id} className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-indigo-100/50 rounded-full flex items-center justify-center mr-3">
+                        <User className="w-5 h-5 text-indigo-600" />
                       </div>
-                      <div className="text-xs text-gray-400 flex items-center mt-0.5">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {new Date(msg.created_at).toLocaleString()}
+                      <div>
+                        <div className="font-bold text-slate-800 flex items-center">
+                          {isTeacherMessage ? '老师' : (msg.is_anonymous ? `${msg.sender_name} (匿名)` : msg.sender_name)}
+                          {!isTeacherMessage && msg.receiver_name && (
+                            <span className="text-sm font-normal text-slate-500 ml-2">
+                              发给 {msg.receiver_name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-400 flex items-center mt-0.5">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {new Date(msg.created_at).toLocaleString()}
+                        </div>
                       </div>
                     </div>
+                    {!isTeacherMessage && (
+                      <button
+                        onClick={() => setReplyingTo(msg.sender_id)}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1 bg-blue-50 rounded-2xl"
+                      >
+                        回复
+                      </button>
+                    )}
                   </div>
-                  {msg.sender_role !== 'user' && (
-                    <button
-                      onClick={() => setReplyingTo(msg.sender_id)}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1 bg-blue-50 rounded-2xl"
-                    >
-                      回复
-                    </button>
+                  <div className="pl-13 pr-4 text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    {msg.content}
+                  </div>
+
+                  {replyingTo === msg.sender_id && (
+                    <div className="mt-4 pl-13 flex space-x-3 animate-in slide-in-from-top-2">
+                      <input
+                        type="text"
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                        placeholder={`回复 ${msg.sender_name}...`}
+                        className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleReply(msg.sender_id);
+                        }}
+                      />
+                      <button
+                        onClick={() => handleReply(msg.sender_id)}
+                        className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-4 py-2 rounded-xl flex items-center text-sm font-medium hover:from-indigo-600 hover:to-cyan-600 transition-colors"
+                      >
+                        <Send className="w-4 h-4 mr-1" />
+                        发送
+                      </button>
+                      <button
+                        onClick={() => { setReplyingTo(null); setReplyContent(''); }}
+                        className="bg-slate-100/50 text-slate-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+                      >
+                        取消
+                      </button>
+                    </div>
                   )}
                 </div>
-                <div className="pl-13 pr-4 text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {msg.content}
-                </div>
-
-                {replyingTo === msg.sender_id && (
-                  <div className="mt-4 pl-13 flex space-x-3 animate-in slide-in-from-top-2">
-                    <input
-                      type="text"
-                      value={replyContent}
-                      onChange={(e) => setReplyContent(e.target.value)}
-                      placeholder={`回复 ${msg.sender_name}...`}
-                      className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleReply(msg.sender_id);
-                      }}
-                    />
-                    <button
-                      onClick={() => handleReply(msg.sender_id)}
-                      className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-4 py-2 rounded-xl flex items-center text-sm font-medium hover:from-indigo-600 hover:to-cyan-600 transition-colors"
-                    >
-                      <Send className="w-4 h-4 mr-1" />
-                      发送
-                    </button>
-                    <button
-                      onClick={() => { setReplyingTo(null); setReplyContent(''); }}
-                      className="bg-slate-100/50 text-slate-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
-                    >
-                      取消
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

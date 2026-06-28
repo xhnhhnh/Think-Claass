@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useClassPets, useTeacherPetMutation } from '@/features/pet/hooks/usePet';
-import { getEvolutionStage, getPetElement, getPetIcon, PET_ELEMENTS } from '@/features/pet/petConfig';
+import { getDefaultPetStageImage, getEvolutionStage, getPetDisplayImage, getPetElement, PET_ELEMENTS } from '@/features/pet/petConfig';
 
 export default function TeacherPets() {
   useStore((state) => state.user);
@@ -71,12 +71,8 @@ export default function TeacherPets() {
 
   const renderPetImage = (pet: any) => {
     if (!pet) return null;
-    const stageKey = `image_stage${pet.level}`;
-    const imgUrl = pet[stageKey] || pet.custom_image;
-    if (imgUrl) {
-      return <img src={imgUrl} alt="Pet" className="w-16 h-16 object-cover rounded-full shadow-sm border-2 border-white" />;
-    }
-    return <div className="text-5xl">{getPetIcon(pet.level)}</div>;
+    const imgUrl = getPetDisplayImage(pet);
+    return <img src={imgUrl ?? ''} alt="Pet" className="w-16 h-16 object-contain rounded-full shadow-sm border-2 border-white" />;
   };
 
   return (
@@ -278,7 +274,7 @@ export default function TeacherPets() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                     {[1, 2, 3, 4, 5, 6].map((level) => {
                       const stageKey = `image_stage${level}`;
-                      const currentImage = editingImages[stageKey] || (level === 1 ? null : editingImages.custom_image);
+                      const currentImage = editingImages[stageKey] || editingImages.custom_image || getDefaultPetStageImage(level, editingImages.element_type);
 
                       return (
                         <div key={level} className="flex flex-col items-center">
@@ -288,14 +284,7 @@ export default function TeacherPets() {
 
                           <label className="cursor-pointer group relative w-full aspect-square max-w-[160px]">
                             <div className={`w-full h-full rounded-2xl border-2 flex flex-col items-center justify-center overflow-hidden transition-all ${currentImage ? 'border-indigo-400 shadow-sm bg-white' : 'border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50'}`}>
-                              {currentImage ? (
-                                <img src={currentImage} alt={`Lv.${level}`} className="w-full h-full object-cover" />
-                              ) : (
-                                <>
-                                  <Upload className="h-6 w-6 text-slate-300 group-hover:text-indigo-400 mb-2" />
-                                  <span className="text-xs text-slate-400 group-hover:text-indigo-500 font-medium">点击上传</span>
-                                </>
-                              )}
+                              <img src={currentImage} alt={`Lv.${level}`} className="w-full h-full object-contain" />
                             </div>
 
                             <div className="absolute inset-0 bg-slate-900/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

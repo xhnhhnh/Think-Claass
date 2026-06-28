@@ -1,92 +1,103 @@
+import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 import PrivateRoute from '@/app/routing/PrivateRoute';
 import FeatureRouteGuard from '@/components/FeatureRouteGuard';
 import { ADMIN_PATH } from '@/constants';
-import AdminLayout from '@/components/Layout/AdminLayout';
-import ParentLayout from '@/components/Layout/ParentLayout';
-import StudentLayout from '@/components/Layout/StudentLayout';
-import TeacherLayout from '@/components/Layout/TeacherLayout';
-import Activate from '@/features/auth/pages/ActivatePage';
-import Payment from '@/pages/Payment';
-import AdminAnnouncements from '@/features/admin/pages/AdminAnnouncementsPage';
-import AdminArticles from '@/features/admin/pages/AdminArticlesPage';
-import AdminAuditLogs from '@/features/admin/pages/AdminAuditLogsPage';
-import AdminCodes from '@/features/admin/pages/AdminCodesPage';
-import AdminDashboard from '@/pages/Admin/Dashboard';
-import AdminLogin from '@/pages/Admin/Login';
-import AdminOpenApi from '@/features/admin/pages/AdminOpenApiPage';
-import AdminSettings from '@/pages/Admin/Settings';
-import AdminSystemReset from '@/pages/Admin/SystemReset';
-import AdminTeachers from '@/features/admin/pages/AdminTeachersPage';
-import AdminWebsite from '@/features/admin/pages/AdminWebsitePage';
-import HomeAbout from '@/features/portal/pages/AboutPage';
-import HomeContact from '@/features/portal/pages/ContactPage';
-import HomeNews from '@/features/portal/pages/NewsPage';
-import HomeServices from '@/features/portal/pages/ServicesPage';
-import Home from '@/features/portal/pages/HomePage';
-import Login from '@/features/auth/pages/LoginPage';
-import ParentAssignments from '@/pages/Parent/Assignments';
-import ParentCommunication from '@/features/engagement/pages/ParentCommunicationPage';
-import ParentDashboard from '@/pages/Parent/Dashboard';
-import ParentLeaveRequest from '@/pages/Parent/LeaveRequest';
-import ParentReport from '@/pages/Parent/Report';
-import ParentTasks from '@/pages/Parent/Tasks';
-import StudentAchievements from '@/features/classroom/pages/StudentAchievementsPage';
-import StudentAssignments from '@/features/learning/pages/StudentAssignmentsPage';
-import StudentAuction from '@/features/marketplace/pages/StudentAuctionPage';
-import StudentBank from '@/features/economy/pages/StudentBankPage';
-import StudentBrawl from '@/features/battles/pages/StudentBrawlPage';
-import StudentCertificates from '@/features/engagement/pages/StudentCertificatesPage';
-import StudentChallenge from '@/features/challenge/pages/StudentChallengePage';
-import StudentDungeon from '@/features/dungeon/pages/StudentDungeonPage';
-import StudentGacha from '@/features/gacha/pages/StudentGachaPage';
-import StudentGuildPK from '@/features/classroom/pages/StudentGuildPKPage';
-import StudentInteractiveWall from '@/features/engagement/pages/StudentInteractiveWallPage';
-import StudentLuckyDraw from '@/features/engagement/pages/StudentLuckyDrawPage';
-import StudentMyRedemptions from '@/features/engagement/pages/StudentMyRedemptionsPage';
-import StudentPaperAttempt from '@/features/learning/pages/StudentPaperAttemptPage';
-import StudentPapers from '@/features/learning/pages/StudentPapersPage';
-import StudentPeerReview from '@/features/engagement/pages/StudentPeerReviewPage';
-import StudentPet from '@/features/pet/pages/StudentPetPage';
-import StudentPlan from '@/features/learning/pages/StudentPlanPage';
-import StudentShop from '@/features/marketplace/pages/StudentShopPage';
-import StudentTaskTree from '@/features/collaboration/pages/StudentTaskTreePage';
-import StudentTeamQuests from '@/features/collaboration/pages/StudentTeamQuestsPage';
-import StudentTerritory from '@/features/slg/pages/StudentTerritoryPage';
-import StudentWrongQuestions from '@/features/learning/pages/StudentWrongQuestionsPage';
-import AddStudent from '@/features/classroom/pages/TeacherAddStudentPage';
-import TeacherAnalysis from '@/pages/Teacher/Analysis';
-import TeacherAssignments from '@/features/learning/pages/TeacherAssignmentsPage';
-import TeacherAttendance from '@/pages/Teacher/Attendance';
-import TeacherAuction from '@/features/marketplace/pages/TeacherAuctionPage';
-import TeacherBigscreen from '@/features/classroom/pages/TeacherBigscreenPage';
-import TeacherBlindBox from '@/features/marketplace/pages/TeacherBlindBoxPage';
-import TeacherBrawl from '@/features/battles/pages/TeacherBrawlPage';
-import TeacherCertificates from '@/features/engagement/pages/TeacherCertificatesPage';
-import TeacherCommunication from '@/features/engagement/pages/TeacherCommunicationPage';
-import TeacherDashboard from '@/features/classroom/pages/TeacherDashboardPage';
-import TeacherExams from '@/features/learning/pages/TeacherExamsPage';
-import TeacherFeatures from '@/pages/Teacher/Features';
-import TeacherEconomy from '@/features/economy/pages/TeacherEconomyPage';
-import TeacherKnowledgeGraph from '@/features/learning/pages/TeacherKnowledgeGraphPage';
-import TeacherLuckyDrawConfig from '@/features/engagement/pages/TeacherLuckyDrawConfigPage';
-import TeacherPaperEditor from '@/features/learning/pages/TeacherPaperEditorPage';
-import TeacherPapers from '@/features/learning/pages/TeacherPapersPage';
-import TeacherPets from '@/features/pet/pages/TeacherPetsPage';
-import TeacherRecords from '@/features/classroom/pages/TeacherRecordsPage';
-import TeacherSettings from '@/features/classroom/pages/TeacherSettingsPage';
-import TeacherShop from '@/features/marketplace/pages/TeacherShopPage';
-import TeacherTaskTree from '@/features/collaboration/pages/TeacherTaskTreePage';
-import TeacherTeamQuests from '@/features/collaboration/pages/TeacherTeamQuestsPage';
-import TeacherTerritory from '@/features/slg/pages/TeacherTerritoryPage';
-import TeacherTools from '@/features/classroom/pages/TeacherToolsPage';
-import TeacherVerification from '@/pages/Teacher/Verification';
-import TeacherWorldBoss from '@/features/challenge/pages/TeacherWorldBossPage';
+
+const AdminLayout = lazy(() => import('@/components/Layout/AdminLayout'));
+const ParentLayout = lazy(() => import('@/components/Layout/ParentLayout'));
+const StudentLayout = lazy(() => import('@/components/Layout/StudentLayout'));
+const TeacherLayout = lazy(() => import('@/components/Layout/TeacherLayout'));
+const Activate = lazy(() => import('@/features/auth/pages/ActivatePage'));
+const Payment = lazy(() => import('@/pages/Payment'));
+const AdminAnnouncements = lazy(() => import('@/features/admin/pages/AdminAnnouncementsPage'));
+const AdminArticles = lazy(() => import('@/features/admin/pages/AdminArticlesPage'));
+const AdminAuditLogs = lazy(() => import('@/features/admin/pages/AdminAuditLogsPage'));
+const AdminCodes = lazy(() => import('@/features/admin/pages/AdminCodesPage'));
+const AdminDashboard = lazy(() => import('@/pages/Admin/Dashboard'));
+const AdminLogin = lazy(() => import('@/pages/Admin/Login'));
+const AdminOpenApi = lazy(() => import('@/features/admin/pages/AdminOpenApiPage'));
+const AdminSettings = lazy(() => import('@/pages/Admin/Settings'));
+const AdminSystemReset = lazy(() => import('@/pages/Admin/SystemReset'));
+const AdminTeachers = lazy(() => import('@/features/admin/pages/AdminTeachersPage'));
+const AdminWebsite = lazy(() => import('@/features/admin/pages/AdminWebsitePage'));
+const HomeAbout = lazy(() => import('@/features/portal/pages/AboutPage'));
+const HomeContact = lazy(() => import('@/features/portal/pages/ContactPage'));
+const HomeNews = lazy(() => import('@/features/portal/pages/NewsPage'));
+const HomeServices = lazy(() => import('@/features/portal/pages/ServicesPage'));
+const Home = lazy(() => import('@/features/portal/pages/HomePage'));
+const Login = lazy(() => import('@/features/auth/pages/LoginPage'));
+const ParentAssignments = lazy(() => import('@/pages/Parent/Assignments'));
+const ParentCommunication = lazy(() => import('@/features/engagement/pages/ParentCommunicationPage'));
+const ParentDashboard = lazy(() => import('@/pages/Parent/Dashboard'));
+const ParentLeaveRequest = lazy(() => import('@/pages/Parent/LeaveRequest'));
+const ParentReport = lazy(() => import('@/pages/Parent/Report'));
+const ParentTasks = lazy(() => import('@/pages/Parent/Tasks'));
+const StudentAchievements = lazy(() => import('@/features/classroom/pages/StudentAchievementsPage'));
+const StudentAssignments = lazy(() => import('@/features/learning/pages/StudentAssignmentsPage'));
+const StudentAuction = lazy(() => import('@/features/marketplace/pages/StudentAuctionPage'));
+const StudentBank = lazy(() => import('@/features/economy/pages/StudentBankPage'));
+const StudentBrawl = lazy(() => import('@/features/battles/pages/StudentBrawlPage'));
+const StudentCertificates = lazy(() => import('@/features/engagement/pages/StudentCertificatesPage'));
+const StudentChallenge = lazy(() => import('@/features/challenge/pages/StudentChallengePage'));
+const StudentDungeon = lazy(() => import('@/features/dungeon/pages/StudentDungeonPage'));
+const StudentGacha = lazy(() => import('@/features/gacha/pages/StudentGachaPage'));
+const StudentGuildPK = lazy(() => import('@/features/classroom/pages/StudentGuildPKPage'));
+const StudentInteractiveWall = lazy(() => import('@/features/engagement/pages/StudentInteractiveWallPage'));
+const StudentLuckyDraw = lazy(() => import('@/features/engagement/pages/StudentLuckyDrawPage'));
+const StudentMyRedemptions = lazy(() => import('@/features/engagement/pages/StudentMyRedemptionsPage'));
+const StudentPaperAttempt = lazy(() => import('@/features/learning/pages/StudentPaperAttemptPage'));
+const StudentPapers = lazy(() => import('@/features/learning/pages/StudentPapersPage'));
+const StudentPeerReview = lazy(() => import('@/features/engagement/pages/StudentPeerReviewPage'));
+const StudentPet = lazy(() => import('@/features/pet/pages/StudentPetPage'));
+const StudentPlan = lazy(() => import('@/features/learning/pages/StudentPlanPage'));
+const StudentShop = lazy(() => import('@/features/marketplace/pages/StudentShopPage'));
+const StudentTaskTree = lazy(() => import('@/features/collaboration/pages/StudentTaskTreePage'));
+const StudentTeamQuests = lazy(() => import('@/features/collaboration/pages/StudentTeamQuestsPage'));
+const StudentTerritory = lazy(() => import('@/features/slg/pages/StudentTerritoryPage'));
+const StudentWrongQuestions = lazy(() => import('@/features/learning/pages/StudentWrongQuestionsPage'));
+const AddStudent = lazy(() => import('@/features/classroom/pages/TeacherAddStudentPage'));
+const TeacherAnalysis = lazy(() => import('@/pages/Teacher/Analysis'));
+const TeacherAssignments = lazy(() => import('@/features/learning/pages/TeacherAssignmentsPage'));
+const TeacherAttendance = lazy(() => import('@/pages/Teacher/Attendance'));
+const TeacherAuction = lazy(() => import('@/features/marketplace/pages/TeacherAuctionPage'));
+const TeacherBigscreen = lazy(() => import('@/features/classroom/pages/TeacherBigscreenPage'));
+const TeacherBlindBox = lazy(() => import('@/features/marketplace/pages/TeacherBlindBoxPage'));
+const TeacherBrawl = lazy(() => import('@/features/battles/pages/TeacherBrawlPage'));
+const TeacherCertificates = lazy(() => import('@/features/engagement/pages/TeacherCertificatesPage'));
+const TeacherCommunication = lazy(() => import('@/features/engagement/pages/TeacherCommunicationPage'));
+const TeacherDashboard = lazy(() => import('@/features/classroom/pages/TeacherDashboardPage'));
+const TeacherExams = lazy(() => import('@/features/learning/pages/TeacherExamsPage'));
+const TeacherFeatures = lazy(() => import('@/pages/Teacher/Features'));
+const TeacherEconomy = lazy(() => import('@/features/economy/pages/TeacherEconomyPage'));
+const TeacherKnowledgeGraph = lazy(() => import('@/features/learning/pages/TeacherKnowledgeGraphPage'));
+const TeacherLuckyDrawConfig = lazy(() => import('@/features/engagement/pages/TeacherLuckyDrawConfigPage'));
+const TeacherPaperEditor = lazy(() => import('@/features/learning/pages/TeacherPaperEditorPage'));
+const TeacherPapers = lazy(() => import('@/features/learning/pages/TeacherPapersPage'));
+const TeacherPets = lazy(() => import('@/features/pet/pages/TeacherPetsPage'));
+const TeacherRecords = lazy(() => import('@/features/classroom/pages/TeacherRecordsPage'));
+const TeacherSettings = lazy(() => import('@/features/classroom/pages/TeacherSettingsPage'));
+const TeacherShop = lazy(() => import('@/features/marketplace/pages/TeacherShopPage'));
+const TeacherTaskTree = lazy(() => import('@/features/collaboration/pages/TeacherTaskTreePage'));
+const TeacherTeamQuests = lazy(() => import('@/features/collaboration/pages/TeacherTeamQuestsPage'));
+const TeacherTerritory = lazy(() => import('@/features/slg/pages/TeacherTerritoryPage'));
+const TeacherTools = lazy(() => import('@/features/classroom/pages/TeacherToolsPage'));
+const TeacherVerification = lazy(() => import('@/pages/Teacher/Verification'));
+const TeacherWorldBoss = lazy(() => import('@/features/challenge/pages/TeacherWorldBossPage'));
+
+function RouteLoadingState() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      正在加载...
+    </div>
+  );
+}
 
 export default function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<RouteLoadingState />}>
+      <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/activate" element={<Activate />} />
@@ -204,6 +215,7 @@ export default function AppRoutes() {
         <Route path="openapi" element={<AdminOpenApi />} />
         <Route path="reset" element={<AdminSystemReset />} />
       </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

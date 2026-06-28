@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import type { ChallengeRepository } from './challenge.types.js';
 
 export class PrismaChallengeRepository implements ChallengeRepository {

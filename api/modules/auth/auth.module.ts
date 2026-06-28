@@ -1,7 +1,10 @@
-import authRoutes from '../../routes/auth.js';
+import { Module } from '@nestjs/common';
 
-export function createAuthModule() {
-  return authRoutes;
-}
+import { AuthController } from './auth.controller.js';
+import { AuthService } from './auth.service.js';
 
-export default createAuthModule;
+@Module({
+  controllers: [AuthController],
+  providers: [AuthService],
+})
+export class AuthModule {}

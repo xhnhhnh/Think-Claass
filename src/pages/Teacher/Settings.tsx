@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { UserCog, Save, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { adminApi } from '@/api/admin';
+import { authApi } from '@/features/auth/api/authApi';
 
 export default function TeacherSettings() {
   const { user, setUser } = useStore();
@@ -31,15 +31,22 @@ export default function TeacherSettings() {
 
     setSaving(true);
     try {
-      const data = await adminApi.updateTeacher(user!.id, { username: username.trim(), password: password || undefined }) as any;
+      const data = await authApi.updateProfile({
+        username: username.trim(),
+        password: password || undefined,
+      });
 
       if (data.success) {
         toast.success('个人信息更新成功');
         setPassword('');
         setConfirmPassword('');
-        // Update local store
         if (user) {
-          setUser({ ...user, username: data.user.username });
+          const updatedUser = data.user ?? data.data?.user;
+          setUser({
+            ...user,
+            username: updatedUser?.username ?? username.trim(),
+            is_activated: updatedUser?.is_activated ?? user.is_activated,
+          });
         }
       } else {
         toast.error(data.message || '更新失败');

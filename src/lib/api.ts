@@ -34,9 +34,25 @@ const showErrorToast = (message: string) => {
   toast.error(message);
 };
 
+const normalizeApiBaseUrl = (value: string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.replace(/\/+$/, '');
+};
+
+const apiBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+
 // 创建 axios 实例
 const axiosInstance = axios.create({
-  // baseURL 默认为空，复用当前的域名和 /api 前缀代理配置
+  // 默认复用当前域名和 Vite 的 /api 代理；分离部署时可配置 VITE_API_BASE_URL。
+  baseURL: apiBaseUrl,
   timeout: 15000,
 });
 

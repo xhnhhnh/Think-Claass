@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../../utils/classFeatures.js';
 import type { ClassResources, CreateTerritoryPayload, SlgRepository, TerritoryContributionPayload } from './slg.types.js';
 

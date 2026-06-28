@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { assertClassFeatureEnabled } from '../../utils/classFeatures.js';
 import type { BattlesRepository, EndBattlePayload, InitiateBattlePayload } from './battles.types.js';
 

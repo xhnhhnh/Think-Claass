@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 
 import { prisma } from '../prismaClient.js';
-import { ApiError } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/apiError.js';
 import { activateUser } from './activationService.js';
 import { createPaymentProvider, type PaymentEnvironment, type PaymentMethod } from './paymentProviders/index.js';
 

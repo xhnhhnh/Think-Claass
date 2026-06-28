@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { ApiError } from './asyncHandler.js';
+import { ApiError } from './apiError.js';
 
 export const classFeatureKeys = [
   'enable_chat_bubble',

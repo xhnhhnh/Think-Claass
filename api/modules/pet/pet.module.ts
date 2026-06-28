@@ -1,20 +1,16 @@
-import { Router } from 'express';
+import { Module } from '@nestjs/common';
 
-import { PetService } from './pet.service.js';
+import { LegacyPetsController, PetController } from './pet.controllers.js';
 import { SqlitePetRepository } from './pet.repository.sqlite.js';
-import { createPetRouter } from './pet.routes.js';
+import { PetService } from './pet.service.js';
 
-export interface CreatePetModuleOptions {
-  service?: PetService;
-}
-
-export function createPetModule(options: CreatePetModuleOptions = {}) {
-  const router = Router();
-  const service = options.service ?? new PetService(new SqlitePetRepository());
-
-  router.use(createPetRouter(service));
-
-  return router;
-}
-
-export default createPetModule;
+@Module({
+  controllers: [LegacyPetsController, PetController],
+  providers: [
+    {
+      provide: PetService,
+      useFactory: () => new PetService(new SqlitePetRepository()),
+    },
+  ],
+})
+export class PetModule {}

@@ -7,10 +7,15 @@ import StudentLayout from './StudentLayout';
 
 const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),
+  useClassFeatures: vi.fn(),
 }));
 
 vi.mock('@/store/useStore', () => ({
   useStore: mocks.useStore,
+}));
+
+vi.mock('@/hooks/queries/useClassFeatures', () => ({
+  useClassFeatures: mocks.useClassFeatures,
 }));
 
 vi.mock('@/components/AnnouncementBanner', () => ({
@@ -19,8 +24,8 @@ vi.mock('@/components/AnnouncementBanner', () => ({
 
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+    div: ({ children, whileHover, whileTap, ...props }: any) => <div {...props}>{children}</div>,
+    button: ({ children, whileHover, whileTap, ...props }: any) => <button {...props}>{children}</button>,
   },
 }));
 
@@ -31,6 +36,7 @@ describe('StudentLayout', () => {
         id: 1,
         role: 'student',
         name: '小明',
+        classId: 1,
         classFeatures: {
           enable_chat_bubble: true,
           enable_peer_review: true,
@@ -57,6 +63,9 @@ describe('StudentLayout', () => {
     };
 
     mocks.useStore.mockImplementation((selector: any) => selector(state));
+    mocks.useClassFeatures.mockReturnValue({
+      data: { features: state.user.classFeatures, pet_selection_mode: 'random' },
+    });
   });
 
   it('filters disabled feature navigation items', () => {

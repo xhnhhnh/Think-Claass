@@ -52,5 +52,6 @@ describe('DanmakuOverlay', () => {
     });
 
     expect(mocks.getMessages).toHaveBeenCalledWith(3, 11);
+    expect(screen.getAllByText('加油')).toHaveLength(1);
   });
 });

@@ -1,5 +1,5 @@
 import db from '../db.js';
-import { ApiError } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/apiError.js';
 import { getStudentOrThrow } from './studentService.js';
 
 export function revivePetIfPresent(studentId: number) {

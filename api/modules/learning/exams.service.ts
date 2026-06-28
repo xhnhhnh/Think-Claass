@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import type { ExamPayload, ExamsRepository, SaveExamGradePayload } from './exams.types.js';
 
 function optionalPositiveInteger(value: unknown, label: string) {

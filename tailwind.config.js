@@ -8,7 +8,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Space Grotesk"', "sans-serif"],
+        sans: ['"Geist Variable"', "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
