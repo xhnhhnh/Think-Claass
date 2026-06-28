@@ -17,7 +17,6 @@ export type {
 export interface AdoptPetMutationInput {
   type: 'adopt';
   elementType: string;
-  customImage?: string | null;
 }
 
 export interface InteractPetMutationInput {
@@ -33,4 +32,4 @@ export interface UpdatePetMutationInput {
   data: Record<string, unknown>;
 }
 
-export type StudentPetMutationInput = AdoptPetMutationInput | InteractPetMutationInput | UpdatePetMutationInput;
+export type StudentPetMutationInput = AdoptPetMutationInput | InteractPetMutationInput;

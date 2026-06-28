@@ -5,8 +5,20 @@ import { motion } from 'framer-motion';
 
 import { adminClient } from '@/features/admin/api/adminClient';
 
+type ActivationCodeRow = Record<string, any>;
+
+function getCodeField<T>(code: ActivationCodeRow, camelKey: string, snakeKey: string, fallback: T): T {
+  return (code[camelKey] ?? code[snakeKey] ?? fallback) as T;
+}
+
+function formatCodeDate(value: string | null | undefined) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+}
+
 export default function AdminCodes() {
-  const [codes, setCodes] = useState<any[]>([]);
+  const [codes, setCodes] = useState<ActivationCodeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generateCount, setGenerateCount] = useState(10);
@@ -66,9 +78,9 @@ export default function AdminCodes() {
     const rows = codes.map(c => [
       c.code,
       c.status === 'used' ? '已使用' : '未使用',
-      c.used_by_username || '',
-      new Date(c.created_at).toLocaleString(),
-      c.used_at ? new Date(c.used_at).toLocaleString() : ''
+      getCodeField(c, 'usedByUsername', 'used_by_username', ''),
+      formatCodeDate(getCodeField<string | null>(c, 'createdAt', 'created_at', null)),
+      formatCodeDate(getCodeField<string | null>(c, 'usedAt', 'used_at', null)),
     ]);
     
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -147,7 +159,14 @@ export default function AdminCodes() {
                   </td>
                 </tr>
               ) : (
-                codes.map((code) => (
+                codes.map((code) => {
+                  const usedByUsername = getCodeField<string | null>(code, 'usedByUsername', 'used_by_username', null);
+                  const createdAt = getCodeField<string | null>(code, 'createdAt', 'created_at', null);
+                  const usedAt = getCodeField<string | null>(code, 'usedAt', 'used_at', null);
+                  const activationSource = getCodeField<string | null>(code, 'activationSource', 'activation_source', null);
+                  const activationRemark = getCodeField<string | null>(code, 'activationRemark', 'activation_remark', null);
+
+                  return (
                   <motion.tr 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -182,24 +201,25 @@ export default function AdminCodes() {
                       </span>
                     </td>
                     <td className="p-4 text-slate-600 font-medium">
-                      {code.used_by_username || '-'}
+                      {usedByUsername || '-'}
                     </td>
                     <td className="p-4 text-slate-500">
-                      {new Date(code.created_at).toLocaleString()}
+                      {formatCodeDate(createdAt)}
                     </td>
                     <td className="p-4 text-slate-500">
-                      {code.used_at ? new Date(code.used_at).toLocaleString() : '-'}
+                      {formatCodeDate(usedAt)}
                     </td>
                     <td className="p-4 text-slate-500">
-                      {code.activation_source ? (
+                      {activationSource ? (
                         <div className="space-y-1">
-                          <div>{code.activation_source}</div>
-                          {code.activation_remark && <div className="text-xs text-slate-400">{code.activation_remark}</div>}
+                          <div>{activationSource}</div>
+                          {activationRemark && <div className="text-xs text-slate-400">{activationRemark}</div>}
                         </div>
                       ) : '-'}
                     </td>
                   </motion.tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

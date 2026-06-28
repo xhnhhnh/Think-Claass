@@ -1,7 +1,10 @@
-import shopRoutes from '../../routes/shop.js';
+import { Module } from '@nestjs/common';
 
-export function createMarketplaceModule() {
-  return shopRoutes;
-}
+import { MarketplaceController } from './marketplace.controllers.js';
+import { MarketplaceService } from './marketplace.service.js';
 
-export default createMarketplaceModule;
+@Module({
+  controllers: [MarketplaceController],
+  providers: [MarketplaceService],
+})
+export class MarketplaceModule {}

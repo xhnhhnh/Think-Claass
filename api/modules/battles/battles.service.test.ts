@@ -4,7 +4,7 @@ vi.mock('../../utils/classFeatures.js', () => ({
   assertClassFeatureEnabled: vi.fn(),
 }));
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { BattlesService } from './battles.service';
 import type { BattleClassSummary, BattlesRepository, ClassBattle, InitiateBattlePayload } from './battles.types';
 

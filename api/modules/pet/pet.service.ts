@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { getNextPetStats, isPetDead, mapPetRow } from './pet.mappers.js';
 import type {
   AdoptPetInput,
@@ -101,7 +101,7 @@ export class PetService {
       throw new ApiError(400, 'Pet already adopted');
     }
 
-    const petId = this.repository.createPet(studentId, { ...input, elementType });
+    const petId = this.repository.createPet(studentId, { elementType });
     const pet = mapPetRow(this.repository.getPet(studentId));
 
     return { petId, pet };

@@ -38,7 +38,7 @@ export const petApi = {
       `/api/pet/classes/${classId}/leaderboard`,
     ),
 
-  adoptPet: (studentId: number, payload: AdoptPetInput) =>
+  adoptPet: (studentId: number, payload: Pick<AdoptPetInput, 'elementType'>) =>
     apiPost<ApiSuccess<{ petId: number; pet: PetDto | null }> & { petId: number; pet: PetDto | null }>(
       `/api/pet/students/${studentId}/adoptions`,
       payload,

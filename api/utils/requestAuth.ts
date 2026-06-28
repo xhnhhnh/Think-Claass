@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 
-import { ApiError } from './asyncHandler.js';
+import { ApiError } from './apiError.js';
 
 export interface RequestActor {
   id: number | null;

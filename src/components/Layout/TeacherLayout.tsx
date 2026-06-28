@@ -1,13 +1,13 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { 
-  Users, ClipboardList, LogOut, Award, Store, Settings, MonitorPlay, 
+  Users, ClipboardList, Award, Store, Settings, MonitorPlay, 
   BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, 
   FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, 
   Gavel, Swords, Map, FileText, Network, Landmark
 } from "lucide-react";
 import { useEffect, useMemo } from 'react';
-import AnnouncementBanner from '@/components/AnnouncementBanner';
+import CampusShell from '@/components/Layout/CampusShell';
 import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import { useClasses } from '@/hooks/queries/useClasses';
 import {
@@ -75,7 +75,7 @@ export default function TeacherLayout() {
   const location = useLocation();
   const { data: classes = [] } = useClasses();
   const defaultClassId = useMemo(() => classes[0]?.id ?? null, [classes]);
-  const { data: classFeatureData } = useClassFeatures(defaultClassId);
+  const { data: classFeatureData } = useClassFeatures(defaultClassId, { refetchInterval: 5000 });
   const features = classFeatureData?.features ?? defaultClassFeatures;
 
   const filteredNavItems = useMemo(
@@ -105,67 +105,28 @@ export default function TeacherLayout() {
 
   if (!user) return null;
 
-  return (
-    <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans">
-      <AnnouncementBanner />
-      <div className="flex-1 flex overflow-hidden p-4 gap-6">
-        {/* Sidebar */}
-        <aside className="w-64 glass rounded-3xl flex flex-col z-10 relative overflow-hidden soft-shadow">
-          <div className="h-20 flex items-center px-8 border-b border-white/20 flex-shrink-0">
-            <Award className="mr-3 h-8 w-8 text-primary" />
-            <span className="font-bold text-xl tracking-wide gemini-gradient-text">教师主控台</span>
-          </div>
-          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-            {filteredNavItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-300 ${
-                    isActive 
-                      ? 'bg-primary/10 text-primary shadow-sm border border-primary/20 glow-shadow' 
-                      : 'text-gray-500 hover:bg-black/5 hover:text-gray-900'
-                  }`}
-                >
-                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-primary' : 'text-gray-400'}`} />
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-          <div className="p-4 border-t border-white/20 bg-white/30">
-            <div className="flex items-center px-4 py-3 text-sm text-gray-700 font-medium mb-2">
-              <span className="truncate">欢迎, 老师 {user.username}</span>
-            </div>
-            <button
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-              className="w-full flex items-center px-4 py-2 text-sm font-medium rounded-xl text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <LogOut className="mr-3 h-5 w-5 text-red-400" />
-              退出登录
-            </button>
-          </div>
-        </aside>
+  const currentTitle =
+    filteredNavItems.find(item => item.path === location.pathname)?.label
+    || navItems.find(item => item.path === location.pathname)?.label
+    || '添加学生';
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 glass rounded-3xl overflow-hidden relative soft-shadow">
-          <header className="h-20 border-b border-white/20 flex items-center px-8 flex-shrink-0 z-10 relative bg-white/40">
-            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-              {filteredNavItems.find(item => item.path === location.pathname)?.label
-                || navItems.find(item => item.path === location.pathname)?.label
-                || '添加学生'}
-            </h1>
-          </header>
-          <main className="flex-1 overflow-auto p-8 relative bg-white/50">
-            <Outlet />
-          </main>
-        </div>
-      </div>
-    </div>
+  return (
+    <CampusShell
+      role="teacher"
+      title={currentTitle}
+      subtitle="把班级、学习、积分和家校沟通收进一个清爽的课堂工作台。"
+      navItems={filteredNavItems}
+      brandLabel="教师主控台"
+      userLabel={`老师 ${user.username}`}
+      userMeta="班级成长运营"
+      homePath={fallbackPath}
+      showAnnouncement
+      onLogout={() => {
+        logout();
+        navigate('/login');
+      }}
+    >
+      <Outlet />
+    </CampusShell>
   );
 }

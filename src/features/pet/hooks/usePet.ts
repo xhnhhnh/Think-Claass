@@ -43,20 +43,15 @@ export function usePetActionMutation(studentId: number | null) {
       if (payload.type === 'adopt') {
         return petApi.adoptPet(studentId, {
           elementType: payload.elementType,
-          custom_image: payload.customImage,
         });
       }
 
-      if (payload.type === 'interact') {
-        return petApi.interact(studentId, {
-          actionType: payload.actionType,
-          cost: payload.cost,
-          expGain: payload.expGain,
-          type: payload.actionLogType ?? 'FEED_PET',
-        });
-      }
-
-      return petApi.updatePet(studentId, payload.data);
+      return petApi.interact(studentId, {
+        actionType: payload.actionType,
+        cost: payload.cost,
+        expGain: payload.expGain,
+        type: payload.actionLogType ?? 'FEED_PET',
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: petQueryKeys.studentDashboard(studentId) });

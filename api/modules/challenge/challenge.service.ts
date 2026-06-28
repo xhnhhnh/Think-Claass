@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../../utils/classFeatures.js';
 import { isAnswerCorrect, mapQuestionRow, parseMaybeJson, toAnswerList } from './challenge.mappers.js';
 import type { ChallengeAnswersInput, ChallengeRepository, WorldBossPayload } from './challenge.types.js';

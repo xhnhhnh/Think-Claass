@@ -1,9 +1,9 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { Star, ShoppingBag, LogOut, Crown, Swords, Gift, Ticket, MessageSquare, BookOpen, Users, Award, Medal, MessageSquareHeart, Gavel, GitBranch, Crosshair, MapPin, Sparkles, Building2, Skull, FileText, ListChecks } from 'lucide-react';
+import { Star, ShoppingBag, Swords, Gift, Ticket, MessageSquare, BookOpen, Users, Award, Medal, MessageSquareHeart, Gavel, GitBranch, Crosshair, MapPin, Sparkles, Building2, Skull, FileText, ListChecks } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
-import AnnouncementBanner from '@/components/AnnouncementBanner';
-import { motion } from 'framer-motion';
+import CampusShell from '@/components/Layout/CampusShell';
+import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import {
   defaultClassFeatures,
   getFirstEnabledRoute,
@@ -16,7 +16,11 @@ export default function StudentLayout() {
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
-  const features = user?.classFeatures ?? defaultClassFeatures;
+  const classId = Number(user?.classId ?? user?.class_id) || null;
+  const { data: classFeatureData } = useClassFeatures(classId, { refetchInterval: 5000 });
+  const features = classId
+    ? classFeatureData?.features ?? defaultClassFeatures
+    : user?.classFeatures ?? defaultClassFeatures;
 
   const allNavItems = [
     { path: '/student/pet', icon: Star, label: '我的精灵' },
@@ -70,77 +74,25 @@ export default function StudentLayout() {
 
   if (!user) return null;
 
+  const currentTitle = navItems.find(item => item.path === location.pathname)?.label || '我的精灵';
+
   return (
-    <div className="min-h-screen bg-gray-50/50 flex flex-col font-sans theme-student relative overflow-hidden">
-      {/* Decorative ambient background elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-400/10 blur-[100px] pointer-events-none" />
-
-      <AnnouncementBanner />
-      
-      {/* Top Navbar */}
-      <header className="relative z-10 px-4 sm:px-6 lg:px-8 py-4">
-        <div className="max-w-7xl mx-auto glass rounded-3xl p-4 flex flex-col md:flex-row justify-between items-center gap-6 soft-shadow">
-          <motion.div 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate(fallbackPath)}
-            className="flex items-center px-6 py-2 cursor-pointer"
-          >
-            <Crown className="mr-3 h-8 w-8 text-primary" />
-            <span className="text-2xl font-black tracking-wider gemini-gradient-text">
-              Think-Class
-            </span>
-          </motion.div>
-          
-          <div className="flex flex-wrap justify-center gap-2 max-h-32 overflow-y-auto custom-scrollbar p-2">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
-              return (
-                <motion.button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex items-center px-4 py-2 rounded-2xl text-sm font-semibold transition-all duration-300 ${
-                    isActive
-                      ? 'bg-primary text-white shadow-lg glow-shadow'
-                      : 'bg-white/50 text-gray-600 hover:bg-white/80 hover:text-primary border border-white/40 shadow-sm'
-                  }`}
-                >
-                  <Icon className={`mr-2 h-4 w-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                  {item.label}
-                </motion.button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <div className="flex items-center px-5 py-2.5 bg-white/60 backdrop-blur-md text-gray-800 rounded-2xl font-bold text-sm border border-white/50 shadow-sm">
-              <span className="truncate">{user.name}</span>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-              className="p-2.5 bg-white/60 backdrop-blur-md text-gray-500 hover:text-red-500 rounded-2xl border border-white/50 hover:border-red-200 hover:bg-red-50 transition-colors shadow-sm"
-            >
-              <LogOut className="h-5 w-5" />
-            </motion.button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 w-full mx-auto p-4 sm:p-6 lg:p-8 relative z-10">
-        <div className="h-full glass rounded-3xl p-6 soft-shadow overflow-y-auto">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+    <CampusShell
+      role="student"
+      title={currentTitle}
+      subtitle="用任务、徽章、精灵和学习计划把每天的进步变成看得见的校园旅程。"
+      navItems={navItems}
+      brandLabel="Think-Class"
+      userLabel={user.name || user.username}
+      userMeta="学生成长旅程"
+      homePath={fallbackPath}
+      showAnnouncement
+      onLogout={() => {
+        logout();
+        navigate('/login');
+      }}
+    >
+      <Outlet />
+    </CampusShell>
   );
 }

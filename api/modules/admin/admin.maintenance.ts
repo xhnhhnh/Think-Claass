@@ -4,7 +4,7 @@ import path from 'path';
 
 import db, { closeDb, initDb, reopenDb } from '../../db.js';
 import { prisma } from '../../prismaClient.js';
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import type { AdminMaintenanceService } from './admin.types.js';
 
 function removeFileIfExists(filePath: string) {

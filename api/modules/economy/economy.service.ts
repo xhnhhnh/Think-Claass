@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import { assertClassFeatureEnabled, assertStudentFeatureEnabled } from '../../utils/classFeatures.js';
 import type { BankTransferInput, EconomyRepository, StockPayload, StockPricePayload, StockTradeInput } from './economy.types.js';
 

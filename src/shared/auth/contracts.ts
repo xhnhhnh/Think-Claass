@@ -22,6 +22,11 @@ export interface ActivatePayload {
   userId?: number;
 }
 
+export interface UpdateProfilePayload {
+  username: string;
+  password?: string;
+}
+
 export interface AuthUser {
   id: number;
   username: string;

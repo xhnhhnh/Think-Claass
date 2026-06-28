@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { Send, MessageSquare, AlertCircle, RefreshCw, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { studentsApi } from '@/api/students';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { useMessages, useSendMessageMutation } from '@/hooks/queries/useMessages';
 
 interface Message {
@@ -27,12 +27,11 @@ export default function ParentCommunication() {
   const { data: rawMessages = [], isLoading: loading, refetch } = useMessages(classId, 'HOME_SCHOOL');
   const sendMutation = useSendMessageMutation(classId, 'HOME_SCHOOL');
   const messages = (rawMessages as Message[])
-    .filter(
-      (m) =>
-        (m.sender_role === 'user' && m.sender_id === user?.id) ||
-        m.receiver_id === user?.id ||
-        (m.sender_role === 'teacher' && m.receiver_id === user?.id),
-    )
+    .filter((m) => {
+      const isOwnParentMessage = (m.sender_role === 'parent' || m.sender_role === 'user') && m.sender_id === user?.id;
+      const isTeacherReply = (m.sender_role === 'teacher' || m.sender_role === 'user') && m.sender_id !== user?.id && m.receiver_id === user?.id;
+      return isOwnParentMessage || isTeacherReply;
+    })
     .reverse();
 
   useEffect(() => {
@@ -66,7 +65,7 @@ export default function ParentCommunication() {
         content: newMessage.trim(),
         is_anonymous: false,
         type: 'HOME_SCHOOL',
-        sender_role: 'user',
+        sender_role: 'parent',
       });
       setNewMessage('');
       await refetch();
@@ -128,7 +127,7 @@ export default function ParentCommunication() {
           ) : (
             <div className="space-y-8">
               {messages.map((msg) => {
-                const isMine = msg.sender_role === 'user' && msg.sender_id === user.id;
+                const isMine = (msg.sender_role === 'parent' || msg.sender_role === 'user') && msg.sender_id === user.id;
                 
                 return (
                   <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>

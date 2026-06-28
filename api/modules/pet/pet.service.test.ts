@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { PetService } from './pet.service';
 import type { AdoptPetInput, PetRepository, PetRow, StudentPointsRow, UpdatePetInput } from './pet.types';
 

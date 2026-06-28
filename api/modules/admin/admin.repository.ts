@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../prismaClient.js';
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
+import { hashPassword, isPasswordHash, verifyPassword } from '../../utils/password.js';
 import {
   DEFAULT_SYSTEM_SETTINGS,
   type ActivationCodeListItem,
@@ -21,6 +22,13 @@ import {
 import type { AdminRepository, PreservedSuperadmin } from './admin.types.js';
 
 const SYSTEM_SETTING_KEYS = Object.keys(DEFAULT_SYSTEM_SETTINGS) as Array<keyof SystemSettings>;
+const SENSITIVE_SETTING_KEYS = new Set<keyof SystemSettings>([
+  'payment_wechat_private_key',
+  'payment_wechat_api_v3_key',
+  'payment_alipay_private_key',
+  'payment_alipay_public_key',
+]);
+const MASKED_SETTING_VALUE = '********';
 
 type AdminMutationActor = { id: number | null; role: string | null };
 type AdminTransaction = Prisma.TransactionClient;
@@ -30,7 +38,10 @@ function mapSettingsRows(rows: Array<{ key: string; value: string | null }>): Sy
 
   for (const row of rows) {
     if (row.key in nextSettings) {
-      nextSettings[row.key as keyof SystemSettings] = row.value ?? DEFAULT_SYSTEM_SETTINGS[row.key as keyof SystemSettings];
+      const key = row.key as keyof SystemSettings;
+      nextSettings[key] = SENSITIVE_SETTING_KEYS.has(key) && row.value
+        ? MASKED_SETTING_VALUE
+        : row.value ?? DEFAULT_SYSTEM_SETTINGS[key];
     }
   }
 
@@ -600,18 +611,29 @@ export class PrismaAdminRepository implements AdminRepository {
     const user = await prisma.users.findFirst({
       where: {
         username,
-        password_hash: password,
         role: { in: ['admin', 'superadmin'] },
       },
       select: {
         id: true,
         role: true,
         username: true,
+        password_hash: true,
       },
     });
 
-    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+    if (
+      !user ||
+      (user.role !== 'admin' && user.role !== 'superadmin') ||
+      !verifyPassword(password, user.password_hash)
+    ) {
       return null;
+    }
+
+    if (!isPasswordHash(user.password_hash)) {
+      await prisma.users.update({
+        where: { id: user.id },
+        data: { password_hash: hashPassword(password) },
+      });
     }
 
     return {
@@ -671,7 +693,7 @@ export class PrismaAdminRepository implements AdminRepository {
 
   async saveSystemSettings(input: Partial<SystemSettings>): Promise<SystemSettings> {
     const updates = SYSTEM_SETTING_KEYS
-      .filter((key) => input[key] !== undefined)
+      .filter((key) => input[key] !== undefined && !(SENSITIVE_SETTING_KEYS.has(key) && input[key] === MASKED_SETTING_VALUE))
       .map((key) => ({
         key,
         value: String(input[key]),
@@ -709,7 +731,7 @@ export class PrismaAdminRepository implements AdminRepository {
           data: {
             role: 'teacher',
             username: input.username,
-            password_hash: input.password ?? '',
+            password_hash: hashPassword(input.password ?? ''),
             is_activated: 1,
           },
           select: {
@@ -753,7 +775,7 @@ export class PrismaAdminRepository implements AdminRepository {
           where: { id },
           data: {
             username: input.username,
-            ...(input.password ? { password_hash: input.password } : {}),
+            ...(input.password ? { password_hash: hashPassword(input.password) } : {}),
           },
           select: {
             id: true,

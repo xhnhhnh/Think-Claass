@@ -39,12 +39,8 @@ export default function PrivateRoute({
     user.role !== 'teacher';
 
   if (needsActivation) {
-    if (settings.revenue_mode === 'activation_code' && window.location.pathname !== '/activate') {
+    if (window.location.pathname !== '/activate') {
       return <Navigate to="/activate" replace />;
-    }
-
-    if (settings.revenue_mode === 'direct_payment' && window.location.pathname !== '/payment') {
-      return <Navigate to="/payment" replace />;
     }
   }
 

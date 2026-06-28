@@ -102,6 +102,15 @@ function addColumnIfNotExists(tableName: string, columnName: string, columnDef: 
   }
 }
 
+export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: string) => unknown } = db) {
+  connection.exec(`
+    UPDATE messages
+    SET sender_role = 'user'
+    WHERE type = 'HOME_SCHOOL'
+      AND (sender_role IS NULL OR sender_role = '' OR sender_role = 'student');
+  `);
+}
+
 export function initDb() {
   db.pragma('foreign_keys = ON');
   db.exec(`
@@ -119,6 +128,7 @@ export function initDb() {
       invite_code TEXT UNIQUE,
       teacher_id INTEGER REFERENCES users(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      settings TEXT,
       enable_chat_bubble INTEGER DEFAULT 0,
       enable_peer_review INTEGER DEFAULT 0,
       enable_tree_hole INTEGER DEFAULT 0,
@@ -1078,6 +1088,7 @@ export function initDb() {
   addColumnIfNotExists('classes', 'enable_auction_blind_box', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('classes', 'enable_achievements', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('classes', 'enable_parent_buff', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('classes', 'settings', 'TEXT');
 
   const classFeatureDefaultOffMigrationKey = 'class_features_default_off_migration_v1';
   const classFeatureDefaultOffMigrationExists = db
@@ -1170,7 +1181,7 @@ export function initDb() {
 
   // Add sender_role column to messages if not exists (migration)
   addColumnIfNotExists('messages', 'sender_role', "TEXT DEFAULT 'student'");
-  db.exec("UPDATE messages SET sender_role = 'user' WHERE type = 'HOME_SCHOOL';");
+  migrateLegacyHomeSchoolSenderRoles();
 
   // Add is_activated column to users if not exists (migration)
   addColumnIfNotExists('users', 'is_activated', 'INTEGER DEFAULT 0');

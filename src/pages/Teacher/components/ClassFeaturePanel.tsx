@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { classFeaturesApi } from '@/api/classFeatures';
+import { classroomApi as classFeaturesApi } from '@/features/classroom/api/classesApi';
 import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import { classFeatureLabels, defaultClassFeatures, type ClassFeatureKey, type ClassFeatures } from '@/lib/classFeatures';
 

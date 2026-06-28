@@ -16,6 +16,19 @@ function toActiveMessage(message: DanmakuMessageDto): ActiveDanmaku {
   };
 }
 
+function appendNewMessages(previous: ActiveDanmaku[], incoming: DanmakuMessageDto[]) {
+  const seenIds = new Set(previous.map((message) => message.id));
+  const next = [...previous];
+
+  for (const message of incoming) {
+    if (seenIds.has(message.id)) continue;
+    seenIds.add(message.id);
+    next.push(toActiveMessage(message));
+  }
+
+  return next.length === previous.length ? previous : next.slice(-50);
+}
+
 export function useDanmakuMessages(classId: number) {
   const [messages, setMessages] = useState<ActiveDanmaku[]>([]);
   const lastIdRef = useRef(0);
@@ -29,7 +42,7 @@ export function useDanmakuMessages(classId: number) {
         const data = await danmakuApi.getMessages(classId, lastIdRef.current || undefined);
         if (!isMounted || !data.success || !data.messages?.length) return;
 
-        setMessages((previous) => [...previous, ...data.messages.map(toActiveMessage)].slice(-50));
+        setMessages((previous) => appendNewMessages(previous, data.messages));
         lastIdRef.current = Math.max(lastIdRef.current, ...data.messages.map((message) => message.id));
       } catch (err) {
         // Polling should stay quiet when the network blips.

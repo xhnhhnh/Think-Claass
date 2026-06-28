@@ -4,7 +4,7 @@ vi.mock('../../utils/classFeatures.js', () => ({
   assertStudentFeatureEnabled: vi.fn(),
 }));
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { DungeonService } from './dungeon.service';
 import type { DungeonRepository, DungeonRunRow } from './dungeon.types';
 

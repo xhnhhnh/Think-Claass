@@ -14,8 +14,8 @@ import { usePresets } from '@/hooks/queries/usePresets';
 import { useStudentMutations } from '@/hooks/queries/useStudentMutations';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { teacherApi } from '@/api/teacher';
-import { analyticsApi } from '@/api/analytics';
+import { analyticsApi } from '@/features/classroom/api/analyticsApi';
+import { teacherApi } from '@/features/classroom/api/classesApi';
 import { useStore } from '@/store/useStore';
 import { launchConfetti } from '@/lib/confetti';
 

@@ -9,17 +9,24 @@ APP_NAME=${APP_NAME:-"think-class"}
 REPO=${REPO:-"xhnhhnh/Think-Claass"}
 REQUIRED_NODE_MAJOR=${REQUIRED_NODE_MAJOR:-24}
 DEFAULT_DATABASE_URL=${DEFAULT_DATABASE_URL:-'DATABASE_URL="file:./database.sqlite"'}
+GITHUB_WEB_BASE_URL=${GITHUB_WEB_BASE_URL:-"https://github.com"}
+GITHUB_API_BASE_URL=${GITHUB_API_BASE_URL:-"https://api.github.com"}
+RELEASE_ASSET_NAME=${RELEASE_ASSET_NAME:-"${APP_NAME}-release.zip"}
+
+timestamp() {
+    date '+%Y-%m-%d %H:%M:%S'
+}
 
 log() {
-    echo ">> $*"
+    echo "[$(timestamp)] >> $*"
 }
 
 warn() {
-    echo ">> [警告] $*" >&2
+    echo "[$(timestamp)] >> [警告] $*" >&2
 }
 
 die() {
-    echo ">> [错误] $*" >&2
+    echo "[$(timestamp)] >> [错误] $*" >&2
     exit 1
 }
 
@@ -195,7 +202,18 @@ replace_custom_admin_path() {
 }
 
 github_latest_release_json() {
-    curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" || true
+    local headers=(
+        -H "Accept: application/vnd.github+json"
+        -H "User-Agent: Think-Class-Updater"
+        -H "X-GitHub-Api-Version: 2022-11-28"
+    )
+
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        headers+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+    fi
+
+    curl -fsSL --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 "${headers[@]}" \
+        "${GITHUB_API_BASE_URL}/repos/${REPO}/releases/latest" || true
 }
 
 extract_latest_asset_url() {
@@ -216,6 +234,31 @@ extract_latest_tag() {
     else
         echo "$release_json" | grep -o '"tag_name": *"[^"]*"' | cut -d '"' -f 4 | head -n 1
     fi
+}
+
+github_latest_tag_from_redirect() {
+    local resolved_url
+    resolved_url=$(curl -fsSL --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 -o /dev/null -w '%{url_effective}' \
+        "${GITHUB_WEB_BASE_URL}/${REPO}/releases/latest" || true)
+
+    echo "$resolved_url" | sed -n 's|.*/tag/\([^/?#]*\).*|\1|p'
+}
+
+latest_release_download_url() {
+    local release_json="${1:-}"
+    local download_url=""
+
+    if [ -n "$release_json" ]; then
+        download_url=$(extract_latest_asset_url "$release_json")
+    fi
+
+    if [ -n "$download_url" ]; then
+        echo "$download_url"
+        return 0
+    fi
+
+    # The stable latest/download route avoids REST API rate limits.
+    echo "${GITHUB_WEB_BASE_URL}/${REPO}/releases/latest/download/${RELEASE_ASSET_NAME}"
 }
 
 download_release_zip() {

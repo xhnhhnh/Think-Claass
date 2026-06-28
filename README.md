@@ -68,6 +68,8 @@ Create or review `.env`:
 DATABASE_URL="file:../database.sqlite"
 SUPERADMIN_USERNAME="superadmin"
 SUPERADMIN_PASSWORD="superadmin"
+# Optional: set this when the frontend is deployed separately from the API.
+# VITE_API_BASE_URL="http://localhost:3001"
 ```
 
 Start the full development stack:
@@ -147,6 +149,8 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 ```
 
 The deployment scripts manage dependency installation, Prisma generation, package download, and PM2 restart behavior through shared helpers in `scripts/deploy-common.sh`.
+
+Linux deployments can also update from the superadmin settings page. The updater checks the latest GitHub Release, downloads `think-class-release.zip`, restarts the PM2 service, and appends progress to `logs/update.log`. The latest machine-readable status is stored in `logs/update-status.json`.
 
 ## Compatibility Notes
 

@@ -36,7 +36,7 @@ export default function TeacherFeatures() {
                   : 'bg-white/80 backdrop-blur-xl text-slate-600 border border-gray-200 hover:bg-slate-50/50'
               }`}
             >
-              {cls.name}
+              {cls.name} · ID {cls.id} · 邀请码 {cls.invite_code}
             </button>
           ))}
         </div>

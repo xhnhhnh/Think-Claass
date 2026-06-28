@@ -9,6 +9,7 @@ export interface User {
   username: string;
   name?: string;
   studentId?: number;
+  classId?: number;
   parentId?: number;
   is_activated?: boolean;
   class_id?: number;

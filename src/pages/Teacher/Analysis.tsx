@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { BarChart2, ClipboardCheck, LoaderCircle, Medal, TrendingUp, UserCheck, Users } from 'lucide-react';
 
+import {
+  DataList,
+  DataPanel,
+  HorizontalBarList,
+  MetricGrid,
+  type MetricCardItem,
+} from '@/features/classroom/components/analytics/DataInsight';
 import { useClassOverview } from '@/hooks/queries/useAnalytics';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useSettings } from '@/hooks/queries/useSettings';
+import { cn } from '@/lib/utils';
 
 export default function TeacherAnalysis() {
   const { data: settings } = useSettings();
@@ -34,30 +42,31 @@ export default function TeacherAnalysis() {
     return <div className="p-8 text-center text-slate-500">暂无班级数据，请先创建班级。</div>;
   }
 
-  const cards = overview
+  const metrics: MetricCardItem[] = overview
     ? [
-        { label: '班级总人数', value: `${overview.summary.total_students} 人`, icon: Users, color: 'bg-blue-100 text-blue-600' },
-        { label: '平均积分', value: `${overview.summary.average_points} 分`, icon: TrendingUp, color: 'bg-indigo-100 text-indigo-600' },
-        { label: '考试均分', value: `${overview.summary.average_exam_score} 分`, icon: Medal, color: 'bg-purple-100 text-purple-600' },
-        { label: '作业完成率', value: `${overview.summary.assignment_completion_rate}%`, icon: ClipboardCheck, color: 'bg-emerald-100 text-emerald-600' },
-        { label: '出勤率', value: `${overview.summary.attendance_rate}%`, icon: UserCheck, color: 'bg-orange-100 text-orange-600' },
-        { label: '表扬次数', value: `${overview.summary.praise_count} 次`, icon: BarChart2, color: 'bg-pink-100 text-pink-600' },
+        { label: '班级总人数', value: `${overview.summary.total_students} 人`, icon: Users, tone: 'blue' },
+        { label: '平均积分', value: `${overview.summary.average_points} 分`, icon: TrendingUp, tone: 'indigo' },
+        { label: '考试均分', value: `${overview.summary.average_exam_score} 分`, icon: Medal, tone: 'purple' },
+        { label: '作业完成率', value: `${overview.summary.assignment_completion_rate}%`, icon: ClipboardCheck, tone: 'emerald' },
+        { label: '出勤率', value: `${overview.summary.attendance_rate}%`, icon: UserCheck, tone: 'orange' },
+        { label: '表扬次数', value: `${overview.summary.praise_count} 次`, icon: BarChart2, tone: 'pink' },
       ]
     : [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-2 overflow-x-auto bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/60 bg-white/80 p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-xl">
         <span className="text-sm font-bold text-slate-500 mr-2 flex-shrink-0">选择班级:</span>
         {classes.map((cls) => (
           <button
             key={cls.id}
             onClick={() => setSelectedClassId(cls.id)}
-            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={cn(
+              'flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
               selectedClassId === cls.id
                 ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-[0_2px_12px_rgba(0,0,0,0.03)]'
-                : 'bg-slate-50/50 text-slate-600 border border-gray-200 hover:bg-slate-100/50'
-            }`}
+                : 'border border-gray-200 bg-slate-50/50 text-slate-600 hover:bg-slate-100/50',
+            )}
           >
             {cls.name}
           </button>
@@ -79,53 +88,30 @@ export default function TeacherAnalysis() {
 
       {!isLoading && !error && overview && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {cards.map((card) => (
-              <div key={card.label} className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 flex items-center">
-                <div className={`p-3 rounded-xl mr-4 ${card.color}`}>
-                  <card.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-slate-500 text-sm font-medium">{card.label}</div>
-                  <div className="text-2xl font-bold text-slate-800">{card.value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <MetricGrid items={metrics} />
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-              <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-                <BarChart2 className="w-5 h-5 mr-2 text-indigo-500" />
-                积分分布
-              </h2>
-              <div className="space-y-4">
-                {overview.distributions.map((item) => {
-                  const maxValue = Math.max(...overview.distributions.map((entry) => entry.value), 1);
-                  return (
-                    <div key={item.label} className="flex items-center">
-                      <div className="w-20 text-right pr-4 text-sm font-medium text-slate-600">{item.label}</div>
-                      <div className="flex-1 flex items-center">
-                        <div
-                          className="h-6 bg-gradient-to-r from-green-400 to-green-500 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all duration-500 ease-out"
-                          style={{ width: `${(item.value / maxValue) * 100}%`, minWidth: item.value > 0 ? '2rem' : '0' }}
-                        />
-                        <span className="ml-3 text-sm font-bold text-slate-700">{item.value} 人</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <DataPanel
+              title="积分分布"
+              icon={BarChart2}
+              iconClassName="text-indigo-500"
+              isEmpty={overview.distributions.length === 0}
+              emptyText="暂无积分分布数据"
+            >
+              <HorizontalBarList items={overview.distributions} unit="人" tone="green" />
+            </DataPanel>
 
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-              <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
-                <TrendingUp className="w-5 h-5 mr-2 text-orange-500" />
-                近期考试趋势
-              </h2>
-              <div className="space-y-4">
-                {overview.exam_trend.length === 0 && <div className="text-slate-500">暂无考试数据</div>}
-                {overview.exam_trend.map((exam) => (
+            <DataPanel
+              title="近期考试趋势"
+              icon={TrendingUp}
+              iconClassName="text-orange-500"
+              isEmpty={overview.exam_trend.length === 0}
+              emptyText="暂无考试数据"
+            >
+              <DataList
+                items={overview.exam_trend}
+                getKey={(exam) => exam.id}
+                renderItem={(exam) => (
                   <div key={exam.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
@@ -135,17 +121,21 @@ export default function TeacherAnalysis() {
                       <div className="text-xl font-black text-orange-500">{Math.round(exam.average_score)} 分</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
+              />
+            </DataPanel>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-              <h2 className="text-lg font-bold text-slate-800 mb-6">最近作业完成情况</h2>
-              <div className="space-y-4">
-                {overview.assignment_trend.length === 0 && <div className="text-slate-500">暂无作业数据</div>}
-                {overview.assignment_trend.map((assignment) => (
+            <DataPanel
+              title="最近作业完成情况"
+              isEmpty={overview.assignment_trend.length === 0}
+              emptyText="暂无作业数据"
+            >
+              <DataList
+                items={overview.assignment_trend}
+                getKey={(assignment) => assignment.id}
+                renderItem={(assignment) => (
                   <div key={assignment.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
@@ -160,15 +150,19 @@ export default function TeacherAnalysis() {
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
+              />
+            </DataPanel>
 
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-              <h2 className="text-lg font-bold text-slate-800 mb-6">积分榜前五</h2>
-              <div className="space-y-4">
-                {overview.top_students.length === 0 && <div className="text-slate-500">暂无学生数据</div>}
-                {overview.top_students.map((student, index) => (
+            <DataPanel
+              title="积分榜前五"
+              isEmpty={overview.top_students.length === 0}
+              emptyText="暂无学生数据"
+            >
+              <DataList
+                items={overview.top_students}
+                getKey={(student) => student.id}
+                renderItem={(student, index) => (
                   <div key={student.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                     <div className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 font-black text-indigo-600">
@@ -178,9 +172,9 @@ export default function TeacherAnalysis() {
                     </div>
                     <div className="text-lg font-black text-indigo-600">{student.total_points} 分</div>
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
+              />
+            </DataPanel>
           </div>
         </>
       )}

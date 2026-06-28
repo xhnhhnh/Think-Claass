@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Newspaper, Calendar, Eye, FileText, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Newspaper, Calendar, Eye, FileText, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-import { portalApi } from '@/features/portal/api/portalApi';
+import { portalApi } from "@/features/portal/api/portalApi";
 
 interface Article {
   id: number;
@@ -27,11 +27,9 @@ export default function HomeNews() {
     const fetchArticles = async () => {
       try {
         const data = await portalApi.getArticles({ is_published: true, limit: 20 });
-        if (data.success) {
-          setArticles(data.articles);
-        }
+        if (data.success) setArticles(data.articles);
       } catch (error) {
-        console.error('获取新闻动态失败:', error);
+        console.error("获取新闻动态失败:", error);
       } finally {
         setLoading(false);
       }
@@ -43,130 +41,66 @@ export default function HomeNews() {
     setArticleLoading(true);
     try {
       const data = await portalApi.getArticle(id);
-      if (data.success) {
-        setSelectedArticle(data.article);
-      }
+      if (data.success) setSelectedArticle(data.article);
     } catch (error) {
-      console.error('获取文章详情失败:', error);
+      console.error("获取文章详情失败:", error);
     } finally {
       setArticleLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfaf5] text-[#5c4b3a] selection:bg-[#f2c779] selection:text-white font-sans overflow-hidden relative flex flex-col">
-      {/* Background Texture Overlay */}
-      <div 
-        className="fixed inset-0 opacity-[0.03] pointer-events-none z-0" 
-        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
-      />
-
-      {/* Header */}
-      <header className="relative z-10 bg-white/50 backdrop-blur-md border-b border-[#f0e6d3] sticky top-0">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center space-x-2 text-[#d97757]"
-          >
-            <Newspaper className="w-6 h-6" />
-            <span className="text-xl font-bold tracking-wide">新闻动态</span>
+    <div className="public-campus-page flex min-h-screen flex-col bg-[var(--campus-canvas)] text-slate-800 selection:bg-emerald-100 selection:text-emerald-700 font-sans">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center">
+              <Newspaper className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base font-semibold text-slate-900">新闻动态</span>
           </motion.div>
-          <motion.button
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={() => navigate(-1)}
-            className="flex items-center text-[#7d6b5a] hover:text-[#d97757] transition-colors font-medium bg-white px-4 py-2 rounded-full shadow-sm border border-[#f0e6d3]"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            返回首页
+          <motion.button initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} onClick={() => navigate(-1)}
+            className="flex items-center text-sm text-slate-500 hover:text-indigo-600 transition-colors font-medium bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
+            <ArrowLeft className="w-4 h-4 mr-1.5" />返回首页
           </motion.button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 max-w-6xl mx-auto w-full px-6 py-12 md:py-20">
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-4xl md:text-5xl font-extrabold text-[#4a3b2c] mb-6">最新动态</h1>
-          <p className="text-lg text-[#7d6b5a] max-w-2xl mx-auto leading-relaxed">
-            了解系统的最新功能发布、教育资讯和成功案例分享。
-          </p>
+      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-12 md:py-20">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-14">
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">最新动态</h1>
+          <p className="text-base text-slate-500 max-w-xl mx-auto">了解系统的最新功能发布、教育资讯和成功案例分享。</p>
         </motion.div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#d97757]"></div>
-          </div>
+          <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-500" /></div>
         ) : articles.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-20 bg-white rounded-3xl border border-[#f0e6d3] shadow-sm"
-          >
-            <div className="mx-auto w-24 h-24 bg-[#fdf4f1] rounded-full flex items-center justify-center mb-6">
-              <FileText className="w-12 h-12 text-[#d97757] opacity-50" />
-            </div>
-            <h3 className="text-2xl font-bold text-[#4a3b2c] mb-3">暂无新闻内容</h3>
-            <p className="text-[#7d6b5a]">我们正在准备更多精彩内容，敬请期待！</p>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <div className="mx-auto w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-5"><FileText className="w-10 h-10 text-slate-300" /></div>
+            <h3 className="text-xl font-semibold text-slate-800 mb-2">暂无新闻内容</h3>
+            <p className="text-slate-500 text-sm">我们正在准备更多精彩内容，敬请期待！</p>
           </motion.div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {articles.map((article, idx) => (
-              <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                key={article.id} 
-                className="bg-white rounded-3xl shadow-sm border border-[#f0e6d3] overflow-hidden hover:shadow-xl hover:shadow-[#d97757]/10 transition-all duration-300 transform hover:-translate-y-2 flex flex-col cursor-pointer group"
-                onClick={() => handleReadMore(article.id)}
-              >
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.08 }} key={article.id}
+                className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col cursor-pointer group"
+                onClick={() => handleReadMore(article.id)}>
                 {article.cover_image ? (
-                  <div className="h-52 overflow-hidden bg-[#fcfaf5]">
-                    <img 
-                      src={article.cover_image} 
-                      alt={article.title} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                  </div>
+                  <div className="h-48 overflow-hidden bg-slate-100"><img src={article.cover_image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>
                 ) : (
-                  <div className="h-52 bg-[#fdf4f1] flex items-center justify-center border-b border-[#f0e6d3]">
-                    <Newspaper className="w-16 h-16 text-[#d97757]/20" />
-                  </div>
+                  <div className="h-48 bg-slate-50 flex items-center justify-center"><Newspaper className="w-12 h-12 text-slate-200" /></div>
                 )}
-                
-                <div className="p-8 flex-1 flex flex-col">
-                  <div className="flex items-center space-x-4 mb-4 text-xs font-medium text-[#bbaea0]">
-                    {article.category && (
-                      <span className="px-3 py-1 bg-[#f1f8f5] text-[#8fb9a8] rounded-full">
-                        {article.category}
-                      </span>
-                    )}
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-1.5" />
-                      {new Date(article.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </div>
+                <div className="p-6 flex-1 flex flex-col">
+                  <div className="flex items-center gap-3 mb-3 text-xs font-medium text-slate-400">
+                    {article.category && <span className="px-2.5 py-1 bg-indigo-50 text-indigo-500 rounded-lg">{article.category}</span>}
+                    <div className="flex items-center"><Calendar className="w-3.5 h-3.5 mr-1" />{new Date(article.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</div>
                   </div>
-                  
-                  <h3 className="text-xl font-bold text-[#4a3b2c] mb-3 line-clamp-2 leading-snug group-hover:text-[#d97757] transition-colors">
-                    {article.title}
-                  </h3>
-                  
-                  <p className="text-[#7d6b5a] mb-6 line-clamp-3 text-sm flex-1 leading-relaxed">
-                    {article.summary || '点击阅读完整内容...'}
-                  </p>
-                  
-                  <div className="flex items-center justify-between mt-auto pt-5 border-t border-[#f0e6d3]">
-                    <div className="flex items-center text-[#bbaea0] text-sm">
-                      <Eye className="w-4 h-4 mr-1.5" />
-                      {article.view_count} 次阅读
-                    </div>
-                    <span className="text-[#d97757] font-medium text-sm group-hover:underline flex items-center">
-                      阅读全文 <ArrowLeft className="w-4 h-4 ml-1 rotate-180" />
-                    </span>
+                  <h3 className="text-base font-semibold text-slate-900 mb-2 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">{article.title}</h3>
+                  <p className="text-sm text-slate-500 mb-4 line-clamp-3 flex-1 leading-relaxed">{article.summary || "点击阅读完整内容..."}</p>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                    <div className="flex items-center text-xs text-slate-400"><Eye className="w-3.5 h-3.5 mr-1" />{article.view_count} 次阅读</div>
+                    <span className="text-xs text-indigo-500 font-medium group-hover:underline">阅读全文</span>
                   </div>
                 </div>
               </motion.div>
@@ -175,95 +109,39 @@ export default function HomeNews() {
         )}
       </main>
 
-      {/* Article Modal */}
       <AnimatePresence>
         {selectedArticle && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#4a3b2c]/40 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[#fcfaf5] rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh] border border-[#f0e6d3]"
-            >
-              {/* Header / Banner */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
               <div className="relative shrink-0">
                 {selectedArticle.cover_image ? (
-                  <div className="h-64 md:h-80 w-full overflow-hidden">
-                    <img 
-                      src={selectedArticle.cover_image} 
-                      alt={selectedArticle.title} 
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#4a3b2c]/80 to-transparent"></div>
+                  <div className="h-56 md:h-72 w-full overflow-hidden"><img src={selectedArticle.cover_image} alt={selectedArticle.title} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 to-transparent" /></div>
+                ) : (<div className="h-20 bg-slate-50" />)}
+                <button onClick={() => setSelectedArticle(null)} className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-lg text-white transition-colors z-10"><X className="w-5 h-5" /></button>
+                <div className={`px-8 pt-6 pb-4 ${selectedArticle.cover_image ? "absolute bottom-0 left-0 right-0 text-white" : "text-slate-900"}`}>
+                  <div className="flex items-center gap-3 mb-3 text-xs font-medium opacity-90">
+                    {selectedArticle.category && (<span className={`px-2.5 py-1 rounded-lg ${selectedArticle.cover_image ? "bg-white/20 backdrop-blur-md text-white" : "bg-indigo-50 text-indigo-500"}`}>{selectedArticle.category}</span>)}
+                    <div className="flex items-center"><Calendar className="w-3.5 h-3.5 mr-1" />{new Date(selectedArticle.created_at).toLocaleDateString()}</div>
+                    <div className="flex items-center"><Eye className="w-3.5 h-3.5 mr-1" />{selectedArticle.view_count}</div>
                   </div>
-                ) : (
-                  <div className="h-32 bg-[#fdf4f1]"></div>
-                )}
-                
-                <button 
-                  onClick={() => setSelectedArticle(null)}
-                  className="absolute top-6 right-6 p-2.5 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full text-white transition-colors z-10 shadow-sm"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-
-                <div className={`px-8 pt-8 pb-6 ${selectedArticle.cover_image ? 'absolute bottom-0 left-0 right-0 text-white' : 'text-[#4a3b2c]'}`}>
-                  <div className="flex items-center space-x-4 mb-4 text-sm font-medium opacity-90">
-                    {selectedArticle.category && (
-                      <span className={`px-3 py-1 rounded-full ${selectedArticle.cover_image ? 'bg-white/20 backdrop-blur-md text-white' : 'bg-[#f1f8f5] text-[#8fb9a8]'}`}>
-                        {selectedArticle.category}
-                      </span>
-                    )}
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-1.5" />
-                      {new Date(selectedArticle.created_at).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-center">
-                      <Eye className="w-4 h-4 mr-1.5" />
-                      {selectedArticle.view_count}
-                    </div>
-                  </div>
-                  <h2 className="text-3xl md:text-4xl font-extrabold leading-tight">
-                    {selectedArticle.title}
-                  </h2>
+                  <h2 className="text-2xl md:text-3xl font-bold leading-tight">{selectedArticle.title}</h2>
                 </div>
               </div>
-
-              {/* Article Content */}
-              <div className="p-8 md:p-12 overflow-y-auto bg-white">
-                {articleLoading ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#d97757]"></div>
-                  </div>
-                ) : (
-                  <div 
-                    className="prose prose-lg max-w-none text-[#5c4b3a] leading-relaxed whitespace-pre-line"
-                    dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
-                  />
-                )}
+              <div className="p-8 md:p-10 overflow-y-auto">
+                {articleLoading ? (<div className="flex justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500" /></div>)
+                  : (<div className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-line" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />)}
               </div>
-              
-              <div className="p-6 bg-[#fcfaf5] border-t border-[#f0e6d3] flex justify-center">
-                <button 
-                  onClick={() => setSelectedArticle(null)}
-                  className="px-8 py-3 bg-white border border-[#f0e6d3] text-[#7d6b5a] rounded-xl hover:text-[#d97757] hover:border-[#d97757] transition-colors font-medium shadow-sm"
-                >
-                  关闭文章
-                </button>
+              <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-center">
+                <button onClick={() => setSelectedArticle(null)} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:text-indigo-600 hover:border-indigo-200 transition-colors text-sm font-medium shadow-sm">关闭文章</button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Footer */}
-      <footer className="relative z-10 bg-white/80 border-t border-[#f0e6d3] text-[#7d6b5a] py-8 text-center mt-auto">
-        <p>© {new Date().getFullYear()} Think-Class. 保留所有权利。</p>
+      <footer className="border-t border-slate-100 bg-white py-6 text-center">
+        <p className="text-sm text-slate-400">&copy; {new Date().getFullYear()} Think-Class. 保留所有权利。</p>
       </footer>
     </div>
   );

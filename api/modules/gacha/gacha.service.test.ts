@@ -5,7 +5,7 @@ vi.mock('../../utils/classFeatures.js', () => ({
   assertStudentFeatureEnabled: vi.fn(),
 }));
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { GachaService } from './gacha.service';
 import type { GachaPool, GachaRepository, GachaStudentRow, PetCollectionItem, PetDictionaryEntry } from './gacha.types';
 

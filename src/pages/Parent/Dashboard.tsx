@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { useParentBuffMutation, useParentDashboard } from '@/hooks/queries/useParentDashboard';
 import { launchConfetti } from '@/lib/confetti';
+import { defaultClassFeatures } from '@/lib/classFeatures';
 import { getRankTier } from '@/lib/rankTier';
 
 interface StudentInfo {
@@ -36,6 +37,9 @@ export default function ParentDashboard() {
   const user = useStore(state => state.user);
   const navigate = useNavigate();
   const studentId = user?.studentId ?? null;
+  const classFeatures = user?.classFeatures ?? defaultClassFeatures;
+  const familyTasksEnabled = classFeatures.enable_family_tasks;
+  const parentBuffEnabled = classFeatures.enable_parent_buff;
   const { data, isLoading: loading } = useParentDashboard(studentId);
   const castBuffMutation = useParentBuffMutation(studentId);
   const student = (data?.student ?? null) as StudentInfo | null;
@@ -45,6 +49,11 @@ export default function ParentDashboard() {
   const buffLoading = castBuffMutation.isPending;
 
   const castParentBuff = async () => {
+    if (!parentBuffEnabled) {
+      toast.info('老师开启家长祝福后，就可以给孩子送上今日鼓励啦');
+      return;
+    }
+
     if (buffActive) {
       toast.info('今日已经施放过祝福啦！');
       return;
@@ -92,7 +101,7 @@ export default function ParentDashboard() {
 
       {student && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-coral-400 via-coral-300 to-amber-300 rounded-[2rem] p-8 text-white shadow-lg shadow-coral-500/20 relative overflow-hidden">
+          <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-[#f97316] via-[#fb923c] to-[#fbbf24] rounded-[2rem] p-8 text-white shadow-lg shadow-orange-500/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
               <Star className="w-64 h-64" />
             </div>
@@ -148,24 +157,36 @@ export default function ParentDashboard() {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={castParentBuff}
-                disabled={buffActive || buffLoading}
+                disabled={!parentBuffEnabled || buffActive || buffLoading}
                 className={`w-full flex items-center justify-center space-x-2 py-3.5 rounded-2xl font-bold transition-all shadow-md ${
-                  buffActive 
+                  !parentBuffEnabled || buffActive 
                     ? 'bg-amber-100 text-amber-500 cursor-not-allowed border border-amber-200' 
                     : 'bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:shadow-lg hover:shadow-orange-400/30'
                 }`}
               >
                 <Wand2 className="w-5 h-5" />
-                <span>{buffActive ? '今日祝福已送达' : '施放母爱的祝福 (+20%积分)'}</span>
+                <span>
+                  {!parentBuffEnabled
+                    ? '老师开启后可送祝福'
+                    : buffActive
+                      ? '今日祝福已送达'
+                      : '施放母爱的祝福 (+20%积分)'}
+                </span>
               </motion.button>
               
-              <button
+              {familyTasksEnabled ? (
+                <button
                 onClick={() => navigate('/parent/tasks')}
                 className="w-full flex items-center justify-center space-x-2 bg-stone-50 hover:bg-stone-100 text-stone-700 py-3.5 rounded-2xl font-medium transition-colors"
               >
                 <span>查看家庭任务</span>
                 <ChevronRight className="w-4 h-4" />
-              </button>
+                </button>
+              ) : (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-center text-sm font-medium text-amber-700">
+                  老师开启家庭任务后，这里会出现亲子约定
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -225,12 +246,14 @@ export default function ParentDashboard() {
               </div>
               最近的约定
             </h3>
-            <button 
-              onClick={() => navigate('/parent/tasks')}
-              className="text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-1.5 bg-amber-50/50 rounded-xl transition-colors"
-            >
-              所有约定
-            </button>
+            {familyTasksEnabled ? (
+              <button 
+                onClick={() => navigate('/parent/tasks')}
+                className="text-sm text-amber-600 hover:text-amber-700 font-medium px-3 py-1.5 bg-amber-50/50 rounded-xl transition-colors"
+              >
+                所有约定
+              </button>
+            ) : null}
           </div>
           <div className="space-y-4">
             {tasks.length > 0 ? (
@@ -258,7 +281,9 @@ export default function ParentDashboard() {
               ))
             ) : (
               <div className="text-center py-10 bg-stone-50/50 rounded-2xl border border-dashed border-stone-200">
-                <p className="text-stone-400">没有进行中的约定</p>
+                <p className="text-stone-400">
+                  {familyTasksEnabled ? '没有进行中的约定' : '家庭任务开启后，这里会同步亲子约定'}
+                </p>
               </div>
             )}
           </div>

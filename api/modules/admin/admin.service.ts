@@ -15,7 +15,7 @@ import type {
   UpsertAdminAnnouncementInput,
   UpsertTeacherInput,
 } from '../../../src/shared/admin/contracts.js';
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import type { RequestActor } from '../../utils/requestAuth.js';
 import type { AdminMaintenanceService, AdminRepository, AdminRuntime } from './admin.types.js';
 

@@ -5,7 +5,7 @@ vi.mock('../../utils/classFeatures.js', () => ({
   assertStudentFeatureEnabled: vi.fn(),
 }));
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { EconomyService } from './economy.service';
 import type { BankAccountDto, EconomyRepository, EconomyStudentRow, PortfolioItemDto, StockDto, StockPayload, StockPricePayload } from './economy.types';
 

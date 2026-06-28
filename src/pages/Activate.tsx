@@ -48,18 +48,18 @@ export default function Activate() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="public-campus-page flex min-h-screen items-center justify-center bg-[var(--campus-canvas)] p-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden"
+        className="w-full max-w-md overflow-hidden rounded-lg border border-[var(--campus-border)] bg-white shadow-sm"
       >
-        <div className="p-8 text-center bg-indigo-600">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-            <Key className="w-8 h-8 text-white" />
+        <div className="bg-gradient-to-r from-emerald-50 via-white to-orange-50 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
+            <Key className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">输入激活码</h2>
-          <p className="text-indigo-100 text-sm">此账号需要激活后才能使用系统的全部功能</p>
+          <h2 className="mb-2 text-2xl font-bold text-slate-950">输入激活码</h2>
+          <p className="text-sm text-slate-500">此账号需要激活后才能使用系统的全部功能</p>
         </div>
 
         <form onSubmit={handleActivate} className="p-8 space-y-6">
@@ -72,7 +72,7 @@ export default function Activate() {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="请输入 12 位专属激活码"
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all uppercase text-center tracking-widest font-mono text-lg"
+              className="w-full rounded-lg border border-[var(--campus-border)] px-4 py-3 text-center font-mono text-lg uppercase tracking-widest outline-none transition-all focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
               maxLength={12}
             />
           </div>
@@ -80,7 +80,7 @@ export default function Activate() {
           <button
             type="submit"
             disabled={loading || !code}
-            className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center rounded-lg bg-emerald-700 py-3.5 font-bold text-white shadow-sm transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

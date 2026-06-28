@@ -1,18 +1,40 @@
 import { useEffect, useState } from 'react';
-import { DollarSign, Info, Save, Settings as SettingsIcon } from 'lucide-react';
+import { Download, DollarSign, ExternalLink, Info, RefreshCw, Save, Settings as SettingsIcon, Terminal } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useAdminSystemSettingsQuery, useUpdateAdminSystemSettingsMutation } from '@/features/admin/hooks/useAdminSystem';
-import { DEFAULT_SYSTEM_SETTINGS } from '@/shared/admin/contracts';
+import {
+  useAdminReleaseUpdateStatusQuery,
+  useAdminSystemSettingsQuery,
+  useCheckLatestReleaseMutation,
+  useStartReleaseUpdateMutation,
+  useUpdateAdminSystemSettingsMutation,
+} from '@/features/admin/hooks/useAdminSystem';
+import { DEFAULT_SYSTEM_SETTINGS, type SystemSettings } from '@/shared/admin/contracts';
+
+function normalizeSettings(settings?: Partial<SystemSettings>): SystemSettings {
+  const next = {
+    ...DEFAULT_SYSTEM_SETTINGS,
+    ...settings,
+  };
+
+  if (next.revenue_mode === 'direct_payment') {
+    next.revenue_mode = 'activation_code';
+  }
+
+  return next;
+}
 
 export default function AdminSettingsPage() {
   const { data: settings, isPending: loading } = useAdminSystemSettingsQuery();
+  const { data: updateStatus, isPending: updateStatusLoading, refetch: refreshUpdateStatus } = useAdminReleaseUpdateStatusQuery();
   const updateSettingsMutation = useUpdateAdminSystemSettingsMutation();
+  const checkLatestReleaseMutation = useCheckLatestReleaseMutation();
+  const startReleaseUpdateMutation = useStartReleaseUpdateMutation();
   const [formData, setFormData] = useState(DEFAULT_SYSTEM_SETTINGS);
 
   useEffect(() => {
     if (settings) {
-      setFormData(settings);
+      setFormData(normalizeSettings(settings));
     }
   }, [settings]);
 
@@ -41,6 +63,33 @@ export default function AdminSettingsPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleCheckLatestRelease = async () => {
+    try {
+      const status = await checkLatestReleaseMutation.mutateAsync();
+      toast.success(status.hasUpdate ? `发现新版本 ${status.latestVersion}` : `当前已是最新版本 ${status.currentVersion}`);
+    } catch (_error) {
+      toast.error('无法获取 GitHub Release 最新版本');
+    }
+  };
+
+  const handleStartReleaseUpdate = async () => {
+    if (!window.confirm('更新会下载最新 Release 并重启服务，是否继续？')) return;
+
+    try {
+      const status = await startReleaseUpdateMutation.mutateAsync();
+      toast.success(status.message);
+    } catch (_error) {
+      toast.error('无法启动更新，请查看日志或稍后重试');
+    }
+  };
+
+  const updateStateLabel = {
+    idle: '尚未更新',
+    running: '更新中',
+    succeeded: '已完成',
+    failed: '失败',
+  }[updateStatus?.state ?? 'idle'];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -60,20 +109,61 @@ export default function AdminSettingsPage() {
             <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center">
                 <Info className="w-5 h-5 text-blue-500 mr-2" />
-                <h3 className="font-medium text-slate-700">模块状态</h3>
+                <h3 className="font-medium text-slate-700">系统更新</h3>
               </div>
+              <a href={updateStatus?.releaseUrl ?? 'https://github.com/xhnhhnh/Think-Claass/releases/latest'} target="_blank" rel="noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700">
+                GitHub Releases
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <div>
-                  <p className="text-sm text-slate-500 mb-1">当前交付范围</p>
-                  <p className="text-lg font-bold text-slate-800">管理后台核心设置链路已迁移到新架构</p>
+              <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <p className="text-xs text-slate-500 mb-1">当前版本</p>
+                  <p className="text-lg font-bold text-slate-800">{updateStatus?.currentVersion || '读取中...'}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <p className="text-xs text-slate-500 mb-1">最新 Release</p>
+                  <p className="text-lg font-bold text-slate-800">{updateStatus?.latestVersion || '点击检查更新'}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <p className="text-xs text-slate-500 mb-1">更新状态</p>
+                  <p className={`text-lg font-bold ${updateStatus?.state === 'failed' ? 'text-red-600' : updateStatus?.state === 'running' ? 'text-blue-600' : 'text-slate-800'}`}>
+                    {updateStateLabel}
+                  </p>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-900">
-                本期只重构管理后台核心主链路。系统升级能力尚未接入新的模块化 API，因此这里不再主动请求不存在的升级接口。
+              <div className={`rounded-xl border p-4 text-sm ${updateStatus?.supported === false ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-blue-100 bg-blue-50/70 text-blue-900'}`}>
+                {updateStatusLoading
+                  ? '正在读取更新状态...'
+                  : updateStatus?.supported === false
+                    ? `网站内一键更新仅支持 Linux 服务器。当前运行环境：${updateStatus.platform}。`
+                    : updateStatus?.message || '可从 GitHub Releases 检查并安装最新 Linux 部署包。'}
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={handleCheckLatestRelease} disabled={checkLatestReleaseMutation.isPending || updateStatus?.state === 'running'} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50">
+                  <RefreshCw className={`w-4 h-4 mr-2 ${checkLatestReleaseMutation.isPending ? 'animate-spin' : ''}`} />
+                  {checkLatestReleaseMutation.isPending ? '检查中...' : '检查更新'}
+                </button>
+                <button type="button" onClick={handleStartReleaseUpdate} disabled={!updateStatus?.supported || !updateStatus?.hasUpdate || updateStatus.state === 'running' || startReleaseUpdateMutation.isPending} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50">
+                  <Download className="w-4 h-4 mr-2" />
+                  {updateStatus?.state === 'running' || startReleaseUpdateMutation.isPending ? '正在更新...' : '安装最新版本'}
+                </button>
+                <button type="button" onClick={() => void refreshUpdateStatus()} className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-xl hover:bg-slate-50 transition-colors">
+                  <Terminal className="w-4 h-4 mr-2" />
+                  刷新日志
+                </button>
+              </div>
+
+              <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 text-xs text-slate-400">
+                  <span>Linux 更新日志</span>
+                  <span>{updateStatus?.updatedAt ? new Date(updateStatus.updatedAt).toLocaleString() : '暂无记录'}</span>
+                </div>
+                <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words p-4 text-xs leading-5 text-slate-200">{updateStatus?.log || '暂无更新日志。'}</pre>
               </div>
             </div>
           </div>
@@ -156,8 +246,9 @@ export default function AdminSettingsPage() {
                     <span className="text-slate-700 font-medium">激活模式</span>
                     <select value={formData.revenue_mode} onChange={(event) => setFormData({ ...formData, revenue_mode: event.target.value })} className="mt-1 w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white">
                       <option value="activation_code">激活码</option>
-                      <option value="direct_payment">直接支付</option>
+                      <option value="direct_payment" disabled>直接支付（稍后开发）</option>
                     </select>
+                    <p className="mt-1 text-xs text-amber-600">扫码支付暂未开放，本轮请使用卡密/激活码开通。</p>
                   </label>
 
                   <label className="block text-sm">

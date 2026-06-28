@@ -52,6 +52,16 @@ export interface SystemSettings {
   payment_environment: string;
   payment_enable_wechat: string;
   payment_enable_alipay: string;
+  payment_notify_url: string;
+  payment_wechat_appid: string;
+  payment_wechat_mchid: string;
+  payment_wechat_serial_no: string;
+  payment_wechat_private_key: string;
+  payment_wechat_api_v3_key: string;
+  payment_alipay_app_id: string;
+  payment_alipay_private_key: string;
+  payment_alipay_public_key: string;
+  payment_alipay_gateway: string;
 }
 
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
@@ -66,8 +76,18 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   payment_currency: 'CNY',
   payment_description: 'Think-Class 平台激活',
   payment_environment: 'mock',
-  payment_enable_wechat: '1',
-  payment_enable_alipay: '1',
+  payment_enable_wechat: '0',
+  payment_enable_alipay: '0',
+  payment_notify_url: '',
+  payment_wechat_appid: '',
+  payment_wechat_mchid: '',
+  payment_wechat_serial_no: '',
+  payment_wechat_private_key: '',
+  payment_wechat_api_v3_key: '',
+  payment_alipay_app_id: '',
+  payment_alipay_private_key: '',
+  payment_alipay_public_key: '',
+  payment_alipay_gateway: 'https://openapi.alipay.com/gateway.do',
 };
 
 export interface DatabaseImportResult {
@@ -79,6 +99,24 @@ export interface DatabaseImportResult {
 export interface DatabaseResetResult {
   message: string;
   preservedSuperadmins: number;
+}
+
+export type ReleaseUpdateState = 'idle' | 'running' | 'succeeded' | 'failed';
+
+export interface ReleaseUpdateStatus {
+  repo: string;
+  supported: boolean;
+  platform: string;
+  state: ReleaseUpdateState;
+  message: string;
+  currentVersion: string;
+  latestVersion: string;
+  hasUpdate: boolean | null;
+  releaseUrl: string;
+  downloadUrl: string;
+  startedAt: string | null;
+  updatedAt: string | null;
+  log: string;
 }
 
 export interface AdminListResponse<T> {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ApiError } from '../../utils/asyncHandler';
+import { ApiError } from '../../utils/apiError';
 import { AssignmentsService } from './assignments.service';
 import type { Assignment, AssignmentPayload, AssignmentsRepository, StudentAssignment, StudentAssignmentUpdatePayload } from './assignments.types';
 

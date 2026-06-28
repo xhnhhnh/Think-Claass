@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import type { EconomyRepository } from './economy.types.js';
 
 export class PrismaEconomyRepository implements EconomyRepository {

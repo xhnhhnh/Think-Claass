@@ -1,4 +1,4 @@
-import { ApiError } from '../../utils/asyncHandler.js';
+import { ApiError } from '../../utils/apiError.js';
 import type { PetRepository } from './pet.types.js';
 
 export class PrismaPetRepository implements PetRepository {
