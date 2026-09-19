@@ -16,6 +16,6 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    projects: ['./vitest.app.config.ts', './vitest.kernel.config.ts', './vitest.guardrails.config.ts'],
+    projects: ['./vitest.app.config.ts', './vitest.backend.config.ts', './vitest.guardrails.config.ts'],
   },
 });

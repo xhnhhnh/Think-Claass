@@ -134,3 +134,46 @@ export interface StudentRadarDto {
     advice: string[];
   };
 }
+
+// ---------------------------------------------------------------------------
+// Cross-plugin port.
+//
+// `classroom` is a foundation-tier plugin: almost every other domain references
+// students and classes, so the shape of that access is the most important public
+// interface in the system. Plugin code must reach classroom data through this port
+// rather than through the tables - guardrail G1 forbids importing another plugin's
+// internals, and a `data.reads` declaration grants read access only.
+// ---------------------------------------------------------------------------
+
+/** The subset of a student another plugin is allowed to depend on. */
+export interface StudentSnapshot {
+  id: number;
+  classId: number;
+  userId: number | null;
+  name: string;
+  totalPoints: number;
+  availablePoints: number;
+}
+
+/** The subset of a class another plugin is allowed to depend on. */
+export interface ClassSnapshot {
+  id: number;
+  name: string;
+  teacherId: number | null;
+  inviteCode: string;
+}
+
+export interface ClassroomPort {
+  getStudentById(studentId: number): Promise<StudentSnapshot | null>;
+  getClassById(classId: number): Promise<ClassSnapshot | null>;
+  listClassStudents(classId: number): Promise<StudentSnapshot[]>;
+  /** Rejects when the student is not in the class; used to authorise requests. */
+  assertStudentInClass(studentId: number, classId: number): Promise<void>;
+  /** Add or subtract points, emitting `classroom.student.points.changed`. */
+  adjustPoints(input: {
+    studentId: number;
+    delta: number;
+    reason: string;
+    actorId: number;
+  }): Promise<{ totalPoints: number; availablePoints: number }>;
+}

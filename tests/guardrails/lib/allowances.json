@@ -3,10 +3,12 @@
     "Ratchet allowances for the plugin-kernel migration guardrails.",
     "A guardrail fails when the current violation count EXCEEDS its allowance.",
     "Allowances may only be lowered, never raised. Target for every key is 0.",
-    "Numbers recorded at P0 (baseline-1.7.0). See docs/migration/00-baseline.md."
+    "Numbers recorded at P0 (baseline-1.7.0) unless noted. See docs/migration/."
   ],
   "shimPages": 62,
   "deadCode": 70,
   "staticPluginRoutes": 76,
-  "legacyFeatureKeySurfaces": 2
+  "legacyFeatureKeySurfaces": 2,
+  "_adoptedTables_note": "P3: plugins that own a table still carrying its legacy name (see PluginDataDeclaration.adopted). Counted down as the namespace migration proceeds.",
+  "adoptedTables": 2
 }

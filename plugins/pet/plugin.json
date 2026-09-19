@@ -1,0 +1,76 @@
+{
+  "id": "pet",
+  "name": "精灵系统",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Reference feature plugin. Owns its own tables, declares permissions, emits and subscribes to events, consumes the classroom.public port and contributes a Nest controller.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "services": [
+      {
+        "name": "pet.public",
+        "version": "1.0.0"
+      }
+    ],
+    "permissions": [
+      {
+        "key": "pet.adopt",
+        "scope": "class",
+        "default": true,
+        "label": "领养精灵"
+      },
+      {
+        "key": "pet.interact",
+        "scope": "student",
+        "default": true,
+        "label": "与精灵互动"
+      }
+    ],
+    "routes": [
+      {
+        "method": "GET",
+        "base": "/api/pet",
+        "compat": ["/api/pets"],
+        "handler": "PetController.getForStudent",
+        "auth": "actor"
+      },
+      {
+        "method": "POST",
+        "base": "/api/pet",
+        "compat": ["/api/pets"],
+        "handler": "PetController.adopt",
+        "auth": "actor",
+        "permissions": ["pet.adopt"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/pet",
+        "handler": "PetController.act",
+        "auth": "actor",
+        "permissions": ["pet.interact"]
+      }
+    ],
+    "events": {
+      "emits": ["pet.adopted", "pet.action.performed"],
+      "subscribes": ["classroom.student.points.changed"]
+    },
+    "migrations": [
+      {
+        "id": "0001_init",
+        "up": "migrations/0001_init.sql"
+      }
+    ]
+  },
+  "data": {
+    "tables": ["p_pet_pets"],
+    "reads": []
+  }
+}

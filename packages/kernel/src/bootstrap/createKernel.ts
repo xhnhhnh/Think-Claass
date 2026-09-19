@@ -19,22 +19,30 @@ import { createPermissionEngine, type PermissionEngine } from '../permissions/pe
 import { createSessionService, sessionsMigration, type SessionService } from '../auth/session.js';
 import type { AuthProvider } from '../auth/authProvider.js';
 import { openDatabase, type Database } from '../storage/connection.js';
+import { createSettingsStore, settingsMigration, type SettingsStore } from '../storage/settingsStore.js';
 import { runMigrations, type Migration, type MigrationResult } from '../storage/migrations.js';
 import { createErrorMiddleware } from '../http/errorEnvelope.js';
 import { createRequestContextMiddleware } from '../http/requestContext.js';
 import { createKernelRouter, createEmptyPluginHost, type PluginHostView } from '../http/kernelRoutes.js';
 
 /**
- * Kernel-owned schema. Plugin migrations are appended by the plugin runtime in P3
- * and run through the same ledger.
+ * Kernel-owned schema. Plugin migrations are appended by the plugin runtime and run
+ * through the same ledger.
+ *
+ * Ids are ordered so that a fresh database applies them predictably; the ledger
+ * means an already-migrated database simply skips what it has.
  */
-export const kernelMigrations: Migration[] = [sessionsMigration as unknown as Migration];
+export const kernelMigrations: Migration[] = [
+  settingsMigration,
+  sessionsMigration as unknown as Migration,
+];
 
 export interface Kernel {
   app: Express;
   config: KernelConfig;
   logger: Logger;
   db: Database;
+  settings: SettingsStore;
   events: EventBus;
   permissions: PermissionEngine;
   sessions: SessionService;
@@ -45,6 +53,25 @@ export interface Kernel {
   shutdown(): Promise<void>;
 }
 
+/**
+ * Handed to the `mountPlugins` hook.
+ *
+ * The kernel deliberately does not import the plugin runtime - the runtime imports
+ * the kernel, and a reverse edge would be a cycle. The application wires the two
+ * together by supplying this hook, which also keeps the dependency direction
+ * `apps -> plugin-runtime -> kernel` intact.
+ */
+export interface KernelRuntimeHooks {
+  app: Express;
+  db: Database;
+  sessions: SessionService;
+  settings: SettingsStore;
+  events: EventBus;
+  permissions: PermissionEngine;
+  logger: Logger;
+  config: KernelConfig;
+}
+
 export interface CreateKernelOptions {
   rootDir?: string;
   overrides?: Partial<KernelConfig>;
@@ -53,6 +80,12 @@ export interface CreateKernelOptions {
   migrations?: Migration[];
   /** Replace the plugin host. P3 supplies the real runtime here. */
   pluginHost?: PluginHostView;
+  /**
+   * Mount plugins. Called after the kernel's own routes and before the built
+   * frontend, so plugin routes can never be shadowed by a static file. Returns the
+   * host view the kernel reports, or null to keep the empty one.
+   */
+  mountPlugins?: (hooks: KernelRuntimeHooks) => Promise<PluginHostView | null>;
   /** Use an in-memory database; used by tests. */
   inMemoryDatabase?: boolean;
   /**
@@ -100,12 +133,19 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
   const events = createEventBus({ logger: logger.child('events') });
   const permissions = createPermissionEngine({ logger: logger.child('permissions') });
   const sessions = createSessionService({ db, logger: logger.child('sessions') });
+  const settings = createSettingsStore(db);
 
   // --- plugin host ---------------------------------------------------------
-  const plugins = options.pluginHost ?? createEmptyPluginHost();
-  if (!config.pluginsEnabled && options.pluginHost === undefined) {
-    logger.info('plugin host disabled; booting with zero plugins');
-  }
+  /**
+   * The host is created lazily, after the kernel's own routes exist, because it
+   * mounts plugin routes onto this same express app. `pluginsRef` lets the kernel
+   * routes be registered first while still reporting the final plugin set.
+   */
+  const pluginsRef: { current: PluginHostView } = { current: options.pluginHost ?? createEmptyPluginHost() };
+  const pluginsView: PluginHostView = {
+    publicDescriptors: () => pluginsRef.current.publicDescriptors(),
+    summary: () => pluginsRef.current.summary(),
+  };
 
   // --- http ----------------------------------------------------------------
   const app = express();
@@ -114,18 +154,48 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(createRequestContextMiddleware({ config, sessions, logger: logger.child('auth') }));
 
-  // Serve uploads and the built frontend when present. The admin base path is
-  // injected into index.html at request time, replacing the install-time
-  // `sed -i "s|/beiadmin|...|g"` rewrite of built assets.
+  // Uploads only. The built frontend is served *after* plugins so that a plugin
+  // route can never be shadowed by a static file or the SPA fallback.
   app.use('/uploads', express.static(config.uploadsDir));
+
+  app.use(
+    createKernelRouter({
+      config,
+      startedAt,
+      plugins: pluginsView,
+      events,
+      permissions,
+      sessions,
+      authProvider: options.authProvider,
+    }),
+  );
+
+  const runtimeHooks: KernelRuntimeHooks = {
+    app,
+    db,
+    sessions,
+    settings,
+    events,
+    permissions,
+    logger,
+    config,
+  };
+
+  /**
+   * Middleware order is load-bearing here, and two constraints pull in opposite
+   * directions:
+   *
+   *  - the SPA fallback must be registered BEFORE the plugin host, because Nest's
+   *    `init()` installs its own catch-all not-found handler which would otherwise
+   *    answer every non-API path before the SPA ever sees it;
+   *  - plugin routes must be reachable, which they are because the SPA handler
+   *    passes `/api` through.
+   *
+   * The frontend is only served when a build exists, so a kernel-only deployment
+   * skips both branches.
+   */
   if (fs.existsSync(config.staticDir)) {
     app.use(express.static(config.staticDir));
-  }
-
-  app.use(createKernelRouter({ config, startedAt, plugins, events, permissions, sessions, authProvider: options.authProvider }));
-
-  // SPA fallback for anything that is not an API route and not a real file.
-  if (fs.existsSync(config.staticDir)) {
     const indexHtml = path.join(config.staticDir, 'index.html');
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api')) return next();
@@ -141,6 +211,13 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
       );
       res.type('html').send(html);
     });
+  }
+
+  if (options.mountPlugins) {
+    const host = await options.mountPlugins(runtimeHooks);
+    if (host) pluginsRef.current = host;
+  } else if (!config.pluginsEnabled) {
+    logger.info('plugin host disabled; booting with zero plugins');
   }
 
   app.use((_req, res) => {
@@ -176,10 +253,11 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
     config,
     logger,
     db,
+    settings,
     events,
     permissions,
     sessions,
-    plugins,
+    plugins: pluginsRef.current,
     migrations,
     startedAt,
     shutdown,

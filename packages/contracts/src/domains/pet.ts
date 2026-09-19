@@ -110,3 +110,30 @@ export type ClassPetsResponse = ApiSuccess<{ students: ClassPetStudentDto[] }>;
 export type PetActionResponse = ApiSuccess<PetActionResult>;
 export type PetBattleResponse = ApiSuccess<{ result: PetBattleResult }>;
 
+// ---------------------------------------------------------------------------
+// Cross-plugin port.
+//
+// Other domains (achievements, battles, classroom dashboards) need to know whether
+// a student has a pet without owning the pet tables. They resolve this port.
+// ---------------------------------------------------------------------------
+
+export interface PetSnapshot {
+  id: number;
+  studentId: number;
+  name: string;
+  level: number;
+  element: PetElementType;
+  stage: number;
+}
+
+export interface PetPort {
+  getPetForStudent(studentId: number): Promise<PetSnapshot | null>;
+  hasPet(studentId: number): Promise<boolean>;
+  /** Feed / play / train; returns the resulting state. */
+  applyAction(input: {
+    studentId: number;
+    action: 'feed' | 'play' | 'train';
+    actorId: number;
+  }): Promise<{ pet: PetSnapshot; experienceGained: number; leveledUp: boolean }>;
+}
+

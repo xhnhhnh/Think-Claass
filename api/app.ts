@@ -32,7 +32,10 @@ import {
   createKernelRouter,
   createRequestContextMiddleware,
   type Kernel,
+  type KernelRuntimeHooks,
+  type PluginHostView,
 } from '@thinkclass/kernel';
+import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb } from './db.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
@@ -66,8 +69,15 @@ export function isKernelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
 /** The kernel instance created for this process. */
 let bootedKernel: Kernel | null = null;
 
+/** The plugin host, when plugins were mounted. */
+let pluginHost: Awaited<ReturnType<typeof createPluginHost>> | null = null;
+
 export function getKernel(): Kernel | null {
   return bootedKernel;
+}
+
+export function getPluginHost(): typeof pluginHost {
+  return pluginHost;
 }
 
 /**
@@ -134,19 +144,50 @@ export async function createLegacyApp(kernel: Kernel): Promise<Express> {
   return server
 }
 
-/** Kernel composition: the minimal core with zero plugins. */
-export async function createKernelApp(): Promise<Express> {
-  return (bootedKernel as Kernel).app
+/**
+ * Plugins are mounted through the kernel's `mountPlugins` hook rather than
+ * afterwards, because the hook runs at the correct point in the middleware stack:
+ * after the kernel's own routes and before the catch-all handlers.
+ *
+ * Mounting a Nest app onto an express instance that already has a 404 handler in
+ * place makes every plugin route unreachable - which is exactly the bug this
+ * replaced, and the reason the hook exists.
+ */
+async function mountPlugins(hooks: KernelRuntimeHooks): Promise<PluginHostView | null> {
+  if (!hooks.config.pluginsEnabled) return null;
+
+  pluginHost = await createPluginHost({
+    ...hooks,
+    // Always include the in-repo plugin directory, so `plugins/*` works even when
+    // PLUGIN_DIRS points at an external deployment location.
+    pluginDirs: [path.join(hooks.config.rootDir, 'plugins')],
+  });
+
+  for (const rejection of pluginHost.rejections) {
+    hooks.logger.warn('plugin not activated', { ...rejection });
+  }
+  for (const outcome of pluginHost.migrationOutcomes) {
+    if (outcome.error) hooks.logger.error('plugin migration error', { id: outcome.pluginId, error: outcome.error });
+  }
+
+  return pluginHost;
 }
 
 export async function createApp(): Promise<Express> {
   dotenv.config()
 
-  // One kernel per process, whichever composition is selected.
-  bootedKernel = await createKernel({ authProvider: createLegacyAuthProvider() })
+  const kernelEnabled = isKernelEnabled();
 
-  if (isKernelEnabled()) {
-    return createKernelApp()
+  // One kernel per process, whichever composition is selected. Plugins are only
+  // mounted in the kernel composition: the legacy composition routes every business
+  // request through statically-imported Nest modules.
+  bootedKernel = await createKernel({
+    authProvider: createLegacyAuthProvider(),
+    ...(kernelEnabled ? { mountPlugins } : {}),
+  })
+
+  if (kernelEnabled) {
+    return bootedKernel.app
   }
   return createLegacyApp(bootedKernel)
 }

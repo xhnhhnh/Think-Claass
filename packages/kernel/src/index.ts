@@ -8,7 +8,7 @@
 
 // --- bootstrap -------------------------------------------------------------
 export { createKernel, getActiveKernel, kernelMigrations } from './bootstrap/createKernel.js';
-export type { CreateKernelOptions, Kernel } from './bootstrap/createKernel.js';
+export type { CreateKernelOptions, Kernel, KernelRuntimeHooks } from './bootstrap/createKernel.js';
 
 // --- config ----------------------------------------------------------------
 export { KERNEL_API_VERSION, loadConfig } from './config/loadConfig.js';
@@ -53,6 +53,8 @@ export {
   transaction,
 } from './storage/connection.js';
 export type { Database, OpenDatabaseOptions } from './storage/connection.js';
+export { SETTINGS_MIGRATION_ID, createSettingsStore, settingsMigration } from './storage/settingsStore.js';
+export type { SettingsStore } from './storage/settingsStore.js';
 export {
   checkTableOwnership,
   extractTableOperations,

@@ -46,6 +46,12 @@
       ],
       "@thinkclass/plugin-sdk/*": [
         "./packages/plugin-sdk/src/*"
+      ],
+      "@thinkclass/plugin-runtime": [
+        "./packages/plugin-runtime/src/index.ts"
+      ],
+      "@thinkclass/plugin-runtime/*": [
+        "./packages/plugin-runtime/src/*"
       ]
     },
     "types": [
@@ -57,6 +63,7 @@
   "include": [
     "src",
     "api",
-    "packages"
+    "packages",
+    "plugins"
   ]
 }

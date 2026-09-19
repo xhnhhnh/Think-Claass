@@ -122,6 +122,17 @@ export interface PluginDataDeclaration {
    * migration runner refuses DDL against anything else.
    */
   tables?: string[];
+  /**
+   * Tables this plugin owns but which still carry their **legacy** name from the
+   * pre-plugin schema (`students`, `classes`, ...).
+   *
+   * This is a transitional declaration, not a design: it exists so that a
+   * foundation plugin can own a table before the namespace migration has renamed
+   * it, without either lying about ownership or breaking the `p_<slug>_` rule.
+   * Guardrail G10 ratchets the total to zero; when it reaches zero this field and
+   * the migration it describes are both gone.
+   */
+  adopted?: string[];
   /** Tables owned elsewhere that this plugin reads. Declarative, auditable. */
   reads?: string[];
   /** Host capabilities the plugin needs. Anything undeclared is unavailable. */

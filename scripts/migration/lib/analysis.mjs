@@ -285,6 +285,29 @@ export function defaultEntryPoints(root) {
     }
   }
 
+  const pluginsDir = path.join(root, 'plugins');
+  for (const pluginRoot of [pluginsDir, path.join(root, 'plugins-ext')]) {
+    if (!fs.existsSync(pluginRoot)) continue;
+    for (const entry of fs.readdirSync(pluginRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      for (const manifestName of ['plugin.json', 'manifest.json']) {
+        const manifestPath = path.join(pluginRoot, entry.name, manifestName);
+        if (!fs.existsSync(manifestPath)) continue;
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          const backend = manifest?.entry?.backend;
+          if (typeof backend !== 'string') continue;
+          // A plugin's declared backend entry is an entry point by definition: the
+          // runtime imports it dynamically, so no static import points at it.
+          const rel = `${path.basename(pluginRoot)}/${entry.name}/${backend.replace(/^\.\//, '')}`;
+          if (fs.existsSync(path.join(root, rel))) entries.push(rel);
+        } catch {
+          /* a malformed manifest is reported by the manifest guardrail */
+        }
+      }
+    }
+  }
+
   return [...new Set(entries)];
 }
 

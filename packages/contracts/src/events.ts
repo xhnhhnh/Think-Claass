@@ -56,6 +56,32 @@ export interface EventContracts {
     ip?: string;
     requestId?: string;
   };
+
+  // -- classroom (foundation plugin) ----------------------------------------
+  'classroom.student.points.changed': {
+    studentId: number;
+    classId: number;
+    delta: number;
+    reason: string;
+    actorId: number;
+  };
+
+  // -- pet (feature plugin) -------------------------------------------------
+  'pet.adopted': {
+    petId: number;
+    studentId: number;
+    classId: number;
+    element: string;
+    actorId: number;
+  };
+  'pet.action.performed': {
+    petId: number;
+    studentId: number;
+    action: 'feed' | 'play' | 'train';
+    experienceGained: number;
+    leveledUp: boolean;
+    actorId: number;
+  };
 }
 
 export type EventTopic = keyof EventContracts & string;

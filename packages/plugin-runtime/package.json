@@ -1,0 +1,18 @@
+{
+  "name": "@thinkclass/plugin-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Plugin discovery, validation, dependency resolution, lifecycle, registries, fault isolation and installation.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@thinkclass/contracts": "workspace:*",
+    "@thinkclass/kernel": "workspace:*",
+    "@thinkclass/plugin-sdk": "workspace:*"
+  },
+  "sideEffects": false
+}

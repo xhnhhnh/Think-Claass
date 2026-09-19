@@ -1,0 +1,32 @@
+{
+  "id": "classroom",
+  "name": "班级与学生",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "foundation",
+  "required": true,
+  "isolation": "in-process",
+  "description": "Foundation plugin: owns access to classes and students and publishes the classroom.public port. Every other domain reaches student and class data through that port rather than through the tables.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "provides": {
+    "services": [
+      {
+        "name": "classroom.public",
+        "version": "1.0.0"
+      }
+    ],
+    "permissions": [],
+    "routes": [],
+    "events": {
+      "emits": ["classroom.student.points.changed"],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["students", "classes"],
+    "reads": []
+  }
+}

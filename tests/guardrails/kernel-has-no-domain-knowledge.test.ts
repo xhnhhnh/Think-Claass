@@ -58,12 +58,22 @@ const KERNEL_OWNED_TABLES = new Set([
  *
  * DDL requires the whole `CREATE|DROP|ALTER TABLE [IF [NOT] EXISTS] <name>`
  * sequence, otherwise `DROP TABLE x` matches on `DROP` and captures the word
- * "TABLE". The trailing `(?!IF|EXISTS|NOT|TABLE)` guard covers non-literal names:
- * for `CREATE TABLE IF NOT EXISTS ${LEDGER}` no name can be captured, and without
- * the guard the engine backtracks past the `IF NOT EXISTS` group and reports "IF".
+ * "TABLE". The guard also excludes `SET`, because `ON CONFLICT ... DO UPDATE SET`
+ * otherwise reports a table called "SET". For non-literal names such as
+ * `CREATE TABLE IF NOT EXISTS ${LEDGER}` no name can be captured, and without the
+ * guard the engine backtracks past the `IF NOT EXISTS` group and reports "IF".
  */
-const SQL_TABLE_RE =
-  /\b(?:(?:FROM|INTO|UPDATE|JOIN)\s+(?!IF\b|EXISTS\b|NOT\b|TABLE\b)|(?:CREATE|DROP|ALTER)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?!IF\b|EXISTS\b|NOT\b|TABLE\b))[`"[]?([a-zA-Z_][a-zA-Z0-9_]*)/gi;
+const SQL_KEYWORD_GUARD = String.raw`(?!IF\b|EXISTS\b|NOT\b|TABLE\b|SET\b)`;
+const SQL_TABLE_RE = new RegExp(
+  String.raw`\b(?:(?:FROM|INTO|UPDATE|JOIN)\s+` +
+    SQL_KEYWORD_GUARD +
+    String.raw`|(?:CREATE|DROP|ALTER)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?` +
+    SQL_KEYWORD_GUARD +
+    String.raw`)[` +
+    '`"' +
+    String.raw`\[]?([a-zA-Z_][a-zA-Z0-9_]*)`,
+  'gi',
+);
 const ENABLE_KEY_RE = /\benable_[a-z_]+\b/;
 const IMPORT_RE_ILLEGAL = [/^api\//, /^plugins\//, /^plugins-ext\//, /^apps\//];
 
