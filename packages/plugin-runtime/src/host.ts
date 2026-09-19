@@ -4,7 +4,7 @@
  * Orchestrates the full boot sequence:
  *
  *   discover -> resolve -> check required -> migrate -> import -> setup
- *            -> assemble routes -> onStart -> record
+ *            -> collect controllers -> assemble routes -> onStart -> record
  *
  * Two decisions are worth stating explicitly, because both are consequences of
  * spike R10 rather than preferences:
@@ -58,6 +58,21 @@ export interface PluginHostOptions {
   pluginDirs?: string[];
   /** Plugin ids to skip. */
   disabled?: Iterable<string>;
+  /**
+   * Where the plugins' Nest modules get mounted.
+   *
+   *   'host'     (default) - the runtime creates its own Nest instance over `app`.
+   *   'external'           - the runtime only *collects* the modules and the caller
+   *                          mounts them into a Nest instance it already owns.
+   *
+   * `'external'` exists because the legacy composition already has a Nest instance
+   * (assembled from `api/app.module.ts`). Mounting a second one would install a
+   * second catch-all not-found handler, and whichever Nest instance registered
+   * first would swallow the other's routes. Importing the plugin modules into the
+   * *same* root module keeps one Nest instance, one not-found handler and one
+   * predictable route order.
+   */
+  mountControllers?: 'host' | 'external';
 }
 
 export interface ActivePlugin {
@@ -83,6 +98,14 @@ export interface PluginHost {
   services: ServiceRegistry;
   boundary: PluginBoundary;
   stateStore: PluginStateStore;
+  /**
+   * One Nest module per active plugin, carrying its controllers and providers.
+   *
+   * Always populated, including when the host mounted them itself. A caller using
+   * `mountControllers: 'external'` imports these into its own root module; a caller
+   * using the default can ignore them.
+   */
+  modules: Type<unknown>[];
   health(): PluginHealthSnapshot[];
   /** Projection the frontend consumes. */
   publicDescriptors(): PublicPluginDescriptor[];
@@ -182,7 +205,16 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
 
   if (discovery.discovered.length === 0 && discovery.rejected.length === 0) {
     logger.info('no plugins found', { dirs: dirs.filter((d) => d) });
-    return buildHost({ active: [], rejected: [], rejections, migrationOutcomes: [], services, boundary, stateStore });
+    return buildHost({
+      active: [],
+      rejected: [],
+      rejections,
+      migrationOutcomes: [],
+      services,
+      boundary,
+      stateStore,
+      modules: [],
+    });
   }
 
   // -- resolution ----------------------------------------------------------
@@ -214,9 +246,10 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
     logger.error('plugin migrations rejected for table-ownership violations', { violations: violationLines });
   }
 
-  // -- import, setup --------------------------------------------------------
+  // -- activate ------------------------------------------------------------
   const active: ActivePlugin[] = [];
   const mountedRouters: MountedRouter[] = [];
+  const pluginModules: Type<unknown>[] = [];
 
   for (const plugin of resolution.active) {
     const { manifest } = plugin;
@@ -287,7 +320,10 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
       }
     }
 
-    active.push({ manifest, directory: plugin.directory, context, definition });
+    const activated: ActivePlugin = { manifest, directory: plugin.directory, context, definition };
+    active.push(activated);
+    const module = buildPluginModule(activated);
+    if (module) pluginModules.push(module);
     boundary.setState(manifest.id, 'enabled');
     stateStore.record({ ...describe(plugin), state: 'enabled', manifestHash });
   }
@@ -299,7 +335,15 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
     for (const compat of entry.compat) app.use(compat, entry.router as never);
     logger.debug('plugin router mounted', { pluginId: entry.pluginId, base: entry.base });
   }
-  await mountPluginControllers(app, active, logger);
+
+  // `'external'` means the caller owns a Nest instance already; handing it the
+  // modules and returning lets it import them into that root instead of standing up
+  // a competing instance with its own not-found handler.
+  if (options.mountControllers !== 'external') {
+    await mountPluginControllers(app, pluginModules, logger);
+  } else if (pluginModules.length > 0) {
+    logger.info('plugin controllers collected for external mounting', { modules: pluginModules.length });
+  }
 
   // -- onStart --------------------------------------------------------------
   for (const entry of active) {
@@ -320,38 +364,59 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
     rejected: rejections.length,
   });
 
-  return buildHost({ active, rejected: discovery.rejected, rejections, migrationOutcomes, services, boundary, stateStore });
+  return buildHost({
+    active,
+    rejected: discovery.rejected,
+    rejections,
+    migrationOutcomes,
+    services,
+    boundary,
+    stateStore,
+    modules: pluginModules,
+  });
 }
 
 /**
- * Build one Nest module per plugin and mount them together.
+ * Build one Nest module for a plugin.
  *
  * The `Module()` decorator is side-effecting and returns `undefined`, so the class
  * is kept in a variable - using the decorator's return value yields `undefined` and
  * surfaces much later as an unrelated TypeError inside Nest's scanner (spike R10).
+ *
+ * Returns `null` for a plugin that contributes no controllers and no providers, so
+ * the caller never mounts an empty module.
  */
-async function mountPluginControllers(app: Express, active: ActivePlugin[], logger: Logger): Promise<void> {
-  const pluginModules: Type<unknown>[] = [];
+function buildPluginModule(entry: ActivePlugin): Type<unknown> | null {
+  const controllers = entry.definition.controllers ?? [];
+  const providers = entry.definition.providers ?? [];
+  if (controllers.length === 0 && providers.length === 0) return null;
 
-  for (const entry of active) {
-    const controllers = entry.definition.controllers ?? [];
-    const providers = entry.definition.providers ?? [];
-    if (controllers.length === 0 && providers.length === 0) continue;
+  const ModuleClass = class {};
+  Object.defineProperty(ModuleClass, 'name', { value: `${entry.manifest.slug}_plugin_module` });
+  Module({
+    controllers,
+    providers: [
+      ...providers,
+      // The only channel through which plugin code reaches the kernel.
+      { provide: PLUGIN_CONTEXT, useValue: entry.context },
+      { provide: PLUGIN_MANIFEST, useValue: entry.manifest },
+    ],
+  })(ModuleClass); // side effect only - returns undefined
+  return ModuleClass;
+}
 
-    const ModuleClass = class {};
-    Object.defineProperty(ModuleClass, 'name', { value: `${entry.manifest.slug}_plugin_module` });
-    Module({
-      controllers,
-      providers: [
-        ...providers,
-        // The only channel through which plugin code reaches the kernel.
-        { provide: PLUGIN_CONTEXT, useValue: entry.context },
-        { provide: PLUGIN_MANIFEST, useValue: entry.manifest },
-      ],
-    })(ModuleClass); // side effect only - returns undefined
-    pluginModules.push(ModuleClass);
-  }
-
+/**
+ * Mount the collected plugin modules on a Nest instance this runtime owns.
+ *
+ * Used when the kernel is the composition root (`KERNEL_ENABLED=1`). When the
+ * caller already has a Nest instance, it passes `mountControllers: 'external'` and
+ * imports `host.modules` into that root instead.
+ */
+async function mountPluginControllers(
+  app: Express,
+  pluginModules: Type<unknown>[],
+  logger: Logger,
+): Promise<void> {
   if (pluginModules.length === 0) return;
 
   const RootModule = class {};
@@ -395,10 +460,11 @@ interface BuildHostInput {
   services: ServiceRegistry;
   boundary: PluginBoundary;
   stateStore: PluginStateStore;
+  modules: Type<unknown>[];
 }
 
 function buildHost(input: BuildHostInput): PluginHost {
-  const { active, rejected, rejections, migrationOutcomes, services, boundary, stateStore } = input;
+  const { active, rejected, rejections, migrationOutcomes, services, boundary, stateStore, modules } = input;
 
   return {
     active,
@@ -408,6 +474,7 @@ function buildHost(input: BuildHostInput): PluginHost {
     services,
     boundary,
     stateStore,
+    modules,
 
     health: () => boundary.snapshot(),
 

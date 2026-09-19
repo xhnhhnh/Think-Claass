@@ -2,7 +2,18 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
 
-const dbPath = path.join(process.cwd(), 'database.sqlite');
+/**
+ * The database file this layer opens.
+ *
+ * `DATABASE_FILE` mirrors the kernel's own configuration key, so the two
+ * connections in one process point at the same file. It also lets the boot probes
+ * run against a throwaway database instead of the developer's `database.sqlite`.
+ * Relative paths resolve against the working directory, preserving the historical
+ * default when the variable is unset.
+ */
+const dbPath = process.env.DATABASE_FILE
+  ? path.resolve(process.cwd(), process.env.DATABASE_FILE)
+  : path.join(process.cwd(), 'database.sqlite');
 type DatabaseInstance = InstanceType<typeof Database>;
 
 function configureDb(connection: DatabaseInstance) {

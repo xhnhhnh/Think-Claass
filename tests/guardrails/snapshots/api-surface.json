@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-19T04:39:35.388Z",
-  "count": 288,
+  "generatedAt": "2026-09-19T06:15:06.272Z",
+  "count": 292,
   "endpoints": [
     "DELETE /api/admin/announcements/:id",
     "DELETE /api/admin/users/:id",
@@ -100,6 +100,8 @@
     "GET /api/peer-reviews",
     "GET /api/pet/classes/:classId",
     "GET /api/pet/classes/:classId/leaderboard",
+    "GET /api/pet/health",
+    "GET /api/pet/students/:studentId",
     "GET /api/pet/students/:studentId",
     "GET /api/pet/students/:studentId/classmates",
     "GET /api/pet/students/:studentId/dashboard",
@@ -206,7 +208,9 @@
     "POST /api/payment/notify",
     "POST /api/peer-reviews",
     "POST /api/pet/battles",
+    "POST /api/pet/students/:studentId/action",
     "POST /api/pet/students/:studentId/actions",
+    "POST /api/pet/students/:studentId/adopt",
     "POST /api/pet/students/:studentId/adoptions",
     "POST /api/pets/adopt",
     "POST /api/pets/battle",

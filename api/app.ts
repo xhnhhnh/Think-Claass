@@ -4,7 +4,7 @@
  * Two compositions coexist during the migration:
  *
  *   KERNEL_ENABLED=1  ->  the minimal kernel serves /api/health + /api/kernel/*
- *   otherwise         ->  the legacy Nest composition (14 static modules)
+ *   otherwise         ->  the legacy Nest composition (19 static modules)
  *
  * In BOTH cases a kernel instance is created first, because it owns the
  * infrastructure the legacy app now depends on: configuration, logging, the event
@@ -12,9 +12,15 @@
  * kernel's request-context middleware and its auth routes onto its own express
  * app, which is what turns `x-user-role` / `x-user-id` from trusted assertions into
  * a bridge that `ALLOW_LEGACY_HEADER_AUTH=0` switches off.
+ *
+ * Plugins are also loaded in BOTH compositions (`PLUGINS_ENABLED=1`), which is what
+ * makes the P4.3b domain migration possible: a domain can move out of
+ * `api/modules/**` into `plugins/**` without disappearing from the legacy
+ * composition. See `mountPlugins()` below for how the two mounting paths differ.
  */
 
 import 'reflect-metadata';
+import { Module, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -109,7 +115,29 @@ function mountKernelInfrastructure(server: Express, kernel: Kernel): void {
 }
 
 /**
- * Legacy composition: Nest assembled from 14 statically imported modules, reading
+ * The Nest root for the legacy composition.
+ *
+ * Since P4.3b the legacy composition hosts plugin controllers too: a domain that has
+ * migrated into `plugins/**` must keep serving in *both* compositions, because the
+ * legacy one is the default and the rollback target. The plugin modules are imported
+ * into this same root rather than mounted on a separate Nest instance - a second
+ * instance would install a second catch-all not-found handler, and whichever one
+ * registered first would make the other's routes unreachable.
+ *
+ * `Module()` is side-effecting and returns `undefined`, so the decorated class is
+ * held in a variable (spike R10).
+ */
+function createLegacyRootModule(pluginModules: Type<unknown>[]): Type<unknown> {
+  if (pluginModules.length === 0) return AppModule;
+
+  const Root = class {};
+  Object.defineProperty(Root, 'name', { value: 'thinkclass_legacy_root' });
+  Module({ imports: [AppModule, ...pluginModules] })(Root); // side effect only
+  return Root;
+}
+
+/**
+ * Legacy composition: Nest assembled from statically imported modules, reading
  * the raw better-sqlite3 layer in `api/db.ts`.
  */
 export async function createLegacyApp(kernel: Kernel): Promise<Express> {
@@ -117,8 +145,11 @@ export async function createLegacyApp(kernel: Kernel): Promise<Express> {
   initDb()
 
   const server: Express = express()
+  const pluginModules = pluginHost?.modules ?? [];
+  const rootModule = createLegacyRootModule(pluginModules as Type<unknown>[]);
+
   const nest = await NestFactory.create<NestExpressApplication>(
-    AppModule,
+    rootModule,
     new ExpressAdapter(server),
     {
       bodyParser: false,
@@ -146,15 +177,23 @@ export async function createLegacyApp(kernel: Kernel): Promise<Express> {
 }
 
 /**
- * Plugins are mounted through the kernel's `mountPlugins` hook rather than
- * afterwards, because the hook runs at the correct point in the middleware stack:
- * after the kernel's own routes and before the catch-all handlers.
+ * Mount plugins through the kernel's `mountPlugins` hook, in both compositions.
  *
- * Mounting a Nest app onto an express instance that already has a 404 handler in
- * place makes every plugin route unreachable - which is exactly the bug this
- * replaced, and the reason the hook exists.
+ * The hook runs at the correct point either way:
+ *
+ *   kernel composition - after the kernel's own routes, before its catch-all. The
+ *     runtime creates its own Nest instance here, so `mountControllers` stays at
+ *     its default.
+ *   legacy composition - before `createLegacyApp()` builds its Nest root. The
+ *     runtime must NOT stand up a Nest instance of its own in that case; it collects
+ *     the modules and `createLegacyRootModule()` imports them into the legacy root,
+ *     giving one Nest instance and one not-found handler.
+ *
+ * This is what keeps a migrated domain reachable in the legacy composition, which is
+ * the precondition for moving any domain out of `api/modules/**` at all.
  */
 async function mountPlugins(hooks: KernelRuntimeHooks): Promise<PluginHostView | null> {
+  const legacyComposition = !isKernelEnabled();
   if (!hooks.config.pluginsEnabled) return null;
 
   pluginHost = await createPluginHost({
@@ -162,6 +201,7 @@ async function mountPlugins(hooks: KernelRuntimeHooks): Promise<PluginHostView |
     // Always include the in-repo plugin directory, so `plugins/*` works even when
     // PLUGIN_DIRS points at an external deployment location.
     pluginDirs: [path.join(hooks.config.rootDir, 'plugins')],
+    ...(legacyComposition ? { mountControllers: 'external' as const } : {}),
   });
 
   for (const rejection of pluginHost.rejections) {
@@ -179,12 +219,12 @@ export async function createApp(): Promise<Express> {
 
   const kernelEnabled = isKernelEnabled();
 
-  // One kernel per process, whichever composition is selected. Plugins are only
-  // mounted in the kernel composition: the legacy composition routes every business
-  // request through statically-imported Nest modules.
+  // One kernel per process, whichever composition is selected. The plugin host runs
+  // in both: the legacy composition is the default and the rollback target, so a
+  // domain that has moved into a plugin must keep serving there.
   bootedKernel = await createKernel({
     authProvider: createLegacyAuthProvider(),
-    ...(kernelEnabled ? { mountPlugins } : {}),
+    mountPlugins,
   })
 
   // Audit coverage is data, not a branch chain: the descriptors say which operations

@@ -367,13 +367,20 @@ function parseDecoratorArg(arg) {
 /**
  * Extract the HTTP surface by scanning files for @Controller / @Method decorators.
  * Associate each method decorator with the nearest preceding @Controller.
+ *
+ * `plugins` is scanned alongside `api` because P4.3b moves whole domains out of
+ * `api/modules/**` and into `plugins/**`. Scanning only `api` would make every
+ * migrated endpoint disappear from the snapshot *without any error* - the surface
+ * would look smaller, the check would still pass, and the regression would ship.
+ * That trap is called out in HANDOFF §6; this is the fix.
+ *
  * @param {string} root
  * @returns {Array<{ method: string, path: string, controller: string|null, file: string, line: number }>}
  */
 export function extractApiSurface(root) {
   /** @type {Array<{ method: string, path: string, controller: string|null, file: string, line: number }>} */
   const routes = [];
-  const dirs = ['api'].map((d) => path.join(root, d)).filter((d) => fs.existsSync(d));
+  const dirs = ['api', 'plugins'].map((d) => path.join(root, d)).filter((d) => fs.existsSync(d));
   /** @type {string[]} */
   const files = [];
   for (const d of dirs) files.push(...collectFiles(d, ['.ts']));
@@ -425,6 +432,34 @@ function joinPath(a, b) {
   const right = (b ?? '').replace(/^\/+|\/+$/g, '');
   const joined = [left, right].filter(Boolean).join('/');
   return '/' + joined;
+}
+
+/**
+ * METHOD+PATH pairs registered by more than one controller file.
+ *
+ * The surface snapshot compares *sets*, so a duplicate is invisible there - and
+ * during P4.3b duplicates are exactly what a half-finished migration produces: the
+ * domain still lives in `api/modules/**` while its plugin already serves the same
+ * routes. Only the first registration wins, so the other implementation is dead
+ * code that no test would otherwise notice.
+ *
+ * @param {string} root
+ * @returns {Array<{ key: string, files: string[] }>}
+ */
+export function findRouteCollisions(root) {
+  /** @type {Map<string, Set<string>>} */
+  const byKey = new Map();
+  for (const route of extractApiSurface(root)) {
+    const key = `${route.method} ${route.path}`;
+    const files = byKey.get(key) ?? new Set();
+    files.add(route.file);
+    byKey.set(key, files);
+  }
+
+  return [...byKey.entries()]
+    .filter(([, files]) => files.size > 1)
+    .map(([key, files]) => ({ key, files: [...files].sort() }))
+    .sort((a, b) => a.key.localeCompare(b.key));
 }
 
 // ---------------------------------------------------------------------------

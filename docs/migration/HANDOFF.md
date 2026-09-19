@@ -1,11 +1,11 @@
 # 交接文档 · ThinkClass「最小 Core + 无限 Plugins」重构
 
 > **用途**：在**新对话**中接续本重构。本文档是唯一权威入口。
-> **生成时间**：第 6 轮结束时
+> **生成时间**：第 6 轮结束时（P4.3b.0 已按 §11 的规矩复核并修正）
 > **工作区**：`D:\think-class`
 > **分支**：`refactor/plugin-kernel`
-> **HEAD**：以 `git log --oneline -1` 为准。撰写本文档时为 `d69098e`（即本文档所在的提交）；
-> 之后每完成一步都会再往后走，**下面的 HEAD 数字一定会变旧 —— 这本身就是不要盲信本文档的理由之一**。
+> **HEAD**：以 `git log --oneline -1` 为准。撰写时为 `d69098e`；P4.3b.0 开工时核实到实际 HEAD 是 `eab37e4`
+> （**本文档 §7 当时写的 `b2a8f7b` 已经落后两个提交** —— 这正是不要盲信本文档的理由之一，见 §0 反面教材）。
 > **目标**：把现有前端、后端、数据库与整体架构重构为真正的 `Core → Plugin Runtime → Plugin API/SDK → Plugins`
 
 ---
@@ -85,10 +85,10 @@ npm test                      # 核对我声称的 114 文件 / 437 用例
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 8 条防伪护栏（棘轮）
+npm run guard         # 9 组防伪护栏（棘轮，30 用例）
 npm run check         # tsc --noEmit
 npm run measure       # 基线度量（死代码/重复/schema 漂移）
-npm run api:surface -- --check     # 288 端点必须零漂移
+npm run api:surface -- --check     # 292 条端点必须零漂移（含 plugins/**）
 npm run spike:nest    # R10 技术验证（8/8）
 ```
 
@@ -105,6 +105,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.1 | 能力系统（替换 19 个 `enable_*` 列） | `a455753` | ✅ |
 | P4.2 | 审计下沉（描述符注册表 + 内核 sink） | `5891754` | ✅ |
 | P4.3a | 拆 `game` 上帝模块为六个域模块 | `b2a8f7b` | ✅ |
+| P4.3b.0 | **结构前置**：legacy 组装也能挂载插件 + 扫描/护栏补盲区 | 见 `git log` | ✅ |
 | **P4.3b** | **把六个域（及其余域）真正迁成插件** | — | ⬜ **下一步** |
 | P4.3c | `api/db.ts` 78 条启动期 DDL → 编号迁移 | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
@@ -167,35 +168,42 @@ plugins/pet             功能插件参考实现，自有迁移、控制器、�
 | `staticPluginRoutes` | 76 | 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **1**（原 2）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
 | `adoptedTables` | 2 | 0 | 仍带旧名的插件自有表 |
+| `routeCollisions` | **1 → 0**（P4.3b R1 新增）| 0 | 同一 METHOD+PATH 被两个控制器文件声明 |
 
-其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 288 端点快照、G9 system settings 双份一致、G10 adopted 表。
+其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**。
 
-**注意**：G8 快照目前只扫 `api/**`。域迁入 `plugins/**` 后，`extractApiSurface` 必须也扫 `plugins/**`，否则端点会从快照里"消失"而不报错。
+### ⚠️ 快照的两个盲区（P4.3b R1 已修，务必知道）
+
+`api:surface` 原本只扫 `api/**`。域一旦迁进 `plugins/**`，端点会从快照里"消失"而不报错（§7 的陷阱）。现在 `extractApiSurface` 同时扫 `api` 与 `plugins`，扫完立刻就"凭空"多出 4 条 `plugins/pet` 的端点 —— **这说明原来的 288 是在漏扫，不是真实的 288**。修正后快照为 **292**。
+
+第二个盲区更隐蔽：快照比较的是 **METHOD+PATH 的集合**，所以"两个控制器声明同一条路由"完全不可见 —— 而半成品迁移产生的正是这个状态（模块还在 `api/`，插件已经在服务同样的路径），只有先注册的那个可达，另一个是没有任何测试会发现的死代码。新增 **G11** 棘轮（`routeCollisions`，当前 1）专治此症；当前那 1 条就是 `plugins/pet` 与 `api/modules/pet` 同时声明了 `GET /api/pet/students/:studentId`。
+
+**注意**：G8 快照目前只扫 `api/**` —— 该句已过时，扫描范围已扩到 `plugins/**`。
 
 ---
 
 ## 7. 当前验证状态
 
-**下面是撰写时（HEAD 为 `b2a8f7b`，即 `game` 拆分那一提交）跑出来的数字。**
+**下面是 P4.3b R1 完成时（HEAD 为 `eab37e4` + 本提交）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        114 文件 / 437 用例全绿
-                app 235 · backend 175 · guardrails 27
+npm test        115 文件 / 441 用例全绿
 npm run check   exit 0
-api:surface     unchanged (288 endpoints)
-guardrails      8 文件 / 27 用例
+api:surface     unchanged (292 endpoints)
+guardrails      8 文件 / 30 用例
 ```
 
-**验收基线（这几个数字在 P4.3b 期间不应该变）**：
+**验收基线（P4.3b 期间这几个数字的含义）**：
 
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
-| `api:surface` 端点数 | **288** | 域迁入 `plugins/**` 后，若 `extractApiSurface` 未扩展扫描范围，端点数会**假性减少** —— 这是陷阱，不是进展 |
+| `api:surface` 端点数 | **292** | 迁移期间**不应变化**。域迁入 `plugins/**` 后若数字变小，是扫描范围漏了插件（陷阱）；变大则说明多出了端点 |
 | `deadCode` | 70 | 迁移中会**上升**（新旧代码并存），需要每域完成后删除旧实现 |
 | `shimPages` | 62 | P5 之前不应变化 |
 | `legacyFeatureKeySurfaces` | 1 | 迁 `classroom` 端点时应降到 0 |
 | `adoptedTables` | 2 | 迁更多域时会**上升**（更多旧表被插件接管），这是预期的；迁移完成后才归零 |
+| `routeCollisions` | 1 | **迁移中每迁完一个域必须回落到 0**；不降反升说明旧模块没删干净 |
 
 ---
 
@@ -208,7 +216,7 @@ P4.3a 只是把 741 行的 `game.controllers.ts` 拆成六个域模块 —— **
 
 ### 8.2 迁一个域需要做的四件事
 
-以 `economy` 为例（建议先做它：表少、无跨域写）：
+以 `economy` 为例（**下一个要做的**：表少、无跨域写）：
 
 1. **建 `plugins/economy/plugin.json`**
    - `tier: "feature"`，`required: false`，`isolation: "restricted"`
@@ -227,45 +235,95 @@ P4.3a 只是把 741 行的 `game.controllers.ts` 拆成六个域模块 —— **
 
 3. **功能开关改走端口**（当前是**唯一的真实阻塞点**）
    现在：`assertClassFeatureEnabled(classId, 'enable_economy')` —— 来自 `api/utils/classFeatures.ts`，插件不能 import `api/`。
-   建议方案（尚未实施，请先设计再动手）：
-   - 给 `ClassroomPort` 增加 `assertClassFeatureEnabled(classId, feature)` / `assertStudentFeatureEnabled(studentId, feature)` / `getClassFeatures(classId)`
-   - **但**：`classroom` 插件的端口在 **legacy 组装下不会运行**（插件只在 kernel 组装下挂载），而 legacy 是默认且回滚目标 → 必须先解决"legacy 也挂载插件"
-   - 另一条更小的路：给 `PermissionEngine` 加 `fallback(scopeType, scopeId, key)` 钩子，由 `api/` 注册"读 `classes.enable_*` 列"的回退（内核保持零业务知识），插件只调用 `ctx.permissions.can(...)`
+
+   **R2 必须一并解决**，方案（尚未实施，请先设计再动手）：
+   给 `ClassroomPort` 增加 `assertClassFeatureEnabled(classId, feature)` / `assertStudentFeatureEnabled(studentId, feature)` / `getClassFeatures(classId)`，由 `plugins/classroom` 端口实现，内部继续走"能力指派优先、回落 `classes.enable_*` 列"的既有语义。
+   **前提已经具备**：8.3 已让 legacy 组装也挂载插件，所以 `classroom.public` 在两种组装下都可用 —— 这正是原来卡住这一步的原因。
+
+   另一条更小的路（备选）：给 `PermissionEngine` 加 `fallback(scopeType, scopeId, key)` 钩子，由 `api/` 注册"读 `classes.enable_*` 列"的回退（内核保持零业务知识），插件只调用 `ctx.permissions.can(...)`。
+   **注意**：`ctx.permissions.can()` 需要 `Actor`（含 classId），而 economy 的入口只有 `studentId`，所以仍需要一个 studentId→classId 的解析路径（也在 `classroom.public` 上）。
 
 4. **`api/modules/<domain>/` 整个删除，`app.module.ts` 移除该模块**
-   **但**：端点必须仍然存在 → 见 8.3
+   端点必须仍然存在 → 8.3 已解决；删完后 `routeCollisions` 必须回到 0。
 
-### 8.3 必须一起解决的结构问题：legacy 组装也要挂载插件
+### 8.2.1 economy 的额外发现（读代码得到，不是猜测）
 
-现在 `createLegacyApp()` 只挂内核基础设施，不运行插件宿主。域一旦迁成插件，legacy 模式下这些端点就消失了（288 端点快照会失败）。
+`EconomyService` 除了功能开关，**还直接读写 `students` 表**（`getStudentOrThrow`、`available_points` 扣减、以及 repository 里的 `updateStudentAvailablePoints`），
+而 `students` 表归 `classroom` 所有（`plugins/classroom/plugin.json` 的 `data.adopted`）。
+所以 economy 迁移里 `classroom.public` 至少要提供：
 
-**难点**：插件宿主会创建**自己的 Nest 实例**并 `nest.init()`，而 Nest 的 not-found 是 catch-all `use` —— 先注册会遮蔽 legacy 路由，后注册则插件路由被 legacy 的 not-found 遮蔽。
+- `getStudentById`（已有）
+- 学生→班级解析（新增；`api/utils/classFeatures.ts` 的 `getClassIdByStudentId` 已有等价逻辑）
+- 功能开关断言（新增，见第 3 点）
+- **积分读写**：`adjustPoints` 已存在，但 economy 需要"读取 `available_points`"与"在同一个事务里扣减且校验余额" —— 现有端口不够，需要扩。
 
-**推荐方案**：让插件宿主支持 `mountControllers: false`，改为把插件模块合并进**同一个** Nest 根模块：
+**不要**为了省事把 `students` 加进 economy 的 `data.reads` 后直接读表：那会让两个插件同时写同一列，`classroom` 的所有权声明就失去意义（G1/G10 的设计意图）。
+
+
+### 8.3 必须一起解决的结构问题：legacy 组装也要挂载插件 —— ✅ P4.3b.0 已解决
+
+**问题**：`createLegacyApp()` 原来只挂内核基础设施、不跑插件宿主。域一旦迁成插件，legacy 模式下这些端点就消失了（端点快照会失败）。而 legacy 是默认且回滚目标，所以不解决它就无法迁任何域。
+
+**实际采用的方案**（与本文档早先的推荐方案略有出入，以代码为准）：
+
+1. `createPluginHost()` 新增 `mountControllers: 'host' | 'external'`（默认 `'host'`）。
+2. 原来内联在 `mountPluginControllers()` 里的模块构造拆成 `buildPluginModule()`（每个插件一个模块），宿主把结果放进 `host.modules`。
+3. `api/app.ts` 的 `mountPlugins()` 现在**两种组装都会跑**；legacy 时传 `mountControllers: 'external'`，宿主只收集不挂载。
+4. `createLegacyRootModule()` 把 `AppModule` 与 `host.modules` 一起塞进**同一个** Nest 根模块：
 
 ```ts
 const Root = class {};
-Module({ imports: [AppModule, ...pluginModules] })(Root);   // 注意：副作用式，返回 undefined
-NestFactory.create(Root, new ExpressAdapter(server), { abortOnError: false })
+Module({ imports: [AppModule, ...pluginModules] })(Root);   // Module() 副作用式，返回 undefined
+NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortOnError: false })
 ```
 
-这样全进程只有一个 Nest 实例、一个 not-found、顺序天然正确。
-`packages/plugin-runtime/src/host.ts` 的 `mountPluginControllers()` 需要拆成"收集"与"挂载"两半。
+全进程只有一个 Nest 实例、一个 not-found、顺序天然正确。
+
+**为什么不是"宿主自己挂到 express 上"**：宿主自建 Nest 实例会再装一个 catch-all not-found，先注册的那个会把另一个的路由全部遮蔽 —— 这正是原来的设计在 legacy 下不可用的原因。
+
+**验证方式**（`tests/plugins/legacy-boot-probe.test.ts`）：真的起一个子进程跑 `PLUGINS_ENABLED=1`（不开 `KERNEL_ENABLED`）的 `api/server.ts`，然后打真实 HTTP：
+
+- `/api/kernel/plugins` → 200，列出 `classroom` + `pet`
+- `/api/pet/health` → 200（**该路由只存在于插件**，不在 `api/modules/pet`）
+- `/api/economy/classes/1/stocks` → 403「该功能当前已关闭」（未迁移模块的业务应答，不是 404）
+- `/api/pet/students/999/dashboard` → 404 `Student not found`，而 `/api/pet/nope-not-a-route` → 404 `Cannot GET` —— **同为 404 但 body 不同**，这一条才真正能测出"路由被遮蔽"
+
+`DATABASE_FILE` 已同时被内核配置与 `api/db.ts` 尊重，探针用临时库，不碰开发者的 `database.sqlite`。
+
+### 8.3.1 立刻要还的债（别忘）
+
+- **`plugins/pet` 与 `api/modules/pet` 路由碰撞**（G11 当前那 1 条）。两者都声明 `GET /api/pet/students/:studentId`，只有先注册的可达。
+  **但 pet 插件目前不是等价替换**：插件只有 4 个端点，`api/modules/pet` 有 19 个（`/api/pets/**` 9 个 + `/api/pet/**` 10 个），且 `plugins/pet` 的表是 `p_pet_pets`（新命名），旧模块读的是旧 `pets` 表。
+  所以**不能**用"删掉旧模块"来解决。正确顺序：先把 `api/modules/pet` 的 19 个端点按原语义补进 `plugins/pet`（含响应形状），再删旧模块，棘轮降到 0。
+- 在 `plugins/pet` 补完之前，**不要**在 legacy 组装下开启插件后跑端到端前端流程 —— 那条碰撞路径上只有先注册者生效。
 
 ### 8.4 迁移顺序建议
 
-1. `economy`（试点，验证 8.3 的方案）→ 跑通后再批量
+1. `economy`（试点；8.3 的结构前置已完成，剩下的是端口扩展）→ 跑通后再批量
 2. `dungeon`、`gacha`、`slg`、`battles`、`challenge`
 3. `learning`（最大，28 张表）、`marketplace`、`engagement`、`collaboration`、`insights`、`portal`、`platform`
 4. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
-5. `auth` → `identity` 基础插件；`settings`/`system` → 内核
+5. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
+6. `auth` → `identity` 基础插件；`settings`/`system` → 内核
 
 ### 8.5 每个域完成后必须验证
 
 ```bash
 npm run check && npm test && npm run api:surface -- --check && npm run guard
 ```
-外加**真实启动探测**：`KERNEL_ENABLED=1 PLUGINS_ENABLED=1 npx tsx api/server.ts`，确认该域路由 200/403（不是 404），且 `/api/kernel/plugins` 列出它。
+
+外加**真实启动探测**：两种组装各起一次，确认该域路由 200/403（**不是 404**）：
+
+```bash
+# kernel 组装
+KERNEL_ENABLED=1 PLUGINS_ENABLED=1 npx tsx api/server.ts
+# legacy 组装（默认，同样是回滚目标）
+PLUGINS_ENABLED=1 npx tsx api/server.ts
+```
+
+两者都要能看到 `/api/kernel/plugins` 列出该域。`tests/plugins/legacy-boot-probe.test.ts` 已经把 legacy 这一半自动化了，照着加断言即可。
+
+**并且**：删完旧模块后确认 `routeCollisions` 回到 0（G11）。若没回到 0，说明旧模块没删干净 —— 那条路由只有先注册者可达。
 
 ---
 
@@ -304,7 +362,7 @@ npm run check && npm test && npm run api:surface -- --check && npm run guard
 | 1 | `getActiveKernel()` 是**服务定位器**（因 `AuthService` 由静态 Nest 工厂实例化，无构造器接缝）。identity 插件应消掉它 |
 | 2 | `api/modules/auth/legacyAuthProvider.ts` 是临时 `AuthProvider` 实现，P4 后由 `identity` 插件取代 |
 | 3 | 只有调用 `requireActorRole` 的路由受保护；多数路由直接读 `actor.id`。系统性授权随插件权限声明落地 |
-| 4 | G8 端点快照只扫 `api/**`，域迁入 `plugins/**` 后必须扩展扫描范围 |
+| 4 | ~~G8 端点快照只扫 `api/**`~~ → **P4.3b.0 已修**：扫描范围已含 `plugins/**`；快照从 288 更正为 292（原数字是漏扫） |
 | 5 | kernel 模式下未匹配的 `/api` 路径由 Nest 的 not-found 应答，不是内核信封 |
 | 6 | `system_settings` 默认值在前后端各一份（G9 强制一致），P4/P5 应合为插件声明 |
 | 7 | `DEFAULT_SYSTEM_SETTINGS` 是 G9 保护的"受控重复"，不是疏忽 |

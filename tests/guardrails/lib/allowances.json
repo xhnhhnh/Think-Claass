@@ -11,5 +11,7 @@
   "_legacyFeatureKeySurfaces_note": "Files that still hardcode the 19 legacy class feature keys. P4 part 1 removed the backend copy by deriving the names from the class row and moving the catalogue into the classroom plugin manifest; the frontend copy goes in P5.",
   "legacyFeatureKeySurfaces": 1,
   "_adoptedTables_note": "P3: plugins that own a table still carrying its legacy name (see PluginDataDeclaration.adopted). Counted down as the namespace migration proceeds.",
-  "adoptedTables": 2
+  "adoptedTables": 2,
+  "_routeCollisions_note": "METHOD+PATH pairs served by more than one controller file. Invisible to the surface snapshot because it compares sets. P4.3b turned one up: plugins/pet and api/modules/pet both answer GET /api/pet/students/:studentId, so only the first registration is reachable. Each domain migration removes its own entry; target 0.",
+  "routeCollisions": 1
 }
