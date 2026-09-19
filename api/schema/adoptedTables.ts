@@ -41,6 +41,8 @@ export const ADOPTED_TABLE_NAMES = {
   slg: ['territories', 'class_resources'],
   battles: ['class_battles'],
   challenge: ['challenge_records', 'world_bosses'],
+  collaboration: ['task_nodes', 'student_task_nodes', 'team_quests', 'team_quest_progress', 'peer_reviews'],
+  marketplace: ['auctions', 'blind_boxes', 'shop_items', 'redemption_tickets'],
 } as const;
 
 /**
@@ -59,10 +61,23 @@ export const ADOPTED_TABLE_NAMES = {
  * adopting would grant write ownership of another domain's table - the opposite of the
  * problem being solved.
  */
-const READ_ONLY_LEGACY_TABLES = ['question_bank', 'pets'] as const;
+const READ_ONLY_LEGACY_TABLES = ['question_bank', 'pets', 'users'] as const;
 
 export function ensureReadOnlyLegacyTables(db: Database): void {
   db.exec(`
+    -- Credentials live here. Plugins only ever read role / username to resolve a
+    -- teacher or parent; the kernel owns authentication, so nothing else may depend on
+    -- this table's shape. It is created here because the kernel composition never runs
+    -- the api/db.ts boot DDL, and a plugin that reads it would otherwise fail at
+    -- request time with "no such table".
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      role TEXT NOT NULL,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      is_activated INTEGER DEFAULT 0
+    );
+
     -- Read by challenge (question content) and written by the not-yet-migrated system surface.
     CREATE TABLE IF NOT EXISTS question_bank (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,9 +166,17 @@ export function ensureAdoptedSchema(db: Database): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
       class_id INTEGER,
+      -- group_id is read by collaboration to group team-quest progress, and
+      -- birthday / last_checkin_date are read by insights. All three arrive in
+      -- api/db.ts through addColumnIfNotExists, so they must be in this definition:
+      -- this is the only creator on the kernel-composition path, and a missing column
+      -- here is a silent wrong answer rather than an error.
+      group_id INTEGER,
       name TEXT NOT NULL,
       total_points INTEGER DEFAULT 0,
-      available_points INTEGER DEFAULT 0
+      available_points INTEGER DEFAULT 0,
+      last_checkin_date TEXT,
+      birthday TEXT
     );
 
     -- classroom: the shared point ledger.
@@ -302,6 +325,125 @@ export function ensureAdoptedSchema(db: Database): void {
       status TEXT DEFAULT 'active',
       start_time DATETIME,
       end_time DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- P4.3b.3: collaboration's own tables. peer_reviews.team_quest_id arrives in
+    -- api/db.ts through addColumnIfNotExists, so it belongs in the CREATE here.
+    -- NOTE for whoever edits this file next: SQL comments here must not contain
+    -- backticks - this whole block is a template literal, and one backtick silently
+    -- ends it. tsc catches it, but only after a confusing parse error.
+    CREATE TABLE IF NOT EXISTS student_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      class_id INTEGER REFERENCES classes(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS task_nodes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      class_id INTEGER REFERENCES classes(id),
+      title TEXT NOT NULL,
+      description TEXT,
+      points_reward INTEGER NOT NULL DEFAULT 0,
+      parent_node_id INTEGER REFERENCES task_nodes(id),
+      x_pos INTEGER DEFAULT 0,
+      y_pos INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS student_task_nodes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER REFERENCES students(id),
+      task_node_id INTEGER REFERENCES task_nodes(id),
+      status TEXT DEFAULT 'locked',
+      completed_at DATETIME,
+      UNIQUE(student_id, task_node_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS team_quests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      class_id INTEGER REFERENCES classes(id),
+      teacher_id INTEGER,
+      title TEXT NOT NULL,
+      description TEXT,
+      target_score INTEGER NOT NULL,
+      reward_points INTEGER NOT NULL,
+      start_date DATETIME,
+      end_date DATETIME,
+      status TEXT DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS team_quest_progress (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quest_id INTEGER REFERENCES team_quests(id),
+      student_id INTEGER REFERENCES students(id),
+      contribution_score INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS peer_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reviewer_id INTEGER REFERENCES students(id),
+      reviewee_id INTEGER REFERENCES students(id),
+      assignment_id INTEGER,
+      score INTEGER,
+      comment TEXT,
+      team_quest_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- P4.3b.3: marketplace. shop_items and redemption_tickets are shared with
+    -- engagement, which is migrated in the same batch; see SHARED_WRITE_TABLES in the
+    -- manifest-conformance guardrail for how that overlap is tracked.
+    CREATE TABLE IF NOT EXISTS shop_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      price INTEGER NOT NULL,
+      stock INTEGER DEFAULT 999,
+      is_active INTEGER DEFAULT 1,
+      teacher_id INTEGER,
+      is_holiday_limited INTEGER DEFAULT 0,
+      holiday_start_time TEXT,
+      holiday_end_time TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS redemption_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER REFERENCES students(id),
+      item_id INTEGER REFERENCES shop_items(id),
+      code TEXT UNIQUE NOT NULL,
+      status TEXT DEFAULT 'pending',
+      used_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_redemption_tickets_student_id ON redemption_tickets(student_id);
+    CREATE INDEX IF NOT EXISTS idx_shop_items_teacher_id ON shop_items(teacher_id);
+
+    CREATE TABLE IF NOT EXISTS auctions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_name TEXT NOT NULL,
+      item_description TEXT,
+      starting_price INTEGER NOT NULL,
+      current_price INTEGER,
+      highest_bidder_id INTEGER REFERENCES students(id),
+      seller_id INTEGER,
+      status TEXT DEFAULT 'active',
+      end_time DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS blind_boxes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      price INTEGER NOT NULL,
+      reward_type TEXT,
+      reward_value INTEGER,
+      probability INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);

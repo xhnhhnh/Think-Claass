@@ -23,6 +23,7 @@ interface StudentRow {
   id: number;
   user_id: number | null;
   class_id: number;
+  group_id?: number | null;
   name: string;
   total_points: number | null;
   available_points: number | null;
@@ -52,14 +53,18 @@ const LEGACY_FEATURE_PREFIX = 'enable_';
 /** Plugin that owns class-scope capabilities; must match the manifest id. */
 const CAPABILITY_OWNER = 'classroom';
 
-function toStudentSnapshot(row: StudentRow): StudentSnapshot {
+function toStudentSnapshot(row: StudentRow, decryptName: (value: string) => string): StudentSnapshot {
   return {
     id: row.id,
     classId: row.class_id,
     userId: row.user_id ?? null,
-    name: row.name,
+    // Names are AES-encrypted at rest for modern rows and plaintext for very old ones
+    // (api/services/studentService.ts). The host supplies the decryptor, so a plugin
+    // never has to reach for `api/**` or re-implement a security-sensitive helper.
+    name: decryptName(row.name),
     totalPoints: row.total_points ?? 0,
     availablePoints: row.available_points ?? 0,
+    groupId: row.group_id ?? null,
   };
 }
 
@@ -72,8 +77,21 @@ function toClassSnapshot(row: ClassRow): ClassSnapshot {
   };
 }
 
-export function createClassroomPort(ctx: KernelContext): ClassroomPort {
+/**
+ * Build the classroom port.
+ *
+ * `decryptName` is injected rather than imported: student names are AES-encrypted at
+ * rest (`api/services/studentService.ts`), and the plugin must not reach into `api/**`
+ * for the key or re-implement the cipher. The host passes its decryptor; the default is
+ * the identity function, which is correct for a database whose rows were never
+ * encrypted (the in-memory test databases).
+ */
+export function createClassroomPort(
+  ctx: KernelContext,
+  options: { decryptName?: (value: string) => string } = {},
+): ClassroomPort {
   const db = ctx.db;
+  const decryptName = options.decryptName ?? ((value: string) => value);
 
   function requireStudent(studentId: number): StudentRow {
     const row = db.get<StudentRow>(`SELECT * FROM students WHERE id = ?`, [studentId]);
@@ -100,9 +118,20 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
   }
 
   return {
+    async checkAnyClassFeature(classId, features) {
+      const row = db.get<{ id: number }>(`SELECT id FROM classes WHERE id = ?`, [classId]);
+      if (!row) {
+        return { refusal: { code: 'class-not-found', message: '班级未找到' } };
+      }
+      if (!features.some((feature) => isFeatureEnabled(classId, feature))) {
+        return { refusal: { code: 'feature-disabled', message: '该功能当前已关闭' } };
+      }
+      return { value: true };
+    },
+
     async getStudentById(studentId) {
       const row = db.get<StudentRow>(`SELECT * FROM students WHERE id = ?`, [studentId]);
-      return row ? toStudentSnapshot(row) : null;
+      return row ? toStudentSnapshot(row, decryptName) : null;
     },
 
     async getStudentByUserId(userId) {
@@ -110,7 +139,7 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
       // (`getClassIdByUserId`) took the first match, and ordering by id keeps that
       // deterministic instead of leaving it to the query planner.
       const row = db.get<StudentRow>(`SELECT * FROM students WHERE user_id = ? ORDER BY id LIMIT 1`, [userId]);
-      return row ? toStudentSnapshot(row) : null;
+      return row ? toStudentSnapshot(row, decryptName) : null;
     },
 
     async getClassById(classId) {
@@ -120,7 +149,7 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
 
     async listClassStudents(classId) {
       const rows = db.query<StudentRow>(`SELECT * FROM students WHERE class_id = ? ORDER BY id`, [classId]);
-      return rows.map(toStudentSnapshot);
+      return rows.map((row) => toStudentSnapshot(row, decryptName));
     },
 
     async searchClasses(query, excludeClassId, limit = -1) {
@@ -285,7 +314,13 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
 
 export default definePlugin({
   async setup(ctx) {
-    ctx.provide('classroom.public', createClassroomPort(ctx));
-    ctx.log.info('classroom port published', { service: 'classroom.public' });
+    // The host injects the decryptor through config (see `KernelConfig.decryptName`);
+    // absent means identity, which is right for an unencrypted or test database.
+    const decryptName = ctx.config.decryptName;
+    ctx.provide('classroom.public', createClassroomPort(ctx, decryptName ? { decryptName } : {}));
+    ctx.log.info('classroom port published', {
+      service: 'classroom.public',
+      decryptedNames: Boolean(decryptName),
+    });
   },
 });

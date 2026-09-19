@@ -64,6 +64,12 @@ export interface ConfigApi {
   /** Read-only view of the kernel configuration a plugin may see. */
   readonly env: string;
   readonly rootDir: string;
+  /**
+   * Reverses at-rest encryption for application-encrypted values, when the host
+   * provides one. `undefined` means the database stores plaintext (or the caller does
+   * not need decryption).
+   */
+  readonly decryptName?: (value: string) => string;
 }
 
 export interface EventsApi {

@@ -1,0 +1,55 @@
+{
+  "id": "collaboration",
+  "name": "协作与团队任务",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Task tree (技能树), team quests and peer reviews. Migrated out of api/modules/collaboration in P4.3b.3, following the economy template. Adopts five pre-existing tables under their legacy names and reads a sixth (student_groups, owned by the not-yet-migrated classroom group surface); reaches students, the enable_task_tree feature flag and the shared point ledger exclusively through classroom.public.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/task-tree", "handler": "TaskTreeController.listTeacherNodes", "auth": "actor" },
+      { "method": "POST", "base": "/api/task-tree", "handler": "TaskTreeController.createTeacherNode", "auth": "actor" },
+      { "method": "PUT", "base": "/api/task-tree", "handler": "TaskTreeController.updateTeacherNode", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/task-tree", "handler": "TaskTreeController.deleteTeacherNode", "auth": "actor" },
+      { "method": "GET", "base": "/api/task-tree", "handler": "TaskTreeController.getStudentTree", "auth": "actor" },
+      { "method": "POST", "base": "/api/task-tree", "handler": "TaskTreeController.completeStudentNode", "auth": "actor" },
+      { "method": "GET", "base": "/api/team-quests", "handler": "TeamQuestsController.listTeamQuests", "auth": "actor" },
+      { "method": "POST", "base": "/api/team-quests", "handler": "TeamQuestsController.createTeamQuest", "auth": "actor" },
+      { "method": "PUT", "base": "/api/team-quests", "handler": "TeamQuestsController.updateTeamQuest", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/team-quests", "handler": "TeamQuestsController.deleteTeamQuest", "auth": "actor" },
+      { "method": "GET", "base": "/api/team-quests", "handler": "TeamQuestsController.listGroupProgress", "auth": "actor" },
+      { "method": "GET", "base": "/api/team-quests", "handler": "TeamQuestsController.getStudentCurrentQuest", "auth": "actor" },
+      { "method": "GET", "base": "/api/team-quests", "handler": "TeamQuestsController.listTeamQuestProgress", "auth": "actor" },
+      { "method": "POST", "base": "/api/team-quests", "handler": "TeamQuestsController.addTeamQuestProgress", "auth": "actor" },
+      { "method": "GET", "base": "/api/peer-reviews", "handler": "PeerReviewsController.listPeerReviews", "auth": "actor" },
+      { "method": "POST", "base": "/api/peer-reviews", "handler": "PeerReviewsController.createPeerReview", "auth": "actor" }
+    ],
+    "_routes_note": "The three bases are the legacy ones (/api/task-tree, /api/team-quests, /api/peer-reviews) and are deliberately NOT namespaced under /api/collaboration: the deployed frontend calls them, and the endpoint snapshot counts METHOD+PATH. The manifest validator reports one 'not namespaced' warning per route; that is expected and is why this note exists. Renaming them is a coordinated frontend change, not a relocation.",
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": [
+      "peer_reviews",
+      "task_nodes",
+      "student_task_nodes",
+      "team_quests",
+      "team_quest_progress"
+    ],
+    "_adopted_note": "All five carry their legacy names because a plugin migration may only create p_collaboration_ tables, and because `SELECT *` rows for task_nodes/team_quests/peer_reviews go straight through to the frontend. Renaming is the coordinated P7 namespace migration tracked by guardrail G10.",
+    "reads": ["student_groups"],
+    "_reads_note": "SHARED-TABLE DEBT, reported rather than hidden. collaboration only READS student_groups - one `LEFT JOIN student_groups g ON g.id = s.group_id` in listGroupProgress (api/modules/collaboration/collaboration.service.ts:268) - while api/modules/classroom/classroom.service.ts is the writer (:688 SELECT, :695 INSERT, :239/:634/:708 aggregates) and api/modules/admin/admin.repository.ts deletes from it (:535). It is therefore NOT adopted: adopting would hand this plugin write ownership of a classroom table, and classroom's group surface would have to adopt the same table when it migrates, which G10 forbids. The correct end state is a classroom.public groups accessor (or student_groups moving into the classroom plugin) plus collaboration reading group names through it; until then this declaration grants exactly the read access the domain needs and nothing more.",
+    "_schema_note": "HOST GAP - RESOLVED by the Lead. api/schema/adoptedTables.ts now creates this plugin's adopted tables (and the student_groups read target, plus students.group_id/last_checkin_date/birthday and peer_reviews.team_quest_id) with DDL byte-compatible with api/db.ts:202-207, 403-422, 613-643 and the addColumnIfNotExists calls at :1015/:1093/:1096/:1099. Before that landed, a fresh kernel-composition database had none of these tables and every route here answered 500 'no such table'; the legacy composition was unaffected because initDb() replays the full boot DDL."
+  }
+}

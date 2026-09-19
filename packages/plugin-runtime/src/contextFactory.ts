@@ -109,6 +109,9 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
       },
       env: deps.config.env,
       rootDir: deps.config.rootDir,
+      // Re-exported so a foundation plugin can publish readable values without
+      // importing application code. See `KernelConfig.decryptName`.
+      ...(deps.config.decryptName ? { decryptName: deps.config.decryptName } : {}),
     },
 
     events: {

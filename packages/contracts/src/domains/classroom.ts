@@ -153,6 +153,14 @@ export interface StudentSnapshot {
   name: string;
   totalPoints: number;
   availablePoints: number;
+  /**
+   * The student's group within the class, or `null` when ungrouped.
+   *
+   * Added in P4.3b.3 because collaboration groups team-quest progress by it. It is
+   * part of the same `students` row classroom already owns, so exposing it here is
+   * cheaper and more honest than a second lookup path.
+   */
+  groupId: number | null;
 }
 
 /** The subset of a class another plugin is allowed to depend on. */
@@ -327,4 +335,15 @@ export interface ClassroomPort {
    * would be both wrong and a query per request.
    */
   checkClassFeature(classId: number, feature: string): Promise<ClassroomResult<true>>;
+
+  /**
+   * Check a set of flags and pass if **any** one is on.
+   *
+   * The pre-migration helper had a "any of" variant (`assertAnyClassFeatureEnabled`)
+   * because an interaction wall can be served by more than one feature: the tree-hole
+   * surface is enabled by either `enable_tree_hole` or `enable_chat_bubble`, and
+   * requiring both would have been wrong. Returning `true` rather than the feature that
+   * matched keeps the caller from branching on which flag opened the door.
+   */
+  checkAnyClassFeature(classId: number, features: string[]): Promise<ClassroomResult<true>>;
 }

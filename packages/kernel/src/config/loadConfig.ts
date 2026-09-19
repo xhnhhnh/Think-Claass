@@ -37,6 +37,20 @@ export interface KernelConfig {
   pluginsEnabled: boolean;
   /** Directories scanned for plugins, in precedence order. */
   pluginDirs: string[];
+  /**
+   * Reverses at-rest encryption for values the application stores encrypted.
+   *
+   * Student names are AES-encrypted in the database (`api/services/studentService.ts`),
+   * and the key lives with the application, not in the kernel. The host injects the
+   * decryptor here so a foundation plugin can publish *readable* values through its
+   * port without importing `api/**` or re-implementing a security-sensitive helper.
+   *
+   * A function in config is unusual, and it is the narrowest seam available: the
+   * alternative was per-plugin host services, which the runtime has no plumbing for.
+   * It is optional, and its absence means identity - correct for a database whose rows
+   * were never encrypted, and for tests.
+   */
+  decryptName?: (value: string) => string;
 }
 
 const DEFAULTS = {

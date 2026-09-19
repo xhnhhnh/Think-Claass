@@ -107,8 +107,10 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3a | 拆 `game` 上帝模块为六个域模块 | `b2a8f7b` | ✅ |
 | P4.3b.0 | **结构前置**：legacy 组装也能挂载插件 + 扫描/护栏补盲区 | `bd613f8` | ✅ |
 | P4.3b.1 | **`economy` 迁成插件**（首个域，模板） | `3296a41` | ✅ |
-| P4.3b.2 | **`dungeon`/`gacha`/`slg`/`battles`/`challenge` 五个域批量迁成插件** | 见 `git log` | ✅ |
-| **P4.3b.3** | **重域**：`learning`/`marketplace`/`engagement`/`collaboration`/`insights`/`portal`/`platform` | — | ⬜ **下一步** |
+| P4.3b.2 | **`dungeon`/`gacha`/`slg`/`battles`/`challenge` 五个域批量迁成插件** | `a844e01` | ✅ |
+| P4.3b.3 | **`collaboration`/`marketplace` 迁成插件** | 见 `git log` | ✅ |
+| **P4.3b.4** | **剩余域**：`engagement`/`insights`/`portal`/`platform` | — | ⬜ **下一步** |
+| P4.3b.5 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `settings`/`system` | — | ⬜ |
 | P4.3c | `api/db.ts` 78 条启动期 DDL → 编号迁移 | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
@@ -209,26 +211,29 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.2 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面是 P4.3b.3 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        115 文件 / 512 用例全绿
+npm test        113 文件 / 555 用例全绿
 npm run check   exit 0
 api:surface     unchanged (292 endpoints)
-guardrails      8 文件 / 31 用例
+guardrails      8 文件 / 34 用例
 ```
 
-**验收基线（P4.3b 期间这几个数字的含义）**：
+**已迁成插件的域（10 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace（+ 原有 classroom, pet）
+**仍在 `api/modules/` 的域（11 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform, portal, settings, system
+
+**验收基线**：
 
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
 | `api:surface` 端点数 | **292** | 迁移期间**不应变化**。变小 → 扫描漏了插件；变大 → 多出端点 |
-| `deadCode` | **66**（70 → 69 → 66）| 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
+| `deadCode` | **66** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | 62 | P5 之前不应变化 |
 | `legacyFeatureKeySurfaces` | 1 | 迁 `classroom` 端点时应降到 0 |
-| `adoptedTables` | **14** | classroom 2 + economy 3 + dungeon 1 + gacha 3 + slg 2 + battles 1 + challenge 2。P7 改名后归零。**`records` 不计入**（永久共享，见 §6） |
-| `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁一个域必须回落 —— 这次从 54 回落到 1 |
+| `adoptedTables` | **23** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
+| `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 —— 峰值曾到 33 |
 
 **批量迁移的实测经验（P4.3b.2，五个域并行）**：
 - **`api:surface -- --check` 的括号数字在迁移中途会是"虚高"的**（如 345），因为它打印的是**声明条数**，而判定用的是**集合**。旧模块与插件并存期间每条路由声明两次。**别把它当成漂移**，要看 `added`/`removed` 是否为空；删掉旧模块后自然回到 292。
@@ -341,15 +346,20 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 ### 8.4 迁移顺序建议
 
-1. ~~`economy`~~ ✅ `3296a41`（模板已确立）
-2. ~~`dungeon`、`gacha`、`slg`、`battles`、`challenge`~~ ✅ P4.3b.2（五域并行，见 §8.6）
-3. **`learning`（最大，28 张表）、`marketplace`、`engagement`、`collaboration`、`insights`、`portal`、`platform`** ← 下一个
-4. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
-5. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
-6. `auth` → `identity` 基础插件；`settings`/`system` → 内核
+1. ~~`economy`~~ ✅ `3296a41`
+2. ~~`dungeon`、`gacha`、`slg`、`battles`、`challenge`~~ ✅ P4.3b.2
+3. ~~`collaboration`、`marketplace`~~ ✅ P4.3b.3
+4. **`portal`、`platform`（小）、`insights`（3 条路由但读表多）、`engagement`（24 路由，最大）** ← 下一个
+5. `learning`（28 张表，最大）
+6. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
+7. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
+8. `auth` → `identity` 基础插件；`settings`/`system` → 内核
 
 **共享文件只有 Lead 改**：`api/app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`、`packages/**`。
 `plugins/<slug>/**` 与 `tests/plugins/<slug>-*.test.ts` 是每域独占的，可以并行。
+
+**⚠️ 团队名额上限 8（含 Lead），且名字不可复用**：一个会话里最多雇 7 个 teammate，用完无法回收（inactive 也占位）。
+批次并行时记住这条：R4 就是因为 6 个旧 teammate 占位，后 4 个域只能串行。
 
 ### 8.6 并行迁移的可行性（P4.3b.2 实证）
 

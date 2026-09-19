@@ -172,6 +172,9 @@ class FakeClassroom implements ClassroomPort {
     }
     return { value: true };
   }
+  async checkAnyClassFeature() {
+    return this.checkClassFeature();
+  }
 }
 
 function setup() {

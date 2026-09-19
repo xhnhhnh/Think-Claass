@@ -43,7 +43,7 @@ import {
   type PluginHostView,
 } from '@thinkclass/kernel';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
-import { initDb } from './db.js'
+import { initDb, decrypt } from './db.js'
 import { ensureAdoptedSchema, ensureReadOnlyLegacyTables } from './schema/adoptedTables.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
@@ -259,6 +259,10 @@ export async function createApp(): Promise<Express> {
       // kernel database and fail per request instead of at boot.
       ensureReadOnlyLegacyTables(db);
     },
+    // Student names are AES-encrypted at rest and the key belongs to the application,
+    // not the kernel. Handing the decryptor over lets `classroom.public` publish
+    // readable names without any plugin importing `api/**`.
+    overrides: { decryptName: decrypt },
   })
 
   // Audit coverage is data, not a branch chain: the descriptors say which operations

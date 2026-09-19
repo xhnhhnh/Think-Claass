@@ -191,6 +191,13 @@ describe('G10 adopted legacy tables ratchet', () => {
     ).toBeLessThanOrEqual(allowances.adoptedTables);
   });
 
+  it('the allowance tracks the measured count', () => {
+    // Same reasoning as the route-collision ceiling: an increment must be an explicit
+    // edit in two places, because migrating a domain is the only legitimate reason for
+    // this number to move.
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(23);
+  });
+
   it('never declares a table as both owned and adopted', () => {
     const problems = [];
     for (const { rel, manifest } of findManifests()) {
@@ -199,6 +206,57 @@ describe('G10 adopted legacy tables ratchet', () => {
         if (owned.has(table)) problems.push(`${rel}: "${table}" is in both data.tables and data.adopted`);
       }
     }
+    expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  /**
+   * Two plugins claiming the same table is the ownership equivalent of a route
+   * collision: both believe they may write it, and the guarantee that "this table has
+   * exactly one writer" - the reason `data.adopted` exists at all - quietly stops
+   * holding. Nothing else in the suite notices, because `data.reads` on a table
+   * someone else owns is legitimate and per-plugin validation cannot see across
+   * manifests.
+   *
+   * The exceptions are deliberate and enumerated. Each one is a table whose write
+   * operations genuinely span two domains today, and each needs a real port (or a
+   * re-decision of ownership) rather than a permanent exemption.
+   */
+  const SHARED_WRITE_TABLES = new Set(['redemption_tickets']);
+
+  it('no two plugins adopt the same table', () => {
+    const ownersByTable = new Map<string, string[]>();
+    for (const entry of allAdopted) {
+      const owners = ownersByTable.get(entry.table) ?? [];
+      owners.push(entry.rel);
+      ownersByTable.set(entry.table, owners);
+    }
+
+    const problems: string[] = [];
+    for (const [table, owners] of [...ownersByTable].sort()) {
+      if (owners.length < 2) continue;
+      if (SHARED_WRITE_TABLES.has(table)) continue;
+      problems.push(`"${table}" is adopted by ${owners.join(' and ')}; only one plugin may own it`);
+    }
+
+    expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  it('shared-write tables are still claimed by at least one plugin', () => {
+    // Guards the exception list itself: once the overlap is resolved the entry should
+    // be deleted, and a stale entry would otherwise silently permit a future overlap.
+    const ownersByTable = new Map<string, string[]>();
+    for (const entry of allAdopted) {
+      ownersByTable.set(entry.table, [...(ownersByTable.get(entry.table) ?? []), entry.rel]);
+    }
+
+    const problems: string[] = [];
+    for (const table of SHARED_WRITE_TABLES) {
+      const owners = ownersByTable.get(table) ?? [];
+      if (owners.length === 0) {
+        problems.push(`"${table}" is listed as a shared-write table but no plugin adopts it; remove the exemption`);
+      }
+    }
+
     expect(problems, problems.join('\n')).toEqual([]);
   });
 });

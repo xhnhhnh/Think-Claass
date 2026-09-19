@@ -1,0 +1,46 @@
+{
+  "id": "marketplace",
+  "name": "积分商城",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Points shop, auctions and blind boxes. Migrated out of api/modules/marketplace/**. Adopts the four pre-existing tables it writes (auctions, blind_boxes, shop_items, redemption_tickets) rather than renaming them, because SELECT * rows are returned straight through to the frontend and api/modules/admin/admin.repository.ts deletes shop_items and redemption_tickets by legacy name in its teacher/student cascade. Student points move through classroom.public: spends and refunds use transferStudentCredits (available balance only, exactly what the pre-migration spendStudentPoints and the raw refund UPDATE did) while the blind-box consolation uses adjustPoints (both balances, exactly what addStudentPoints did).",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/shop", "handler": "MarketplaceController.listItems", "auth": "actor" },
+      { "method": "GET", "base": "/api/shop", "handler": "MarketplaceController.listAllItems", "auth": "actor" },
+      { "method": "POST", "base": "/api/shop", "handler": "MarketplaceController.createItem", "auth": "actor" },
+      { "method": "PUT", "base": "/api/shop", "handler": "MarketplaceController.updateItemStatus", "auth": "actor" },
+      { "method": "PUT", "base": "/api/shop", "handler": "MarketplaceController.updateItem", "auth": "actor" },
+      { "method": "POST", "base": "/api/shop", "handler": "MarketplaceController.buyItem", "auth": "actor" },
+      { "method": "GET", "base": "/api/shop", "handler": "MarketplaceController.listAuctions", "auth": "actor" },
+      { "method": "POST", "base": "/api/shop", "handler": "MarketplaceController.bidAuction", "auth": "actor" },
+      { "method": "POST", "base": "/api/shop", "handler": "MarketplaceController.buyBlindBox", "auth": "actor" },
+      { "method": "POST", "base": "/api/shop", "handler": "MarketplaceController.createAuction", "auth": "actor" },
+      { "method": "PUT", "base": "/api/shop", "handler": "MarketplaceController.updateAuction", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/shop", "handler": "MarketplaceController.deleteAuction", "auth": "actor" },
+      { "method": "GET", "base": "/api/shop", "handler": "MarketplaceController.listBlindBoxes", "auth": "actor" },
+      { "method": "POST", "base": "/api/shop", "handler": "MarketplaceController.createBlindBox", "auth": "actor" },
+      { "method": "PUT", "base": "/api/shop", "handler": "MarketplaceController.updateBlindBox", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/shop", "handler": "MarketplaceController.deleteBlindBox", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["auctions", "blind_boxes", "shop_items", "redemption_tickets"],
+    "_adopted_note": "All four keep their legacy names: the rows are the JSON contract (price, stock, is_active, teacher_id, is_holiday_limited, highest_bidder_id, code ...) and admin.repository.ts still deletes shop_items/redemption_tickets by name in its teacher/student cascade. auctions and blind_boxes are marketplace-only. shop_items and redemption_tickets are SHARED with the not-yet-migrated engagement domain (engagement.service.ts:148-173 reads shop_items and updates redemption_tickets.status; :439 inserts a redemption ticket). They are adopted here because this plugin WRITES both (shop CRUD, stock decrement, ticket issue) and `ctx.db` refuses a write to a table that is only declared in `data.reads` - a reads-only declaration would make five statements throw TableOwnershipError in every non-production boot. Ownership of these two is therefore transitional and must be re-decided when engagement migrates (either engagement routes its writes through a marketplace port, or the declaration moves).",
+    "reads": ["users"]
+  }
+}
