@@ -25,6 +25,7 @@ import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
+import { createCollaborationCleanupRule } from './collaboration.cleanup.js';
 import { PeerReviewsController, TaskTreeController, TeamQuestsController } from './collaboration.controllers.js';
 import { createCollaborationRepository } from './collaboration.repository.js';
 import { CollaborationService } from './collaboration.service.js';
@@ -51,6 +52,13 @@ export default definePlugin({
     providers.push({ provide: CollaborationService, useValue: service });
 
     ctx.log.info('collaboration service ready', { owns: ctx.plugin.slug });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; the peer-review branch derives assignment ids
+    // from plugins/assignments' table, which is why that FK order matters - see
+    // collaboration.cleanup.ts.
+    ctx.cleanup.register(createCollaborationCleanupRule());
   },
 
   async onStop() {

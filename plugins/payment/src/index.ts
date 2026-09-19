@@ -21,6 +21,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { PaymentController } from './payment.controllers.js';
+import { createPaymentCleanupRule } from './payment.cleanup.js';
 import { createPaymentRepository } from './payment.repository.js';
 import { PaymentService } from './payment.service.js';
 
@@ -43,6 +44,14 @@ export default definePlugin({
 
     service = instance;
     providers.push({ provide: PaymentService, useValue: instance });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see payment.cleanup.ts. `tier: "infrastructure"`
+    // + `required: true` means this rule is registered in every composition - which is what keeps
+    // `payment_orders.user_id` from blocking the `users` delete in a deployment that never sells
+    // anything.
+    ctx.cleanup.register(createPaymentCleanupRule());
 
     ctx.log.info('payment service ready', {
       owns: ctx.plugin.slug,

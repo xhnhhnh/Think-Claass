@@ -45,6 +45,7 @@ import {
 } from '@thinkclass/kernel';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb, decrypt } from './db.js'
+import { createDatabaseMaintenance } from './maintenance.js'
 import { APP_MIGRATIONS } from './schema/appMigrations.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
@@ -241,6 +242,10 @@ async function mountPlugins(hooks: KernelRuntimeHooks): Promise<PluginHostView |
     // The same holder the kernel router reads, so `plugins/identity` can register its verifier
     // during setup and `/api/kernel/auth/login` starts working once it has.
     authProvider: authProviderHolder,
+    // Database export/import/reset: the three operations that are about the SQLite *file* rather
+    // than about any table. `plugins/admin` owns the routes and the envelope; the file swap and the
+    // schema replay stay here, where the connection lifecycle lives.
+    maintenance: createDatabaseMaintenance(),
     // Always include the in-repo plugin directory, so `plugins/*` works even when
     // PLUGIN_DIRS points at an external deployment location.
     pluginDirs: [path.join(hooks.config.rootDir, 'plugins')],

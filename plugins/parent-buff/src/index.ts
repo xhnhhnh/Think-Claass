@@ -18,6 +18,7 @@ import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
+import { createParentBuffCleanupRule } from './parent-buff.cleanup.js';
 import { ParentBuffController } from './parentBuff.controller.js';
 import { createParentBuffRepository } from './parentBuff.repository.js';
 import { ParentBuffService } from './parentBuff.service.js';
@@ -54,6 +55,11 @@ export default definePlugin({
         instance.touchParentLogin(parentId, studentId, day);
       },
     });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see parent-buff.cleanup.ts.
+    ctx.cleanup.register(createParentBuffCleanupRule());
 
     ctx.log.info('parent-buff service ready', { owns: ctx.plugin.slug });
   },

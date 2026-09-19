@@ -76,6 +76,15 @@ class FakeDungeonRepository implements DungeonRepository {
  * here, exactly as they do behind the real port.
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): dungeon never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   students = new Map<number, { snapshot: StudentSnapshot; featureEnabled: boolean }>();
   classes = new Map<number, { id: number; name: string; teacherId: number | null; inviteCode: string; featureEnabled: boolean }>();
   ledger: Array<{ studentId: number; type: string; amount: number; description: string }> = [];

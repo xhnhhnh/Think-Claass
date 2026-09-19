@@ -111,6 +111,7 @@ describe('plugin discovery and activation', () => {
     // (covered by resolver.test.ts) and pinning it here would make every new plugin
     // break this test for the wrong reason.
     expect(host!.active.map((entry) => entry.manifest.id).sort()).toEqual([
+      'admin',
       'assignments',
       'battles',
       'challenge',
@@ -161,6 +162,7 @@ describe('plugin discovery and activation', () => {
   it('records every activated plugin in the state store', () => {
     const rows = host!.stateStore.list();
     expect(rows.map((r) => `${r.id}:${r.state}`).sort()).toEqual([
+      'admin:active',
       'assignments:active',
       'battles:active',
       'challenge:active',
@@ -220,15 +222,42 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(19);
-    expect(body.kernel.plugins.active).toBe(19);
+    expect(body.kernel.plugins.total).toBe(20);
+    expect(body.kernel.plugins.active).toBe(20);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['admin', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
+  });
+
+  it('serves the admin console in the kernel composition too', async () => {
+    // The other half of the two-assembly requirement: this host IS the kernel composition (the
+    // runtime mounted its own Nest instance over `kernel.app`), and the console has to be reachable
+    // here as well as in the legacy root. `/api/admin/system/stats` is the sharpest of the console's
+    // routes for this: it counts across six domains' tables through declared reads, so a
+    // mounted-but-broken controller would answer something else entirely.
+    //
+    // A superadmin session of its own: the module-level token belongs to the seeded teacher, and
+    // `/api/admin/*` is admin/superadmin only - asserting that refusal first is what makes the 200
+    // meaningful rather than incidental.
+    const asTeacher = await api('GET', '/api/admin/system/stats');
+    expect(asTeacher.status).toBe(403);
+
+    const adminToken = kernel.sessions.issue({ userId: 7, role: 'superadmin', ttlMs: 60_000 }).token;
+    const response = await fetch(`${base}/api/admin/system/stats`, {
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const body = (await response.json()) as any;
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    // The counters are this database's: one seeded class, and no `users` rows at all (this fixture
+    // seeds classes and students directly, not logins).
+    expect(body.data.database).toMatchObject({ classes: 1, teachers: 0, students: 0, totalPoints: 0 });
+    expect(body.data.server.cpuCount).toBeGreaterThan(0);
   });
 });
 
@@ -359,7 +388,21 @@ describe('cross-plugin collaboration', () => {
 
   it('classroom owns the legacy tables through an explicit transitional declaration', () => {
     const classroomManifest = host!.active.find((entry) => entry.manifest.id === 'classroom')!.manifest;
-    expect(classroomManifest.data.adopted).toEqual(['students', 'classes', 'records']);
+    // P4.3b.14 added five of these: attendance_records, leave_requests, parent_students,
+    // student_groups and point_presets had no owner at all - classroom already read them, and
+    // already wrote them through `ctx.rawDb` because there was nobody to publish a port. Account
+    // deletion needs each of them to have an owner (a cleanup rule may only name tables its plugin
+    // declared), which is what turned that recorded debt into ordinary checked writes.
+    expect(classroomManifest.data.adopted).toEqual([
+      'students',
+      'classes',
+      'records',
+      'attendance_records',
+      'leave_requests',
+      'parent_students',
+      'student_groups',
+      'point_presets',
+    ]);
     expect(classroomManifest.data.tables).toEqual([]);
   });
 

@@ -23,6 +23,7 @@ import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
+import { createLearningCleanupRule } from './learning.cleanup.js';
 import {
   KnowledgeController,
   PaperSubmissionsController,
@@ -66,6 +67,11 @@ export default definePlugin({
       owns: 'papers, questions, knowledge graph, wrong questions, study plans',
       studentsVia: 'classroom.public',
     });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see learning.cleanup.ts.
+    ctx.cleanup.register(createLearningCleanupRule());
   },
 
   async onStop() {

@@ -141,6 +141,13 @@ function createPorts() {
     async bindStudentToUser() {
       return { value: student as StudentSnapshot };
     },
+    // Account-deletion scope (P4.3b.14): engagement's paths never ask for it; the port requires both.
+    async listClassIdsByTeacher() {
+      return [];
+    },
+    async listStudentAccountsByClassIds() {
+      return [];
+    },
   };
 
   const identity: IdentityPort = {
@@ -153,6 +160,35 @@ function createPorts() {
     },
     async getFirstUserIdByRole(role) {
       return role === 'teacher' ? 7 : null;
+    },
+    // The admin console's view of identity (P4.3b.14): engagement reads neither teachers nor codes.
+    // They exist because the port requires them, and each answers the empty case.
+    async verifyAdminCredentials() {
+      return null;
+    },
+    async listTeachers() {
+      return [];
+    },
+    async createTeacher() {
+      return { id: 0, username: '', role: 'teacher', isActivated: false };
+    },
+    async updateTeacher() {
+      return { id: 0, username: '', role: 'teacher', isActivated: false };
+    },
+    async findTeacher() {
+      return null;
+    },
+    async listActivationCodes() {
+      return [];
+    },
+    async generateActivationCodes() {
+      return { message: '', createdCount: 0, codes: [] };
+    },
+    async listSuperadmins() {
+      return [];
+    },
+    async restoreSuperadmins() {
+      /* unused */
     },
   };
 

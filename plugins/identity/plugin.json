@@ -18,7 +18,7 @@
       {
         "name": "identity.public",
         "version": "1.0.0",
-        "_note": "Two methods: getUserById and activateUser. Login and profile are HTTP routes rather than port operations - importing another plugin's route would couple far more than an activation call does. parent_buff.public is consumed as an OPTIONAL dependency (ctx.tryUse at call time): a deployment with parent-buff disabled must still allow a parent to log in."
+        "_note": "Twelve methods in two groups: activation and the user lookup (getUserById, getFirstUserIdByRole, activateUser); and the admin console's view of this domain, added when api/modules/admin migrated (verifyAdminCredentials, listTeachers, createTeacher, updateTeacher, findTeacher, listActivationCodes, generateActivationCodes, listSuperadmins, restoreSuperadmins) - users/activation_codes/activation_events are this plugin's adopted tables, so the console asks here rather than writing them through Prisma. Login and profile stay HTTP routes rather than port operations - importing another plugin's route would couple far more than an activation call does. parent_buff.public is consumed as an OPTIONAL dependency (ctx.tryUse at call time): a deployment with parent-buff disabled must still allow a parent to log in."
       }
     ],
     "routes": [

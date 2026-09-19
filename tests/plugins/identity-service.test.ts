@@ -171,6 +171,13 @@ function createFakeClassroom(): {
     async checkAnyClassFeature() {
       return { value: true };
     },
+    // Account-deletion scope (P4.3b.14): identity's own paths never ask for it; the port requires both.
+    async listClassIdsByTeacher() {
+      return [];
+    },
+    async listStudentAccountsByClassIds() {
+      return [];
+    },
   };
 
   return {

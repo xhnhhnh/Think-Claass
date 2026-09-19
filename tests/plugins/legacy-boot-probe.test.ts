@@ -78,6 +78,13 @@ beforeAll(async () => {
       PORT: String(port),
       LOG_LEVEL: 'warn',
       DATABASE_FILE: path.join(tempDir, 'probe.sqlite'),
+      // Deterministic console credentials. `api/server.ts` calls `dotenv.config()` before
+      // `initDb()`, so a value in the repository's `.env` would otherwise win over the seed -
+      // and dotenv does not override variables that are already set, which is what makes
+      // pinning them here enough (this is the trap P4.3b.7 recorded when a probe's login kept
+      // answering 401).
+      SUPERADMIN_USERNAME: 'probe-root',
+      SUPERADMIN_PASSWORD: 'probe-secret',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -122,6 +129,7 @@ describe('legacy composition serves plugin routes', () => {
     const payload = JSON.parse(response.body) as { data: Array<{ id: string }> };
     const ids = payload.data.map((plugin) => plugin.id).sort();
     expect(ids).toEqual([
+      'admin',
       'assignments',
       'battles',
       'challenge',
@@ -257,6 +265,44 @@ describe('legacy composition serves plugin routes', () => {
       expect(payload.classes[0]).toHaveProperty('enable_achievements');
       expect(payload.classes[0]).toHaveProperty('invite_code');
     }
+  });
+
+  it('serves the admin console from its plugin in this composition', async () => {
+    // `api/modules/admin` was the last module and P4.3b.14 deleted it, so `/api/admin/*` is served
+    // by `plugins/admin` - and this is the composition where that is easiest to get wrong: the
+    // legacy Nest root imports the plugin modules itself, and the console's controllers depend on
+    // ports (`identity.public`, `classroom.public`) that must be published before a request arrives.
+    //
+    // The login below is the end-to-end proof: it reaches `identity.public.verifyAdminCredentials`
+    // against the real `users` table, and the token it returns is a kernel session - so a 200 on the
+    // second request means the console's own controller, the permission check and the identity port
+    // all ran in this process.
+    const login = await probe('/api/admin/session', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'probe-root', password: 'probe-secret' }),
+    });
+
+    expect(login.status).toBe(200);
+    expect(login.body).not.toContain('Cannot POST');
+    const session = JSON.parse(login.body) as { success: boolean; data: { user: { role: string }; token?: string } };
+    expect(session.success).toBe(true);
+    expect(session.data.user.role).toBe('superadmin');
+    expect(typeof session.data.token).toBe('string');
+
+    const users = await probe('/api/admin/users', {
+      headers: { authorization: `Bearer ${session.data.token}` },
+    });
+    expect(users.status).toBe(200);
+    expect(users.body).not.toContain('Cannot GET');
+    const listed = JSON.parse(users.body) as { success: boolean; data: { items: unknown[]; total: number } };
+    expect(listed.success).toBe(true);
+    // `initDb()` seeds one teacher (`admin`), so this asserts the port answered rather than
+    // pinning the seed count.
+    expect(listed.data.total).toBeGreaterThan(0);
+
+    // And the anonymous half: the console's routes are still gated in this composition.
+    expect((await probe('/api/admin/users')).status).toBe(401);
   });
 
   it('serves the migrated learning domain from its plugin', async () => {

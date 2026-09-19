@@ -1,0 +1,71 @@
+{
+  "id": "admin",
+  "name": "管理控制台",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "The admin console: 28 routes over /api/admin (17), /api/openapi (7) and /api/audit-logs (1), relocated from api/modules/admin/** (P4.3b.14). It is the last domain to leave api/modules/**. Every cross-domain write it used to perform through Prisma is now a port call: teachers, activation codes and superadmins go through identity.public (which owns users), the classes and students a deletion covers through classroom.public, the database file through the host-injected ctx.maintenance, and the audit trail through ctx.audit (the kernel owns operation_logs). The 58-table delete cascade in DELETE /api/admin/users/:id is now ctx.cleanup.run(): each plugin deletes its own rows, all of them inside one transaction, ordered by the schema's foreign keys - see docs/migration/admin-cascade-decision.md.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0",
+    "identity": "^1.0.0"
+  },
+  "provides": {
+    "services": [],
+    "routes": [
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.createSession", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin", "handler": "AdminController.getSystemStats", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin", "handler": "AdminController.getSystemSettings", "auth": "actor" },
+      { "method": "PUT", "base": "/api/admin", "handler": "AdminController.updateSystemSettings", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin", "handler": "AdminController.exportDatabase", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.importDatabase", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.resetDatabase", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin", "handler": "AdminController.listUsers", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.createUser", "auth": "actor" },
+      { "method": "PUT", "base": "/api/admin", "handler": "AdminController.updateUser", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/admin", "handler": "AdminController.deleteUser", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin", "handler": "AdminController.listCodes", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.createCodes", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin", "handler": "AdminController.listAnnouncements", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.createAnnouncement", "auth": "actor" },
+      { "method": "PUT", "base": "/api/admin", "handler": "AdminController.updateAnnouncement", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/admin", "handler": "AdminController.deleteAnnouncement", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin/system/update", "handler": "AdminUpdateController.getStatus", "auth": "actor" },
+      { "method": "GET", "base": "/api/admin/system/update", "handler": "AdminUpdateController.checkLatest", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin/system/update", "handler": "AdminUpdateController.startUpdate", "auth": "actor" },
+      { "method": "GET", "base": "/api/openapi", "handler": "OpenApiController.listKeys", "auth": "public" },
+      { "method": "POST", "base": "/api/openapi", "handler": "OpenApiController.createKey", "auth": "public" },
+      { "method": "DELETE", "base": "/api/openapi", "handler": "OpenApiController.deleteKey", "auth": "public" },
+      { "method": "GET", "base": "/api/openapi", "handler": "OpenApiController.listSchools", "auth": "public" },
+      { "method": "POST", "base": "/api/openapi", "handler": "OpenApiController.createSchool", "auth": "public" },
+      { "method": "PUT", "base": "/api/openapi", "handler": "OpenApiController.updateSchool", "auth": "public" },
+      { "method": "DELETE", "base": "/api/openapi", "handler": "OpenApiController.deleteSchool", "auth": "public" },
+      { "method": "GET", "base": "/api/audit-logs", "handler": "AuditLogsController.listLogs", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["announcements", "api_keys", "schools"],
+    "_adopted_note": "Three tables that had no owner or the wrong one. `api_keys` and `schools` were created by the boot schema and this console was their only reader and writer in the whole repository, so they were simply unowned. `announcements` MOVED here from plugins/engagement (P4.3b.14): the console is its only writer (create/update/delete plus the one-active-row rule), while engagement runs a single `SELECT * FROM announcements WHERE is_active = 1` for its feed route - so engagement now declares it in `data.reads` and this plugin owns it. Handing the table to its writer is cheaper and more honest than inventing a four-method port for a one-consumer table.",
+    "reads": [
+      "users",
+      "classes",
+      "records",
+      "assignments",
+      "leave_requests",
+      "team_quests",
+      "pets",
+      "operation_logs"
+    ],
+    "_reads_note": "`GET /api/admin/system/stats` is a dashboard: it counts teachers and students (users), classes, the point ledger, assignments, leave requests, team quests and the pets' experience sum. Those are reads of six other domains' tables, declared rather than turned into six single-integer ports - the same judgement plugins/system's whole-database backup export records, and the same shape (a declared read is checked; a silent one is not). `operation_logs` is the eighth: the kernel's audit sink owns that table (migration 0005_kernel_operation_logs), so the console's log viewer reads it and can never write it - writes go through `ctx.audit`.",
+    "_known_debt": "1. `src/admin.update.ts` imports `node:child_process` directly for the Linux self-updater. The SDK requires `data.capabilities: [\"child_process\"]` for the capability accessor, and the runtime refuses that declaration unless `isolation: \"worker\"`, which does not exist until P6 - so the three options today are a false declaration, a false isolation claim, or a direct import that is written down. This is the third; P6 closes it. 2. Database maintenance (export/import/reset) is executed by the host through `ctx.maintenance`, because replacing the SQLite file and replaying the application schema is about the connection, not about a table. The plugin owns the route, the envelope and the superadmin round-trip; the host owns the file operations. 3. `GET /api/audit-logs` reads `operation_logs` with raw SQL: the kernel publishes an audit *writer* (`ctx.audit`), not a query surface, and the filters here are the console's own presentation choice. 4. The OpenAPI routes (`/api/openapi/*`) stay unauthenticated exactly as they were before the migration. That is a product posture, not an oversight, and changing it would be a behaviour change this round must not make."
+  }
+}

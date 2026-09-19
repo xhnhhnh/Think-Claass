@@ -210,6 +210,15 @@ class FakeMarketplaceRepository implements MarketplaceRepository {
  * tell the two apart.
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): marketplace never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   students = new Map<number, { snapshot: StudentSnapshot; features: Set<string> }>();
   userIds = new Map<number, number>();
   ledger: Array<{ studentId: number; type: string; amount: number; description: string }> = [];

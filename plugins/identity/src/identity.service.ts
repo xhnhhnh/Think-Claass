@@ -25,13 +25,34 @@
  * all, which is why the legacy service read it through Prisma.
  */
 
+import { randomBytes } from 'node:crypto';
+
 import { ApiError, hashPassword, isPasswordHash, verifyPassword } from '@thinkclass/kernel';
+import type {
+  ActivationCodeListItem,
+  GenerateActivationCodesResult,
+  TeacherDetail,
+  TeacherListItem,
+} from '@thinkclass/contracts/domains/admin';
 import type { ClassroomPort } from '@thinkclass/contracts/domains/classroom';
-import type { ActivationEventRow as PortActivationEvent, ActivationResult, IdentityPort } from '@thinkclass/contracts/domains/identity';
+import type {
+  ActivationEventRow as PortActivationEvent,
+  ActivationResult,
+  AdminAuditEntry,
+  AdminCredentialActor,
+  IdentityPort,
+  SuperadminSnapshot,
+  TeacherRow,
+} from '@thinkclass/contracts/domains/identity';
 import type { ParentActivityRecorder } from '@thinkclass/contracts/domains/parent-buff';
 import type { KernelContext } from '@thinkclass/plugin-sdk';
 
-import type { IdentityRepository } from './identity.repository.js';
+import type {
+  ActivationCodeListRow,
+  ActivationEventSummaryRow,
+  IdentityRepository,
+  TeacherRowDetail,
+} from './identity.repository.js';
 import type { ActivationEventRow, LoginUserPayload, RequestActor, UserRow } from './identity.types.js';
 
 /** Resolved at call time, never captured in `setup()` - see HANDOFF section 9 (P4.3b.6a). */
@@ -389,6 +410,248 @@ export class IdentityService {
     return this.repository.findFirstUserIdByRole(role)?.id ?? null;
   }
 
+  // -- the admin console's view (P4.3b.14) ---------------------------------
+  //
+  // Ported from the Prisma calls in `api/modules/admin/admin.repository.ts`, statement by
+  // statement; every method cites the lines it reproduces. The admin console used to be a second
+  // writer of `users`, `activation_codes` and `activation_events`; these nine operations are what
+  // replaces that, so the semantics are the pre-migration ones down to the error messages.
+  //
+  // Auditing travels with the call as data (`AdminAuditEntry`): `operation_logs` is kernel-owned,
+  // so the write goes through `ctx.audit.record`, which runs on the same connection as `ctx.db` -
+  // called inside a `tx()` it is part of that unit of work, which is what makes "the change and the
+  // record of the change are one" true here as it was inside the Prisma transaction.
+
+  /**
+   * `admin.repository.ts:598-632`.
+   *
+   * The three refusals - no such user, wrong role, wrong password - are one `null`, deliberately:
+   * the console must not learn which of the three it hit. A successful check with a legacy
+   * plaintext hash upgrades it in place, the same write-time migration the login route does.
+   */
+  async verifyAdminCredentials(username: string, password: string): Promise<AdminCredentialActor | null> {
+    const user = this.repository.findAdminByCredentials(String(username));
+    if (
+      !user ||
+      (user.role !== 'admin' && user.role !== 'superadmin') ||
+      !verifyPassword(String(password ?? ''), user.password_hash)
+    ) {
+      return null;
+    }
+
+    if (!isPasswordHash(user.password_hash)) {
+      this.repository.updateUserPasswordHash(user.id, hashPassword(String(password)));
+    }
+
+    return { id: user.id, role: user.role, username: user.username };
+  }
+
+  /** `admin.repository.ts:701-713`. */
+  async listTeachers(): Promise<TeacherListItem[]> {
+    return this.repository.listTeacherRows().map(toTeacherDetail);
+  }
+
+  /**
+   * `admin.repository.ts:715-748`.
+   *
+   * The insert, the row read back and the audit entry share one transaction. A UNIQUE violation on
+   * `users.username` becomes the friendly 400 the console used to get from Prisma's P2002 branch -
+   * the translation now happens next to the constraint instead of in a driver error code.
+   */
+  async createTeacher(
+    input: { username: string; password: string },
+    audit?: AdminAuditEntry,
+  ): Promise<TeacherDetail> {
+    try {
+      return this.repository.tx(() => {
+        const id = this.repository.insertTeacher({
+          username: input.username,
+          passwordHash: hashPassword(input.password ?? ''),
+        });
+        const row = this.repository.findTeacherRow(id) as TeacherRowDetail;
+
+        if (audit) {
+          // `logAdminMutation` composed `{ teacherId, username }` (`:732-738`) - but the caller owns
+          // the action vocabulary and the detail format, so a supplied detail wins and this is only
+          // the fallback that keeps the legacy entry when the caller passes none.
+          this.recordAudit(audit, JSON.stringify({ teacherId: row.id, username: row.username }));
+        }
+
+        return toTeacherDetail(row);
+      });
+    } catch (error) {
+      throw mapTeacherUsernameConflict(error);
+    }
+  }
+
+  /**
+   * `admin.repository.ts:750-791`.
+   *
+   * The existence check, the update, the read-back and the audit entry are one transaction, and a
+   * missing teacher is the same 404 `教师不存在`. The password is optional: `null` leaves the stored
+   * hash untouched, exactly as the pre-migration spread did.
+   */
+  async updateTeacher(
+    id: number,
+    input: { username: string; password?: string },
+    audit?: AdminAuditEntry,
+  ): Promise<TeacherDetail> {
+    try {
+      return this.repository.tx(() => {
+        if (!this.repository.findTeacherRow(id)) {
+          throw new ApiError(404, '教师不存在');
+        }
+
+        this.repository.updateTeacherRow(id, {
+          username: input.username,
+          passwordHash: input.password ? hashPassword(input.password) : null,
+        });
+        const row = this.repository.findTeacherRow(id) as TeacherRowDetail;
+
+        if (audit) {
+          // The legacy detail carried `passwordUpdated` (`:775-781`); the port knows the flag, so it
+          // composes that fallback - a supplied detail still wins.
+          this.recordAudit(
+            audit,
+            JSON.stringify({
+              teacherId: row.id,
+              username: row.username,
+              passwordUpdated: Boolean(input.password),
+            }),
+          );
+        }
+
+        return toTeacherDetail(row);
+      });
+    } catch (error) {
+      throw mapTeacherUsernameConflict(error);
+    }
+  }
+
+  /** The `users` row a deletion is about - `admin.repository.ts:189-195` narrowed to identity's columns. */
+  async findTeacher(id: number): Promise<TeacherRow | null> {
+    const row = this.repository.findTeacherRow(id);
+    return row ? { id: row.id, username: row.username } : null;
+  }
+
+  /**
+   * `admin.repository.ts:797-819`, which is the code list (`:798-815`) plus the newest event per
+   * code (`:120-154`).
+   *
+   * `createdAt` / `usedAt` are passed through as SQLite returned them (`YYYY-MM-DD HH:MM:SS`): the
+   * pre-migration `toIsoString` (`:39-43`) only converted `Date` objects, and those only existed
+   * because Prisma parsed the column - the strings travelled unchanged, so they still do.
+   */
+  async listActivationCodes(): Promise<ActivationCodeListItem[]> {
+    const rows = this.repository.listActivationCodeRows();
+    const events = newestEventByCode(this.repository.findActivationEventSummaries(rows.map((row) => row.code)));
+    return rows.map((row) => toActivationCodeListItem(row, events.get(row.code)));
+  }
+
+  /**
+   * `admin.repository.ts:821-874` plus `:156-181`.
+   *
+   * The whole generation is one transaction: uniqueness against the table, the inserts, the audit
+   * entry and the read-back. `count` codes are minted per call, so the returned list is the codes
+   * this call created - not a re-read of the table.
+   */
+  async generateActivationCodes(
+    input: { count: number },
+    audit?: AdminAuditEntry,
+  ): Promise<GenerateActivationCodesResult> {
+    return this.repository.tx(() => {
+      const codes = this.uniqueActivationCodes(input.count);
+      for (const code of codes) this.repository.insertActivationCode(code);
+
+      if (audit) {
+        // The caller cannot compose this detail - the codes are minted here - so the legacy
+        // `{ count, codes }` (`:838-844`) is the fallback, and a supplied detail still wins.
+        this.recordAudit(audit, JSON.stringify({ count: input.count, codes }));
+      }
+
+      const persisted = this.repository.listActivationCodeRowsByCodes(codes);
+      const events = newestEventByCode(this.repository.findActivationEventSummaries(codes));
+
+      return {
+        message: `成功生成 ${codes.length} 个激活码`,
+        createdCount: codes.length,
+        codes: persisted.map((row) => toActivationCodeListItem(row, events.get(row.code))),
+      };
+    });
+  }
+
+  /** `admin.repository.ts:1009-1027`. */
+  async listSuperadmins(): Promise<SuperadminSnapshot[]> {
+    return this.repository.listSuperadminRows().map((row) => ({
+      id: row.id,
+      username: row.username,
+      passwordHash: row.password_hash,
+      isActivated: row.is_activated ?? 0,
+    }));
+  }
+
+  /**
+   * `admin.repository.ts:1029-1045`.
+   *
+   * Delete-then-insert in one transaction (the original issued the two statements back to back
+   * without one, so this is the same observable result with the crash window closed), and each row
+   * keeps its explicit id: the reset flow restores the accounts it read, and other tables already
+   * reference those ids.
+   */
+  async restoreSuperadmins(superadmins: SuperadminSnapshot[]): Promise<void> {
+    this.repository.tx(() => {
+      this.repository.deleteSuperadmins();
+      for (const row of superadmins) {
+        this.repository.insertSuperadmin({
+          id: row.id,
+          username: row.username,
+          password_hash: row.passwordHash,
+          is_activated: row.isActivated,
+        });
+      }
+    });
+  }
+
+  /**
+   * `count` codes of the pre-migration shape (`TC-` + 8 uppercase hex), unique both within this
+   * batch and against the table (`admin.repository.ts:156-181`).
+   */
+  private uniqueActivationCodes(count: number): string[] {
+    const codes: string[] = [];
+    const generated = new Set<string>();
+
+    while (codes.length < count) {
+      const candidate = `TC-${randomBytes(4).toString('hex').toUpperCase()}`;
+
+      if (generated.has(candidate)) continue;
+      if (this.repository.findActivationCode(candidate)) continue;
+
+      generated.add(candidate);
+      codes.push(candidate);
+    }
+
+    return codes;
+  }
+
+  /**
+   * Record one admin mutation through the kernel's audit log.
+   *
+   * `teacherId: null` is load-bearing: the pre-migration `logAdminMutation`
+   * (`admin.repository.ts:101-118`) wrote the acting administrator to `user_id` and left
+   * `teacher_id` null. Letting `ctx.audit` default `teacherId` to `actorId` would attribute every
+   * console action to the acting superadmin's teacher column as well.
+   */
+  private recordAudit(entry: AdminAuditEntry, fallbackDetail: string): void {
+    this.ctx.audit.record({
+      action: entry.action,
+      detail: entry.detail ?? fallbackDetail,
+      actorId: entry.actorId,
+      teacherId: null,
+      role: entry.role,
+      ip: entry.ip,
+    });
+  }
+
   /**
    * Mint a session for a successful login.
    *
@@ -421,11 +684,79 @@ function toPortEvent(row: ActivationEventRow): PortActivationEvent {
   };
 }
 
+/** `users` row -> the console's teacher projection (`admin.repository.ts:49-56`). */
+function toTeacherDetail(row: TeacherRowDetail): TeacherDetail {
+  return {
+    id: row.id,
+    username: row.username,
+    role: 'teacher',
+    isActivated: Boolean(row.is_activated),
+  };
+}
+
+/**
+ * `activation_codes` row + its newest event -> the console's list item
+ * (`admin.repository.ts:74-99`). `status ?? 'unused'` covers a legacy row whose column is NULL.
+ */
+function toActivationCodeListItem(
+  row: ActivationCodeListRow,
+  event: ActivationEventSummaryRow | undefined,
+): ActivationCodeListItem {
+  return {
+    id: row.id,
+    code: row.code,
+    status: row.status ?? 'unused',
+    usedByUserId: row.used_by ?? null,
+    usedByUsername: row.used_by_username ?? null,
+    createdAt: row.created_at ?? null,
+    usedAt: row.used_at ?? null,
+    activationSource: event?.source ?? null,
+    activationRemark: event?.remark ?? null,
+  };
+}
+
+/**
+ * First row per code wins, which is the "newest" row because the query was ordered
+ * `created_at DESC` (`admin.repository.ts:142-151`). Keeping the fold here rather than in SQL is
+ * what makes "the newest event" a stated rule instead of a window-function detail.
+ */
+function newestEventByCode(rows: ActivationEventSummaryRow[]): Map<string, ActivationEventSummaryRow> {
+  const map = new Map<string, ActivationEventSummaryRow>();
+  for (const row of rows) {
+    if (!row.activation_code || map.has(row.activation_code)) continue;
+    map.set(row.activation_code, row);
+  }
+  return map;
+}
+
+/**
+ * A UNIQUE violation on `users.username` is the console's 400, not a driver error.
+ *
+ * The pre-migration code translated Prisma's P2002 (`admin.repository.ts:742-747`, `:785-790`);
+ * better-sqlite3 reports the same condition as `SQLITE_CONSTRAINT_UNIQUE`. Any other failure - the
+ * 404 above included - travels on unchanged.
+ */
+function mapTeacherUsernameConflict(error: unknown): unknown {
+  if ((error as { code?: string } | null)?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    return new ApiError(400, '用户名已存在');
+  }
+  return error;
+}
+
 /** Structural check used by the plugin entry to fail loudly on a mis-shaped port. */
 export function assertIdentityPort(service: IdentityService): IdentityPort {
   return {
     getUserById: (userId) => service.getUserById(userId),
     getFirstUserIdByRole: (role) => service.getFirstUserIdByRole(role),
     activateUser: (input) => service.activateUser(input),
+    verifyAdminCredentials: (username, password) => service.verifyAdminCredentials(username, password),
+    listTeachers: () => service.listTeachers(),
+    createTeacher: (input, audit) => service.createTeacher(input, audit),
+    updateTeacher: (id, input, audit) => service.updateTeacher(id, input, audit),
+    findTeacher: (id) => service.findTeacher(id),
+    listActivationCodes: () => service.listActivationCodes(),
+    generateActivationCodes: (input, audit) => service.generateActivationCodes(input, audit),
+    listSuperadmins: () => service.listSuperadmins(),
+    restoreSuperadmins: (superadmins) => service.restoreSuperadmins(superadmins),
   };
 }

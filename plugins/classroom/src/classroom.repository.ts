@@ -282,6 +282,36 @@ export function createClassroomRepository(ctx: KernelContext) {
       ]);
     },
 
+    // -- account-deletion scope (P4.3b.14) -----------------------------------
+    //
+    // `DELETE /api/admin/users/:id` deletes a teacher, their classes and their students. The
+    // console owns none of those tables, so it asks for the *scope* here and then hands each id
+    // set to the domain that deletes it. Both reads are ids only: a row-shaped answer would
+    // invite a second projection of `classes`/`students` to drift from `ClassSnapshot`.
+
+    /** The cascade's `classes.findMany({ where: { teacher_id } })` (`admin.repository.ts:201-205`). */
+    listClassIdsByTeacher(teacherId: unknown): number[] {
+      return db
+        .query<{ id: number }>(`SELECT id FROM classes WHERE teacher_id = ? ORDER BY id ASC`, [teacherId as never])
+        .map((row) => row.id);
+    },
+
+    /**
+     * The cascade's `students.findMany({ where: { class_id: { in: classIds } },
+     * select: { id, user_id } })` (`admin.repository.ts:207-212`).
+     *
+     * `user_id` stays nullable: a roster row exists before the login does, and the deletion still
+     * has to remove it. An empty id set returns `[]` without a statement, because `IN ()` is a
+     * syntax error and "no classes" must never widen into "every student".
+     */
+    listStudentAccountsByClassIds(classIds: number[]): Array<{ id: number; user_id: number | null }> {
+      if (classIds.length === 0) return [];
+      return db.query<{ id: number; user_id: number | null }>(
+        `SELECT id, user_id FROM students WHERE class_id IN (${classIds.map(() => '?').join(', ')}) ORDER BY id ASC`,
+        classIds,
+      );
+    },
+
     listClassesForStudentUser(userId: unknown): ClassRow[] {
       return db.query<ClassRow>(
         `SELECT c.* FROM classes c JOIN students s ON s.class_id = c.id WHERE s.user_id = ? ORDER BY c.created_at ASC`,

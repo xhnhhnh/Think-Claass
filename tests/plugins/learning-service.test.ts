@@ -94,6 +94,15 @@ const UNKNOWN_STUDENT: Actor = { id: 999, role: 'student' };
  * here and nowhere else.
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): learning never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   readonly students: StudentSnapshot[] = [];
   readonly userLookups: number[] = [];
 

@@ -93,6 +93,15 @@ class FakeSlgRepository implements SlgRepository {
  * "unknown class" (404) while a `false` entry means "slg switched off" (403).
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): slg never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   students = new Map<number, StudentSnapshot>();
   classFeatures = new Map<number, boolean>();
   ledger: Array<{ studentId: number; type: string; amount: number; description: string }> = [];

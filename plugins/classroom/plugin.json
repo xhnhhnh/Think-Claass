@@ -15,7 +15,7 @@
       {
         "name": "classroom.public",
         "version": "1.0.0",
-        "_note": "P4.3b.7 added four operations for the identity domain: getClassFeatureSnapshot (the whole enable_* map the login response embeds - checkClassFeature answers one boolean at a time and publishes the classroom.enable_* key space instead), getClassIdByStudentId, listStudentsByParent, linkParentToStudent and bindStudentToUser. The last three exist because parent_students and students.user_id are classroom rows that identity must write during registration, and because students.name is encrypted at rest - a caller writing it directly would store plaintext."
+        "_note": "P4.3b.7 added four operations for the identity domain: getClassFeatureSnapshot (the whole enable_* map the login response embeds - checkClassFeature answers one boolean at a time and publishes the classroom.enable_* key space instead), getClassIdByStudentId, listStudentsByParent, linkParentToStudent and bindStudentToUser. The last three exist because parent_students and students.user_id are classroom rows that identity must write during registration, and because students.name is encrypted at rest - a caller writing it directly would store plaintext. P4.3b.14 added the account-deletion scope: listClassIdsByTeacher and listStudentAccountsByClassIds, so the migrating admin console can ask which classes a teacher owns and which student/login rows live in them instead of reading classes and students itself. Both are ids only, and an empty classIds answers [] rather than every student."
       }
     ],
     "permissions": [
@@ -90,16 +90,21 @@
   },
   "data": {
     "tables": [],
-    "adopted": ["students", "classes", "records"],
-    "_records_note": "`records` is the shared point ledger: points, gacha, marketplace, pet, dungeon, battles, challenge, collaboration, engagement AND economy all append to it, so no single feature domain can own it. classroom owns it because it owns student points, and other plugins append through classroom.public.recordStudentLedgerEntry() instead of writing it directly.",
-    "reads": [
-      "users",
-      "student_groups",
-      "parent_students",
-      "peer_reviews",
-      "point_presets",
+    "adopted": [
+      "students",
+      "classes",
+      "records",
       "attendance_records",
       "leave_requests",
+      "parent_students",
+      "student_groups",
+      "point_presets"
+    ],
+    "_records_note": "`records` is the shared point ledger: points, gacha, marketplace, pet, dungeon, battles, challenge, collaboration, engagement AND economy all append to it, so no single feature domain can own it. classroom owns it because it owns student points, and other plugins append through classroom.public.recordStudentLedgerEntry() instead of writing it directly.",
+    "_ownership_note": "P4.3b.14 added five tables that had NO owner at all, so that they could have a cleanup rule for account deletion (a rule may only name tables its plugin declared): `attendance_records`, `leave_requests`, `parent_students`, `student_groups` and `point_presets`. All five were already read here, and classroom already WROTE all five through `ctx.rawDb` because there was no owner to publish a port - see `_known_debt`. Declaring them turns those raw writes into ordinary ownership-checked ones and gives the pre-migration cascade's deletes (attendance by student/class, leaves by student/reviewer, parent links by student, groups by class, presets by teacher) a home. This is the same shape as identity's P4.3b.7 adoption of `users`/`activation_codes`/`activation_events`: giving an existing table its first owner, not claiming someone else's.",
+    "reads": [
+      "users",
+      "peer_reviews",
       "user_achievements",
       "family_tasks",
       "pets",
@@ -113,6 +118,6 @@
       "student_assignments"
     ],
     "_reads_note": "Every one of these is a table this plugin READS but does not own. `users` and `student_groups` are joined by the student list/detail and group queries; `parent_students` by the parent branch of listClasses; `peer_reviews` by the pending-review read; `parent_activity` by the 20% parent-buff check; `pets` by the achievement rule; `praises` / `world_bosses` / `records`-adjacent reads by the bigscreen; `redemption_tickets` by the lucky-draw achievement; `family_tasks` by the self-discipline achievement. P4.3b.12 added `exams` / `student_exams` / `assignments` / `student_assignments`, which moved to plugins/assignments: the insights read model needs class and student reports over them, and their aggregates (`AVG(score)` per class, submission counts per student) need the `students` join that only this plugin may run. Reading them for a report is the same shape as plugins/learning reading `students` - a declared read, not a second ownership claim. Declaring them is what lets `ctx.db` serve those reads while still refusing a write.",
-    "_known_debt": "The HTTP surface also WRITES a set of tables this plugin does not own, because every one of those writes is part of the endpoint contract and dropping it would change behaviour. They go through `ctx.rawDb` and are enumerated with their reasons in `src/classroom.repository.ts`: `users` (student accounts and password resets - identity data with no identity plugin yet), `peer_reviews` (adopted by plugins/collaboration, which has no peer-review port), `pets` (adopted by plugins/pet; a port call would be a dependency cycle because pet dependsOn classroom), `messages`, `student_groups`, `point_presets`, `attendance_records`, `leave_requests`, `user_achievements` (no owner yet) and `capability_assignments` (kernel-owned; the SDK's PermissionsApi is read-only by design, so the dual write of a class feature flag cannot go through it today). The fixes are ports from the owning plugins, a decision to give the ownerless tables to classroom, and an assignment writer on PermissionsApi - each is a separate round, not something to hide in a migration. Also: these legacy routes are unauthenticated at the transport level exactly as they were in api/modules/classroom (HANDOFF §10 item 3); authorization is enforced inside the service for the teacher/admin-scoped operations, and systematically it is still pending."
+    "_known_debt": "The HTTP surface also WRITES a set of tables this plugin does not own, because every one of those writes is part of the endpoint contract and dropping it would change behaviour. They go through `ctx.rawDb` and are enumerated with their reasons in `src/classroom.repository.ts`: `users` (student accounts and password resets - identity data with no identity plugin yet), `peer_reviews` (adopted by plugins/collaboration, which has no peer-review port), `pets` (adopted by plugins/pet; a port call would be a dependency cycle because pet dependsOn classroom), `messages`, `user_achievements` (no owner yet) and `capability_assignments` (kernel-owned; the SDK's PermissionsApi is read-only by design, so the dual write of a class feature flag cannot go through it today). P4.3b.14 removed five entries from this list rather than adding a port: `student_groups`, `point_presets`, `attendance_records`, `leave_requests` and `parent_students` had no owner, so this plugin now declares them and those writes are ordinary checked ones. The remaining fixes are ports from the owning plugins and an assignment writer on PermissionsApi - each is a separate round, not something to hide in a migration. Also: these legacy routes are unauthenticated at the transport level exactly as they were in api/modules/classroom (HANDOFF §10 item 3); authorization is enforced inside the service for the teacher/admin-scoped operations, and systematically it is still pending."
   }
 }

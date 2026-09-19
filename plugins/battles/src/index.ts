@@ -21,6 +21,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { BattlesController } from './battles.controllers.js';
+import { createBattlesCleanupRule } from './battles.cleanup.js';
 import { createBattlesRepository } from './battles.repository.js';
 import { BattlesService } from './battles.service.js';
 
@@ -44,6 +45,11 @@ export default definePlugin({
 
     service = new BattlesService(createBattlesRepository(ctx.db), classroom);
     providers.push({ provide: BattlesService, useValue: service });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see battles.cleanup.ts.
+    ctx.cleanup.register(createBattlesCleanupRule());
 
     ctx.log.info('battles service ready', { owns: ctx.plugin.slug });
   },

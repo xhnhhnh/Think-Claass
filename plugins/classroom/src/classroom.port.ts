@@ -266,6 +266,32 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
       return db.listClassStudents(classId).map((row) => toStudentSnapshot(row, cipher));
     },
 
+    // -- account-deletion scope (P4.3b.14) -----------------------------------
+    //
+    // Both reads exist for `DELETE /api/admin/users/:id`: the console deletes a teacher, so it has
+    // to learn which classes that teacher owns and which student rows (and login rows) live in
+    // them, then hand each set to the domain that owns the table. Ids only - a row-shaped answer
+    // would be a second projection of `classes`/`students` for one caller's convenience.
+
+    async listClassIdsByTeacher(teacherId) {
+      return db.listClassIdsByTeacher(teacherId);
+    },
+
+    /**
+     * The `(student row, login row)` pairs in these classes.
+     *
+     * An empty `classIds` answers `[]` without a query - it asks for nothing, and must never mean
+     * "every student". A student with no login row appears with `userId: null`, because their
+     * roster row still has to be deleted.
+     */
+    async listStudentAccountsByClassIds(classIds) {
+      if (classIds.length === 0) return [];
+      return db.listStudentAccountsByClassIds(classIds).map((row) => ({
+        studentId: row.id,
+        userId: row.user_id ?? null,
+      }));
+    },
+
     async searchClasses(query, excludeClassId, limit = -1) {
       return db.searchClasses(query, excludeClassId, limit).map(toClassSnapshot);
     },

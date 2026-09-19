@@ -29,5 +29,14 @@ export default defineConfig({
     include: ['tests/kernel/**/*.test.ts', 'tests/plugins/**/*.test.ts'],
     globals: false,
     testTimeout: 30_000,
+    /**
+     * Booting a plugin host is the most expensive hook in the suite: discovery reads every
+     * `plugin.json`, validation runs, ~20 plugin modules are imported through the esbuild transform,
+     * migrations run and Nest assembles the module graph. Under `npm test` that happens while the app
+     * and guardrail projects are also transforming files, and the default 10s hook budget turned a
+     * scheduling delay into three failed suites - each of which passed on its own. 60s is a bound on
+     * a hang, not an expectation: a healthy boot is 1-3 seconds.
+     */
+    hookTimeout: 60_000,
   },
 });

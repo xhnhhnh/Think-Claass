@@ -36,6 +36,7 @@ import {
   PraisesController,
   RedemptionController,
 } from './engagement.controllers.js';
+import { createEngagementCleanupRule } from './engagement.cleanup.js';
 import { createEngagementRepository } from './engagement.repository.js';
 import { EngagementService } from './engagement.service.js';
 
@@ -94,6 +95,11 @@ export default definePlugin({
         return instance.listPraiseSnippets(studentId, limit);
       },
     });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see engagement.cleanup.ts.
+    ctx.cleanup.register(createEngagementCleanupRule());
 
     ctx.log.info('engagement service ready', { owns: ctx.plugin.slug });
   },

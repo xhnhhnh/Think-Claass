@@ -20,6 +20,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { DungeonController } from './dungeon.controllers.js';
+import { createDungeonCleanupRule } from './dungeon.cleanup.js';
 import { createDungeonRepository } from './dungeon.repository.js';
 import { DungeonService } from './dungeon.service.js';
 
@@ -43,6 +44,11 @@ export default definePlugin({
 
     service = new DungeonService(createDungeonRepository(ctx.db), classroom);
     providers.push({ provide: DungeonService, useValue: service });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see dungeon.cleanup.ts.
+    ctx.cleanup.register(createDungeonCleanupRule());
 
     ctx.log.info('dungeon service ready', { owns: ctx.plugin.slug });
   },

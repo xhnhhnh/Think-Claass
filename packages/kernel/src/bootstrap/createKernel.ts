@@ -94,6 +94,15 @@ export interface KernelRuntimeHooks {
   permissions: PermissionEngine;
   logger: Logger;
   config: KernelConfig;
+  /**
+   * The kernel's audit log, so the plugin runtime can publish it as `ctx.audit`.
+   *
+   * `operation_logs` is kernel-owned storage and a plugin may not write it directly, but account
+   * deletion has to remove that account's entries and record the deletion **in the same
+   * transaction** as the change - `AuditApi` is that door, and it is opened here because the sink
+   * lives in the kernel.
+   */
+  audit: AuditLog;
 }
 
 export interface CreateKernelOptions {
@@ -227,6 +236,7 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
     permissions,
     logger,
     config,
+    audit: auditLog,
   };
 
   /**

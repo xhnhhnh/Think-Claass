@@ -26,6 +26,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { GachaController } from './gacha.controllers.js';
+import { createGachaCleanupRule } from './gacha.cleanup.js';
 import { createGachaRepository } from './gacha.repository.js';
 import { GachaService } from './gacha.service.js';
 
@@ -49,6 +50,11 @@ export default definePlugin({
 
     service = new GachaService(createGachaRepository(ctx.db), classroom);
     providers.push({ provide: GachaService, useValue: service });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see gacha.cleanup.ts.
+    ctx.cleanup.register(createGachaCleanupRule());
 
     ctx.log.info('gacha service ready', { owns: ctx.plugin.slug });
   },

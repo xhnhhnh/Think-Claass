@@ -25,12 +25,14 @@ import type {
   EventBus,
   SettingsStore,
   AuthProvider,
+  AuditLog,
 } from '@thinkclass/kernel';
 import { ApiError, forbidden } from '@thinkclass/kernel';
 import type { DbApi, KernelContext } from '@thinkclass/plugin-sdk';
 import { tablePrefixOf } from '@thinkclass/plugin-sdk';
 
 import type { PluginBoundary } from './boundary.js';
+import type { CleanupRegistry } from './cleanupRegistry.js';
 import { createDbApi } from './dbApi.js';
 import type { DiscoveredPlugin } from './discovery.js';
 import type { ServiceRegistry } from './serviceRegistry.js';
@@ -68,6 +70,29 @@ export interface ContextFactoryDeps {
    * kernel would capture `undefined` at boot and `/api/kernel/auth/login` would answer 503 forever.
    */
   authProvider?: { current: AuthProvider | null };
+  /**
+   * The kernel's audit log, published to plugins as `ctx.audit`.
+   *
+   * Optional so a hand-built context in a test can omit it; the accessor then throws a clear error
+   * rather than silently dropping an entry an account deletion depends on.
+   */
+  audit?: AuditLog;
+  /**
+   * Database file maintenance, injected by the host application.
+   *
+   * Only the host can replace the SQLite file under a running process and replay the application's
+   * schema, so `plugins/admin` reaches it through `ctx.maintenance`. Omitted by hand-built test
+   * hosts, in which case the accessor throws instead of pretending the operation happened.
+   */
+  maintenance?: KernelContext['maintenance'];
+  /**
+   * The account-deletion registry.
+   *
+   * Built by the host (one per process) and injected into every context: a plugin registers its own
+   * rule with it, and `DELETE /api/admin/users/:id` runs all of them in one transaction. The
+   * registry itself knows no table names - see cleanupRegistry.ts.
+   */
+  cleanup: CleanupRegistry;
   /** Collected route registrations, mounted by the host. */
   mountedRouters: MountedRouter[];
   /** Topic pattern matcher for declared event subscriptions. */
@@ -83,6 +108,22 @@ function topicMatches(pattern: string, topic: string): boolean {
 
 function pathMatchesBase(path: string, base: string): boolean {
   return path === base || path.startsWith(base.endsWith('/') ? base : base + '/');
+}
+
+/**
+ * The host-injected maintenance implementation, or a loud failure.
+ *
+ * Every method goes through this rather than returning `undefined`, because the three operations it
+ * serves replace or rebuild the entire database: a silent no-op would answer "导入成功" while
+ * changing nothing.
+ */
+function requireMaintenance(deps: ContextFactoryDeps): NonNullable<ContextFactoryDeps['maintenance']> {
+  if (!deps.maintenance) {
+    throw new ApiError(500, 'this host does not provide database maintenance', {
+      code: 'MAINTENANCE_UNAVAILABLE',
+    });
+  }
+  return deps.maintenance;
 }
 
 export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFactoryDeps): KernelContext {
@@ -275,6 +316,22 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
       getPlatform<T = unknown>(key: string): T | undefined {
         return deps.settings?.get(key) as T | undefined;
       },
+      /**
+       * Write a *platform* setting - the counterpart of `getPlatform`.
+       *
+       * The `settings` table is kernel-owned storage (plugins only ever write their own
+       * `plugin.<slug>.<key>` namespace through `set`), and the admin console is the surface that
+       * edits platform policy. Without this the console had to write the table through Prisma,
+       * which is a second data path into kernel storage from inside a plugin.
+       */
+      setPlatform(key: string, value: string | null): void {
+        if (!deps.settings) {
+          throw new ApiError(500, 'this host does not expose the platform settings store', {
+            code: 'SETTINGS_STORE_UNAVAILABLE',
+          });
+        }
+        deps.settings.set(key, value);
+      },
     },
 
     /**
@@ -305,6 +362,66 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
         // this is a guard for code that calls schedule() at runtime.
         log.warn('jobs are not scheduled by this kernel build', { name });
         return { dispose() {} };
+      },
+    },
+
+    /**
+     * Account-deletion cleanup.
+     *
+     * `register` validates the rule against this plugin's own declaration before it reaches the
+     * registry, so an under-declared rule fails the plugin's `setup()` rather than deleting another
+     * domain's rows.
+     */
+    cleanup: {
+      register(rule) {
+        deps.cleanup.register({ pluginId: manifest.id, rule, api: dbApi, ownedTables });
+      },
+      run(subject) {
+        deps.cleanup.run(subject);
+      },
+    },
+
+    /**
+     * The kernel's audit log.
+     *
+     * Exists so a plugin can record an entry inside its own transaction - the pre-migration
+     * `logAdminMutation` wrote `operation_logs` in the same Prisma transaction as the change it
+     * described, and `events.emit` cannot reproduce that because the sink is detached.
+     */
+    audit: {
+      record(entry) {
+        if (!deps.audit) {
+          throw new ApiError(500, 'this host does not expose the kernel audit log', {
+            code: 'AUDIT_LOG_UNAVAILABLE',
+          });
+        }
+        deps.audit.record(entry);
+      },
+      purgeFor(ids) {
+        if (!deps.audit) {
+          throw new ApiError(500, 'this host does not expose the kernel audit log', {
+            code: 'AUDIT_LOG_UNAVAILABLE',
+          });
+        }
+        return deps.audit.purgeFor(ids);
+      },
+    },
+
+    /**
+     * Database file maintenance.
+     *
+     * The host injects the implementation (it owns the connection lifecycle); without one the
+     * accessor fails loudly rather than reporting a successful import that never happened.
+     */
+    maintenance: {
+      exportDatabase() {
+        return requireMaintenance(deps).exportDatabase();
+      },
+      importDatabase(uploadedFilePath: string) {
+        return requireMaintenance(deps).importDatabase(uploadedFilePath);
+      },
+      resetDatabase() {
+        return requireMaintenance(deps).resetDatabase();
       },
     },
 

@@ -30,6 +30,7 @@ import type { Express, Response as ExpressResponse } from 'express';
 import type { PluginManifest, PublicPluginDescriptor } from '@thinkclass/contracts';
 import type {
   AuthProvider,
+  AuditLog,
   Database,
   EventBus,
   KernelConfig,
@@ -48,6 +49,7 @@ import {
 } from '@thinkclass/plugin-sdk';
 
 import { createPluginBoundary, type PluginBoundary, type PluginHealthSnapshot } from './boundary.js';
+import { createCleanupRegistry, type CleanupRegistry } from './cleanupRegistry.js';
 import { createPluginContext, stopCallbacksOf, type MountedRouter } from './contextFactory.js';
 import { discoverPlugins, type DiscoveredPlugin, type RejectedPlugin } from './discovery.js';
 import { describeViolations, runPluginMigrations, type PluginMigrationOutcome } from './migrationRunner.js';
@@ -81,6 +83,21 @@ export interface PluginHostOptions {
    * do not care, in which case a plugin calling `ctx.auth.registerProvider` gets a clear 500.
    */
   authProvider?: { current: AuthProvider | null };
+  /**
+   * The kernel's audit log, handed to plugins as `ctx.audit`.
+   *
+   * `api/app.ts` passes the kernel's own instance through the runtime hooks; a hand-built host may
+   * omit it, in which case `ctx.audit` throws rather than dropping entries.
+   */
+  audit?: AuditLog;
+  /**
+   * Database file maintenance, injected by the host application (`api/app.ts`).
+   *
+   * The three operations are about the SQLite *file* - replace it, drop everything, replay the
+   * application schema - so their implementation cannot live in a plugin. `plugins/admin` publishes
+   * the routes and the host supplies the primitives.
+   */
+  maintenance?: KernelContext['maintenance'];
   /** Extra directories to scan, appended to config.pluginDirs. */
   pluginDirs?: string[];
   /** Plugin ids to skip. */
@@ -125,6 +142,13 @@ export interface PluginHost {
   services: ServiceRegistry;
   boundary: PluginBoundary;
   stateStore: PluginStateStore;
+  /**
+   * The account-deletion cleanup registry: one rule per table, ordered by the foreign-key graph.
+   *
+   * Exposed so the host (and its tests) can assert coverage - "every table the pre-migration
+   * cascade deleted still has exactly one owner" - without executing a deletion.
+   */
+  cleanup: CleanupRegistry;
   /**
    * One Nest module per active plugin, carrying its controllers and providers.
    *
@@ -179,7 +203,7 @@ function describe(plugin: DiscoveredPlugin) {
 // ---------------------------------------------------------------------------
 
 export async function createPluginHost(options: PluginHostOptions): Promise<PluginHost> {
-  const { app, db, sessions, events, permissions, logger, config, authProvider } = options;
+  const { app, db, sessions, events, permissions, logger, config, authProvider, audit, maintenance } = options;
   const strict = config.env !== 'production';
   // `ctx.settings.getPlatform` needs the kernel's settings view. The composition passes it; a
   // hand-built host falls back to the same table so the accessor works either way.
@@ -191,6 +215,12 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
 
   const stateStore = createPluginStateStore(db);
   const services = createServiceRegistry(logger.child('services'));
+  /**
+   * One registry per process: plugins register their cleanup rules during `setup`, and
+   * `DELETE /api/admin/users/:id` runs them all in one transaction. It knows no table names - the
+   * rules do. See cleanupRegistry.ts and docs/migration/admin-cascade-decision.md.
+   */
+  const cleanup = createCleanupRegistry({ db, logger: logger.child('cleanup') });
   const boundary = createPluginBoundary({
     logger: logger.child('boundary'),
     onDegrade: (snapshot) => {
@@ -243,6 +273,7 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
       services,
       boundary,
       stateStore,
+      cleanup,
       modules: [],
     });
   }
@@ -332,6 +363,9 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
       config,
       settings,
       authProvider,
+      audit,
+      cleanup,
+      maintenance,
       mountedRouters,
       strict,
     });
@@ -404,6 +438,7 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
     services,
     boundary,
     stateStore,
+    cleanup,
     modules: pluginModules,
   });
 }
@@ -492,11 +527,12 @@ interface BuildHostInput {
   services: ServiceRegistry;
   boundary: PluginBoundary;
   stateStore: PluginStateStore;
+  cleanup: CleanupRegistry;
   modules: Type<unknown>[];
 }
 
 function buildHost(input: BuildHostInput): PluginHost {
-  const { active, rejected, rejections, migrationOutcomes, services, boundary, stateStore, modules } = input;
+  const { active, rejected, rejections, migrationOutcomes, services, boundary, stateStore, cleanup, modules } = input;
 
   return {
     active,
@@ -506,6 +542,7 @@ function buildHost(input: BuildHostInput): PluginHost {
     services,
     boundary,
     stateStore,
+    cleanup,
     modules,
 
     health: () => boundary.snapshot(),

@@ -20,6 +20,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { SlgController } from './slg.controllers.js';
+import { createSlgCleanupRule } from './slg.cleanup.js';
 import { createSlgRepository } from './slg.repository.js';
 import { SlgService } from './slg.service.js';
 
@@ -43,6 +44,11 @@ export default definePlugin({
 
     service = new SlgService(createSlgRepository(ctx.db), classroom);
     providers.push({ provide: SlgService, useValue: service });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see slg.cleanup.ts.
+    ctx.cleanup.register(createSlgCleanupRule());
 
     ctx.log.info('slg service ready', { owns: ctx.plugin.slug });
   },

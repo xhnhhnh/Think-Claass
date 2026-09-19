@@ -25,6 +25,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { LegacyPetsController, PetController } from './pet.controllers.js';
+import { createPetCleanupRule } from './pet.cleanup.js';
 import { createPetRepository } from './pet.repository.js';
 import { PetService } from './pet.service.js';
 
@@ -52,6 +53,12 @@ export default definePlugin({
     providers.push({ provide: PetService, useValue: service });
 
     ctx.provide('pet.public', service.toPort());
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see pet.cleanup.ts.
+    ctx.cleanup.register(createPetCleanupRule());
+
     ctx.log.info('pet service ready', { owns: 'pets (adopted)', reads: ['praises', 'parent_activity'] });
   },
 

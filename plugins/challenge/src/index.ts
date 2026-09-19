@@ -25,6 +25,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { ChallengeController } from './challenge.controllers.js';
+import { createChallengeCleanupRule } from './challenge.cleanup.js';
 import { createChallengeRepository } from './challenge.repository.js';
 import { ChallengeService } from './challenge.service.js';
 
@@ -53,6 +54,11 @@ export default definePlugin({
       ctx.tryUse('pet.public'),
     );
     providers.push({ provide: ChallengeService, useValue: service });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see challenge.cleanup.ts.
+    ctx.cleanup.register(createChallengeCleanupRule());
 
     ctx.log.info('challenge service ready', { owns: ctx.plugin.slug, petDamage: 'pet.public (lazy)' });
   },

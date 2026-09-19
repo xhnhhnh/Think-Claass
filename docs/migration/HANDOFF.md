@@ -1,10 +1,10 @@
 # 交接文档 · ThinkClass「最小 Core + 无限 Plugins」重构
 
 > **用途**：在**新对话**中接续本重构。本文档是唯一权威入口。
-> **生成时间**：第 8 轮结束时（P4.3b.6 完成：`pet` 域真正迁成插件，`routeCollisions` 归零）
+> **生成时间**：第 9 轮结束时（P4.3b.14 完成：`admin` 迁成 `plugins/admin`，`api/modules/` 为空，跨域级联有了正式裁决与机制）
 > **工作区**：`D:\think-class`
 > **分支**：`refactor/plugin-kernel`
-> **HEAD**：以 `git log --oneline -1` 为准。本轮开工时核实到 HEAD 是 `36bb89d`（上一轮的 P4.3c.3a）。
+> **HEAD**：以 `git log --oneline -1` 为准。本轮开工时核实到 HEAD 是 `3c88a41`。
 > **目标**：把现有前端、后端、数据库与整体架构重构为真正的 `Core → Plugin Runtime → Plugin API/SDK → Plugins`
 
 ---
@@ -76,24 +76,26 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ## 1. 一句话现状
 
-**P0–P4.3b.13 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
-**P4.3b 已迁走 21 个域**，其中最近几轮是：P4.3b.6b（`classroom` 的 47 条 HTTP 面 + `learning` 剩余 24 条）、
-P4.3b.7（`auth` → `plugins/identity`）、P4.3b.8（支付 → `plugins/payment`，`tier: "infrastructure"`）、
-P4.3b.10（`engagement`，17 路由 / 10 表）、**P4.3b.13（`insights`，3 路由、自有表 0 张）**。
-`routeCollisions` 保持 **0**，端点数保持 **297**（未变）。
-**P4.3c 已把两套组装的 schema 合成同一份迁移链**（含 1 列 + 19 索引的补全）。
+**P0–P4.3b.14 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分、
+**全部 21 个域的插件化**都已落地。
 
-**P4.3b.9 修掉了那条悬了五轮的配置陷阱**：Prisma 与 `ctx.db` 现在**保证**打开同一个库（见 §9 的 P4.3b.9 记录）。
-**P4.3b.11 把 admin 迁移的前置未知数量清楚了**，并补上 G13 的第二个方向（SQLite 有而 Prisma 没有的列）。
-**P4.3b.12 先发布了 insights 需要的报表端口**，所以 P4.3b.13 才可能是一个"自有表 0 张"的读模型。
+**`api/modules/` 现在是空的** —— `admin` 在 P4.3b.14 迁成 `plugins/admin`（28 条路由），
+它是最后一个模块，也是唯一一条绕过所有权模型的写路径。legacy 组装仍然服务全部域：
+`createLegacyRootModule()` 把插件模块并进同一个 Nest 根模块，但那条"把域注册成静态模块"的路已经不存在了。
 
-**`api/modules/` 现在只剩 1 个**：`admin`。**其余 20 个域全部是插件**，legacy 组装通过
-`createLegacyRootModule()` 把插件模块并进同一个 Nest 根模块。
-**`api/services/` 只剩 1 个死文件**（`UserService.ts`，无人引用，P7 删）。
+**跨域级联删除有了正式裁决与机制**（`docs/migration/admin-cascade-decision.md`）：
+`DELETE /api/admin/users/:id` 曾经在一个 Prisma 事务里按 58 个硬编码表名删数据 —— 原子，但对所有权检查完全不可见。
+现在每个插件在 `setup()` 里注册自己的清理规则（`ctx.cleanup.register`），运行时按 **schema 的外键图**排序，
+在**一个**事务里执行。原子性保留，表名回到拥有者手里，内核与运行时**一个业务表名都不出现**（G5 因此不破）。
 
-**SDK 在 P4.3b.8 新增第三种 tier**：`'foundation' | 'feature' | 'infrastructure'`。
+**端点数保持 297**（迁移期间从未变过）；`routeCollisions` 保持 0。
+**棘轮**：`adoptedTables` 65 → **74**（给 7 张无主表找到主人 + admin 的 3 张，逐表写在 `allowances.json` 里），
+`deadCode` 59 → **55**（删掉随 `api/modules/admin` 一起失去最后消费者的 9 个文件）。
 
-**下一步 = §1.1 的那个目标**（`admin`）。它有**一个必须先做的裁决**，不裁决就动手会毁掉一个今天不可能出现的性质 —— 见 §1.1 与 §8.3.1。
+**Prisma 在运行时已无消费者**：`api/prismaClient.ts` 只剩 P4.3b.9 那条路径围栏测试在引用它（P7 删）。
+`api/db.ts` 的**第二条连接**仍未收敛（`initDb()`、维护操作还在用它），这是下一轮的事，见 §1.1。
+
+**下一步 = §1.1 的那个目标**（P4.3c.3 + 连接收敛）。
 
 ---
 
@@ -105,78 +107,53 @@ P4.3b.10（`engagement`，17 路由 / 10 表）、**P4.3b.13（`insights`，3 �
 
 ### 目标一句话
 
-**把 `admin` 域迁成 `plugins/admin`，并在此过程中为"跨域级联删除"确定一个能长期成立的机制。**
+**让 kernel-only 部署只建内核真正需要的表（P4.3c.3），并顺手把 `api/db.ts` 的第二条连接收敛掉。**
 
-### 为什么它不是"最后一个域，照抄前 20 个"
+### 为什么是它
 
-`admin` 有 14 个文件、`admin.repository.ts` 940 行，而真正的难点是
-`DELETE /api/admin/users/:id` → `deleteTeacherCascade`：
+架构部分已经完成：21 个域全是插件、`api/modules/` 为空、级联删除有了机制。
+但"**最小** Core"这句话还差一半：`api/schema/legacyBootSchema.ts` 是**一整块 86 张表**的迁移，
+`KERNEL_ENABLED=1` 的部署照样把班级、宠物、地牢、支付全都建出来 —— 一个只跑内核的部署不应该认识 `pets`。
 
-| 实测事实 | 出处 |
-|---|---|
-| 它删 **58 张表 / 65 条语句**（2 读 63 写） | `scripts/migration/probes/admin-cascade-inventory.mjs` |
-| 全部包在**一个** `prisma.$transaction` 里 —— 所以"删干净"是**原子**的 | 同上 |
-| 它绕开 `DbApi`，因此**所有权检查对它完全无效** —— 这是唯一一条这样的写路径 | §8.3.1 |
-| 61 张表持有指向 `users`/`classes`/`students` 的外键，其中只有 `blind_boxes` 没被它清理 | `scripts/migration/probes/admin-cascade-fk-coverage.mjs` |
-| 它是 **Prisma 在运行时的唯一消费者**（`api/services/UserService.ts` 是死文件） | 全仓 grep |
-
-**这四条合起来意味着：`admin` 不能靠"照抄端口化"来迁。** 65 个端口调用 = 65 个独立事务，
-进程死在中间会留下**半删的账号** —— 一个今天不可能出现的状态。
-
-### 必须先做的裁决（本轮的第一个交付物，不要跳过）
-
-在**同一份文档**（建议 `docs/migration/admin-cascade-decision.md`）里对下面三条给出**结论 + 理由 + 代价**，
-并采取其中一个。这三条是 P4.3b.11 量出来的真实选项，不是开放式的头脑风暴：
-
-| 方案 | 得到什么 | 付出什么 |
-|---|---|---|
-| A. 各域发布级联删除端口 | 所有权模型 100% 成立 | **失去原子性**；要给约 15 个域各设计一个删除方法；半删状态成为可能 |
-| B. 插件按脚本注册自己的清理规则，内核按序执行 | 保留原子性；58 张表的表名集中在一处 | 内核要**按名字执行业务表的删除**，与 **G5（内核零业务知识）** 的张力需要一个正式的说法 |
-| C. 暂不迁，只把债务收窄 | 不动现状 | `admin` 继续是唯一绕过所有权模型的写者；**P7 的表改名被它堵死** |
-
-**裁决的判据不是"哪个更好看"，而是：`half-deleted account` 这个状态能不能接受。**
-如果选 A，必须在文档里写明"接受它"，并说明补偿措施（例如幂等重试、或先写 tombstone 再删）。
-如果选 B，必须给出 G5 的具体边界（"内核执行删除"不等于"内核知道什么是班主任"），
-并接受一条新的护栏来钉住它。
+同时有一条**同类**的债：进程里平时有两条更好的 better-sqlite3 连接（内核一条、`api/db.ts` 一条），
+两者指向同一个文件、规则各写了一份（P4.3b.9 记录过第三处路径规则）。admin 迁走之后 `api/db.ts` 只剩
+`initDb()`（seed + 迁移）与数据库维护（导入/重置）在用，正好一并收敛。
 
 ### 交付物与写范围
 
 | # | 交付物 | 写范围（独占） |
 |---|---|---|
-| 1 | 裁决文档（上表三选一 + 理由 + 护栏设计） | `docs/migration/admin-cascade-decision.md` |
-| 2 | 若选 B：注册表机制 + 护栏；若选 A：各域删除端口 | `packages/kernel/**`、`packages/contracts/**`（选 B）或各 `plugins/<slug>/**`（选 A） |
-| 3 | `plugins/admin/`（14 个文件的迁移；**不是照抄**，见上） | `plugins/admin/**` |
-| 4 | 删除 `api/modules/admin/**` —— 之后 `api/modules/` **为空** | `api/app.module.ts`、`api/modules/admin/**` |
-| 5 | 测试：级联的真库测试（`tests/plugins/admin-cascade.test.ts` 已存在，扩到覆盖裁决后的机制） | `tests/plugins/admin-*.test.ts` |
-| 6 | **顺手清掉 Prisma 运行时依赖**：`admin` 是最后一个消费者，迁完 `api/prismaClient.ts` 与 `api/db.ts` 的第二条连接就该收敛（见 §9 P4.3b.9 的第三处路径规则） | `api/prismaClient.ts`、`api/db.ts` |
+| 1 | **裁决文档**：按域拆迁移的**粒度与归属**（哪些表属内核、哪些表跟域走、无主表怎么办），并回答"已有库升级"与"kernel-only 新库"两条路径 | `docs/migration/p4.3c.3-decision.md` |
+| 2 | 按域拆分 `APP_MIGRATIONS`（每个域一个迁移文件；内核表已在 `kernelMigrations` 里） | `api/schema/**`、`packages/kernel/src/storage/**`（仅在必要时） |
+| 3 | 连接收敛：`api/db.ts` 不再自开连接（或明确写下为什么留），`initDb()` 与维护操作走一条连接 | `api/db.ts`、`api/app.ts`、`api/maintenance.ts` |
+| 4 | 测试：kernel-only 组装的真启动断言（**只**建内核表；业务路由 404 而不是 500） | `tests/kernel/**`、`tests/plugins/**` |
 
-### 验收判据（硬性的，与 §0 的三条命令一致）
+### 验收判据（硬性的）
 
 ```bash
 npm run check                 # exit 0
-npm test                      # 全绿；用例数只增不减
-npm run api:surface -- --check # 必须仍是 297 endpoints，不许多也不许少
-npm run guard                 # 12+ 文件全绿；棘轮只降不升。注意 adoptedTables 已是 65——
-                              # admin 迁完**不一定**让它动（它的表都已被各域 adopt 或被 admin 直删），
-                              # 所以别把"数字必须下降"写进验收；把"说明为什么动/不动"写进提交信息
+npm test                      # 全绿；用例数只增不减（本轮基线：121 文件 / 939 用例）
+npm run api:surface -- --check # 必须仍是 297 endpoints
+npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTables ≤ 74、routeCollisions = 0
 ```
 
 外加：
 
-- `routeCollisions` 必须保持 **0**（删旧模块与建插件必须在**同一次提交**里，§8.2）；
-- `DELETE /api/admin/users/:id` 在**真库**上端到端验证一次（现有 `tests/plugins/admin-cascade.test.ts`
-  已经这样做了 —— 它用临时库，且因为 P4.3b.9 才安全，见该文件头注释）；
-- 两套组装（legacy + kernel）都要真启动一次，且 `/api/admin/*` 在两边都可达；
-- **裁决若选 A 或 B，必须有一条能变红的护栏**：机制失效时测试要报错，而不是静默退化成逐条删除。
-  这条用变异验证（把机制改坏 → 断言必须红），P4.3b.9 / P4.3b.11 两轮都是这么做的。
+- **kernel-only 真启动一次**（`KERNEL_ENABLED=1 PLUGINS_ENABLED=0`）：库里**只有**内核表 +
+  `__core_migrations`；插件未启用时不存在业务表，也不报错；
+- **legacy 组装 + 已有真实库**仍能启动，且 ledger 里已应用的迁移 checksum **一个字都没变**
+  （§9 的 checksum 陷阱：已应用的迁移不能改，新迁移的 id 必须排在 `0000d_` 之后，G17 会核对那份清单）；
+- **两套组装产出的 schema 仍然一致**（P4.3c.3a 建立的 86 表 / 89 索引基线，别把它拆坏）；
+- 任何**新**的棘轮（例如"kernel-only 库里的业务表数量"）都要能**变红**，并用变异验证（把迁移改坏 → 断言红）。
 
 ### 明确不在本目标内
 
-- **P4.3c.3**（按域拆 migration，让 kernel-only 部署不建业务表）；
-- **P5 前端收尾**、**P6 运行期安装**、**P7 清理**（含 `blind_boxes.teacher_id` 那处 schema 漂移、
-  `api/services/UserService.ts`、19 个 `enable_*` 列、`src/api/*` 31 个死文件、`deadCode` 59）。
+- **P6 运行期安装**（`.tcplugin` 打包、`plugins-ext` 动态 import、`worker_threads` 隔离）；
+- **P7 清理**（`adoptedTables` 74 → 0 的表改名、19 个 `enable_*` 列、`blind_boxes.teacher_id`、
+  `api/prismaClient.ts`、`src/api/*` 31 个死文件、`deadCode` 55 → 0、`.tmp` 里被跟踪的文件）；
+- **P5 前端收尾**（若还有）。
 
-它们各自是一轮或几轮，不要在 `admin` 这一轮里顺手做 —— §9 的 P4.3b.10 记录了一次"顺手修"的代价。
+它们各自是一轮或几轮。
 
 ### 环境约束（不变，见 §2）
 
@@ -244,6 +221,7 @@ npm run api:surface -- --check     # 297 条端点必须零漂移（含 plugins/
 | **P4.3b.11** | 量清 admin 级联（58 表/65 语句/**1 个事务**）+ 它的第一次真库测试 + **G13 第二个方向**（SQLite 有而 Prisma 没有的列） | `2047995` | ✅ |
 | **P4.3b.12** | **insights 的报表端口**（迁域的前置）：`classroom.public` 新增 `getClassReportInputs` / `getStudentReportInputs` / `getStudentAccessView`，`engagement.public` 新增表扬计数与摘要；19 例真库测试 | `e16c280` | ✅ |
 | **P4.3b.13** | **`insights` 迁成 `plugins/insights`**（3 条路由、**无自有表**、`data.adopted` 与 `data.reads` 都为空、全部走端口）；顺带给 classroom 补 `countLeaveRequestsForStudents` / `listRecentLeaves`；删 `api/modules/insights/**` —— **`api/modules/` 只剩 `admin`** | 见 `git log` | ✅ |
+| **P4.3b.14** | **`admin` 迁成 `plugins/admin`，`api/modules/` 为空；跨域级联裁决 + 机制**：`ctx.cleanup` 注册表（插件注册自己的清理规则，运行时按外键图排序、单事务执行）+ `ctx.audit` + `ctx.maintenance`；17 个插件各一条清理规则；7 张无主表找到主人；端点数仍 297、`routeCollisions` 0 | 见 `git log` | ✅ |
 | P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity`（`settings`/`system` 已完成） | — | ✅ 全部完成（`pet` P4.3b.6；`classroom` P4.3b.6b；`auth`→`identity` P4.3b.7） |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
@@ -292,10 +270,27 @@ packages/plugin-sdk     definePlugin / manifest 校验 / semver / KernelContext 
                         PermissionsApi.assignedTo(scopeType, scopeId, key) ← P4.3b.1 加，只允许读
                         本插件自己声明的 key（否则可枚举别的插件的能力指派，违反 G1）
 packages/plugin-runtime discovery / resolver / host / boundary / serviceRegistry / dbApi / migrationRunner / stateStore
+                        cleanupRegistry.ts  ← P4.3b.14 新增。「一个账号被删除时，谁删哪张表」的机制：
+                          插件在 setup() 里 ctx.cleanup.register({tables, run(tx, subject)})；
+                          注册时校验 tables ⊆ 该插件声明的表、且一张表只能有一个认领者（fail-closed）；
+                          run(subject) 按 PRAGMA foreign_key_list 读出的**真实外键图**做拓扑排序
+                          （子表先于父表 —— collaboration 的 peer_reviews 要用 assignments 派生 id），
+                          然后在一个 db.transaction 里跑完。规则若返回 thenable 直接抛错。
+                          **这个文件里一个业务表名都没有**，所以 G5 仍然成立（见裁决文档 §5）。
                         host.ts 现在拆成「收集模块」与「挂载」两半：
                           buildPluginModule() 每个插件一个 Nest 模块 → host.modules
                           options.mountControllers: 'host'(默认) | 'external'
                         'external' = 宿主只收集，由调用方并进自己的 Nest 根模块（api/app.ts 用）
+
+packages/plugin-sdk      P4.3b.14 新增三处：
+                        ctx.cleanup   （见上）
+                        ctx.audit     record() / purgeFor()：operation_logs 是内核的表，
+                                      所以"删除账号"要带走它的审计行、并把"这次删除"记在同一事务里，
+                                      只能由内核开口子。events.emit 是脱离事务的，做不到。
+                        ctx.settings.setPlatform(key,value)：settings 是内核存储，管理端要**写**平台设置，
+                                      以前只能绕过边界去写 Prisma（键名仍留在插件里，内核不认识任何键）
+                        ctx.maintenance：数据库文件级操作（导出/导入/重置）由**宿主注入** ——
+                                      它们动的是连接与文件，不是表，插件不该拥有（见 api/maintenance.ts）
 
 api/schema/adoptedTables.ts  adopted 表的**唯一**权威定义（students/classes/records/
                              bank_accounts/stocks/student_stocks）。api/db.ts 调它、不再自己定义；
@@ -329,6 +324,18 @@ plugins/pet             **真实 pet 域**（P4.3b.6 起，不再是 P3 的参�
                         自有迁移 `0002_retire_reference_tables` **删掉了 P3 的两张虚构表**（p_pet_pets / p_pet_praise_log，
                         两张在真库与开发库里都是空的），这是"插件可以 DROP 自己前缀的表"的活证据
 plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后续域的模板
+plugins/admin           **最后一个域**（P4.3b.14）。28 条路由：`/api/admin` 17 条、`/api/admin/system/update` 3 条、
+                        `/api/openapi` 7 条、`/api/audit-logs` 1 条。跨域一律走端口：
+                          teachers / activation codes / superadmins → `identity.public`
+                          删除账号要用的班级与学生           → `classroom.public`
+                          数据库文件                          → `ctx.maintenance`（宿主注入）
+                          审计行                              → `ctx.audit`
+                          58 张表的级联                       → `ctx.cleanup.run(subject)`
+                        自有表：`announcements`（从 engagement 移来，admin 是唯一写者）、`api_keys`、`schools`；
+                        `operation_logs` 只读（内核所有）。
+                        **17 个插件各有一条 `<slug>.cleanup.ts`**，SQL 逐字搬自旧 `admin.repository.ts`
+api/maintenance.ts      P4.3b.14 新增：导出/导入/重置的**宿主实现**（动文件与连接，不是表）。
+                        它是 Prisma 在运行时消失的最后一处（旧实现用 prisma.$disconnect/$connect 释放文件）。
 ```
 
 ### 关键机制（改代码前务必理解）
@@ -356,11 +363,11 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | 键 | 当前 | 目标 | 含义 |
 |---|---|---|---|
 | `shimPages` | **0** ✅（62 → 0）| 0 | 插件树里的一行转发 shim（"假插件化"） |
-| `deadCode` | **59**（70 → 69 → 66 → 65 → 64 → 58 → 58 → 59）| 0 | 应用不可达文件（P4.3b.6 删 `api/modules/pet` 降 1；工作区清理删掉 6 个孤儿 hook/组件再降 6）。**P4.3b.6b 没有把它降下来**：删掉两个域后，原先因被引用而不算死的替代文件变成了新的不可达文件，总数回到同一个天花板。**P4.3b.10 把它升了 1**：迁走 engagement 之后 `src/features/engagement/api/praisesApi.ts` 失去了最后一个引用者（它的消费方是一个在更早的工作区清理里删掉的 hook）。**两轮实测的结论：这个棘轮在迁移期间不是单调的**，一个域搬走可能把某个文件留在原地没人引用 —— 这类文件属于 P7 的清理清单，本轮记录而不是顺手删 |
+| `deadCode` | **55** ✅（70 → … → 59 → **55**）| 0 | 应用不可达文件（P4.3b.14 **降** 4：`api/modules/admin` 是 9 个文件的最后一个消费者 —— `api/utils/apiError.ts`/`apiResponse.ts`/`classFeatures.ts`/`gameErrors.ts`/`password.ts`/`requestAuth.ts`/`response.ts`、`api/services/UserService.ts` 与它自己的测试 —— 一起删掉，沿用 P4.3b.6b 的规矩"最后一个消费者走了就删"。剩下的 55 个几乎全是 P7 清单里的 `src/api/*`(31) 与前端死 hook。`api/prismaClient.ts` 现在也在名单里：admin 是它在运行时的最后一个消费者，只剩 P4.3b.9 的路径围栏测试引用它） |
 | `staticPluginRoutes` | **0** ✅（76 → 0）| 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
-| `adoptedTables` | **65**（26 → 28 → 32 → 33 → 34 → **50** → **53** → **55** → **65**）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入）。**P4.3b.6b 的 +16 是 `learning`**；**P4.3b.7 的 +3 是 `identity`**（`users`/`activation_codes`/`activation_events`，第一批"给已有表找到主人"的条目）；**P4.3b.8 的 +2 是 `payment`**（此前连表都没有）；**P4.3b.10 的 +10 是 `engagement`**，清单在 `allowances.json` 里逐表列明 |
-| `routeCollisions` | **0** ✅（33 → 1 → 0）| 0 | 同一 METHOD+PATH 被两个控制器文件声明。P4.3b.6 之后**必须保持 0**：出现一条就意味着某个域又同时注册在两处 |
+| `adoptedTables` | **74**（26 → … → 65 → **74**）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入）。**P4.3b.14 的 +9 与前几轮性质不同**：不是"迁域带来的"，而是**给无主表找主人** —— 级联要删的 58 张表里有 7 张没有任何插件拥有，而"清理规则只能点名自己声明的表"（`+classroom 5` = attendance_records / leave_requests / parent_students / student_groups / point_presets，`+learning 2` = notes / rubric_point_scores），另外 admin 自己 adopt 3 张（`api_keys`/`schools` 无主 + `announcements` 从 engagement 移来，后者 -1/+1 净零）。逐表清单在 `allowances.json` 的注释里 |
+| `routeCollisions` | **0** ✅（33 → 1 → 0）| 0 | 同一 METHOD+PATH 被两个控制器文件声明。admin 迁移与删模块在同一次提交里完成，所以全程没有回头 |
 
 注意 `adoptedTables` 的"只降不升"有一条**明示例外**：迁移一个新域会让它上升，因此每次上升都必须在 `allowances.json` 的注释里逐条写清是哪张表、来自哪个域（`routeCollisions` 与 `deadCode` 没有例外，只能降）。
 
@@ -401,32 +408,34 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.7 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面是 P4.3b.14 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        120 文件 / 881 用例全绿
+npm test        121 文件 / 939 用例全绿（P4.3b.13 是 120 / 881）
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
 guardrails      12 文件 / 54 用例
 ```
 
-**已迁成插件的域（21 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments, parent-buff, pet, classroom（P4.3b.6b 补上 HTTP 面）, learning（P4.3b.6b）, identity（P4.3b.7，原 `auth`）, payment（P4.3b.8，`tier: "infrastructure"`，原 `platform` 的支付半边）, engagement（P4.3b.10）, **insights**（P4.3b.13，**自有表 0 张**）
-**仍在 `api/modules/` 的域（1 个）**：`admin` —— 最后一个。
-另外 `platform` 已彻底关闭（业务半边 `parent-buff` P4.3b.5d、支付半边 P4.3b.8）。
-（`settings` 已在 P5.3c 并入内核 —— 它本来就只有一句 `SELECT key, value FROM settings`，而 `settings` 是内核自有存储。）
+**已迁成插件的域（21 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace,
+portal, system, assignments, parent-buff, pet, classroom, learning, identity, payment, engagement, insights,
+**admin**（P4.3b.14）。
+**`api/modules/` 为空 —— 没有"未迁移的域"这个类别了。**
+（`settings` 已在 P5.3c 并入内核；`platform` 已彻底关闭 —— 业务半边 `parent-buff`、支付半边 `payment`。）
 
 **验收基线**：
 
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
 | `api:surface` 端点数 | **297** | 迁移期间**不应变化**。变小 → 扫描漏了插件或内核；变大 → 多出端点 |
-| `deadCode` | **59** | 2026 实测：迁移一个域**不保证**它下降（P4.3b.6b 删了两个域仍在 58），而且**可能上升**（P4.3b.10 因 `praisesApi.ts` 失去引用者升到 59）。上升时必须像本轮一样在 `allowances.json` 里写清是哪个文件、为什么它现在不可达 —— 棘轮的价值在于"每一次移动都要被解释"，不在于数字单调 |
-| `shimPages` | **0** | P5.2a 已达成 |
-| `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
-| `adoptedTables` | **65** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。最新一次是 P4.3b.10 的 engagement 10 张（含 `redemption_tickets` 这个共享写例外与无人认领的 `user_achievements`）。**这大概是最后一次由"迁域"带来的增量**：admin 与 insights 都没有一张可被新名字 adopt 的自有表 |
-| `routeCollisions` | **0** ✅ | P4.3b.6 达成了目标，P4.3b.6b 在两个域上重复了同一套动作并保持 0。**再出现一条就是回归**：某个域同时注册在旧模块与插件里 |
-| 两套组装的 schema | **一致** | 实测（P4.3c.3a）：fresh kernel 组装与 fresh legacy 组装都是 **86 表 / 89 索引**，`parent_activity.last_active_date` 与 19 个兼容索引都在。P4.3c.3a 之前 kernel 侧是 **83 表 / 65 索引且没有那一列**，而没有任何测试会失败 |
+| `deadCode` | **55** | P4.3b.14 降了 4（见 §6）。这个棘轮**不是单调的**：一个域搬走可能让某个文件失去最后一个引用者而变成新的不可达文件，那种情况按 P4.3b.10 的规矩**记录并解释**，而不是顺手删 |
+| `shimPages` / `staticPluginRoutes` / `legacyFeatureKeySurfaces` | **0** | P5.2a / P5.2b / P5.1 已达成，不得回升 |
+| `adoptedTables` | **74** | P4.3b.14 的 +9 是"给无主表找主人"（见 §6 与裁决文档 §4.4），P7 改名后归零 |
+| `routeCollisions` | **0** ✅ | 出现一条就是回归：某个域同时注册在旧模块与插件里 |
+| 两套组装的 schema | **一致** | fresh kernel 与 fresh legacy 都是 **86 表 / 89 索引**（P4.3c.3a 基线） |
+| 级联清理的覆盖 | **57/57** | `tests/plugins/cascade-coverage.test.ts` 断言注册表的表集合**精确等于**旧级联的 58 张减去内核自理的 `operation_logs`。**变异验证过**：注释掉 `plugins/pet` 的注册 → 立刻点名 `pets` |
+| 级联的载荷性 | **必须红** | `tests/plugins/admin-cascade.test.ts` 在 `disabled: ['pet']` 的宿主上删账号 → 500 且一行未删。**变异验证过**：在 admin 里加一句硬编码 `DELETE FROM pets`（绕过注册表）→ 该断言报 `expected 200 to be 500` |
 
 ### ⚠️ `platform` 不是一个干净的功能域（迁移前必读）
 
@@ -532,10 +541,14 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 - ~~**`plugins/pet` 与 `api/modules/pet` 路由碰撞**~~ ✅ **P4.3b.6 已还**：17 条旧路由按原语义/原信封搬进 `plugins/pet`（改用旧 `pets` 表），旧模块删除，`routeCollisions` 归 0。见 §9 的 P4.3b.6 记录。
 - ~~在 `plugins/pet` 补完之前，不要在 legacy 组装下开启插件后跑端到端前端流程~~ —— 前提已消失（碰撞为 0），legacy 组装现在由插件提供全部 pet 路由，实测两套组装的 14 条请求 body 完全一致。
-- **`admin.repository.ts` 的删教师级联是最后一笔跨域写债，而且它比本文档原先写的更具体**（P4.3b.11 实测，见 §9 的 P4.3b.11 记录）：
-  它删 **58 张表 / 65 条语句**（`scripts/migration/probes/admin-cascade-inventory.mjs` 量出来的），全部在**一个** Prisma `$transaction` 里，
-  所以"删干净"是**原子**的 —— 这正是它不能用端口方法改写的约束：65 个端口调用 = 65 个独立事务，
-  进程死在中间就留下半删的账号。它还绕开 `DbApi`，所以所有权检查对它完全无效。
+- ~~**`admin.repository.ts` 的删教师级联是最后一笔跨域写债**~~ ✅ **P4.3b.14 已还**：级联不再是 admin 的私有 SQL，
+  而是 17 个插件各自的 `<slug>.cleanup.ts`（58 张表 / 63 写 / 79 条语句，逐条搬自旧 repository），
+  由 `ctx.cleanup.run(subject)` 在一个事务里执行。裁决、G5 边界与护栏见 `docs/migration/admin-cascade-decision.md`。
+  两处**刻意保留**的既有语义：`redemption_tickets` 只按 `student_id` 删（与旧语句逐字一致，
+  `marketplace` 是它唯一的清理者），以及 `blind_boxes.teacher_id` 依旧不被清理（见下一条）。
+  **新增一条被量出来的既有隐患**（不修，记录）：`shop_items` 按 teacher 删、而 `redemption_tickets` 只按 student 匹配，
+  所以一张 `student_id` 为空/不在范围内、却指向该教师商品的兑换券会让整笔删除因外键失败 ——
+  旧语句完全一样，改它等于改"哪些行会死"。见 `plugins/marketplace/src/marketplace.cleanup.ts` 的注释。
   **另外**：61 张表持有指向 `users`/`classes`/`students` 的外键，其中**只有 1 张**没被这个级联清理：
   `blind_boxes.teacher_id`（`scripts/migration/probes/admin-cascade-fk-coverage.mjs`）。它的行永远是 NULL，因为
   `plugins/marketplace` 的插入语句根本不写这一列 —— 所以今天不是活 bug，而是一处**此前没人看到的 schema 漂移**（见下一条）。
@@ -1298,6 +1311,99 @@ METHOD+PATH 不变，端点数仍是 297。**`api/modules/` 因此只剩 `admin`
 
 ---
 
+### P4.3b.14 · `admin` 迁成 `plugins/admin` + 跨域级联的裁决与机制（`api/modules/` 为空）—— ✅ 已完成
+
+这一轮把最后一个域迁走，并顺手还掉那笔从 §8.3.1 挂了六轮的债。**裁决单独成文**：
+`docs/migration/admin-cascade-decision.md`（HANDOFF §1.1 要求的第一个交付物）。这里只记实现与实测。
+
+#### 1. 机制：`ctx.cleanup`
+
+- **SDK**：`CleanupRule = { tables: string[]; run(tx: DbApi, subject: CleanupSubject): void }`，
+  `CleanupSubject = { teacherIds, classIds, studentIds, userIds }`（具名 id 集合，不是业务规则）。
+- **运行时**（`packages/plugin-runtime/src/cleanupRegistry.ts`）：
+  注册期校验 `tables ⊆ 该插件声明的表`、**一张表只能有一个认领者**、`run` 返回 thenable 直接抛错（fail-closed）；
+  执行期按 `PRAGMA foreign_key_list` 读出的真实外键图做拓扑排序，然后
+  `db.transaction(() => rules.forEach(r => r.run(...)))()`。
+  **这个文件里没有任何业务表名** —— G5 的机械检查（`FROM|INTO|UPDATE|JOIN <表名>` 白名单）因此仍然全绿，
+  而 HANDOFF 早先给方案 B 记的那条"内核要按名字执行业务表的删除"的代价**被更弱的边界取代了**：
+  **机制在运行时，知识在插件**。
+- **排序为什么必须来自 schema（实测）**：`collaboration` 的 `peer_reviews` 删除要用
+  `SELECT id FROM assignments WHERE …` 派生 id，而 `assignments` 的删除在同一批规则里；
+  顺序反了派生集合就是空的，结果取决于有没有外键。硬编码顺序会随 schema 漂移，所以从外键图来。
+  有一条断言专门钉它（`collaboration` 必须排在 `assignments` 之前、`identity` 最后）。
+- **`operation_logs` 走 `ctx.audit` 而不是注册表**：它是内核的表。`purgeFor()` 删账号的审计行、
+  `record()` 写"这次删除"，两者都在 admin 的同一个事务里 —— 旧的 `logAdminMutation` 就是这样的一个单元，
+  旧的级联测试里那句注释（"删掉和记录这次删除是一个单元"）现在有了机制上的对应物。
+
+#### 2. 17 条清理规则 + 7 张无主表
+
+`classroom, learning, assignments, collaboration, marketplace, economy, engagement, pet, gacha, slg, battles,
+challenge, dungeon, parent-buff, payment, system, identity` 各一条 `<slug>.cleanup.ts`，SQL 逐条搬自旧
+`api/modules/admin/admin.repository.ts`（每条都注明旧行号）。**58 张表里 50 张有主、8 张无主**
+（`operation_logs` 属内核 + 7 张没人要）。一个清理规则只能点名自己声明的表，所以那 7 张必须先有主人：
+- `classroom` +5：`attendance_records`/`leave_requests`/`parent_students`/`student_groups`/`point_presets`
+  （它早就在读、并且因为"没人可发端口"而用 `ctx.rawDb` 在写，`_known_debt` 里记着）；
+- `learning` +2：`notes`/`rubric_point_scores`（与 `rubric_points` 同簇，且有外键指向它）；
+- `announcements` 从 `engagement` **移到** admin（唯一写者 vs 唯一读者），净零。
+
+#### 3. 端口：这次不是"照抄端口化"
+
+admin 的跨域**读**保留为 `data.reads`（统计面板跨六域计数，与 `plugins/system` 的整库备份同形，
+已在 manifest 里写明），**写**一律走端口：
+- `identity.public` 扩到 12 个方法（凭据校验、教师增删改查、激活码、superadmin 快照/恢复）。
+  **审计条目作为数据随调用传入**（`AdminAuditEntry`），由 identity 在自己的事务里落库 ——
+  这样"建教师"和"记这次建教师"仍然是一个单元，而动作名（`ADMIN_CREATE_TEACHER`）留在 admin 这一侧。
+- `classroom.public` +2：`listClassIdsByTeacher`、`listStudentAccountsByClassIds`（后者对空数组返回 `[]`，
+  绝不能理解成"全部学生"）。
+- `ctx.settings.setPlatform`：平台设置的**写**回到了内核存储的 API（键名与掩码规则仍留在插件里）。
+- `ctx.maintenance`：导出/导入/重置由宿主注入（`api/maintenance.ts`）—— 它们动的是文件与连接。
+
+#### 4. 两条能变红的护栏（HANDOFF §1.1 的硬性要求，已做变异验证）
+
+1. **覆盖性** `tests/plugins/cascade-coverage.test.ts`：真启动宿主，断言注册表的表集合**精确等于**
+   旧级联的 58 张减去内核自理的 `operation_logs`（57 张），并钉住 `redemption_tickets` 的唯一认领者与执行顺序。
+   **变异验证**：注释掉 `plugins/pet` 的 `ctx.cleanup.register(...)` → 断言立刻点名 `pets`（实测输出 `expected [ 'pets' ] to deeply equal []`）。
+2. **载荷性** `tests/plugins/admin-cascade.test.ts`：在 `disabled: ['pet']` 的宿主上执行同一个删除，
+   断言 **500 且一行未删**（教师/学生/班级/宠物都还在）—— 外键立即生效，所以整笔回滚。
+   紧接着还有一条**互补**用例：同一个禁用宿主上，只要没有任何行引用这个账号，删除**照样成功**
+   （否则"禁用某个 feature 插件"就变成了不可部署）。
+   **变异验证**：在 admin service 里插一句硬编码 `DELETE FROM pets WHERE student_id IN (…)`（绕过注册表）→
+   第一条断言报 `expected 200 to be 500`，两条用例同时变红。
+
+#### 5. 真启动实测
+
+- **legacy 组装**（真子进程 `PLUGINS_ENABLED=1 KERNEL_ENABLED=0`）：新增断言
+  `POST /api/admin/session`（真实 `identity.public.verifyAdminCredentials` → 内核会话）→
+  用该 token 打 `GET /api/admin/users` 得 200 且 `total > 0` → 匿名 401。
+  探针的 `SUPERADMIN_*` 显式写死，因为 `dotenv.config()` 在 `initDb()` 之前跑，
+  仓库里的 `.env` 会覆盖种子凭据（P4.3b.7 记过这个坑）。
+- **kernel 组装**（`createKernel` + 运行时自己挂 Nest）：新增断言
+  `GET /api/admin/system/stats` 以 teacher 身份 **403**、以 superadmin 身份 **200** 且返回本库真实计数。
+- `DELETE /api/admin/users/:id` 在真库上跑通：教师、班级、学生、学生登录行，
+  以及 pets/records/praises/certificates/attendance_records/assignments/student_assignments/team_quests/
+  payment_orders/payment_transactions 十个域的行全部消失；`announcements`/`api_keys` **不受影响**；
+  `operation_logs` 只剩那条汇总行（`user_id = 1`、`teacher_id IS NULL`）。
+
+#### 6. 顺带清掉的东西
+
+- 删 `api/modules/admin/**`、`api/app.module.ts` 的最后一个 import（`imports: []`）。
+- **删掉 9 个随它失去最后消费者的文件**（P4.3b.6b 的规矩）：`api/utils/{apiError,apiResponse,classFeatures,gameErrors,password,requestAuth,response}.ts`、
+  `api/services/UserService.ts` + `api/utils/password.test.ts`。`deadCode` 59 → **55**。
+- **Prisma 在运行时没有消费者了**：`plugins/admin` 的查询全部走 `ctx.db`；
+  `api/maintenance.ts` 去掉了 `prisma.$disconnect/$connect`。剩 `api/prismaClient.ts` 本身（只有
+  `tests/kernel/database-path-alignment.test.ts` 引用它），留给 P7。
+- `vitest.backend.config.ts` 的 `hookTimeout` 10s → 60s：整仓并行跑时，启动 20 个插件的宿主
+  会撞上默认的 10 秒钩子预算，表现为"整套跑挂 3 个、单独跑全绿"。这是**预算**问题，不是慢。
+- 顺带修正文档失真（见裁决文档 §8）：旧探针报的"65 条语句 / 2 读"是它正则不容忍换行的产物
+  （实际 **79 条语句 / 63 写**）；`plugins/system/plugin.json` 里"admin 与 system 写同一张表"不成立
+  （admin 写 `settings`，system 写 `system_settings`）；`praises` 早已有主（`engagement`）；
+  `admin.repository.ts` 是 1046 行不是 940 行。
+
+**实测**：`npm test` **121 文件 / 939 用例**全绿；`check` exit 0；`api:surface` **297 不变**；
+`guard` 12 文件 / 54 用例（`adoptedTables` 65 → 74、`deadCode` 59 → 55，两处都在 `allowances.json` 里逐条写明）。
+
+---
+
 ### ⚠️ P4.3b.5c 的三个实测发现（都很容易再踩）
 
 #### 1. `.env` 把 Prisma 与 `api/db.ts` 指向了**两个不同的库**
@@ -1537,7 +1643,9 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | 6 | `system_settings` 默认值在前后端各一份（G9 强制一致），P4/P5 应合为插件声明 |
 | 7 | `DEFAULT_SYSTEM_SETTINGS` 是 G9 保护的"受控重复"，不是疏忽 |
 | 8 | 定时任务（`provides.jobs`）在启动时被**明确拒绝**并给出原因 —— 不是静默忽略；调度器属 P6 |
-| 9 | **`admin.repository.ts` 是跨域写者的最后一块**：它经 Prisma `$transaction` 直接删/建 `users`、`activation_codes`、`activation_events`、`students`、`classes`、以及各玩法域的表（§8.3.1 已逐行列出），`DbApi` 的所有权检查对它无效。admin 迁移时必须改成调各域端口 |
+| 9 | ~~**`admin.repository.ts` 是跨域写者的最后一块**~~ → **P4.3b.14 已还**：17 个插件各一条 `ctx.cleanup` 规则，`api/modules/admin` 已删。剩下的是两处**刻意保留**的既有语义（`redemption_tickets` 只按 student 删、`blind_boxes.teacher_id` 不被清理）与一条新量出来的既有隐患（`shop_items` 与 `redemption_tickets` 的删除谓词不对称会让整笔事务失败），都在裁决文档与 `plugins/marketplace` 的注释里 |
+| 11 | **`api/db.ts` 的第二条连接**：admin 迁走后它只剩 `initDb()`（seed + 迁移）与 `api/maintenance.ts` 在用，但仍独立解析一次 `DATABASE_FILE`、独立开一条 better-sqlite3 连接。P4.3b.9 的路径围栏测试盯着"第四个读取者"，而 §1.1 的下一轮要把它收敛掉。同一处还有一个**未修的语义**：导入/重置轮换的是这条连接，内核自己那条仍然指向被替换的文件 —— `api/maintenance.ts` 的头注释写明了这个限制 |
+| 12 | **`api/prismaClient.ts` 已无运行时消费者**（只剩 `tests/kernel/database-path-alignment.test.ts`），但删它意味着同时处置那条 P4.3b.9 护栏 —— 归 P7 |
 | 10 | **`plugins/learning` 的 5 张同簇表无主**（`rubric_point_scores`/`knowledge_products`/`notes`/`note_assets`/`note_products`）：没有任何路由碰它们，所以刻意没进 `data.adopted`。P7 决定删除还是归属 |
 
 ---
@@ -1559,6 +1667,14 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | 文件 | 内容 |
 |---|---|
 | `docs/migration/00-baseline.md` | 基线度量、4 个既有测试失败、护栏清单 |
+| `docs/migration/admin-cascade-decision.md` | **P4.3b.14 的裁决**：跨域级联为什么要保留原子性、为什么选"插件注册清理规则 + 运行时按外键图排序"、G5 的正式边界、护栏设计、代价清单，以及顺带修正的四处事实失真 |
+| `packages/plugin-runtime/src/cleanupRegistry.ts` | 级联机制：注册期校验（表必须自己声明、一张表一个认领者、规则必须同步）、外键图拓扑排序、单事务执行。**零业务表名** |
+| `tests/plugins/cascade-coverage.test.ts` | 覆盖性护栏：注册表表集合必须**精确等于**旧级联的 58 张减 `operation_logs`；变异验证过（去掉一个注册 → 点名 `pets`） |
+| `tests/plugins/admin-cascade.test.ts` | 真库 + 真 HTTP 的删账号测试，含"禁用 pet 插件 → 500 且一行未删"的载荷性断言（变异验证过）与互补用例 |
+| `plugins/admin/plugin.json` | 最后一个域的清单：28 条路由、3 张自有表、8 处 `data.reads`、`_known_debt`（updater 的 child_process 未声明、维护走宿主、审计只读、OpenAPI 仍未鉴权） |
+| `plugins/admin/src/admin.service.ts` | 端口编排：`deleteTeacher` 先解析 scope、再在一个事务里 `ctx.audit.purgeFor` + `ctx.cleanup.run` + `ctx.audit.record` |
+| `plugins/<slug>/src/<slug>.cleanup.ts` | 17 条清理规则，SQL 逐条搬自旧 `admin.repository.ts` 并注明行号 |
+| `api/maintenance.ts` | 导出/导入/重置的**宿主实现**（唯一还能动文件与连接的层；Prisma 在这里消失） |
 | `docs/migration/01-kernel.md` | 内核、工作区、R10 定论（三条硬约束） |
 | `docs/migration/02-contracts-and-auth.md` | 契约收口、会话认证、凭据降级修复 |
 | `docs/migration/03-plugin-runtime.md` | 插件运行时全貌、10 个缺陷 |

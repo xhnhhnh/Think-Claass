@@ -11,8 +11,13 @@ export type { PluginBackendModule, PluginDefinition } from './definePlugin.js';
 
 export { PLUGIN_CONTEXT, PLUGIN_MANIFEST } from './context.js';
 export type {
+  AuditApi,
   CapabilityApi,
+  CleanupApi,
+  CleanupRule,
+  CleanupSubject,
   ConfigApi,
+  DatabaseMaintenanceApi,
   DbApi,
   DbRunResult,
   EventsApi,
@@ -28,6 +33,9 @@ export type {
 
 export { slugOf, tablePrefixOf, validateManifest } from './manifest.js';
 export type { ManifestIssue, ManifestValidationResult } from './manifest.js';
+
+export { andAll, equals, grouped, inList, orAll } from './sql.js';
+export type { SqlFragment } from './sql.js';
 
 export {
   compareVersions,

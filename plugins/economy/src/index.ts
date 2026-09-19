@@ -22,6 +22,7 @@ import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
+import { createEconomyCleanupRule } from './economy.cleanup.js';
 import { EconomyController } from './economy.controllers.js';
 import { createEconomyRepository } from './economy.repository.js';
 import { EconomyService } from './economy.service.js';
@@ -48,6 +49,11 @@ export default definePlugin({
     providers.push({ provide: EconomyService, useValue: service });
 
     ctx.log.info('economy service ready', { owns: ctx.plugin.slug });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see economy.cleanup.ts.
+    ctx.cleanup.register(createEconomyCleanupRule());
   },
 
   async onStop() {

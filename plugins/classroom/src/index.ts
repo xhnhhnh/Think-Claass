@@ -39,6 +39,7 @@ import {
   PresetsController,
   StudentsController,
 } from './classroom.controllers.js';
+import { createClassroomCleanupRule } from './classroom.cleanup.js';
 import { createClassFeatureResolver } from './classroom.features.js';
 import { createClassroomPort } from './classroom.port.js';
 import { createClassroomRepository } from './classroom.repository.js';
@@ -83,6 +84,11 @@ export default definePlugin({
       'classroom.public',
       createClassroomPort({ ctx, repository, features, cipher, reports: createReportQueries(ctx.db) }),
     );
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see classroom.cleanup.ts.
+    ctx.cleanup.register(createClassroomCleanupRule());
 
     ctx.log.info('classroom port published', {
       service: 'classroom.public',

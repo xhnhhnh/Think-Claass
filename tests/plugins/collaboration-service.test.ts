@@ -265,6 +265,15 @@ class FakeCollaborationRepository implements CollaborationRepository {
  * here, exactly as they do behind the real port.
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): collaboration never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   students = new Map<number, StudentSnapshot>();
   /** `${classId}:${feature}` keys turned off. */
   disabledFeatures = new Set<string>();

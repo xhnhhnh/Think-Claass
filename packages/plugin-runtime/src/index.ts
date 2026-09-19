@@ -32,6 +32,14 @@ export type {
 export { createServiceRegistry, ServiceNotAvailableError } from './serviceRegistry.js';
 export type { ServiceRegistration, ServiceRegistry } from './serviceRegistry.js';
 
+export { createCleanupRegistry, normalizeSubject } from './cleanupRegistry.js';
+export type {
+  CleanupRegistration,
+  CleanupRegistry,
+  CleanupRegistryOptions,
+  RegisteredCleanupRule,
+} from './cleanupRegistry.js';
+
 export { createDbApi, isWriteStatement, referencedTables, TableOwnershipError } from './dbApi.js';
 export type { DbApiOptions } from './dbApi.js';
 

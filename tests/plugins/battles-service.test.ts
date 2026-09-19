@@ -66,6 +66,15 @@ class FakeBattlesRepository implements BattlesRepository {
  * the *path*, not just the result.
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): battles never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   classes = new Map<number, ClassSnapshot>();
   /** Classes whose `enable_class_brawl` is off. */
   disabled = new Set<number>();

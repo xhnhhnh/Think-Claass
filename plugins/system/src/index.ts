@@ -18,6 +18,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { SystemController } from './system.controller.js';
+import { createSystemCleanupRule } from './system.cleanup.js';
 import { createSystemRepository } from './system.repository.js';
 import { SystemService } from './system.service.js';
 
@@ -32,6 +33,12 @@ export default definePlugin({
   async setup(ctx: KernelContext) {
     service = new SystemService(createSystemRepository(ctx.db));
     providers.push({ provide: SystemService, useValue: service });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see system.cleanup.ts.
+    ctx.cleanup.register(createSystemCleanupRule());
+
     ctx.log.info('system service ready', { owns: ctx.plugin.slug });
   },
 

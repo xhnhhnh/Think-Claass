@@ -29,6 +29,7 @@ import type { Provider } from '@nestjs/common';
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
 import { MarketplaceController } from './marketplace.controllers.js';
+import { createMarketplaceCleanupRule } from './marketplace.cleanup.js';
 import { createMarketplaceRepository } from './marketplace.repository.js';
 import { MarketplaceService } from './marketplace.service.js';
 
@@ -54,6 +55,12 @@ export default definePlugin({
     providers.push({ provide: MarketplaceService, useValue: service });
 
     ctx.log.info('marketplace service ready', { owns: ctx.plugin.slug });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys. This is also the single cleanup owner of the
+    // shared-write table `redemption_tickets`; see marketplace.cleanup.ts.
+    ctx.cleanup.register(createMarketplaceCleanupRule());
   },
 
   async onStop() {

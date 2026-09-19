@@ -30,6 +30,7 @@ import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
+import { createIdentityCleanupRule } from './identity.cleanup.js';
 import { IdentityController } from './identity.controllers.js';
 import { createIdentityRepository } from './identity.repository.js';
 import { IdentityService } from './identity.service.js';
@@ -57,9 +58,14 @@ export default definePlugin({
     providers.push({ provide: IdentityService, useValue: instance });
 
     /**
-     * The published port. Deliberately two methods and no more: activation is the only thing
-     * another domain needs to *do* to identity. Login and profile are HTTP routes, not imports -
-     * a plugin calling another plugin's login route would be a much worse coupling than a port.
+     * The published port: activation, plus the admin console's view of this domain.
+     *
+     * Activation is the operation *another domain* needs to perform. The nine admin operations were
+     * added when `api/modules/admin` migrated (P4.3b.14): its repository reached `users`,
+     * `activation_codes` and `activation_events` through Prisma, and those are this plugin's
+     * adopted tables, so the console consumes them here instead of being a second writer.
+     * Login and profile stay HTTP routes, not imports - a plugin calling another plugin's login
+     * route would be a much worse coupling than a port.
      */
     ctx.provide('identity.public', {
       async getUserById(userId) {
@@ -70,6 +76,33 @@ export default definePlugin({
       },
       async activateUser(input) {
         return instance.activateUser(input);
+      },
+      async verifyAdminCredentials(username, password) {
+        return instance.verifyAdminCredentials(username, password);
+      },
+      async listTeachers() {
+        return instance.listTeachers();
+      },
+      async createTeacher(input, audit) {
+        return instance.createTeacher(input, audit);
+      },
+      async updateTeacher(id, input, audit) {
+        return instance.updateTeacher(id, input, audit);
+      },
+      async findTeacher(id) {
+        return instance.findTeacher(id);
+      },
+      async listActivationCodes() {
+        return instance.listActivationCodes();
+      },
+      async generateActivationCodes(input, audit) {
+        return instance.generateActivationCodes(input, audit);
+      },
+      async listSuperadmins() {
+        return instance.listSuperadmins();
+      },
+      async restoreSuperadmins(superadmins) {
+        return instance.restoreSuperadmins(superadmins);
       },
     });
 
@@ -103,6 +136,11 @@ export default definePlugin({
     });
 
     ctx.log.info('identity service ready', { owns: ctx.plugin.slug });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys; see identity.cleanup.ts.
+    ctx.cleanup.register(createIdentityCleanupRule());
   },
 
   async onStop() {

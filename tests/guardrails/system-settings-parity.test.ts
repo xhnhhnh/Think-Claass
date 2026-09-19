@@ -25,7 +25,13 @@ import { describe, expect, it } from 'vitest';
 
 import { ROOT } from './lib/paths.mjs';
 
-const BACKEND = 'api/modules/admin/admin.defaults.ts';
+/**
+ * The backend copy moved with the admin domain in P4.3b.14: `api/modules/admin/admin.defaults.ts`
+ * became `plugins/admin/src/admin.defaults.ts`. The parity contract is unchanged - one key list,
+ * two languages - and this constant is the only thing that had to follow it. Keeping the two in step
+ * is what stops "the operator saved a setting the server does not know" from being possible.
+ */
+const BACKEND = 'plugins/admin/src/admin.defaults.ts';
 const FRONTEND = 'src/lib/systemSettings.ts';
 const CONSTANT = 'DEFAULT_SYSTEM_SETTINGS';
 

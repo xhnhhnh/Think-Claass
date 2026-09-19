@@ -112,6 +112,15 @@ class FakePetPort implements PetPort {
  * shared ledger live here, exactly as they do behind the real port.
  */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): challenge never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   students = new Map<number, StudentSnapshot>();
   /** `students.user_id` -> student id, for the legacy actor-scoped gate. */
   userIds = new Map<number, number>();

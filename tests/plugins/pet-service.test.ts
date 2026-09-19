@@ -97,6 +97,15 @@ class FakePetRepository implements PetRepository {
 
 /** The student balance, the ledger and the class feature gate, as the real port exposes them. */
 class FakeClassroom implements ClassroomPort {
+  /** Account-deletion scope (P4.3b.14): pet never asks for it; the port requires both. */
+  async listClassIdsByTeacher() {
+    return [];
+  }
+
+  async listStudentAccountsByClassIds() {
+    return [];
+  }
+
   students = new Map<number, StudentSnapshot>();
   ledger: Array<{ studentId: number; type: string; amount: number; description: string }> = [];
   parentBuffEnabled = true;

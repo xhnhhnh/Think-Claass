@@ -23,6 +23,7 @@ import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
+import { createAssignmentsCleanupRule } from './assignments.cleanup.js';
 import { AssignmentsController, ExamsController } from './assignments.controllers.js';
 import { createAssignmentsRepository, createExamsRepository } from './assignments.repository.js';
 import { AssignmentsService, ExamsService } from './assignments.service.js';
@@ -48,6 +49,12 @@ export default definePlugin({
 
     providers.push({ provide: AssignmentsService, useValue: assignmentsService });
     providers.push({ provide: ExamsService, useValue: examsService });
+
+    // Account deletion: this plugin deletes its own rows when a teacher account is erased
+    // (`DELETE /api/admin/users/:id`). The runtime runs every plugin's rule in one transaction and
+    // orders them from the schema's foreign keys - `peer_reviews.assignment_id` is why
+    // collaboration's rule runs before this one; see assignments.cleanup.ts.
+    ctx.cleanup.register(createAssignmentsCleanupRule());
 
     ctx.log.info('assignments service ready', {
       owns: ctx.plugin.slug,

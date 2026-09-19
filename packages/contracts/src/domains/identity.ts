@@ -24,12 +24,67 @@
  * Type-only, like every contracts module: guardrail G6.
  */
 
+import type {
+  ActivationCodeListItem,
+  AdminRole,
+  GenerateActivationCodesResult,
+  TeacherDetail,
+  TeacherListItem,
+} from './admin.js';
+
 /** The subset of a `users` row another plugin is allowed to depend on. */
 export interface UserSnapshot {
   id: number;
   role: string;
   username: string;
   isActivated: boolean;
+}
+
+/**
+ * An audit entry an admin operation wants recorded **in the same transaction** as the change.
+ *
+ * `operation_logs` is kernel-owned storage, so the write goes through `ctx.audit.record`, and it
+ * belongs to the same unit of work as the row it describes: the pre-migration repository wrote both
+ * inside one Prisma transaction, and the real-database test that pins the delete cascade records
+ * that "the delete and the record of the delete are one unit". Since the `users` write lives in this
+ * plugin and the entry travels with the call, the caller passes the entry as data - it names no
+ * method of this domain, and the action vocabulary (`ADMIN_CREATE_TEACHER`, ...) stays where it is
+ * authored.
+ */
+export interface AdminAuditEntry {
+  action: string;
+  detail?: string | null;
+  /** Written to `user_id` - the acting administrator. */
+  actorId: number | null;
+  role: string | null;
+  ip: string | null;
+}
+
+/** The actor an admin-console session is issued for. */
+export interface AdminCredentialActor {
+  id: number;
+  /** Narrowed to the console's two roles: this method answers `null` for anything else. */
+  role: AdminRole;
+  username: string;
+}
+
+/** A teacher row as the account-deletion path needs it. */
+export interface TeacherRow {
+  id: number;
+  username: string;
+}
+
+/**
+ * A superadmin row preserved across a database reset.
+ *
+ * The console's "reset the database" flow reads every superadmin, drops everything, re-seeds and
+ * writes them back, so the hash travels with the row - it is not re-derivable.
+ */
+export interface SuperadminSnapshot {
+  id: number;
+  username: string;
+  passwordHash: string;
+  isActivated: number;
 }
 
 /**
@@ -130,4 +185,63 @@ export interface IdentityPort {
    * `plugins/payment` for the call site.
    */
   activateUser(input: ActivateUserInput): Promise<ActivationResult>;
+
+  // ---------------------------------------------------------------------------
+  // The admin console's view of this domain
+  //
+  // `api/modules/admin` used to reach `users`, `activation_codes` and `activation_events` through
+  // Prisma: it created and updated teachers, listed and generated activation codes, and preserved
+  // superadmins across a database reset. Those are operations on *identity's* tables, so the console
+  // consumes them here rather than becoming a second writer. The DTOs come from
+  // `domains/admin.ts`, which describes what the admin console renders - the port is where that
+  // meets the table's owner.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Verify a username/password pair that must hold an admin or superadmin role.
+   *
+   * Returns the actor shape `/api/admin/session` needs, or `null` - the same "no such user, wrong
+   * role or wrong password" answer the console got before, which deliberately does not tell the
+   * caller which of the three it was.
+   *
+   * The pre-migration implementation also *upgraded* a legacy plaintext password to a hash on a
+   * successful login (`isPasswordHash` check). That write stays with the table's owner.
+   */
+  verifyAdminCredentials(username: string, password: string): Promise<AdminCredentialActor | null>;
+
+  /** Teachers in id order - the console's user table. */
+  listTeachers(): Promise<TeacherListItem[]>;
+
+  /**
+   * Create a teacher account. `audit` is recorded inside the same transaction as the insert.
+   *
+   * Rejects with a 400-shaped error when the username is taken (the pre-migration code translated
+   * Prisma's P2002 into `用户名已存在`; the translation now happens next to the constraint).
+   */
+  createTeacher(input: { username: string; password: string }, audit?: AdminAuditEntry): Promise<TeacherDetail>;
+
+  /** Update a teacher's username and, when given, their password. 404-shaped when it is not a teacher. */
+  updateTeacher(
+    id: number,
+    input: { username: string; password?: string },
+    audit?: AdminAuditEntry,
+  ): Promise<TeacherDetail>;
+
+  /** The teacher row a deletion is about, or `null` when the id is not a teacher's. */
+  findTeacher(id: number): Promise<TeacherRow | null>;
+
+  /** Every activation code with its used-by username and the newest activation event, newest first. */
+  listActivationCodes(): Promise<ActivationCodeListItem[]>;
+
+  /** Generate `count` codes; `audit` shares the transaction with the inserts. */
+  generateActivationCodes(
+    input: { count: number },
+    audit?: AdminAuditEntry,
+  ): Promise<GenerateActivationCodesResult>;
+
+  /** Superadmins, for the reset flow to preserve. */
+  listSuperadmins(): Promise<SuperadminSnapshot[]>;
+
+  /** Replace the superadmin rows with this snapshot (the reset flow writes back what it read). */
+  restoreSuperadmins(superadmins: SuperadminSnapshot[]): Promise<void>;
 }

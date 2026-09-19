@@ -250,6 +250,16 @@ export interface AuditEntry {
   action: string;
   detail?: string | null;
   actorId?: number | null;
+  /**
+   * Value for the historical `teacher_id` column.
+   *
+   * Defaults to `actorId` (which is what the middleware has always written), but a caller may set
+   * it explicitly - the admin console's own entries carry `user_id` and leave `teacher_id` null,
+   * and `DELETE /api/admin/users/:id` writes its summary row through `ctx.audit` now instead of a
+   * private `tx.operation_logs.create`. Passing `null` keeps that shape instead of silently
+   * attributing the entry to the acting superadmin's teacher column too.
+   */
+  teacherId?: number | null;
   role?: string | null;
   ip?: string | null;
   requestId?: string | null;
@@ -272,6 +282,20 @@ export interface AuditLog {
   record(entry: AuditEntry): void;
   list(limit?: number): AuditRow[];
   count(): number;
+  /**
+   * Delete the entries attributed to these users/teachers, returning how many rows went.
+   *
+   * Exists for account deletion: `DELETE /api/admin/users/:id` removed the deleted account's
+   * audit rows inside the same transaction that removed the account, and the table is the
+   * kernel's, so the operation has to be published rather than executed by the plugin.
+   *
+   * Call it inside the caller's transaction - it runs on the kernel's connection, which is the
+   * same one `ctx.db` wraps, so a plugin that calls it inside `ctx.db.tx(...)` keeps the delete
+   * and the record of the delete in one unit (which is how the pre-migration cascade behaved).
+   *
+   * A no-op returning 0 when both sets are empty; it never deletes the whole table.
+   */
+  purgeFor(ids: { teacherIds?: number[]; userIds?: number[] }): number;
 }
 
 export interface AuditLogOptions {
@@ -289,7 +313,7 @@ export function createAuditLog(options: AuditLogOptions): AuditLog {
           `INSERT INTO operation_logs (teacher_id, user_id, role, action, details, ip_address)
            VALUES (?, ?, ?, ?, ?, ?)`,
         ).run(
-          entry.actorId ?? null,
+          entry.teacherId === undefined ? (entry.actorId ?? null) : entry.teacherId,
           entry.actorId ?? null,
           entry.role ?? null,
           entry.action,
@@ -315,7 +339,34 @@ export function createAuditLog(options: AuditLogOptions): AuditLog {
       const row = db.prepare(`SELECT COUNT(*) AS n FROM operation_logs`).get() as { n: number };
       return row.n;
     },
+
+    purgeFor(ids) {
+      const teacherIds = uniqueIds(ids.teacherIds);
+      const userIds = uniqueIds(ids.userIds);
+      if (teacherIds.length === 0 && userIds.length === 0) return 0;
+
+      // Only the sets that were supplied become predicates: an empty `IN ()` is not valid SQL, and
+      // "no teacher ids" must not silently turn into "every row".
+      const clauses: string[] = [];
+      const params: number[] = [];
+      if (teacherIds.length > 0) {
+        clauses.push(`teacher_id IN (${teacherIds.map(() => '?').join(', ')})`);
+        params.push(...teacherIds);
+      }
+      if (userIds.length > 0) {
+        clauses.push(`user_id IN (${userIds.map(() => '?').join(', ')})`);
+        params.push(...userIds);
+      }
+
+      return db.prepare(`DELETE FROM operation_logs WHERE ${clauses.join(' OR ')}`).run(...params).changes;
+    },
   };
+}
+
+/** Finite, deduplicated ids; anything else is dropped rather than bound. */
+function uniqueIds(values: number[] | undefined): number[] {
+  if (!values) return [];
+  return [...new Set(values.filter((value) => typeof value === 'number' && Number.isFinite(value)))];
 }
 
 /** Build the express middleware that records an entry for a matched descriptor. */

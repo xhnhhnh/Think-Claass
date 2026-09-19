@@ -213,7 +213,19 @@ describe('G10 adopted legacy tables ratchet', () => {
     // 55 -> 65 in P4.3b.10, when engagement adopted its ten tables - including
     // `redemption_tickets` (the documented shared-write exception) and `user_achievements`
     // (the store behind the message feed's sender title, claimed by nobody else).
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(65);
+    // 65 -> 74 in P4.3b.14. This is the first increment that is NOT a domain migration's
+    // side effect, and the reason is the round's ruling: an account deletion has to delete
+    // every table it covers, a cleanup rule may only name tables its plugin declared, and
+    // seven of the 58 tables the pre-migration cascade deleted had NO owner at all. Five are
+    // classroom's (attendance_records, leave_requests, parent_students, student_groups,
+    // point_presets - all already read there, and already written through ctx.rawDb because
+    // there was no owner to publish a port), two are learning's (notes,
+    // rubric_point_scores - the same cluster as rubric_points, which is also its foreign
+    // key). The admin plugin added three more: `api_keys` and `schools` (created by the boot
+    // schema, and the console was their only reader and writer), and `announcements`, which
+    // MOVED here from engagement (-1 there, +1 here) because the console is its only writer
+    // and engagement only reads the active row. Per-table detail is in allowances.json.
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(74);
   });
 
   it('never declares a table as both owned and adopted', () => {

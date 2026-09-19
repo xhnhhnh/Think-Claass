@@ -192,6 +192,18 @@ export interface ClassSnapshot {
   inviteCode: string;
 }
 
+/**
+ * A student's account identity: the `students` row and the `users` row behind it.
+ *
+ * `userId` is `null` for a student who never got a login (the roster row exists before the account
+ * does). Account deletion needs both, because `students` and the student's `users` row are removed
+ * and the second one is identity's - see `listStudentAccountsByClassIds`.
+ */
+export interface StudentAccountRef {
+  studentId: number;
+  userId: number | null;
+}
+
 /** One entry of a student's point ledger. */
 export interface PointLedgerEntry {
   studentId: number;
@@ -540,4 +552,31 @@ export interface ClassroomPort {
    * matched keeps the caller from branching on which flag opened the door.
    */
   checkAnyClassFeature(classId: number, features: string[]): Promise<ClassroomResult<true>>;
+
+  // -- account deletion -----------------------------------------------------
+
+  /**
+   * Ids of the classes a teacher owns.
+   *
+   * `DELETE /api/admin/users/:id` removes a teacher, their classes and their students, and the
+   * caller has to know *which* classes before it can ask each domain to clean up its own rows.
+   * Only ids: the caller needs a scope, not class rows, and a row-shaped answer would invite a
+   * second projection to drift from `ClassSnapshot`.
+   *
+   * Read-only and generic. It exists rather than the caller reading `classes` directly because
+   * `classes` is this plugin's table and a read declaration would make the admin console a second
+   * consumer of the storage shape - the same reason every other cross-domain read became a port.
+   */
+  listClassIdsByTeacher(teacherId: number): Promise<number[]>;
+
+  /**
+   * The (student row, login row) pairs in these classes.
+   *
+   * Account deletion removes both - `students` here, the `users` rows in identity's cleanup rule -
+   * so the caller needs the pairing, not a roster. Students without a login row appear with
+   * `userId: null` rather than being filtered out: their roster row still has to be deleted.
+   *
+   * An empty `classIds` asks for nothing and answers `[]` (it must not mean "all students").
+   */
+  listStudentAccountsByClassIds(classIds: number[]): Promise<StudentAccountRef[]>;
 }
