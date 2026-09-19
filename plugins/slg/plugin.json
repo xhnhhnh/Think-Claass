@@ -1,0 +1,38 @@
+{
+  "id": "slg",
+  "name": "SLG 领地系统",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Class territory map, contributions and resource yield. Adopts the two pre-existing tables (territories, class_resources) instead of renaming them - SELECT * rows are returned straight through to the frontend. Student points and the shared ledger go through classroom.public, never through this plugin's own SQL.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/slg", "handler": "SlgController.legacyMap", "auth": "actor" },
+      { "method": "POST", "base": "/api/slg", "handler": "SlgController.legacyContribute", "auth": "actor" },
+      { "method": "POST", "base": "/api/slg", "handler": "SlgController.legacyCreateTerritory", "auth": "actor" },
+      { "method": "POST", "base": "/api/slg", "handler": "SlgController.legacyYield", "auth": "actor" },
+      { "method": "GET", "base": "/api/slg", "handler": "SlgController.map", "auth": "actor" },
+      { "method": "POST", "base": "/api/slg", "handler": "SlgController.contribute", "auth": "actor" },
+      { "method": "POST", "base": "/api/slg", "handler": "SlgController.createTerritory", "auth": "actor" },
+      { "method": "POST", "base": "/api/slg", "handler": "SlgController.yieldResources", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["territories", "class_resources"],
+    "_adopted_note": "Both carry their legacy names because `SELECT *` rows are returned straight through to the frontend (id, status, current_contribution, cost_to_unlock, x_pos, y_pos). Renaming them is a coordinated migration, tracked as namespace debt by guardrail G10. `students` and `records` are deliberately absent: they belong to classroom and are reached through classroom.public.",
+    "reads": []
+  }
+}

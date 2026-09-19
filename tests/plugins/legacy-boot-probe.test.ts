@@ -121,7 +121,7 @@ describe('legacy composition serves plugin routes', () => {
 
     const payload = JSON.parse(response.body) as { data: Array<{ id: string }> };
     const ids = payload.data.map((plugin) => plugin.id).sort();
-    expect(ids).toEqual(['classroom', 'economy', 'pet']);
+    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'dungeon', 'economy', 'gacha', 'pet', 'slg']);
   });
 
   it('serves a plugin-only route (the route does not exist in api/modules)', async () => {

@@ -1,0 +1,38 @@
+{
+  "id": "dungeon",
+  "name": "无尽之塔",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Roguelike dungeon runs (Endless Tower). Migrated out of api/modules/dungeon in P4.3b, following the economy template. Adopts the pre-existing `dungeon_runs` table: its column names are the JSON contract the frontend reads, and the row is returned straight through `SELECT *`.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/dungeon", "handler": "DungeonController.run", "auth": "actor" },
+      { "method": "POST", "base": "/api/dungeon", "handler": "DungeonController.start", "auth": "actor" },
+      { "method": "POST", "base": "/api/dungeon", "handler": "DungeonController.choose", "auth": "actor" },
+      { "method": "POST", "base": "/api/dungeon", "handler": "DungeonController.abandon", "auth": "actor" },
+      { "method": "GET", "base": "/api/dungeon", "handler": "DungeonController.legacyRun", "auth": "actor" },
+      { "method": "POST", "base": "/api/dungeon", "handler": "DungeonController.legacyStart", "auth": "actor" },
+      { "method": "POST", "base": "/api/dungeon", "handler": "DungeonController.legacyChoice", "auth": "actor" },
+      { "method": "POST", "base": "/api/dungeon", "handler": "DungeonController.legacyAbandon", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["dungeon_runs"],
+    "_adopted_note": "Keeps its legacy name because `SELECT *` rows are returned straight through to the frontend (current_floor, max_floor, active_buffs, current_hp, max_hp, status are read by name), and because api/modules/admin deletes rows from it through Prisma during a user cascade. Renaming is a coordinated change, tracked as namespace debt by guardrail G10.",
+    "reads": []
+  }
+}

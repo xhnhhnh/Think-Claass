@@ -106,6 +106,15 @@ class FakeClassroom implements ClassroomPort {
   async getStudentById(studentId: number) {
     return this.students.get(studentId)?.snapshot ?? null;
   }
+  async getStudentByUserId(userId: number) {
+    for (const entry of this.students.values()) {
+      if (entry.snapshot.userId === userId) return entry.snapshot;
+    }
+    return null;
+  }
+  async searchClasses() {
+    return [];
+  }
   async getClassById(classId: number) {
     return classId === 3 ? { id: 3, name: '一班', teacherId: 7, inviteCode: 'ABC' } : null;
   }
@@ -132,6 +141,21 @@ class FakeClassroom implements ClassroomPort {
   }
   async recordStudentLedgerEntry(entry: { studentId: number; type: string; amount: number; description: string }) {
     this.ledger.push(entry);
+  }
+  async listStudentLedger(studentId: number) {
+    return this.ledger
+      .filter((entry) => entry.studentId === studentId)
+      .map((entry, index) => ({
+        id: index + 1,
+        studentId: entry.studentId,
+        type: entry.type,
+        amount: entry.amount,
+        description: entry.description,
+        createdAt: '2026-01-01 00:00:00',
+      }));
+  }
+  async sumClassPointsEarnedSince() {
+    return this.ledger.filter((entry) => entry.type === 'ADD_POINTS').reduce((sum, e) => sum + e.amount, 0);
   }
   async checkStudentFeature(studentId: number) {
     const entry = this.students.get(studentId);

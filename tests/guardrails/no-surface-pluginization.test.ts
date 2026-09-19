@@ -42,7 +42,7 @@ describe('G3 no surface-only pluginization', () => {
   it('lowering the allowance is the only allowed change', () => {
     // Guard against someone "fixing" a regression by editing allowances.json upward.
     expect(allowances.shimPages).toBeLessThanOrEqual(62);
-    expect(allowances.deadCode).toBeLessThanOrEqual(69);
+    expect(allowances.deadCode).toBeLessThanOrEqual(66);
     expect(allowances.staticPluginRoutes).toBeLessThanOrEqual(76);
     expect(allowances.legacyFeatureKeySurfaces).toBeLessThanOrEqual(2);
   });

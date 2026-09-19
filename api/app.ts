@@ -44,7 +44,7 @@ import {
 } from '@thinkclass/kernel';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb } from './db.js'
-import { ensureAdoptedSchema } from './schema/adoptedTables.js'
+import { ensureAdoptedSchema, ensureReadOnlyLegacyTables } from './schema/adoptedTables.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
 import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
@@ -252,7 +252,13 @@ export async function createApp(): Promise<Express> {
     // `p_<slug>_` tables, so the host has to bring these into existence - and it has
     // to do so in BOTH compositions, because otherwise a plugin activates happily in
     // the kernel composition and fails on its first request.
-    ensureSchema: ensureAdoptedSchema,
+    ensureSchema: (db) => {
+      ensureAdoptedSchema(db);
+      // Plus the legacy tables plugins only read: `data.reads` grants no creation
+      // right, so without this a read-only dependency would be missing on a fresh
+      // kernel database and fail per request instead of at boot.
+      ensureReadOnlyLegacyTables(db);
+    },
   })
 
   // Audit coverage is data, not a branch chain: the descriptors say which operations

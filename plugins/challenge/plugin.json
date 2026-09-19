@@ -1,0 +1,45 @@
+{
+  "id": "challenge",
+  "name": "挑战模式",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Quiz challenge + world boss, migrated out of api/modules/challenge (P4.3b). Adopts challenge_records and world_bosses under their legacy names; reads question_bank and the legacy pets table (both owned elsewhere) through declared read access; appends to the shared point ledger only through classroom.public.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/challenge", "handler": "ChallengeController.legacyQuestions", "auth": "actor" },
+      { "method": "POST", "base": "/api/challenge", "handler": "ChallengeController.legacySubmit", "auth": "actor" },
+      { "method": "GET", "base": "/api/challenge", "handler": "ChallengeController.legacyActiveBoss", "auth": "actor" },
+      { "method": "POST", "base": "/api/challenge", "handler": "ChallengeController.legacyAttackBoss", "auth": "actor" },
+      { "method": "GET", "base": "/api/challenge", "handler": "ChallengeController.legacyListBosses", "auth": "actor" },
+      { "method": "POST", "base": "/api/challenge", "handler": "ChallengeController.legacyCreateBoss", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/challenge", "handler": "ChallengeController.legacyDeleteBoss", "auth": "actor" },
+      { "method": "GET", "base": "/api/challenge", "handler": "ChallengeController.questions", "auth": "actor" },
+      { "method": "POST", "base": "/api/challenge", "handler": "ChallengeController.submissions", "auth": "actor" },
+      { "method": "GET", "base": "/api/challenge", "handler": "ChallengeController.activeBoss", "auth": "actor" },
+      { "method": "GET", "base": "/api/challenge", "handler": "ChallengeController.bosses", "auth": "actor" },
+      { "method": "POST", "base": "/api/challenge", "handler": "ChallengeController.createBoss", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/challenge", "handler": "ChallengeController.deleteBoss", "auth": "actor" },
+      { "method": "POST", "base": "/api/challenge", "handler": "ChallengeController.attackBoss", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["challenge_records", "world_bosses"],
+    "_adopted_note": "Both tables are written only by this domain and keep their legacy names because `SELECT *` rows for world_bosses go straight through to the frontend (max_hp, start_time, ... are part of the HTTP contract). Renaming is the coordinated P7 namespace migration tracked by guardrail G10. NOTE: api/modules/classroom/classroom.service.ts still reads world_bosses directly for its dashboard - that legacy reader has to become a classroom-side concern or a port when classroom migrates.",
+    "reads": ["question_bank", "pets"],
+    "_reads_note": "Neither table belongs to challenge, and neither has a port: `question_bank` is authored by the system domain (CRUD) and cleaned up by admin, and `pets.attack_power` is the pet domain's legacy table - PetPort exposes no attack-power accessor, so the world-boss damage roll reads the one column directly. Both are read-only here; a write would be refused by the ownership check. KNOWN GAP (probe-verified): on a fresh *kernel-composition* database neither table exists - `ensureAdoptedSchema` only creates `data.adopted` tables and the legacy `initDb()` DDL does not run in that composition - so GET /api/challenge/questions and boss attacks answer 500 ('no such table') there until the owning domains migrate (P4.3c) or the host seeds shared read-only tables. The legacy/rollback composition is unaffected because it replays the full boot DDL."
+  }
+}

@@ -36,6 +36,16 @@ interface ClassRow {
   [column: string]: unknown;
 }
 
+/** Raw `records` row; mapped to `PointLedgerRow` at the port boundary. */
+interface LedgerRow {
+  id: number;
+  student_id: number;
+  type: string;
+  amount: number;
+  description: string | null;
+  created_at: string;
+}
+
 /** Prefix identifying a legacy class-scope feature column. */
 const LEGACY_FEATURE_PREFIX = 'enable_';
 
@@ -95,6 +105,14 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
       return row ? toStudentSnapshot(row) : null;
     },
 
+    async getStudentByUserId(userId) {
+      // Multiple students could share a user id in principle; the legacy resolver
+      // (`getClassIdByUserId`) took the first match, and ordering by id keeps that
+      // deterministic instead of leaving it to the query planner.
+      const row = db.get<StudentRow>(`SELECT * FROM students WHERE user_id = ? ORDER BY id LIMIT 1`, [userId]);
+      return row ? toStudentSnapshot(row) : null;
+    },
+
     async getClassById(classId) {
       const row = db.get<ClassRow>(`SELECT * FROM classes WHERE id = ?`, [classId]);
       return row ? toClassSnapshot(row) : null;
@@ -103,6 +121,20 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
     async listClassStudents(classId) {
       const rows = db.query<StudentRow>(`SELECT * FROM students WHERE class_id = ? ORDER BY id`, [classId]);
       return rows.map(toStudentSnapshot);
+    },
+
+    async searchClasses(query, excludeClassId, limit = -1) {
+      // SQLite treats a negative LIMIT as "no limit", which is what the legacy query
+      // branch did - it filtered by name and returned every match. Applying the
+      // unfiltered branch's LIMIT 10 to both would silently truncate search results.
+      const rows = query
+        ? db.query<ClassRow>(`SELECT * FROM classes WHERE name LIKE ? AND id != ? LIMIT ?`, [
+            `%${query}%`,
+            excludeClassId,
+            limit,
+          ])
+        : db.query<ClassRow>(`SELECT * FROM classes WHERE id != ? LIMIT ?`, [excludeClassId, limit === -1 ? 10 : limit]);
+      return rows.map(toClassSnapshot);
     },
 
     async assertStudentInClass(studentId, classId) {
@@ -194,6 +226,37 @@ export function createClassroomPort(ctx: KernelContext): ClassroomPort {
         entry.amount,
         entry.description,
       ]);
+    },
+
+    async listStudentLedger(studentId, limit) {
+      const base = `SELECT id, student_id, type, amount, description, created_at
+                      FROM records WHERE student_id = ? ORDER BY created_at DESC, id DESC`;
+      const rows =
+        limit === undefined
+          ? db.query<LedgerRow>(base, [studentId])
+          : db.query<LedgerRow>(`${base} LIMIT ?`, [studentId, limit]);
+
+      return rows.map((row) => ({
+        id: row.id,
+        studentId: row.student_id,
+        type: row.type,
+        amount: row.amount,
+        description: row.description ?? null,
+        createdAt: String(row.created_at),
+      }));
+    },
+
+    async sumClassPointsEarnedSince(classId, since) {
+      // The join is why this lives here rather than in the caller: only classroom knows
+      // which students belong to a class.
+      const row = db.get<{ total: number | null }>(
+        `SELECT SUM(r.amount) AS total
+           FROM records r
+           JOIN students s ON r.student_id = s.id
+          WHERE s.class_id = ? AND r.created_at >= ? AND r.type = 'ADD_POINTS'`,
+        [classId, since],
+      );
+      return row?.total ?? 0;
     },
 
     async checkStudentFeature(studentId, feature) {

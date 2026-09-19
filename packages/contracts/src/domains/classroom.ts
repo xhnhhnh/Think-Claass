@@ -173,6 +173,16 @@ export interface PointLedgerEntry {
   description: string;
 }
 
+/** A stored ledger row, as read back. */
+export interface PointLedgerRow {
+  id: number;
+  studentId: number;
+  type: string;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+}
+
 /**
  * Why a classroom operation was refused.
  *
@@ -217,8 +227,29 @@ export interface ClassroomResult<T> {
 
 export interface ClassroomPort {
   getStudentById(studentId: number): Promise<StudentSnapshot | null>;
+  /**
+   * Resolve a student from the *user* id a request actor carries.
+   *
+   * `RequestContext.actor` only guarantees `userId` and `role` - the session and the
+   * legacy-header bridge never populate `studentId`. A route that is gated per-actor
+   * rather than per-student therefore has to look the student up, and `students` is
+   * classroom-owned, so the lookup belongs here rather than in the caller.
+   */
+  getStudentByUserId(userId: number): Promise<StudentSnapshot | null>;
   getClassById(classId: number): Promise<ClassSnapshot | null>;
   listClassStudents(classId: number): Promise<StudentSnapshot[]>;
+  /**
+   * Name-fragment search over classes, excluding one id.
+   *
+   * `query` matches as a case-insensitive substring (`LIKE %query%`, which SQLite
+   * already treats case-insensitively for ASCII); omit it to list without filtering.
+   * `excludeClassId` exists because the caller is usually searching for an *opponent*.
+   *
+   * `limit` defaults to "no limit" for a filtered search and 10 for an unfiltered
+   * listing, which is exactly what the pre-migration callers did. Pass an explicit
+   * value to override either.
+   */
+  searchClasses(query: string | undefined, excludeClassId: number, limit?: number): Promise<ClassSnapshot[]>;
   /** Rejects when the student is not in the class; used to authorise requests. */
   assertStudentInClass(studentId: number, classId: number): Promise<void>;
   /** Add or subtract points, emitting `classroom.student.points.changed`. */
@@ -256,6 +287,25 @@ export interface ClassroomPort {
    * to no single feature domain. `classroom` owns it because it owns student points.
    */
   recordStudentLedgerEntry(entry: PointLedgerEntry): Promise<void>;
+
+  /**
+   * Read a student's recent ledger, newest first.
+   *
+   * Reading is a separate concern from appending for the same ownership reason: the
+   * table belongs to classroom, so a consumer asks rather than queries. `limit`
+   * defaults to the whole history.
+   */
+  listStudentLedger(studentId: number, limit?: number): Promise<PointLedgerRow[]>;
+
+  /**
+   * Sum the points a class *earned* (`type = 'ADD_POINTS'`) at or after `since`.
+   *
+   * Exists because a reader sometimes needs the aggregate rather than the rows, and the
+   * aggregate needs the `students` join - which only classroom can do. `since` is
+   * compared against the stored `created_at` string, so pass the same
+   * `YYYY-MM-DD HH:MM:SS` format the column uses.
+   */
+  sumClassPointsEarnedSince(classId: number, since: string): Promise<number>;
 
   // -- feature flags --------------------------------------------------------
 

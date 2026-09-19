@@ -105,8 +105,10 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.1 | 能力系统（替换 19 个 `enable_*` 列） | `a455753` | ✅ |
 | P4.2 | 审计下沉（描述符注册表 + 内核 sink） | `5891754` | ✅ |
 | P4.3a | 拆 `game` 上帝模块为六个域模块 | `b2a8f7b` | ✅ |
-| P4.3b.0 | **结构前置**：legacy 组装也能挂载插件 + 扫描/护栏补盲区 | 见 `git log` | ✅ |
-| **P4.3b** | **把六个域（及其余域）真正迁成插件** | — | ⬜ **下一步** |
+| P4.3b.0 | **结构前置**：legacy 组装也能挂载插件 + 扫描/护栏补盲区 | `bd613f8` | ✅ |
+| P4.3b.1 | **`economy` 迁成插件**（首个域，模板） | `3296a41` | ✅ |
+| P4.3b.2 | **`dungeon`/`gacha`/`slg`/`battles`/`challenge` 五个域批量迁成插件** | 见 `git log` | ✅ |
+| **P4.3b.3** | **重域**：`learning`/`marketplace`/`engagement`/`collaboration`/`insights`/`portal`/`platform` | — | ⬜ **下一步** |
 | P4.3c | `api/db.ts` 78 条启动期 DDL → 编号迁移 | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
@@ -128,7 +130,10 @@ packages/contracts      纯类型共享词汇（G6 强制零运行时代码）
   src/domains/*.ts      17 个域的 DTO + ClassroomPort / PetPort
 
 packages/kernel         最小内核
-  bootstrap/createKernel.ts   createKernel({ authProvider, mountPlugins, pluginHost })
+  bootstrap/createKernel.ts   createKernel({ authProvider, mountPlugins, pluginHost, ensureSchema })
+                              ↑ `ensureSchema(db)` 是 P4.3b.1 加的一次性桥：插件只能建 `p_<slug>_`
+                                表，被 adopted 的旧表必须由宿主建，否则 kernel 组装下插件能激活但首个请求就挂。
+                                P4.3c 把 DDL 收编成编号迁移后这个钩子应删除
   http/kernelRoutes.ts        /api/health, /api/kernel/*
   http/requestContext.ts      Bearer 优先；出示令牌即终局（不回落请求头）
   auth/{password,session,authProvider}.ts
@@ -138,11 +143,31 @@ packages/kernel         最小内核
   events/eventBus.ts
 
 packages/plugin-sdk     definePlugin / manifest 校验 / semver / KernelContext / PLUGIN_CONTEXT
+                        PermissionsApi.assignedTo(scopeType, scopeId, key) ← P4.3b.1 加，只允许读
+                        本插件自己声明的 key（否则可枚举别的插件的能力指派，违反 G1）
 packages/plugin-runtime discovery / resolver / host / boundary / serviceRegistry / dbApi / migrationRunner / stateStore
+                        host.ts 现在拆成「收集模块」与「挂载」两半：
+                          buildPluginModule() 每个插件一个 Nest 模块 → host.modules
+                          options.mountControllers: 'host'(默认) | 'external'
+                        'external' = 宿主只收集，由调用方并进自己的 Nest 根模块（api/app.ts 用）
 
-plugins/classroom       基础插件，required:true，owns students+classes（adopted），
+api/schema/adoptedTables.ts  adopted 表的**唯一**权威定义（students/classes/records/
+                             bank_accounts/stocks/student_stocks）。api/db.ts 调它、不再自己定义；
+                             测试也调它 —— 两份定义会静默漂移：capability 回落是按列名读
+                             `classes.enable_*` 的，缺列会让每个班都"功能已关闭"而不报错
+
+plugins/classroom       基础插件，required:true，owns students+classes+records（adopted），
                         发布 classroom.public，声明 19 条 classroom.enable_* 权限
+                        classroom.public 端口（迁移的公共依赖）：
+                          getStudentById / getClassById / listClassStudents / assertStudentInClass
+                          adjustPoints（total+available 同时动，发事件）
+                          transferStudentCredits（只动 available，余额不足返回 refusal）
+                          recordStudentLedgerEntry（共享流水 records 的唯一写入口）
+                          checkStudentFeature / checkClassFeature（能力指派优先，回落旧列）
+                        拒绝用返回值表达：ClassroomResult<T> = { value?, refusal? }
 plugins/pet             功能插件参考实现，自有迁移、控制器、端口、事件、权限
+                        注意：HTTP 面**不完整**（4/19 端点），与 api/modules/pet 有 1 条路由碰撞
+plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后续域的模板
 ```
 
 ### 关键机制（改代码前务必理解）
@@ -184,26 +209,41 @@ plugins/pet             功能插件参考实现，自有迁移、控制器、�
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b R1 完成时（HEAD 为 `eab37e4` + 本提交）跑出来的数字。**
+**下面是 P4.3b.2 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        115 文件 / 441 用例全绿
+npm test        115 文件 / 512 用例全绿
 npm run check   exit 0
 api:surface     unchanged (292 endpoints)
-guardrails      8 文件 / 30 用例
+guardrails      8 文件 / 31 用例
 ```
 
 **验收基线（P4.3b 期间这几个数字的含义）**：
 
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
-| `api:surface` 端点数 | **292** | 迁移期间**不应变化**。域迁入 `plugins/**` 后若数字变小，是扫描范围漏了插件（陷阱）；变大则说明多出了端点 |
-| `deadCode` | 70 | 迁移中会**上升**（新旧代码并存），需要每域完成后删除旧实现 |
+| `api:surface` 端点数 | **292** | 迁移期间**不应变化**。变小 → 扫描漏了插件；变大 → 多出端点 |
+| `deadCode` | **66**（70 → 69 → 66）| 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | 62 | P5 之前不应变化 |
 | `legacyFeatureKeySurfaces` | 1 | 迁 `classroom` 端点时应降到 0 |
-| `adoptedTables` | 2 | 迁更多域时会**上升**（更多旧表被插件接管），这是预期的；迁移完成后才归零 |
-| `routeCollisions` | 1 | **迁移中每迁完一个域必须回落到 0**；不降反升说明旧模块没删干净 |
+| `adoptedTables` | **14** | classroom 2 + economy 3 + dungeon 1 + gacha 3 + slg 2 + battles 1 + challenge 2。P7 改名后归零。**`records` 不计入**（永久共享，见 §6） |
+| `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁一个域必须回落 —— 这次从 54 回落到 1 |
+
+**批量迁移的实测经验（P4.3b.2，五个域并行）**：
+- **`api:surface -- --check` 的括号数字在迁移中途会是"虚高"的**（如 345），因为它打印的是**声明条数**，而判定用的是**集合**。旧模块与插件并存期间每条路由声明两次。**别把它当成漂移**，要看 `added`/`removed` 是否为空；删掉旧模块后自然回到 292。
+- **G11 路由碰撞数 = 各新插件声明数之和**（本次峰值 54），删旧模块后回落。这是迁移中途的正常中间态。
+- 五个域并行时**共享文件（`app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`）必须由一个人独占改**，否则互相覆盖。
+
+### 迁移一个域的标准动作（P4.3b.1 实证后的清单）
+
+1. 建 `plugins/<slug>/plugin.json` + `src/`
+2. **plugin.json 关键字段**：`tier:"feature"`、`required:false`、`isolation:"restricted"`、`dependsOn:{classroom:"^1.0.0"}`、`data.adopted:[该域的旧表]`、`provides.routes[]`
+3. 旧的 repository 改吃 `ctx.db`（`DbApi`），service 改吃端口 + repository
+4. `ApiError` 从 `@thinkclass/kernel` 取（**不是** `api/utils/apiError.ts`）
+5. 删 `api/modules/<slug>/` + 从 `app.module.ts` 移除（**必须同一次提交**，否则 G11 会多一条碰撞、端点数也会翻倍）
+6. 测试搬到 `tests/plugins/<slug>-service.test.ts`（backend 项目，node 环境）
+7. `plugins/<slug>/src/economy.service.test.ts` 那种直接放在插件目录里的测试**不会被任何 vitest 项目收集** —— 放 `tests/plugins/`
 
 ---
 
@@ -214,50 +254,39 @@ guardrails      8 文件 / 30 用例
 P4.3a 只是把 741 行的 `game.controllers.ts` 拆成六个域模块 —— **仍然是 `api/` 里的 Nest 模块，不是插件**。
 真正的目标：`plugins/<domain>/{plugin.json, src/}`，由插件运行时装配。
 
-### 8.2 迁一个域需要做的四件事
+### 8.2 迁一个域要做的四件事（`economy` 已按此完成，照抄即可）
 
-以 `economy` 为例（**下一个要做的**：表少、无跨域写）：
+1. **建 `plugins/<slug>/plugin.json`**
+   - `tier:"feature"`、`required:false`、`isolation:"restricted"`
+   - `dependsOn:{ "classroom": "^1.0.0" }`（要做功能开关/班级校验就必须）
+   - `data.adopted`: **该域拥有的旧表**（不能写 `data.tables` —— 校验器只放行 `p_<slug>_` 前缀）
+   - `provides.routes[]`、`provides.events`
 
-1. **建 `plugins/economy/plugin.json`**
-   - `tier: "feature"`，`required: false`，`isolation: "restricted"`
-   - `entry.backend: "./src/index.ts"`
-   - `provides.routes`: `base: "/api/economy"`（`compat` 可留空，路径不变）
-   - `provides.migrations`: 若域有自有表
-   - `provides.events` / `provides.permissions`: 按需
-   - `data.adopted`: **该域现在拥有的旧表**（`bank_accounts`, `stocks`, `student_stocks`）
-   - `dependsOn: { "classroom": "^1.0.0" }`（因为它要做功能开关与班级校验）
+2. **把 repository / service / controllers / types 移入 `plugins/<slug>/src/`**
+   - repository 改吃 `ctx.db`（`DbApi`，所有权受检），不再 `import db from '../../db.js'`
+   - `ApiError` 改从 `@thinkclass/kernel` 取（**不要**用 `api/utils/apiError.ts`：那是另一个类，`instanceof` 不成立）
+   - `ok()` 这类纯 helper 可以复制进插件（本来就只有 3 行）
 
-2. **把 service / repository / controllers / types 移入 `plugins/economy/src/`**
-   - `import { ApiError } from '../../utils/apiError.js'` → `import { ApiError } from '@thinkclass/kernel'`
-   - `import db from '../../db.js'` → 用 `ctx.db`（所有权受检）
-   - `import { getRequestActor } from '../../utils/requestAuth.js'` → `getRequestContext(req)`（kernel）
-   - `import { ok } from '../../utils/apiResponse.js'` → 保持，或移入 SDK
+3. **功能开关与跨域数据一律走 `classroom.public` 端口**
+   端口现已提供（P4.3b.1 加的）：
+   - `getStudentById` / `getClassById` / `listClassStudents` / `assertStudentInClass`
+   - `adjustPoints`（同时动 total+available，发事件）
+   - **`transferStudentCredits({studentId,delta,reason,actorId})`** —— 只动 available，余额不足返回 refusal（不抛异常）
+   - **`recordStudentLedgerEntry({studentId,type,amount,description})`** —— 共享积分流水 `records` 的唯一写入路径
+   - **`listStudentLedger(studentId,limit?)`** —— 读某学生流水（新→旧）
+   - **`sumClassPointsEarnedSince(classId,since)`** —— 某班某时刻后 `ADD_POINTS` 合计（需要 `students` join，只有 classroom 能做）
+   - **`checkStudentFeature(studentId,feature)` / `checkClassFeature(classId,feature)`** —— `enable_*` 开关，先查能力指派再回落 `classes.enable_*` 列
+   - **`getStudentByUserId(userId)`** —— 请求 actor 只带 `userId`（session 与 legacy 头桥都不填 `studentId`），按 actor 控制的开关必须靠它
+   - **`searchClasses(query?,excludeClassId,limit?)`** —— 班级名模糊搜索；**有 query 时默认无 LIMIT，无 query 时默认 10**（与迁移前两个分支各自的行为一致）
 
-3. **功能开关改走端口**（当前是**唯一的真实阻塞点**）
-   现在：`assertClassFeatureEnabled(classId, 'enable_economy')` —— 来自 `api/utils/classFeatures.ts`，插件不能 import `api/`。
+   **端口用返回值表达拒绝，不抛异常**：`ClassroomResult<T> = { value?: T; refusal?: ClassroomRefusal }`。
+   为什么不抛异常、也不用 `{ok:true}|{ok:false}` 判别联合：contracts 是**纯类型**（G6 禁止运行时类），而且本项目 `strict:false` 下 TS 会把布尔字面量判别符**拓宽成 `boolean`**，判别联合根本不收窄 —— 已用本地类型实测确认。所以用可选判别符，调用方判 `if (result.refusal)`。
 
-   **R2 必须一并解决**，方案（尚未实施，请先设计再动手）：
-   给 `ClassroomPort` 增加 `assertClassFeatureEnabled(classId, feature)` / `assertStudentFeatureEnabled(studentId, feature)` / `getClassFeatures(classId)`，由 `plugins/classroom` 端口实现，内部继续走"能力指派优先、回落 `classes.enable_*` 列"的既有语义。
-   **前提已经具备**：8.3 已让 legacy 组装也挂载插件，所以 `classroom.public` 在两种组装下都可用 —— 这正是原来卡住这一步的原因。
+4. **删 `api/modules/<slug>/` + 从 `api/app.module.ts` 移除**
+   **必须与新增插件同一次提交**：两者并存会产生 N 条路由碰撞（G11 报警）且端点数翻倍。
+   删完 `deadCode` 应下降，把它在 `allowances.json` 里调低。
 
-   另一条更小的路（备选）：给 `PermissionEngine` 加 `fallback(scopeType, scopeId, key)` 钩子，由 `api/` 注册"读 `classes.enable_*` 列"的回退（内核保持零业务知识），插件只调用 `ctx.permissions.can(...)`。
-   **注意**：`ctx.permissions.can()` 需要 `Actor`（含 classId），而 economy 的入口只有 `studentId`，所以仍需要一个 studentId→classId 的解析路径（也在 `classroom.public` 上）。
-
-4. **`api/modules/<domain>/` 整个删除，`app.module.ts` 移除该模块**
-   端点必须仍然存在 → 8.3 已解决；删完后 `routeCollisions` 必须回到 0。
-
-### 8.2.1 economy 的额外发现（读代码得到，不是猜测）
-
-`EconomyService` 除了功能开关，**还直接读写 `students` 表**（`getStudentOrThrow`、`available_points` 扣减、以及 repository 里的 `updateStudentAvailablePoints`），
-而 `students` 表归 `classroom` 所有（`plugins/classroom/plugin.json` 的 `data.adopted`）。
-所以 economy 迁移里 `classroom.public` 至少要提供：
-
-- `getStudentById`（已有）
-- 学生→班级解析（新增；`api/utils/classFeatures.ts` 的 `getClassIdByStudentId` 已有等价逻辑）
-- 功能开关断言（新增，见第 3 点）
-- **积分读写**：`adjustPoints` 已存在，但 economy 需要"读取 `available_points`"与"在同一个事务里扣减且校验余额" —— 现有端口不够，需要扩。
-
-**不要**为了省事把 `students` 加进 economy 的 `data.reads` 后直接读表：那会让两个插件同时写同一列，`classroom` 的所有权声明就失去意义（G1/G10 的设计意图）。
+**注意**：插件目录里自带的 `*.test.ts` **不会被任何 vitest 项目收集** —— 测试放 `tests/plugins/`（backend 项目，node 环境，无 jsdom/MSW）。
 
 
 ### 8.3 必须一起解决的结构问题：legacy 组装也要挂载插件 —— ✅ P4.3b.0 已解决
@@ -296,15 +325,45 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
   **但 pet 插件目前不是等价替换**：插件只有 4 个端点，`api/modules/pet` 有 19 个（`/api/pets/**` 9 个 + `/api/pet/**` 10 个），且 `plugins/pet` 的表是 `p_pet_pets`（新命名），旧模块读的是旧 `pets` 表。
   所以**不能**用"删掉旧模块"来解决。正确顺序：先把 `api/modules/pet` 的 19 个端点按原语义补进 `plugins/pet`（含响应形状），再删旧模块，棘轮降到 0。
 - 在 `plugins/pet` 补完之前，**不要**在 legacy 组装下开启插件后跑端到端前端流程 —— 那条碰撞路径上只有先注册者生效。
+- **`admin.repository.ts` 仍在直接删除各域的表**（走 Prisma `$transaction`，不经 `DbApi` 所以所有权检查管不到）：
+  `student_stocks` :434、`stocks` :444、`bank_accounts` :458、`dungeon_runs` :461、`gacha_pools` :525、`student_pets` :473、
+  `territories` :523、`class_resources` :526、`class_battles` :514、`challenge_records` :460、`question_bank` :550。
+  `DELETE /api/admin/users/:id` 时会级联清理。**迁移到 admin 域时必须改成调各域的端口**，否则"某插件拥有某表"只对插件生效、对 admin 不生效。
+- **`records` 的其余写入方**（collaboration/marketplace/engagement/insights/pointsService/classroom）在各自迁移时都要改调 `classroom.public.recordStudentLedgerEntry()`。
+  `api/services/pointsService.ts` 是共享 helper（marketplace 在用），它自己也要改。
+- **kernel 组装下的"只读 legacy 表"**：`question_bank`（归 system，未迁移）与 legacy `pets`（归 `api/modules/pet`，未迁完）由
+  `api/schema/adoptedTables.ts` 的 `ensureReadOnlyLegacyTables()` 建出来。它们**不属于** `data.adopted`（那会给出写所有权）。
+  等 `system`/`pet` 迁完后，这两张表应移入各自插件的迁移并从那个列表删除。
+- **`pets.attack_power` 无端口访问器**：challenge 通过 `data.reads: ["pets"]` 读它。等 pet 迁移完成后应改为端口方法。
+  注意 legacy `pets` 与 `plugins/pet` 的 `p_pet_pets` **是两张不同的表**。
+- **`checkStudentFeature` 对"班级行已删"返回 403 `feature-disabled`**，而 legacy 的 `assertClassFeatureEnabled` 抛 404「班级未找到」。
+  正常路径一致；只有孤立学生（class 行被删）才有差异。economy/challenge 都受此影响，属已知语义差。
 
 ### 8.4 迁移顺序建议
 
-1. `economy`（试点；8.3 的结构前置已完成，剩下的是端口扩展）→ 跑通后再批量
-2. `dungeon`、`gacha`、`slg`、`battles`、`challenge`
-3. `learning`（最大，28 张表）、`marketplace`、`engagement`、`collaboration`、`insights`、`portal`、`platform`
+1. ~~`economy`~~ ✅ `3296a41`（模板已确立）
+2. ~~`dungeon`、`gacha`、`slg`、`battles`、`challenge`~~ ✅ P4.3b.2（五域并行，见 §8.6）
+3. **`learning`（最大，28 张表）、`marketplace`、`engagement`、`collaboration`、`insights`、`portal`、`platform`** ← 下一个
 4. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
 5. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
 6. `auth` → `identity` 基础插件；`settings`/`system` → 内核
+
+**共享文件只有 Lead 改**：`api/app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`、`packages/**`。
+`plugins/<slug>/**` 与 `tests/plugins/<slug>-*.test.ts` 是每域独占的，可以并行。
+
+### 8.6 并行迁移的可行性（P4.3b.2 实证）
+
+五个域同时交给五个 agent 是**可行**的，前提是：
+
+| 条件 | 原因 |
+|---|---|
+| 每域写范围完全独占（`plugins/<slug>/**` + `tests/plugins/<slug>-*.test.ts`） | 无文件重叠 |
+| 共享文件由 Lead 独占 | 否则 `allowances.json`/`app.module.ts` 互相覆盖 |
+| 契约（`packages/contracts/**`）由 Lead 独占，且**在派活前把端口补齐** | 否则每个 agent 都会自己发明端口形状 |
+| 明确告知"不要删旧模块、不要提交、不要跑 `npm test`" | 删除与提交必须与共享文件改动同批 |
+| 允许 agent 报"端口缺口"而不是各自绕路 | 本次因此发现 3 个真实缺口（ledger 读、class 搜索、userId→student） |
+
+本次五个 agent 各自独立发现了真实问题：dungeon 发现 `classes` DDL 缺 7 个 `enable_*` 列（kernel 组装下静默 403）、battles 发现我写的 `searchClasses` 给**带过滤**的分支多加了 `LIMIT 10`（legacy 无 LIMIT，属行为回归）、challenge 发现 kernel 组装下 `question_bank`/`pets` 根本不存在导致 500。**这些都不是"实现错误"，而是迁移本身暴露的隐藏耦合** —— 正是让每个 agent 用自己的启动探针验证的价值。
 
 ### 8.5 每个域完成后必须验证
 

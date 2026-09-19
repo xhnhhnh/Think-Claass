@@ -1,0 +1,43 @@
+{
+  "id": "battles",
+  "name": "班级大乱斗",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Class-vs-class battles (class_brawl). Migrated out of api/modules/battles/**. Adopts the pre-existing class_battles table rather than renaming it, because the table and column names are the JSON contract the frontend reads. Reaches classes, students and the shared point ledger exclusively through classroom.public.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/battles", "handler": "BattlesController.searchClasses", "auth": "actor" },
+      { "method": "GET", "base": "/api/battles", "handler": "BattlesController.legacyList", "auth": "actor" },
+      { "method": "POST", "base": "/api/battles", "handler": "BattlesController.legacyInitiate", "auth": "actor" },
+      { "method": "PUT", "base": "/api/battles", "handler": "BattlesController.legacyAccept", "auth": "actor" },
+      { "method": "PUT", "base": "/api/battles", "handler": "BattlesController.legacyReject", "auth": "actor" },
+      { "method": "PUT", "base": "/api/battles", "handler": "BattlesController.legacyEnd", "auth": "actor" },
+      { "method": "GET", "base": "/api/battles", "handler": "BattlesController.legacyStats", "auth": "actor" },
+      { "method": "GET", "base": "/api/battles", "handler": "BattlesController.list", "auth": "actor" },
+      { "method": "GET", "base": "/api/battles", "handler": "BattlesController.stats", "auth": "actor" },
+      { "method": "POST", "base": "/api/battles", "handler": "BattlesController.initiate", "auth": "actor" },
+      { "method": "PUT", "base": "/api/battles", "handler": "BattlesController.accept", "auth": "actor" },
+      { "method": "PUT", "base": "/api/battles", "handler": "BattlesController.reject", "auth": "actor" },
+      { "method": "PUT", "base": "/api/battles", "handler": "BattlesController.end", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["class_battles"],
+    "_adopted_note": "`class_battles` carries its legacy name on purpose: `SELECT *` rows are returned straight through to the frontend, so initiator_class_id / target_class_id / start_time / end_time / winner_class_id are part of the HTTP contract. Renaming it is a coordinated frontend change, tracked as namespace debt by guardrail G10.",
+    "reads": []
+  }
+}

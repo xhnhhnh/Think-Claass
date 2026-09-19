@@ -36,20 +36,67 @@ import type { Database } from '@thinkclass/kernel';
 export const ADOPTED_TABLE_NAMES = {
   classroom: ['students', 'classes', 'records'],
   economy: ['bank_accounts', 'stocks', 'student_stocks'],
+  dungeon: ['dungeon_runs'],
+  gacha: ['pet_dictionary', 'gacha_pools', 'student_pets'],
+  slg: ['territories', 'class_resources'],
+  battles: ['class_battles'],
+  challenge: ['challenge_records', 'world_bosses'],
 } as const;
 
 /**
- * Create every adopted table if it does not already exist.
+ * Tables plugins only *read*, which still have to exist for those reads to work.
  *
- * Idempotent by construction, so calling it twice - or alongside a database that
- * `initDb()` already prepared - is a no-op.
+ * These are owned by domains that have not migrated yet (`question_bank` by the
+ * system/settings surface, the legacy `pets` table by the not-yet-complete pet
+ * migration). A plugin declares them in `data.reads`, which grants read access but no
+ * creation right - and `ensureAdoptedSchema` only creates what plugins *own*. So on a
+ * fresh kernel-composition database they would simply be missing, and the read would
+ * fail at request time with "no such table" rather than at boot.
  *
- * This is the authoritative definition for these six tables. `api/db.ts` calls it and
- * no longer defines them itself, because two copies would drift and the drift would be
- * silent: the capability fallback below reads `classes.enable_*` by column name, so a
- * table created without those columns answers "feature disabled" for every class
- * instead of failing loudly.
+ * Creating them here is deliberately temporary and deliberately read-only in intent:
+ * once `system` and `pet` migrate, the table moves into the owning plugin's own
+ * migration and leaves this list. It is not `data.adopted` for those plugins, because
+ * adopting would grant write ownership of another domain's table - the opposite of the
+ * problem being solved.
  */
+const READ_ONLY_LEGACY_TABLES = ['question_bank', 'pets'] as const;
+
+export function ensureReadOnlyLegacyTables(db: Database): void {
+  db.exec(`
+    -- Read by challenge (question content) and written by the not-yet-migrated system surface.
+    CREATE TABLE IF NOT EXISTS question_bank (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL,
+      options TEXT,
+      answer TEXT NOT NULL,
+      explanation TEXT,
+      teacher_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- The *legacy* pets table. Note this is NOT plugins/pet's p_pet_pets: that plugin
+    -- owns its own namespaced table, while the legacy module and challenge both read
+    -- this one. It disappears when api/modules/pet is deleted (HANDOFF 8.3.1).
+    CREATE TABLE IF NOT EXISTS pets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER REFERENCES students(id),
+      element_type TEXT NOT NULL,
+      custom_image TEXT,
+      image_stage1 TEXT,
+      image_stage2 TEXT,
+      image_stage3 TEXT,
+      image_stage4 TEXT,
+      image_stage5 TEXT,
+      image_stage6 TEXT,
+      level INTEGER DEFAULT 1,
+      experience INTEGER DEFAULT 0,
+      attack_power INTEGER DEFAULT 10
+    );
+  `);
+}
+
+/** Create every adopted table if it does not already exist. */
 export function ensureAdoptedSchema(db: Database): void {
   db.exec(`
     -- classroom: students and classes.
@@ -60,6 +107,13 @@ export function ensureAdoptedSchema(db: Database): void {
     -- had to create the user table would know about identity. SQLite does not enforce
     -- a foreign key whose target table is absent, and when api/db.ts runs it creates
     -- "users" anyway, so the real schema is unchanged.
+    --
+    -- The column list must stay complete: api/db.ts grows an existing classes table
+    -- with addColumnIfNotExists, so a definition here that omits a column is only ever
+    -- wrong on a database this module created itself - which is exactly the kernel
+    -- composition and every test. The failure is silent and specific: checkClassFeature
+    -- reads classes.<feature> by name, so a missing column answers "feature disabled"
+    -- for every class instead of erroring.
     CREATE TABLE IF NOT EXISTS classes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -69,8 +123,8 @@ export function ensureAdoptedSchema(db: Database): void {
       settings TEXT,
       -- The 19 legacy class feature flags. P4.1 replaced them with capability
       -- assignments, but a class that was never configured still resolves through
-      -- these columns, which is what classroom.public.assert*FeatureEnabled falls back
-      -- to. Dropping them is P7 work and must follow a data migration.
+      -- these columns, which is what classroom.public.check*Feature falls back to.
+      -- Dropping them is P7 work and must follow a data migration.
       enable_chat_bubble INTEGER DEFAULT 0,
       enable_peer_review INTEGER DEFAULT 0,
       enable_tree_hole INTEGER DEFAULT 0,
@@ -83,6 +137,13 @@ export function ensureAdoptedSchema(db: Database): void {
       enable_auction_blind_box INTEGER DEFAULT 0,
       enable_achievements INTEGER DEFAULT 0,
       enable_parent_buff INTEGER DEFAULT 0,
+      enable_task_tree INTEGER DEFAULT 0,
+      enable_danmaku INTEGER DEFAULT 0,
+      enable_class_brawl INTEGER DEFAULT 0,
+      enable_slg INTEGER DEFAULT 0,
+      enable_gacha INTEGER DEFAULT 0,
+      enable_economy INTEGER DEFAULT 0,
+      enable_dungeon INTEGER DEFAULT 0,
       pet_selection_mode TEXT DEFAULT 'student'
     );
 
@@ -133,6 +194,115 @@ export function ensureAdoptedSchema(db: Database): void {
       shares INTEGER DEFAULT 0,
       average_buy_price REAL DEFAULT 0,
       UNIQUE(student_id, stock_id)
+    );
+
+    -- P4.3b.2: the five domains split out of the old "game" god-module (plus the
+    -- challenge/world-boss pair). Same reasoning as above - they already exist under
+    -- legacy names, a plugin may only CREATE names prefixed p_<slug>_, and their column
+    -- names are what the controllers return.
+    CREATE TABLE IF NOT EXISTS dungeon_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER REFERENCES students(id),
+      current_floor INTEGER DEFAULT 1,
+      max_floor INTEGER DEFAULT 1,
+      active_buffs TEXT,
+      current_hp INTEGER DEFAULT 100,
+      max_hp INTEGER DEFAULT 100,
+      status TEXT DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS gacha_pools (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      class_id INTEGER REFERENCES classes(id),
+      name TEXT NOT NULL,
+      cost_points INTEGER NOT NULL,
+      ssr_rate REAL DEFAULT 0.01,
+      sr_rate REAL DEFAULT 0.1,
+      r_rate REAL DEFAULT 0.3,
+      n_rate REAL DEFAULT 0.59,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS pet_dictionary (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      element TEXT NOT NULL,
+      rarity TEXT NOT NULL,
+      base_power INTEGER NOT NULL,
+      description TEXT,
+      image_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS student_pets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER REFERENCES students(id),
+      pet_dict_id INTEGER REFERENCES pet_dictionary(id),
+      level INTEGER DEFAULT 1,
+      experience INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_student_pets_student_id ON student_pets(student_id);
+
+    CREATE TABLE IF NOT EXISTS territories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      class_id INTEGER REFERENCES classes(id),
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      level INTEGER DEFAULT 1,
+      cost_to_unlock INTEGER NOT NULL,
+      current_contribution INTEGER DEFAULT 0,
+      x_pos INTEGER NOT NULL,
+      y_pos INTEGER NOT NULL,
+      status TEXT DEFAULT 'locked',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS class_resources (
+      class_id INTEGER PRIMARY KEY REFERENCES classes(id),
+      wood INTEGER DEFAULT 0,
+      stone INTEGER DEFAULT 0,
+      magic_dust INTEGER DEFAULT 0,
+      gold INTEGER DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS class_battles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      initiator_class_id INTEGER REFERENCES classes(id),
+      target_class_id INTEGER REFERENCES classes(id),
+      status TEXT DEFAULT 'pending',
+      start_time DATETIME,
+      end_time DATETIME,
+      winner_class_id INTEGER REFERENCES classes(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS challenge_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER REFERENCES students(id),
+      score INTEGER NOT NULL DEFAULT 0,
+      correct_count INTEGER NOT NULL DEFAULT 0,
+      wrong_count INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS world_bosses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      hp INTEGER NOT NULL DEFAULT 10000,
+      max_hp INTEGER NOT NULL DEFAULT 10000,
+      level INTEGER DEFAULT 1,
+      is_active INTEGER DEFAULT 1,
+      status TEXT DEFAULT 'active',
+      start_time DATETIME,
+      end_time DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 }

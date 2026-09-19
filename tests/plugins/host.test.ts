@@ -92,7 +92,19 @@ describe('plugin discovery and activation', () => {
 
   it('activates every in-repo plugin', () => {
     expect(host).not.toBeNull();
-    expect(host!.active.map((entry) => entry.manifest.id)).toEqual(['classroom', 'economy', 'pet']);
+    // Asserted as a set, not a sequence: the resolver's ordering is its own concern
+    // (covered by resolver.test.ts) and pinning it here would make every new plugin
+    // break this test for the wrong reason.
+    expect(host!.active.map((entry) => entry.manifest.id).sort()).toEqual([
+      'battles',
+      'challenge',
+      'classroom',
+      'dungeon',
+      'economy',
+      'gacha',
+      'pet',
+      'slg',
+    ]);
   });
 
   it('orders the foundation plugin before its dependent', () => {
@@ -117,9 +129,14 @@ describe('plugin discovery and activation', () => {
   it('records every activated plugin in the state store', () => {
     const rows = host!.stateStore.list();
     expect(rows.map((r) => `${r.id}:${r.state}`).sort()).toEqual([
+      'battles:active',
+      'challenge:active',
       'classroom:active',
+      'dungeon:active',
       'economy:active',
+      'gacha:active',
       'pet:active',
+      'slg:active',
     ]);
   });
 
@@ -146,15 +163,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(3);
-    expect(body.kernel.plugins.active).toBe(3);
+    expect(body.kernel.plugins.total).toBe(8);
+    expect(body.kernel.plugins.active).toBe(8);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['classroom', 'economy', 'pet']);
+    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'dungeon', 'economy', 'gacha', 'pet', 'slg']);
   });
 });
 

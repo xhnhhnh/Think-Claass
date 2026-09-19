@@ -1,0 +1,40 @@
+{
+  "id": "gacha",
+  "name": "召唤法阵",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Gacha dictionary, class pools and pet collection. Second small domain migrated out of api/modules/**. Adopts three pre-existing tables (pet_dictionary, gacha_pools, student_pets) rather than renaming them, because admin.repository.ts deletes two of them by legacy name and the rows are returned to the frontend as-is. Student points are spent through classroom.public.transferStudentCredits and the draw is written to the shared ledger through classroom.public.recordStudentLedgerEntry.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/gacha", "handler": "GachaController.dictionary", "auth": "actor" },
+      { "method": "POST", "base": "/api/gacha", "handler": "GachaController.createDictionary", "auth": "actor" },
+      { "method": "GET", "base": "/api/gacha", "handler": "GachaController.legacyPools", "auth": "actor" },
+      { "method": "POST", "base": "/api/gacha", "handler": "GachaController.legacyDraw", "auth": "actor" },
+      { "method": "GET", "base": "/api/gacha", "handler": "GachaController.legacyCollection", "auth": "actor" },
+      { "method": "PUT", "base": "/api/gacha", "handler": "GachaController.legacyActivePet", "auth": "actor" },
+      { "method": "GET", "base": "/api/gacha", "handler": "GachaController.pools", "auth": "actor" },
+      { "method": "POST", "base": "/api/gacha", "handler": "GachaController.draw", "auth": "actor" },
+      { "method": "GET", "base": "/api/gacha", "handler": "GachaController.collection", "auth": "actor" },
+      { "method": "PUT", "base": "/api/gacha", "handler": "GachaController.activePet", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["pet_dictionary", "gacha_pools", "student_pets"],
+    "_adopted_note": "All three keep their legacy names: `SELECT *` rows from pet_dictionary/gacha_pools/student_pets are returned straight to the frontend (rarity, cost_points, ssr_rate, instance_id, is_active are the JSON contract), and api/modules/admin/admin.repository.ts still deletes gacha_pools and student_pets by name in its user/class cascade. Renaming them is a coordinated frontend + admin change, tracked as namespace debt by guardrail G10.",
+    "reads": []
+  }
+}
