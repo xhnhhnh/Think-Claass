@@ -3,6 +3,7 @@
 ## 已完成
 - 前端 API 新增：`pet.ts`、`shop.ts`、`economy.ts`、`luckyDraw.ts`、`messages.ts`、`familyTasks.ts`、`parentBuff.ts`、`parentDashboard.ts`、`certificates.ts`、`redemption.ts`
 - 前端 Hooks 新增：`usePet.ts`、`useShop.ts`、`useEconomy.ts`、`useLuckyDraw.ts`、`useMessages.ts`、`useFamilyTasks.ts`、`useParentDashboard.ts`、`useTeacherShop.ts`、`useTeacherPets.ts`、`useWorldBoss.ts`、`useRedemption.ts`
+  - ⚠️ 后续工作区清理已删除 `useTeacherPets.ts`（当时也只是一行再导出，实现一直在 `usePet.ts` 的 `useTeacherPetMutation`，该导出仍在）。
 - 页面改造完成：
   - Student：`Pet.tsx`、`Shop.tsx`、`Bank.tsx`、`LuckyDraw.tsx`
   - Teacher：`Shop.tsx`、`Pets.tsx`、`WorldBoss.tsx`、`LuckyDrawConfig.tsx`、`Verification.tsx`

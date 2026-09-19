@@ -50,7 +50,7 @@ packages/kernel/               the minimal core
   src/index.ts                 the public API surface
 
 tests/kernel/                  kernel-boot, event-bus, permission-engine, migrations
-scripts/migration/spikes/      nest-dynamic-controllers.mjs  (spike R10)
+scripts/migration/             measure.mjs, api-surface.mjs, class-features.mjs, route-modules.mjs
 vitest.app.config.ts           app project (was vitest.config.ts)
 vitest.kernel.config.ts        kernel project
 vitest.config.ts               root, declares test.projects
@@ -73,8 +73,13 @@ change when the network returns.
 
 The plan flagged this as the highest-risk unknown (risk R10) because all 46
 controllers are statically declared in `api/app.module.ts` today. It is now
-resolved with evidence: [`nest-dynamic-controllers.mjs`](../../scripts/migration/spikes/nest-dynamic-controllers.mjs),
-8/8 checks passing, run with `npm run spike:nest`.
+resolved with evidence: the R10 spike, 8/8 checks passing, was run with
+`npm run spike:nest`.
+
+> The spike script (`scripts/migration/spikes/nest-dynamic-controllers.mjs`) and its
+> `spike:nest` npm script were **deleted by a later workspace cleanup**: the question is
+> answered, the decision shipped, and the evidence it produced is recorded below. The
+> script is recoverable from git history if the question is ever reopened.
 
 **Answer: YES.** Controllers that are only known at runtime can be hosted, including
 constructor DI. NestJS decorators are plain functions, so the plugin runtime builds

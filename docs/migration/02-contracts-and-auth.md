@@ -44,8 +44,12 @@ src/shared/                                      DELETED
 - `domains/core.ts` was **not** created — the HTTP envelope it held already lives in
   `packages/contracts/src/http.ts` from P1.
 
-Done by [`scripts/migration/move-shared-contracts.mjs`](../../scripts/migration/move-shared-contracts.mjs),
-which refuses to run if any moved file still has a runtime export.
+Done by `scripts/migration/move-shared-contracts.mjs`, which refused to run if any moved
+file still had a runtime export.
+
+> That one-shot script was **deleted by a later workspace cleanup** — the move is complete
+> and `packages/contracts` is the single source of truth. Recover it from git history if
+> the migration ever needs replaying.
 
 ### The one runtime value
 

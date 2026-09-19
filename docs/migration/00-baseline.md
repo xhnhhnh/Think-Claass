@@ -73,27 +73,39 @@ Corroborating findings (verified by reading the code):
   `ALTER TABLE` / rebuild-table statements (`messages` → `messages_new`, with
   `PRAGMA foreign_keys=off` at `api/db.ts:1250-1265`).
 
-### 2.3 Dead code — 70 files unreachable from the application entry points
+### 2.3 Dead code — 58 files unreachable from the application entry points
 
 Computed by BFS over the import graph from `src/main.tsx`, `api/server.ts`,
 `api/index.ts`; test files and ambient declarations excluded.
 
+> Originally 70 at P0. A later workspace cleanup deleted 6 entries from this list
+> (`src/hooks/useTheme.ts`, `src/components/ErrorBoundary.tsx`,
+> `src/features/admin/api/adminAdapters.ts`, `src/features/admin/hooks/useAdminCms.ts`,
+> `src/features/engagement/hooks/useCertificates.ts`, `src/hooks/queries/useTeacherPets.ts`)
+> together with one shim that the scan never counted, taking the ratchet 64 → 58.
+> Current counts are reproduced by `npm run measure`; re-run it before trusting the table below.
+
 | Area | Files |
 |---|---|
 | `src/api/` | **31** (of 33 — only `parentBuff.ts`, `parentDashboard.ts` are live) |
-| `src/hooks/` | 16 |
+| `src/hooks/` | 14 |
 | `api/modules/` | 7 (the Prisma repositories) |
-| `src/features/` | 7 |
-| `src/components/` | 5 |
+| `src/features/` | 3 |
+| `src/components/` | 4 |
 | `src/mocks/` | 2 |
+| `api/utils/` | 3 (`response.ts`, `apiResponse.ts`, `gameErrors.ts`) |
 | `api/services/` | 1 (`UserService.ts`) |
-| `api/utils/` | 1 (`response.ts`) |
 
-Notable: `src/components/ErrorBoundary.tsx` is implemented but **never mounted** —
-the fault-isolation primitive the plugin architecture needs already exists and is
-simply not wired up. It is scheduled to be revived in P5.
+Notable: `src/components/ErrorBoundary.tsx` used to be implemented-but-never-mounted —
+the fault-isolation primitive the plugin architecture wanted already existed and was
+simply not wired up, and P5 planned to revive it. It was **deleted by the workspace
+cleanup** as confirmed dead code, so P5 must re-implement it rather than remount it.
+The same applies to `src/hooks/useTheme.ts`.
 
-Full list: `deadCode.files` in [`baseline.json`](baseline.json).
+Full list: `deadCode.files` in [`baseline.json`](baseline.json) — that file is the **frozen P0
+snapshot** (`baseline-1.7.0`) and is deliberately left untouched, so it still records all 70
+entries including the six files the cleanup has since deleted. Use `npm run measure` (or
+`npm run baseline` to deliberately re-freeze) as the live source of truth.
 
 ### 2.4 Surface pluginization — the headline finding
 

@@ -29,3 +29,12 @@ dist-ssr
 database.sqlite*
 .worktrees/
 .codex-smoke*/
+
+# Migration scratch space.
+#
+# `.tmp/` holds one-off probes, extracted old-file snapshots and run artifacts (including
+# SQLite files). They were never meant to be tracked: a git worktree added here shows up as
+# an embedded repository, and the sqlite/wal files change on every run. The release snapshots
+# that *were* tracked (`.tmp/deploy/**`, `.tmp/update/**`) are removed in the same commit -
+# they are v1.6.x vendor copies, not sources, and `pack.sh` only reads them if they exist.
+/.tmp/
