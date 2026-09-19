@@ -263,7 +263,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 注意 `adoptedTables` 的"只降不升"有一条**明示例外**：迁移一个新域会让它上升，因此每次上升都必须在 `allowances.json` 的注释里逐条写清是哪张表、来自哪个域（`routeCollisions` 与 `deadCode` 没有例外，只能降）。
 
-其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；**反向：每个 Prisma 模型都要有表**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）。
+其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；反向：每个 Prisma 模型都要有表；**P4.3b.11 新增：SQLite 有、Prisma 模型没有的列**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）。
 
 ### ⚠️ schema 的第四个盲区（P4.3c.3a 发现，G13/G17 之前都看不见）
 
@@ -304,10 +304,10 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        118 文件 / 835 用例全绿
+npm test        119 文件 / 842 用例全绿
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
-guardrails      12 文件 / 53 用例
+guardrails      12 文件 / 54 用例
 ```
 
 **已迁成插件的域（20 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments, parent-buff, pet, classroom（P4.3b.6b 补上 HTTP 面）, learning（P4.3b.6b）, identity（P4.3b.7，原 `auth`）, payment（P4.3b.8，`tier: "infrastructure"`，原 `platform` 的支付半边）, **engagement**（P4.3b.10）
@@ -431,11 +431,13 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 - ~~**`plugins/pet` 与 `api/modules/pet` 路由碰撞**~~ ✅ **P4.3b.6 已还**：17 条旧路由按原语义/原信封搬进 `plugins/pet`（改用旧 `pets` 表），旧模块删除，`routeCollisions` 归 0。见 §9 的 P4.3b.6 记录。
 - ~~在 `plugins/pet` 补完之前，不要在 legacy 组装下开启插件后跑端到端前端流程~~ —— 前提已消失（碰撞为 0），legacy 组装现在由插件提供全部 pet 路由，实测两套组装的 14 条请求 body 完全一致。
-- **`admin.repository.ts` 仍在直接删除各域的表**（走 Prisma `$transaction`，不经 `DbApi` 所以所有权检查管不到）：
-  `student_stocks` :434、`stocks` :444、`bank_accounts` :458、`dungeon_runs` :461、`gacha_pools` :525、`student_pets` :473、
-  `territories` :523、`class_resources` :526、`class_battles` :514、`challenge_records` :460、`question_bank` :550。
-  `DELETE /api/admin/users/:id` 时会级联清理。**迁移到 admin 域时必须改成调各域的端口**，否则"某插件拥有某表"只对插件生效、对 admin 不生效。
-  （`pets` 现在也在这一批里：admin 删用户时清 `pets` 走的还是 Prisma，绕过 pet 插件。）
+- **`admin.repository.ts` 的删教师级联是最后一笔跨域写债，而且它比本文档原先写的更具体**（P4.3b.11 实测，见 §9 的 P4.3b.11 记录）：
+  它删 **58 张表 / 65 条语句**（`.tmp/admin-cascade-inventory.mjs` 量出来的），全部在**一个** Prisma `$transaction` 里，
+  所以"删干净"是**原子**的 —— 这正是它不能用端口方法改写的约束：65 个端口调用 = 65 个独立事务，
+  进程死在中间就留下半删的账号。它还绕开 `DbApi`，所以所有权检查对它完全无效。
+  **另外**：61 张表持有指向 `users`/`classes`/`students` 的外键，其中**只有 1 张**没被这个级联清理：
+  `blind_boxes.teacher_id`（`.tmp/admin-cascade-fk-coverage.mjs`）。它的行永远是 NULL，因为
+  `plugins/marketplace` 的插入语句根本不写这一列 —— 所以今天不是活 bug，而是一处**此前没人看到的 schema 漂移**（见下一条）。
 - **`records` 的其余写入方**（collaboration/marketplace/engagement/insights/pointsService/classroom）在各自迁移时都要改调 `classroom.public.recordStudentLedgerEntry()`。
   `api/services/pointsService.ts` 是共享 helper（marketplace 在用），它自己也要改。（pet 已在 P4.3b.6 改完。）
 - ~~kernel 组装下的"只读 legacy 表"由 `ensureReadOnlyLegacyTables()` 建出来~~ —— 那个函数在 P4.3c.2 就删了，清单见 §8 的过时名字警告。
@@ -1037,6 +1039,69 @@ METHOD+PATH 不变，端点数仍是 297。**`api/modules/` 因此只剩 `admin`
 `guard` 12 文件 / 53 用例（`adoptedTables` 55 → **65**、`deadCode` 58 → **59** —— 后者是
 `src/features/engagement/api/praisesApi.ts` 因失去最后一个引用者而不可达，属 P7 的清理清单，
 本轮**记录并解释**而不是顺手删除）；真启动探针 11/11（含 500-vs-403 这类只在真实响应里才看得见的行为）。
+
+---
+
+### P4.3b.11 · admin 级联的实测与 G13 的第二个方向 —— ✅ 已完成（测量 + 护栏，非迁移）
+
+这一轮没有迁域。它做的是**把 admin 迁移的前置未知数测量清楚**，并补上一条一直缺的护栏 ——
+因为 admin 是本项目剩下最大的一块（940 行 repository + 58 张表的级联），在不知道约束的情况下动它
+只会重演 §0 那个反面教材。
+
+#### 1. 级联的规模与**原子性约束**（`数量来自 .tmp/admin-cascade-inventory.mjs`）
+
+`DELETE /api/admin/users/:id` → `deleteTeacherCascade` 删 **58 张表 / 65 条语句**（2 读 63 写），
+全部包在**一个** `prisma.$transaction` 里。
+
+**这个"一个事务"就是它不能简单端口化的原因**，而本文档此前只说了"要改成调各域端口"，
+没说清代价：65 个端口调用 = 65 个独立事务，进程死在中间会留下**半删的账号** —— 一个今天不可能出现的状态。
+所以 admin 迁移真正的决策不是"改成端口"，而是**在原子性与所有权之间选一个**：
+
+| 方案 | 代价 |
+|---|---|
+| 各域发布级联删除端口 | 失去原子性 + 要给约 15 个域各设计一个删除方法 |
+| 让插件按脚本注册自己的清理规则 | 保留原子性 + 内核要按名字执行 58 张表的删除（**与 G5 的张力需要正式裁决**） |
+| 不动它 | 保持现状：`admin` 继续是唯一绕过所有权模型的写者，P7 的表改名也做不了 |
+
+**本文档不替它做决定** —— 这是一个需要正式裁决的架构分叉，不是一次重构。
+
+#### 2. 级联的第一次真库测试
+
+`tests/plugins/admin-cascade.test.ts`（6 例）是**它第一次真正执行**：此前只有 mock 掉 Prisma 的
+`admin.module.test.ts`。它在临时库上跑真级联，断言账号识别行、班级、学生、以及**六个域拥有的行**
+（`pets`/`records`/`praises`/`certificates`/`attendance_records`/`assignments`+`student_assignments`）
+和内核的 `operation_logs` 都被清掉，并断言保留的 superadmin 不受影响。
+
+两个副产物值得记：
+
+- **它必须用真文件库，并且靠 P4.3b.9 才安全**：`api/prismaClient.ts` 在模块加载时读 `DATABASE_FILE`，
+  所以测试里动态 import（静态 import 会被提升，那会在 `beforeAll` 之前就用真库构造客户端）。
+  **没有 P4.3b.9 的话，这个测试会去删开发者的 `database.sqlite`。**
+- **第一版断言 `operation_logs` 计数为 0，错了**：级联先删掉种子行，再在**同一个事务里**写入自己的审计行，
+  所以结果是 1。删掉和"记录这次删除"是一个单元 —— 这正好也说明了为什么原子性值得保留。
+
+#### 3. 一条此前没人看到的 schema 漂移（已加护栏）
+
+`.tmp/admin-cascade-fk-coverage.mjs` 数出 **61 张表**持有指向 `users`/`classes`/`students` 的外键，
+其中**只有 `blind_boxes`** 没被级联清理。继续查下去发现真正的问题不是级联：**`blind_boxes.teacher_id`
+在 boot DDL 里是 `REFERENCES users(id)`，却不在 `prisma/schema.prisma` 的模型里**。
+
+`.tmp/schema-prisma-column-drift.mjs` 把两个方向的差集都量了一遍：**SQLite 有而 Prisma 没有的列恰好 2 个** ——
+`blind_boxes.teacher_id`（**没有任何代码写它**：`plugins/marketplace` 的插入语句是
+`(name, description, price, is_active)`，所以那列永远是 NULL）与 `peer_reviews.team_quest_id`
+（`0000c` 加的，collaboration 在用，合法）。
+
+**新增 G13 的第二个方向断言**：`tests/guardrails/boot-schema-completeness.test.ts` 现在会解析两份定义，
+断言"SQLite 有而 Prisma 模型没有的列"集合**精确等于**那两个已知项。多一个就报错并点名。
+**变异验证过非空转**：往 boot DDL 里塞一个 `mutation_probe INTEGER`，断言立刻报 `shop_items.mutation_probe`。
+
+**为什么这条护栏值钱**：Prisma 看不见这样的列（`SELECT *` 不返回、`create` 设不了），
+而 `ctx.db` 裸 SQL 读写自如 —— **两条数据路径对"一行是什么"的理解不一致**，
+而且它不会被 G13 原有的两个方向（有表 / 有列清单）发现。`blind_boxes.teacher_id` 的清理属于 P7：
+它要么被删列，要么被补进 Prisma 模型，两者都是 schema 迁移。
+
+**实测**：`npm test` 119 文件 / 842 用例全绿；`check` exit 0；`api:surface` **297 不变**；
+`guard` 12 文件 / **54** 用例（G13 多一条）。
 
 ---
 

@@ -210,4 +210,64 @@ describe('G13 boot schema satisfies its declarations', () => {
     const duplicate = ['api/schema/adoptedTables.ts'].filter((rel) => fs.existsSync(path.join(ROOT, rel)));
     expect(duplicate, `schema modules that should no longer exist: ${duplicate.join(', ')}`).toEqual([]);
   });
+
+  /**
+   * The direction G13 never checked: columns SQLite has that `prisma/schema.prisma` does not model.
+   *
+   * G13 asks "does every Prisma model have a table?" - one direction. Nothing asked the reverse, and
+   * the two definitions have drifted twice. A column that exists in SQLite but not in Prisma is
+   * invisible to the Prisma client (`SELECT *` will not surface it and `create` cannot set it), while
+   * raw SQL through `ctx.db` reads and writes it happily - so the two data paths disagree about what
+   * a row is.
+   *
+   * Measured with `.tmp/schema-prisma-column-drift.mjs`, which parses both definitions. The set is
+   * pinned exactly rather than ratcheted: a new entry means someone added a column to the boot DDL
+   * (or a compatibility migration) without updating the Prisma model, and the failure names it.
+   *
+   *   * `peer_reviews.team_quest_id` - added by `0000c_legacy_compat_columns`, written by the
+   *     collaboration plugin and read by name. Legitimate, and the reason this list is allowed to be
+   *     non-empty at all.
+   *   * `blind_boxes.teacher_id` - `REFERENCES users(id)` in the boot DDL, absent from the Prisma
+   *     model, and **never written by anything**: `plugins/marketplace` inserts only
+   *     `(name, description, price, is_active)`. It is the one foreign key to `users` that the admin
+   *     delete cascade does not clean (`.tmp/admin-cascade-fk-coverage.mjs`), and it is safe today
+   *     only because every row has NULL there. Adding the delete to the cascade would be a no-op;
+   *     dropping the column is the honest fix, and it is a schema migration, so it belongs to P7.
+   */
+  it('has no columns SQLite owns that the Prisma models do not', () => {
+    const prismaSchema = fs.readFileSync(path.join(ROOT, 'prisma', 'schema.prisma'), 'utf8');
+    const bootSchema = fs.readFileSync(path.join(ROOT, 'api', 'schema', 'legacyBootSchema.ts'), 'utf8');
+
+    const models = new Map<string, Set<string>>();
+    for (const match of prismaSchema.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm)) {
+      const columns = new Set<string>();
+      for (const line of (match[2] ?? '').split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('@@')) continue;
+        const column = /^(\w+)\s+\w/.exec(trimmed);
+        if (column) columns.add(column[1]);
+      }
+      models.set(match[1], columns);
+    }
+
+    const KNOWN = ['blind_boxes.teacher_id', 'peer_reviews.team_quest_id'];
+    const drift: string[] = [];
+    for (const match of bootSchema.matchAll(/CREATE TABLE IF NOT EXISTS (\w+) \(([\s\S]*?)\n {4}\);/g)) {
+      const table = match[1];
+      const columns = models.get(table);
+      if (!columns) continue;
+      for (const line of (match[2] ?? '').split('\n')) {
+        const column = /^\s*(\w+)\s+(INTEGER|TEXT|REAL|BLOB|NUMERIC|DATETIME|DATE|BOOLEAN|VARCHAR)/i.exec(line);
+        if (!column) continue;
+        if (!columns.has(column[1]) && !KNOWN.includes(`${table}.${column[1]}`)) {
+          drift.push(`${table}.${column[1]}`);
+        }
+      }
+    }
+
+    expect(
+      drift,
+      `Columns exist in the boot schema but not in prisma/schema.prisma - the Prisma client cannot see them, so the two data paths disagree about the row:\n  ${drift.join('\n  ')}`,
+    ).toEqual([]);
+  });
 });
