@@ -1,12 +1,17 @@
 /**
  * Guardrail G8 - the HTTP surface must not drift during the migration.
  *
- * Moving 288 endpoints out of `api/modules/**` and into plugins is a large
+ * Moving hundreds of endpoints out of `api/modules/**` and into plugins is a large
  * mechanical change. Clients (and the deployed frontend bundle) only care that
  * METHOD + PATH keeps working, so this test freezes that observable contract.
  *
  * Relocating a controller does NOT trip this guard (the owning file is not part of
  * the comparison); adding, removing or renaming an endpoint does.
+ *
+ * The extractor reads two registration styles, because an endpoint can leave a Nest
+ * controller for the kernel router without changing reachability:
+ *   @Controller + @Get  (api/**, plugins/**)
+ *   router.get('/api/x', ...)  (packages/kernel/**)
  *
  * When a change is intentional:
  *   node scripts/migration/api-surface.mjs --update
@@ -52,35 +57,36 @@ describe('G8 HTTP surface snapshot', () => {
   });
 
   it('surface size matches the recorded baseline', () => {
+    // Compare on the same unit the snapshot records: distinct METHOD+PATH. The
+    // extractor returns declarations, so `extractApiSurface(ROOT).length` counts a
+    // doubly-registered route twice and would report drift for a duplicate that the
+    // snapshot deliberately does not record.
     const previous = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
-    const current = extractApiSurface(ROOT);
-    expect(current.length).toBe(previous.count);
+    const current = new Set(extractApiSurface(ROOT).map((r) => `${r.method} ${r.path}`));
+    expect(current.size).toBe(previous.count);
   });
 
   it('the snapshot is internally consistent', () => {
-    // `count` is the number of route *declarations*, not distinct paths: a route
-    // declared by two controllers appears twice. Express the relationship directly as
-    // `entries - distinct == extra declarations`, which is true by construction at any
-    // stage of the migration.
+    // The snapshot records *distinct* METHOD+PATH pairs, so its list must be free of
+    // duplicates and `count` must equal its length.
     //
-    // An earlier version compared this against `findRouteCollisions().length`. That was
-    // wrong: collisions counts *distinct keys* with multiple owner files, while this is
-    // a count of *extra declarations*. The two only coincide when every colliding key
-    // has exactly two owners - which happened to hold when it was written and stopped
-    // holding as soon as more domains migrated.
+    // An earlier version recorded route *declarations* and expressed the relationship as
+    // `entries - distinct == extra declarations`. That made `count` and `endpoints.length`
+    // disagree by exactly the number of duplicate registrations, and the two numbers were
+    // asserted in two different files with two different meanings - which is how adding
+    // the kernel router (a second `GET /api/health` declaration) looked like a size
+    // mismatch rather than a duplicate. Duplicates are G11's ratchet now, and this file
+    // is a set.
     const previous = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
-    const distinct = new Set(previous.endpoints).size;
-    const extraDeclarations = previous.endpoints.length - distinct;
 
     expect(previous.endpoints.length).toBe(previous.count);
-    expect(extraDeclarations).toBeGreaterThanOrEqual(0);
-    // A duplicate in the frozen snapshot means the extractor saw the same METHOD+PATH
-    // declared twice on the day it was recorded. It must still be a real duplicate
-    // today, otherwise the snapshot is recording something the tree no longer contains.
-    const currentKeys = extractApiSurface(ROOT).map((r) => `${r.method} ${r.path}`);
-    const stillPresent = new Set(currentKeys);
+    expect(new Set(previous.endpoints).size).toBe(previous.endpoints.length);
+
+    // Non-vacuous in the other direction too: every recorded endpoint must still be
+    // declared somewhere in the tree, so a deletion cannot be hidden by a stale count.
+    const currentKeys = new Set(extractApiSurface(ROOT).map((r) => `${r.method} ${r.path}`));
     for (const endpoint of previous.endpoints) {
-      expect(stillPresent.has(endpoint), `snapshot endpoint no longer exists: ${endpoint}`).toBe(true);
+      expect(currentKeys.has(endpoint), `snapshot endpoint no longer exists: ${endpoint}`).toBe(true);
     }
   });
 });

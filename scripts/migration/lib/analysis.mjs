@@ -348,6 +348,17 @@ const CONTROLLER_RE = /@Controller\s*\(([^)]*)\)/g;
 const METHOD_RE = /@(Get|Post|Put|Patch|Delete|Head|Options|All)\s*\(\s*([^)]*?)\s*\)/g;
 
 /**
+ * `router.get('/api/x', ...)` style registration, used by the kernel's own HTTP
+ * surface instead of Nest decorators.
+ *
+ * The kernel routers were never scanned, which is the same trap as scanning only
+ * `api/**`: an endpoint can move from a controller into the kernel and vanish from
+ * the snapshot with no drift reported. P5.3c moved `GET /api/settings` exactly that
+ * way, so the scanner now reads both registration styles.
+ */
+const ROUTER_VERB_RE = /\brouter\.(get|post|put|patch|delete|head|options|all)\s*\(\s*(['"])([^'"]+)\2/g;
+
+/**
  * Normalize a decorator string argument into a path segment list.
  * Supports '' , 'x' , ':id/x' and array form ['api/classes','api/class'].
  * @param {string} arg
@@ -374,13 +385,16 @@ function parseDecoratorArg(arg) {
  * would look smaller, the check would still pass, and the regression would ship.
  * That trap is called out in HANDOFF §6; this is the fix.
  *
+ * `packages/kernel` is scanned for the same reason: an endpoint that moves from a
+ * controller into the kernel router changes registration style, not reachability.
+ *
  * @param {string} root
  * @returns {Array<{ method: string, path: string, controller: string|null, file: string, line: number }>}
  */
 export function extractApiSurface(root) {
   /** @type {Array<{ method: string, path: string, controller: string|null, file: string, line: number }>} */
   const routes = [];
-  const dirs = ['api', 'plugins'].map((d) => path.join(root, d)).filter((d) => fs.existsSync(d));
+  const dirs = ['api', 'plugins', 'packages/kernel'].map((d) => path.join(root, d)).filter((d) => fs.existsSync(d));
   /** @type {string[]} */
   const files = [];
   for (const d of dirs) files.push(...collectFiles(d, ['.ts']));
@@ -388,6 +402,18 @@ export function extractApiSurface(root) {
   for (const file of files) {
     if (isTestFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
+
+    // Kernel routers: another registration style, same observable surface.
+    for (const m of text.matchAll(ROUTER_VERB_RE)) {
+      routes.push({
+        method: m[1].toUpperCase(),
+        path: m[3].startsWith('/') ? m[3] : `/${m[3]}`,
+        controller: null,
+        file: toRel(root, file),
+        line: text.slice(0, m.index ?? 0).split(/\r?\n/).length,
+      });
+    }
+
     const events = [];
     for (const m of text.matchAll(CONTROLLER_RE)) {
       events.push({ kind: 'controller', index: m.index ?? 0, bases: parseDecoratorArg(m[1]) });

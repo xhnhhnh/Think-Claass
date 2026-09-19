@@ -29,7 +29,16 @@ const ROOT = path.resolve(HERE, '..', '..');
 const SNAPSHOT = path.join(ROOT, 'tests', 'guardrails', 'snapshots', 'api-surface.json');
 
 const routes = extractApiSurface(ROOT);
-const surface = routes.map((r) => `${r.method} ${r.path}`).sort();
+/**
+ * The unit of this snapshot is the distinct reachable METHOD+PATH pair.
+ *
+ * `extractApiSurface` returns *declarations*, and one pair can be declared twice - the
+ * kernel router and a Nest controller can both register `GET /api/health`. Counting
+ * declarations here made `count` and `endpoints.length` disagree, and made two
+ * different things look like drift. Duplicate declarations are G11's ratchet
+ * (`routeCollisions`); this snapshot only answers "which endpoints are reachable".
+ */
+const surface = [...new Set(routes.map((r) => `${r.method} ${r.path}`))].sort();
 
 /** @type {{ generatedAt: string, count: number, endpoints: string[] }} */
 const snapshot = {

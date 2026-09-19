@@ -90,7 +90,7 @@ npm run guard         # 15 组防伪护栏（棘轮，45 用例）
 npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
 npm run measure       # 基线度量（死代码/重复/schema 漂移）
-npm run api:surface -- --check     # 292 条端点必须零漂移（含 plugins/**）
+npm run api:surface -- --check     # 297 条端点必须零漂移（含 plugins/** 与 packages/kernel/**）
 npm run spike:nest    # R10 技术验证（8/8）
 ```
 
@@ -113,7 +113,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3b.3 | **`collaboration`/`marketplace` 迁成插件** | `4279ea7` | ✅ |
 | P4.3b.4 | **`portal` 迁成插件** + 修 dbApi 正则误判 | 见 `git log` | ✅ |
 | **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`（见下方"platform 不是干净域"）/`learning` | — | ⬜ **下一步** |
-| P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `settings`/`system` | — | ⬜ |
+| P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `system`（`settings` 已完成，见 P5.3c） | — | ⬜ |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
 | P4.3c.2 | **两套组装共用同一份 DDL**（删掉 `adoptedTables.ts` 的重复定义） | 见 `git log` | ✅ |
@@ -124,6 +124,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P5.2b | ~~`AppRoutes` 的 80 条 static import~~ ✅ 路由表 + 生成式模块映射（`import.meta.glob` 被否决，见 §9 说明） | 见 `git log` | ✅ |
 | P5.3a | ~~`window.__TC_CONFIG__` 取代部署期 `sed`~~ ✅ 运行时配置真的生效了（发现它此前**从未生效**） | 见 `git log` | ✅ |
 | P5.3b | ~~4 个布局的硬编码菜单~~ ✅ 全部从路由表派生（`navRegistry.ts`，护栏 G16） | 见 `git log` | ✅ |
+| P5.3c | ~~`api/modules/settings`~~ ✅ 并入内核（`settings` 本就是内核自有表）；顺带发现扫描器**从不扫内核路由** | 见 `git log` | ✅ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
 
@@ -210,13 +211,19 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**。
 
-### ⚠️ 快照的两个盲区（P4.3b R1 已修，务必知道）
+### ⚠️ 快照的三个盲区（第三个在 P5.3c 发现）
 
-`api:surface` 原本只扫 `api/**`。域一旦迁进 `plugins/**`，端点会从快照里"消失"而不报错（§7 的陷阱）。现在 `extractApiSurface` 同时扫 `api` 与 `plugins`，扫完立刻就"凭空"多出 4 条 `plugins/pet` 的端点 —— **这说明原来的 288 是在漏扫，不是真实的 288**。修正后快照为 **292**。
+`api:surface` 原本只扫 `api/**`。域一旦迁进 `plugins/**`，端点会从快照里"消失"而不报错（§7 的陷阱）。P4.3b R1 让 `extractApiSurface` 同时扫 `api` 与 `plugins`，扫完立刻就"凭空"多出 4 条 `plugins/pet` 的端点 —— **这说明原来的 288 是在漏扫，不是真实的 288**。
 
 第二个盲区更隐蔽：快照比较的是 **METHOD+PATH 的集合**，所以"两个控制器声明同一条路由"完全不可见 —— 而半成品迁移产生的正是这个状态（模块还在 `api/`，插件已经在服务同样的路径），只有先注册的那个可达，另一个是没有任何测试会发现的死代码。新增 **G11** 棘轮（`routeCollisions`，当前 1）专治此症；当前那 1 条就是 `plugins/pet` 与 `api/modules/pet` 同时声明了 `GET /api/pet/students/:studentId`。
 
-**注意**：G8 快照目前只扫 `api/**` —— 该句已过时，扫描范围已扩到 `plugins/**`。
+**第三个盲区（P5.3c 实证）**：扫描器只认 Nest 装饰器，**内核自己的路由一条也没进快照**。P5.3c 把 `GET /api/settings` 从 Nest 搬进 `packages/kernel/src/http/kernelRoutes.ts` 时，`--check` 报的 `ADDED` 里**没有**它（因为去掉的声明和新增的声明互相抵消了，恰好掩盖了搬迁），却冒出 6 条 `GET|POST /api/kernel/*` —— 那些路由**从 P1 起就一直在服务，只是从来没被记录过**。所以：
+
+- 扫描器现在同时读两种注册方式：`@Controller`+`@Get`（`api/**`、`plugins/**`）与 `router.get('/api/x')`（`packages/kernel/**`）；
+- 快照从 292 更正为 **297（不同 METHOD+PATH 的集合）**，多出来的 5 条是内核基础设施端点，不是本轮新增的端点；
+- **快照的单位是「不同的 METHOD+PATH」**。`extractApiSurface()` 返回的是"声明条数"，一条路由被两个文件声明就会出现两次；旧版把这两个数字放在两个文件里各断言一次（`count` = 声明数、`endpoints.length` = 声明数），于是给内核路由补扫后 `GET /api/health` 变成两条声明，守卫报"299 vs 298"这种**看不懂的尺寸错误**，而不是"重复声明"。现在 `count === endpoints.length` 且列表内无重复，重复声明**只**由 G11 负责。
+
+**并且**：`GET /api/health` 曾被声明两次 —— `packages/kernel/src/http/kernelRoutes.ts` 与 `api/health.controller.ts`。两个组装里内核路由器都挂在 Nest 之前，所以 Nest 那个控制器**从未可达**，而集合比较看不见它。它的存在是死代码，已在 P5.3c 删除（`api/app.module.ts` 现在声明 0 个 controller）。
 
 ---
 
@@ -226,20 +233,21 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        113 文件 / 567 用例全绿
+npm test        118 文件 / 608 用例全绿
 npm run check   exit 0
-api:surface     unchanged (292 endpoints)
+api:surface     unchanged (297 endpoints)
 guardrails      11 文件 / 45 用例
 ```
 
 **已迁成插件的域（11 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal（+ 原有 classroom, pet）
-**仍在 `api/modules/` 的域（10 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform, settings, system
+**仍在 `api/modules/` 的域（9 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform, system
+（`settings` 已在 P5.3c 并入内核 —— 它本来就只有一句 `SELECT key, value FROM settings`，而 `settings` 是内核自有存储。）
 
 **验收基线**：
 
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
-| `api:surface` 端点数 | **292** | 迁移期间**不应变化**。变小 → 扫描漏了插件；变大 → 多出端点 |
+| `api:surface` 端点数 | **297** | 迁移期间**不应变化**。变小 → 扫描漏了插件或内核；变大 → 多出端点 |
 | `deadCode` | **65** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | **0** | P5.2a 已达成 |
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
@@ -258,7 +266,7 @@ guardrails      11 文件 / 45 用例
 - `payment/*` → 归内核/平台侧（它读 `settings` 与 `payment_orders`，且 `payment_orders`/`payment_transactions` **只存在于 Prisma**，见 §9 P4.3c 注意事项）
 
 **批量迁移的实测经验（P4.3b.2，五个域并行）**：
-- **`api:surface -- --check` 的括号数字在迁移中途会是"虚高"的**（如 345），因为它打印的是**声明条数**，而判定用的是**集合**。旧模块与插件并存期间每条路由声明两次。**别把它当成漂移**，要看 `added`/`removed` 是否为空；删掉旧模块后自然回到 292。
+- **`api:surface -- --check` 的括号数字**：它打印的是**集合大小（不同 METHOD+PATH）**，P5.3c 起 `count === endpoints.length`。迁移中途旧模块与插件并存时，同一路径被声明两次会被**去重**，所以数字**不会**虚高，但 G11 的碰撞数会等于各新插件声明数之和（本次峰值 54），删旧模块后回落。判定永远看 `added`/`removed` 是否为空。
 - **G11 路由碰撞数 = 各新插件声明数之和**（本次峰值 54），删旧模块后回落。这是迁移中途的正常中间态。
 - 五个域并行时**共享文件（`app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`）必须由一个人独占改**，否则互相覆盖。
 
@@ -375,7 +383,7 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 5. `learning`（28 张表，最大）
 6. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
 7. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
-8. `auth` → `identity` 基础插件；`settings`/`system` → 内核
+8. `auth` → `identity` 基础插件；`system` → 待定（`settings` ✅ P5.3c 已并入内核）
 
 **共享文件只有 Lead 改**：`api/app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`、`packages/**`。
 `plugins/<slug>/**` 与 `tests/plugins/<slug>-*.test.ts` 是每域独占的，可以并行。
@@ -492,7 +500,7 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 | `engagement` | ① **写 `pets` 表**（:96 `UPDATE pets SET ... mood = ?`）——`pets` 属 pet 域；② 写 `redemption_tickets`（与 marketplace **双写**，已被 G10 的 `SHARED_WRITE_TABLES` 显式记录）；③ 读 `shop_items` | pet 需发布一个"宠物经验/等级"端口；`redemption_tickets` 需要一个真正的端口（marketplace 拥有？engagement 拥有？）——**这是必须先决定的所有权问题** |
 | `platform` | 4 条路由里 3 条是支付基础设施（依赖 `api/services/paymentService.ts`、`paymentProviders/**`、`prisma.settings`），只有 `POST /api/parent-buff` 是业务 | 拆开：`parent-buff` → feature 插件；`payment/*` → 内核/平台侧（`payment_orders`/`payment_transactions` 只存在于 Prisma） |
 | `learning` | 10 文件 / 1433 行 / 28 张表，最大 | 单独一轮，不要和别的域混 |
-| `admin`/`auth`/`classroom`/`pet`/`settings`/`system` | 见 §8.4 与 §8.3.1 | `auth`→`identity`；`settings`/`system`→内核；`pet`/`classroom` 的 HTTP 面 |
+| `admin`/`auth`/`classroom`/`pet`/`system` | 见 §8.4 与 §8.3.1 | `auth`→`identity`；`system` 待定（`question_bank`+`system_settings`+`logs`+`backup`，不如 `settings` 干净）；`pet`/`classroom` 的 HTTP 面（`settings` 已完成） |
 
 **`redemption_tickets` 的双写是当前最该先解决的结构问题**：它决定 engagement 能不能迁。
 现状是 marketplace 与 engagement 都 `data.adopted` 它（`SHARED_WRITE_TABLES` 例外），
@@ -530,11 +538,25 @@ PLUGINS_ENABLED=1 npx tsx api/server.ts
 
 两者都要能看到 `/api/kernel/plugins` 列出该域。`tests/plugins/legacy-boot-probe.test.ts` 已经把 legacy 这一半自动化了，照着加断言即可。
 
-**并且**：删完旧模块后确认 `routeCollisions` 回到 0（G11）。若没回到 0，说明旧模块没删干净 —— 那条路由只有先注册者可达。
+**并且**：删完旧模块后确认 `routeCollisions` 回到 0（G11）。若没回到 0，说明旧模块没删干净 —— 那条路由只有先注册者可达。**注意**：G11 现在也扫内核路由器，所以"内核里已有一条同名路由"同样会被算成碰撞 —— 这是对的，那种情况下 Nest 控制器不可达（`api/health.controller.ts` 就是这样被发现的，P5.3c 已删）。
 
 ---
 
 ## 9. 后续阶段要点（提前知道，避免走错）
+
+### P5.3c · `GET /api/settings` 搬进内核 —— ✅ 已完成
+
+`api/modules/settings/`（4 文件 44 行）的全部内容就是 `SELECT key, value FROM settings` 并拍平成 `{success:true, data:{...}}`。而 `settings` 是**内核自有存储**（`packages/kernel/src/storage/settingsStore.ts`，插件只能写 `plugin.<slug>.<key>` 命名空间），所以它不该是 Nest 模块，更不该变成插件。
+
+做法：
+
+- `createKernelRouter()` 新增 `settings: SettingsStore` 选项 + `GET /api/settings`（返回 `options.settings.all()`，形状与原来逐字节一致）；
+- `api/app.module.ts` 删掉 `SettingsModule`，`api/modules/settings/**` 删除；
+- `api/app.ts` 的 `mountKernelInfrastructure()` 把 `kernel.settings` 传给路由器 —— legacy 组装因此**同样**由内核路由器提供该端点。
+
+**实测（`.tmp/settings-route-probe.mts`，两种组装各跑一次）**：legacy 组装 200，14 个键（`site_title=Think-Class`、`payment_environment=mock` …），与旧 Nest 模块完全一致；内核组装也是 200，但数据为 `{}` —— 因为 `initDb()`（负责 seed 默认值）在纯内核组装里不跑，**原来那里是 404，现在是 200 + 空表**，仍是改进。
+
+**注意 `settings` 与 `system_settings` 是两张不同的表**（前者 `key,value` 24 行，后者 `id,key,value,description,updated_at` 0 行）。`GET /api/settings` 只投影前者；探针专门断言了不会泄漏后者的列。`api/modules/system`（`question_bank` + `system_settings` + `logs` + `backup/export`）**没有**这么干净的内核归属，不要顺手一起搬。
 
 ### P4.3c · `api/db.ts` 启动期 DDL —— 🔶 进行中
 

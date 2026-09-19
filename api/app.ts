@@ -111,6 +111,7 @@ function mountKernelInfrastructure(server: Express, kernel: Kernel): void {
       events: kernel.events,
       permissions: kernel.permissions,
       sessions: kernel.sessions,
+      settings: kernel.settings,
       authProvider: createLegacyAuthProvider(),
     }),
   );

@@ -91,6 +91,30 @@ describe('kernel boots with zero plugins', () => {
     expect(me.status).toBe(401);
   });
 
+  it('serves the kernel-owned settings map at /api/settings', async () => {
+    // `settings` is kernel storage (plugins namespace their keys under
+    // `plugin.<slug>.`), so the route survives a zero-plugin boot. Drive it through
+    // the store rather than the HTTP surface to prove both ends hit one table.
+    kernel.settings.set('site_title', 'Think-Class');
+    kernel.settings.set('plugin.demo.greeting', 'hi');
+
+    const { status, body } = await get('/api/settings');
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.site_title).toBe('Think-Class');
+    expect(body.data['plugin.demo.greeting']).toBe('hi');
+    expect(Object.keys(body.data).sort()).toEqual(['plugin.demo.greeting', 'site_title']);
+  });
+
+  it('reads through the store and the route interchangeably', async () => {
+    kernel.settings.set('site_title', 'from-store');
+    const { body } = await get('/api/settings');
+    expect(body.data.site_title).toBe('from-store');
+    // Leave the shared in-memory database as the suite found it.
+    kernel.settings.remove('site_title');
+    kernel.settings.remove('plugin.demo.greeting');
+  });
+
   it('exposes no business route', async () => {
     for (const path of ['/api/students', '/api/pet', '/api/shop', '/api/classes']) {
       const { status, body } = await get(path);

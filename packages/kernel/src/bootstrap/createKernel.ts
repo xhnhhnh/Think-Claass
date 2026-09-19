@@ -210,6 +210,7 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
       events,
       permissions,
       sessions,
+      settings,
       authProvider: options.authProvider,
     }),
   );

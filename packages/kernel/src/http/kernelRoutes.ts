@@ -11,6 +11,13 @@
  *   GET  /api/kernel/permissions      every permission declared by any plugin
  *   GET  /api/kernel/auth/me          the resolved actor
  *   POST /api/kernel/auth/logout      revoke the presented session
+ *   GET  /api/settings                every setting as a flat key/value map
+ *
+ * `/api/settings` is the one non-`/api/kernel` path here, and it belongs to the
+ * kernel because the `settings` table is kernel-owned storage (see
+ * `storage/settingsStore.ts`): plugins write namespaced `plugin.<slug>.<key>`
+ * entries into it, so the kernel can serve the map without knowing any domain.
+ * It was previously a Nest module whose whole body was a `SELECT key, value`.
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -22,6 +29,7 @@ import type { EventBus } from '../events/eventBus.js';
 import type { PermissionEngine } from '../permissions/permissionEngine.js';
 import type { SessionService } from '../auth/session.js';
 import type { AuthProvider } from '../auth/authProvider.js';
+import type { SettingsStore } from '../storage/settingsStore.js';
 import { ApiError, asyncHandler, badRequest, unauthorized } from './errorEnvelope.js';
 import { getRequestContext } from './requestContext.js';
 
@@ -46,6 +54,8 @@ export interface KernelRoutesOptions {
   events: EventBus;
   permissions: PermissionEngine;
   sessions: SessionService;
+  /** Kernel-owned key/value storage, backing `GET /api/settings`. */
+  settings: SettingsStore;
   /** Absent until an identity owner is wired; login then reports 503. */
   authProvider?: AuthProvider;
 }
@@ -104,6 +114,15 @@ export function createKernelRouter(options: KernelRoutesOptions): Router {
       });
     }),
   );
+
+  /**
+   * Every setting as a flat map. Public on purpose: this is the endpoint the SPA
+   * reads before it knows who the user is (site title, payment switches, class
+   * feature defaults), and it has always been unauthenticated.
+   */
+  router.get('/api/settings', (_req: Request, res: Response) => {
+    res.json({ success: true, data: options.settings.all() });
+  });
 
   router.get('/api/health', (_req: Request, res: Response) => {
     const body: HealthStatus = {
