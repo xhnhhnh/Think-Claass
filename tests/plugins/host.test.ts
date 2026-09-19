@@ -188,8 +188,11 @@ describe('plugin discovery and activation', () => {
     // be exactly the plugin's derived slug (`slugOf('parent-buff') === 'parent_buff'`).
     // `identity.public` joins in the same round: `activateUser` is the call the payment webhook
     // ends in, and publishing it is what makes the payment half migratable next.
+    // `engagement.public` joins in P4.3b.12: `praises` moved to that plugin in P4.3b.10, and the
+    // insights read model needs a praise count and the newest snippets without touching the table.
     expect(host!.services.list().map((s) => s.name).sort()).toEqual([
       'classroom.public',
+      'engagement.public',
       'identity.public',
       'parent_buff.public',
       'pet.public',

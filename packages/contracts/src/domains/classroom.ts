@@ -5,6 +5,12 @@
  * from the frontend source tree. Type-only: see guardrail G6.
  */
 
+import type {
+  ClassReportInputs,
+  StudentAccessView,
+  StudentReportInputs,
+} from './insights.js';
+
 export interface StudentDto {
   id: number;
   user_id?: number | null;
@@ -276,6 +282,44 @@ export interface ClassroomPort {
    * `students` is classroom-owned, so the lookup belongs here rather than in the caller.
    */
   getClassIdByStudentId(studentId: number): Promise<number>;
+
+  // -- report reads (P4.3b.12) ----------------------------------------------
+  //
+  // The insights domain is a read model: every one of its twelve tables belongs to somebody else, and
+  // eight of them belong here. These three methods are intentionally *aggregate-shaped* rather than
+  // row-shaped. Publishing `students` rows and letting insights aggregate would move classroom's
+  // queries into another plugin, and the aggregates need joins only this plugin can run anyway
+  // (`student_exams JOIN students`, `attendance_records WHERE class_id`).
+  //
+  // They are also report-shaped rather than table-shaped: what crosses the boundary is "the numbers
+  // behind a class overview", not "a SELECT * from four tables". See `domains/insights.ts` for why.
+
+  /**
+   * The numbers behind one class overview.
+   *
+   * `class` is `null` when the class does not exist - the caller answers the legacy 404 rather than
+   * the port throwing, the same convention as `getClassFeatureSnapshot`. The aggregates cover the
+   * students of the class, their exam scores, their assignment completion, the class attendance rows,
+   * the point distribution buckets and the top five students by points (names decrypted).
+   */
+  getClassReportInputs(classId: number): Promise<ClassReportInputs>;
+
+  /**
+   * The numbers behind one student report and radar.
+   *
+   * One method for both routes because they read the same summaries: a report/radar divergence would
+   * then be a silent disagreement between two screens that are supposed to show the same student.
+   */
+  getStudentReportInputs(studentId: number): Promise<StudentReportInputs>;
+
+  /**
+   * What the report access check needs: the student's class, its teacher, and the student's own user.
+   *
+   * `null` when the student does not exist. The authorisation *decision* stays with the caller - this
+   * is data, not a verdict, because insights also has to consult an engagement-owned count and the
+   * actor's role, neither of which is classroom's business.
+   */
+  getStudentAccessView(studentId: number): Promise<StudentAccessView | null>;
 
   // -- the parent <-> student relation --------------------------------------
   //

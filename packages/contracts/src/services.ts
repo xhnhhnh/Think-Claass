@@ -17,6 +17,7 @@
  */
 
 import type { ClassroomPort } from './domains/classroom.js';
+import type { EngagementPort } from './domains/engagement.js';
 import type { IdentityPort } from './domains/identity.js';
 import type { ParentActivityRecorder } from './domains/parent-buff.js';
 import type { PetPort } from './domains/pet.js';
@@ -51,6 +52,14 @@ export interface ServiceContracts {
    * parent must still be able to log in on a deployment where parent-buff is disabled.
    */
   'parent_buff.public': ParentActivityRecorder;
+  /**
+   * Supplied by the `engagement` feature plugin.
+   *
+   * Exists so the insights read model can count and read praises without touching `praises`, which
+   * engagement owns. Consumers treat it as optional: a report must still render on a deployment
+   * where the engagement domain is disabled, with the praise half showing zero.
+   */
+  'engagement.public': EngagementPort;
 }
 
 export type ServiceName = keyof ServiceContracts & string;

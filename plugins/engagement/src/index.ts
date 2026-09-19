@@ -72,6 +72,29 @@ export default definePlugin({
     service = instance;
     providers.push({ provide: EngagementService, useValue: instance });
 
+    /**
+     * The published port - three praise reads and nothing else.
+     *
+     * The insights read model needs a praise count for a class, a count for a student, and the newest
+     * five snippets for the student report. Those are the only reads of this domain from outside, so
+     * the port publishes exactly them rather than a general "query praises" surface - a wider port
+     * would make this plugin's storage shape a contract for consumers that do not exist.
+     *
+     * Resolved lazily by the consumer (`insights` treats it as optional), so a deployment with
+     * engagement disabled still renders reports, with the praise half at zero.
+     */
+    ctx.provide('engagement.public', {
+      async countPraisesForStudent(studentId) {
+        return instance.countPraisesForStudent(studentId);
+      },
+      async countPraisesForClass(classId) {
+        return instance.countPraisesForClass(classId);
+      },
+      async listPraiseSnippetsForStudent(studentId, limit) {
+        return instance.listPraiseSnippets(studentId, limit);
+      },
+    });
+
     ctx.log.info('engagement service ready', { owns: ctx.plugin.slug });
   },
 

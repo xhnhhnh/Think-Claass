@@ -42,6 +42,7 @@ import {
 import { createClassFeatureResolver } from './classroom.features.js';
 import { createClassroomPort } from './classroom.port.js';
 import { createClassroomRepository } from './classroom.repository.js';
+import { createReportQueries } from './classroom.reports.js';
 import { ClassroomService } from './classroom.service.js';
 import { createNameCipher } from './classroom.support.js';
 
@@ -78,7 +79,10 @@ export default definePlugin({
     service = new ClassroomService(repository, features, cipher, ctx);
     providers.push({ provide: ClassroomService, useValue: service });
 
-    ctx.provide('classroom.public', createClassroomPort({ ctx, repository, features, cipher }));
+    ctx.provide(
+      'classroom.public',
+      createClassroomPort({ ctx, repository, features, cipher, reports: createReportQueries(ctx.db) }),
+    );
 
     ctx.log.info('classroom port published', {
       service: 'classroom.public',

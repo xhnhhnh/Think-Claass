@@ -33,6 +33,10 @@ export interface EngagementRepository {
   // -- praises --------------------------------------------------------------
   praisesByStudentIds(studentIds: number[]): Array<Record<string, unknown>>;
   praisesByStudent(studentId: SqlParam): Array<Record<string, unknown>>;
+  /** A count for one student, without materialising rows. */
+  countPraisesForStudent(studentId: SqlParam): number;
+  /** A count across a set of students, in one query. */
+  countPraisesForStudentIds(studentIds: number[]): number;
   insertPraise(input: { teacherId: SqlParam; studentId: SqlParam; content: unknown; color: unknown }): number;
   findPraise(id: SqlParam): Record<string, unknown> | undefined;
   deletePraise(id: SqlParam): void;
@@ -158,6 +162,28 @@ export function createEngagementRepository(db: DbApi): EngagementRepository {
         'SELECT * FROM praises WHERE student_id = ? ORDER BY created_at DESC',
         [studentId],
       );
+    },
+
+    countPraisesForStudent(studentId) {
+      const row = db.get<{ n: number }>('SELECT COUNT(*) AS n FROM praises WHERE student_id = ?', [studentId]);
+      return row?.n ?? 0;
+    },
+
+    /**
+     * One query across a roster, not one per student.
+     *
+     * The class-wide count used to be `COUNT(*) ... JOIN students WHERE s.class_id = ?`; the join is
+     * gone because `students` is classroom's, so the caller resolves the roster and passes the ids.
+     * An empty roster returns 0 without a query, because `IN ()` is a syntax error in SQLite.
+     */
+    countPraisesForStudentIds(studentIds) {
+      if (studentIds.length === 0) return 0;
+      const placeholders = studentIds.map(() => '?').join(',');
+      const row = db.get<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM praises WHERE student_id IN (${placeholders})`,
+        studentIds,
+      );
+      return row?.n ?? 0;
     },
 
     insertPraise(input) {

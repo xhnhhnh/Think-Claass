@@ -189,6 +189,45 @@ export class EngagementService {
     this.repository.deletePraise(id);
   }
 
+  // -- the published port (P4.3b.12) ----------------------------------------
+
+  /**
+   * How many praises a student has received.
+   *
+   * A `COUNT(*)`, not a row count: the student report and the radar both display a number, and the
+   * radar turns it into `min(100, count * 20)`. Publishing rows would make the consumer responsible
+   * for a number this plugin can compute.
+   */
+  async countPraisesForStudent(studentId: number): Promise<number> {
+    return this.repository.countPraisesForStudent(studentId);
+  }
+
+  /** How many praises every student of a class has received, summed. */
+  async countPraisesForClass(classId: number): Promise<number> {
+    // The roster comes from classroom; the count is this plugin's. That split is why the count needs
+    // a join this plugin may not run, and why the port takes a class id rather than a student list.
+    const students = await this.classroom.listClassStudents(classId);
+    return this.repository.countPraisesForStudentIds(students.map((student) => student.id));
+  }
+
+  /**
+   * The newest praise snippets for a student, in the shape the report displays.
+   *
+   * The title is the constant `教师表扬` the pre-migration report hard-coded: the `praises` table has
+   * no title column, so it is presentation derived from the row's origin, and it is applied here so
+   * the consumer does not have to know that.
+   */
+  async listPraiseSnippets(studentId: number, limit: number) {
+    const rows = this.repository.praisesByStudent(studentId).slice(0, limit);
+    return {
+      value: rows.map((row) => ({
+        title: '教师表扬',
+        message: String(row.content),
+        created_at: String(row.created_at),
+      })),
+    };
+  }
+
   // -- certificates ---------------------------------------------------------
 
   async getCertificates(studentId: unknown) {

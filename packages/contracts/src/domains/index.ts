@@ -22,6 +22,7 @@ export type * from './economy.js';
 export type * from './engagement.js';
 export type * from './gacha.js';
 export type * from './identity.js';
+export type * from './insights.js';
 export type * from './learning.js';
 export type * from './marketplace.js';
 export type * from './parent-buff.js';

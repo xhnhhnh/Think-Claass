@@ -27,6 +27,7 @@ import type { KernelContext } from '@thinkclass/plugin-sdk';
 
 import type { ClassFeatureResolver } from './classroom.features.js';
 import type { ClassroomRepository } from './classroom.repository.js';
+import type { ReportQueries } from './classroom.reports.js';
 import type { NameCipher } from './classroom.support.js';
 import type { StudentRow } from './classroom.types.js';
 
@@ -37,6 +38,14 @@ export interface ClassroomPortDeps {
   features: ClassFeatureResolver;
   /** Injected decryptor; identity when the database stores plaintext. */
   cipher: NameCipher;
+  /**
+   * The report aggregates for the insights domain (P4.3b.12).
+   *
+   * Kept in its own module rather than inlined here: the port's job is the small, stable student/class
+   * interface every domain uses, while the reports are one consumer's aggregates over eight tables.
+   * Mixing them would make this file the place both grow.
+   */
+  reports: ReportQueries;
 }
 
 function toStudentSnapshot(row: StudentRow, cipher: NameCipher): StudentSnapshot {
@@ -68,7 +77,7 @@ function toClassSnapshot(row: {
   };
 }
 
-export function createClassroomPort({ ctx, repository, features, cipher }: ClassroomPortDeps): ClassroomPort {
+export function createClassroomPort({ ctx, repository, features, cipher, reports }: ClassroomPortDeps): ClassroomPort {
   const db = repository;
 
   function requireStudent(studentId: number): StudentRow {
@@ -154,6 +163,23 @@ export function createClassroomPort({ ctx, repository, features, cipher }: Class
       const row = db.findStudentRow(studentId);
       if (!row) return null;
       return row.class_id;
+    },
+
+    // -- report reads (P4.3b.12) ---------------------------------------------
+    //
+    // Delegated to `classroom.reports.ts`. The port gains three methods and no new dependencies: the
+    // aggregate SQL stays in this plugin, which is the only one that may run the joins.
+
+    async getClassReportInputs(classId) {
+      return reports.classReportInputs(classId, cipher);
+    },
+
+    async getStudentReportInputs(studentId) {
+      return reports.studentReportInputs(studentId, cipher);
+    },
+
+    async getStudentAccessView(studentId) {
+      return reports.studentAccessView(studentId);
     },
 
     async listStudentsByParent(parentId) {

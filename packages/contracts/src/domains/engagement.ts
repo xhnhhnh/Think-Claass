@@ -5,6 +5,43 @@
  * from the frontend source tree. Type-only: see guardrail G6.
  */
 
+import type { InsightsResult } from './insights.js';
+
+// ---------------------------------------------------------------------------
+// Cross-plugin port (P4.3b.12)
+//
+// `praises` moved to `plugins/engagement` in P4.3b.10, and the insights domain reads it in three
+// places: a class-wide count for the overview, and the newest five snippets plus a count for the
+// student report and radar. Those are the only engagement-owned reads in the whole report surface.
+//
+// Declared here, next to the DTOs they serve, because the port belongs to the plugin that owns the
+// table - a consumer resolves it as `engagement.public`, not through classroom.
+// ---------------------------------------------------------------------------
+
+/** One praise as the report shows it - not the raw row. */
+export interface PraiseSnippet {
+  /** The constant title the report displays; the stored row has no title column. */
+  title: string;
+  message: string;
+  created_at: string;
+}
+
+export interface EngagementPort {
+  /** How many praises a student has received. */
+  countPraisesForStudent(studentId: number): Promise<number>;
+
+  /** How many praises every student of a class has received, summed. */
+  countPraisesForClass(classId: number): Promise<number>;
+
+  /**
+   * The newest `limit` praise snippets for a student, newest first.
+   *
+   * A refusal is possible in principle (the caller resolves the roster itself), but an empty list is
+   * a legitimate answer and the report shows it as a zero count.
+   */
+  listPraiseSnippetsForStudent(studentId: number, limit: number): Promise<InsightsResult<PraiseSnippet[]>>;
+}
+
 export interface MessageDto {
   id: number;
   class_id: number;
