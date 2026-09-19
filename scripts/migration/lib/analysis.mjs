@@ -113,12 +113,6 @@ export function isDeclarationFile(p) {
  */
 export function createResolver(root) {
   const srcRoot = path.join(root, 'src');
-  /** @type {Record<string,string>} */
-  const aliases = {
-    '@/': srcRoot + path.sep,
-    '@thinkclass/contracts': path.join(root, 'packages/contracts/src'),
-    '@thinkclass/plugin-sdk': path.join(root, 'packages/plugin-sdk/src'),
-  };
 
   /**
    * @param {string} fromFile
@@ -127,13 +121,15 @@ export function createResolver(root) {
    */
   return function resolve(fromFile, spec) {
     let base = null;
-    for (const [prefix, target] of Object.entries(aliases)) {
-      if (spec === prefix.replace(/\/$/, '') || spec.startsWith(prefix)) {
-        base = path.join(target, spec.slice(prefix.length));
-        break;
-      }
-    }
-    if (base === null) {
+
+    // Workspace packages: `@thinkclass/<name>` -> packages/<name>/src/index.ts
+    const pkg = /^@thinkclass\/([a-z0-9-]+)(?:\/(.*))?$/.exec(spec);
+    if (pkg) {
+      const pkgSrc = path.join(root, 'packages', pkg[1], 'src');
+      base = pkg[2] ? path.join(pkgSrc, pkg[2]) : path.join(pkgSrc, 'index.ts');
+    } else if (spec === '@' || spec.startsWith('@/')) {
+      base = path.join(srcRoot, spec.slice(2));
+    } else {
       if (!spec.startsWith('.')) return null; // bare package import
       base = path.resolve(path.dirname(fromFile), spec);
     }
@@ -223,6 +219,32 @@ export function findDeadCode(root, entryRelPaths) {
     .filter((f) => !isTestFile(f) && !isDeclarationFile(f))
     .map((f) => toRel(root, f))
     .sort();
+}
+
+/**
+ * Entry points for application reachability.
+ *
+ * The host applications plus every workspace package's public entry. A package
+ * entry is an entry point in its own right: `packages/kernel/src/index.ts` is not
+ * imported by `src/main.tsx`, but it is very much live.
+ *
+ * @param {string} root
+ * @returns {string[]} repo-relative paths
+ */
+export function defaultEntryPoints(root) {
+  /** @type {string[]} */
+  const entries = ['src/main.tsx', 'api/server.ts', 'api/index.ts'];
+  const packagesDir = path.join(root, 'packages');
+  if (fs.existsSync(packagesDir)) {
+    for (const entry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      for (const candidate of ['src/index.ts', 'src/index.tsx']) {
+        const rel = `packages/${entry.name}/${candidate}`;
+        if (fs.existsSync(path.join(root, rel))) entries.push(rel);
+      }
+    }
+  }
+  return entries;
 }
 
 /**

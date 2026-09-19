@@ -28,6 +28,24 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@thinkclass/contracts": [
+        "./packages/contracts/src/index.ts"
+      ],
+      "@thinkclass/contracts/*": [
+        "./packages/contracts/src/*"
+      ],
+      "@thinkclass/kernel": [
+        "./packages/kernel/src/index.ts"
+      ],
+      "@thinkclass/kernel/*": [
+        "./packages/kernel/src/*"
+      ],
+      "@thinkclass/plugin-sdk": [
+        "./packages/plugin-sdk/src/index.ts"
+      ],
+      "@thinkclass/plugin-sdk/*": [
+        "./packages/plugin-sdk/src/*"
       ]
     },
     "types": [
@@ -38,6 +56,7 @@
   },
   "include": [
     "src",
-    "api"
+    "api",
+    "packages"
   ]
 }

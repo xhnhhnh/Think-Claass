@@ -17,10 +17,10 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { findDeadCode, findShimFiles } from '../../scripts/migration/lib/analysis.mjs';
+import { defaultEntryPoints, findDeadCode, findShimFiles } from '../../scripts/migration/lib/analysis.mjs';
 import { ROOT, formatRatchet, readAllowances } from './lib/paths.mjs';
 
-const APP_ENTRIES = ['src/main.tsx', 'api/server.ts', 'api/index.ts'];
+const APP_ENTRIES = defaultEntryPoints(ROOT);
 
 /** Trees that are plugin-owned (or destined to be). */
 const PLUGIN_OWNED_DIRS = ['src/features', 'plugins', 'plugins-ext'];

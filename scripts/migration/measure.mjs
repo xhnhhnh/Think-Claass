@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   collectFiles,
+  defaultEntryPoints,
   extractApiSurface,
   findDeadCode,
   findShimFiles,
@@ -31,8 +32,8 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-/** Entry points for application reachability. */
-const APP_ENTRIES = ['src/main.tsx', 'api/server.ts', 'api/index.ts'];
+/** Entry points for application reachability (hosts + workspace packages). */
+const APP_ENTRIES = defaultEntryPoints(ROOT);
 
 /** Group a repo-relative path into a coarse area label. */
 function areaOf(rel) {

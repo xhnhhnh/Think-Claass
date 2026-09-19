@@ -1,5 +1,15 @@
 /**
- * NestJS API server bootstrap.
+ * API server bootstrap.
+ *
+ * Two compositions coexist during the migration:
+ *
+ *   KERNEL_ENABLED=1  ->  the minimal kernel boots and serves only
+ *                         /api/health + /api/kernel/*  (zero plugins)
+ *   otherwise         ->  the legacy Nest composition (14 static modules)
+ *
+ * Keeping both behind one switch is what allows the refactor to land phase by
+ * phase without a flag day: the legacy path stays the rollback target for every
+ * later phase until P4 has moved all modules into plugins.
  */
 
 import 'reflect-metadata';
@@ -18,6 +28,7 @@ import { fileURLToPath } from 'url'
 import { initDb } from './db.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
+import { createKernel, type Kernel } from '@thinkclass/kernel';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -39,7 +50,23 @@ function registerStaticAssets(server: Express) {
   })
 }
 
-export async function createApp(): Promise<Express> {
+/** True when the minimal kernel composition should be used. */
+export function isKernelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return /^(1|true|yes|on)$/i.test(String(env.KERNEL_ENABLED ?? '').trim())
+}
+
+/** The kernel instance when the kernel composition is active. */
+let activeKernel: Kernel | null = null;
+
+export function getActiveKernel(): Kernel | null {
+  return activeKernel;
+}
+
+/**
+ * Legacy composition: Nest assembled from 14 statically imported modules, reading
+ * the raw better-sqlite3 layer in `api/db.ts`.
+ */
+export async function createLegacyApp(): Promise<Express> {
   // load env
   dotenv.config()
 
@@ -66,6 +93,25 @@ export async function createApp(): Promise<Express> {
   await nest.init()
 
   return server
+}
+
+/**
+ * Kernel composition: the minimal core with zero plugins.
+ *
+ * Deferred import keeps `@nestjs/*` out of the kernel's dependency graph when the
+ * kernel path is used.
+ */
+export async function createKernelApp(): Promise<Express> {
+  dotenv.config()
+  activeKernel = await createKernel();
+  return activeKernel.app;
+}
+
+export async function createApp(): Promise<Express> {
+  if (isKernelEnabled()) {
+    return createKernelApp();
+  }
+  return createLegacyApp();
 }
 
 /**

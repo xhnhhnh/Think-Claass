@@ -45,9 +45,25 @@ const KERNEL_OWNED_TABLES = new Set([
   '__core_migrations',
   '_prisma_migrations',
   'sqlite_sequence',
+  // SQLite internals the kernel legitimately introspects.
+  'sqlite_master',
+  'sqlite_temp_master',
 ]);
 
-const SQL_TABLE_RE = /\b(?:FROM|INTO|UPDATE|JOIN|TABLE)\s+[`"[]?([a-zA-Z_][a-zA-Z0-9_]*)/g;
+/**
+ * Capture the table a SQL statement targets.
+ *
+ * Exactly ONE capture group: with `(?:...|...|...)` alternatives each carrying its
+ * own group, `m[1]` is `undefined` for every branch but the first.
+ *
+ * DDL requires the whole `CREATE|DROP|ALTER TABLE [IF [NOT] EXISTS] <name>`
+ * sequence, otherwise `DROP TABLE x` matches on `DROP` and captures the word
+ * "TABLE". The trailing `(?!IF|EXISTS|NOT|TABLE)` guard covers non-literal names:
+ * for `CREATE TABLE IF NOT EXISTS ${LEDGER}` no name can be captured, and without
+ * the guard the engine backtracks past the `IF NOT EXISTS` group and reports "IF".
+ */
+const SQL_TABLE_RE =
+  /\b(?:(?:FROM|INTO|UPDATE|JOIN)\s+(?!IF\b|EXISTS\b|NOT\b|TABLE\b)|(?:CREATE|DROP|ALTER)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?!IF\b|EXISTS\b|NOT\b|TABLE\b))[`"[]?([a-zA-Z_][a-zA-Z0-9_]*)/gi;
 const ENABLE_KEY_RE = /\benable_[a-z_]+\b/;
 const IMPORT_RE_ILLEGAL = [/^api\//, /^plugins\//, /^plugins-ext\//, /^apps\//];
 
@@ -65,6 +81,19 @@ function resolveToRel(fromFile, spec) {
   return spec;
 }
 
+/**
+ * Blank out comments while preserving line and column positions, so reported line
+ * numbers stay correct.
+ *
+ * Without this, prose such as "moved from `api/utils/password.ts`" is scanned as
+ * SQL (`FROM api`), which is how this guard first reported a table named "api".
+ */
+function stripComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, (match) => match.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (match, prefix) => prefix + ' '.repeat(match.length - prefix.length));
+}
+
 describe('G5 kernel has no domain knowledge', () => {
   /** @type {string[]} */
   const violations = [];
@@ -79,11 +108,10 @@ describe('G5 kernel has no domain knowledge', () => {
     for (const file of collectFiles(abs, ['.ts', '.tsx'])) {
       if (/\.test\.tsx?$/.test(file)) continue;
       const rel = toRel(ROOT, file);
-      const text = fs.readFileSync(file, 'utf8');
+      const text = stripComments(fs.readFileSync(file, 'utf8'));
 
       // 5a - feature flag identifiers
       for (const [i, line] of text.split(/\r?\n/).entries()) {
-        if (line.trimStart().startsWith('//')) continue;
         if (ENABLE_KEY_RE.test(line)) {
           violations.push(`${rel}:${i + 1} feature flag identifier: ${line.trim()}`);
         }
