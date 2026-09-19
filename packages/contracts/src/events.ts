@@ -67,17 +67,25 @@ export interface EventContracts {
   };
 
   // -- pet (feature plugin) -------------------------------------------------
+  //
+  // Reshaped in P4.3b.6 alongside `PetPort`: the payloads used to describe the reference
+  // implementation's invented model (`element`/`stage`, actions limited to feed|play|train).
+  // These are projections of a real `pets` row and of what the route actually received.
   'pet.adopted': {
     petId: number;
     studentId: number;
     classId: number;
+    /** Stored `pets.element_type`; free-form text, not a fixed enum. */
     element: string;
     actorId: number;
   };
   'pet.action.performed': {
     petId: number;
     studentId: number;
-    action: 'feed' | 'play' | 'train';
+    /** Whatever the caller sent as `actionType` (e.g. 训练) - free-form, so not an enum. */
+    actionType: string;
+    /** Points spent; the ledger records the negated amount. */
+    cost: number;
     experienceGained: number;
     leveledUp: boolean;
     actorId: number;

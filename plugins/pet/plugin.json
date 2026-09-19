@@ -6,7 +6,7 @@
   "tier": "feature",
   "required": false,
   "isolation": "restricted",
-  "description": "Reference feature plugin. Owns its own tables, declares permissions, emits and subscribes to events, consumes the classroom.public port and contributes a Nest controller.",
+  "description": "The pet domain. Owns the legacy `pets` table, serves the 17 pet routes the frontend already calls (migrated out of api/modules/pet in P4.3b.6), publishes `pet.public`, enforces pet.adopt / pet.interact on its own alias routes, and reaches students, the point ledger and the class feature flags through `classroom.public`.",
   "entry": {
     "backend": "./src/index.ts"
   },
@@ -39,20 +39,39 @@
         "method": "GET",
         "base": "/api/pet",
         "compat": ["/api/pets"],
-        "handler": "PetController.getForStudent",
+        "handler": "PetController.getStudentPet / LegacyPetsController.getStudentPet",
         "auth": "actor"
       },
       {
         "method": "POST",
         "base": "/api/pet",
         "compat": ["/api/pets"],
+        "handler": "PetController.adoptPet / LegacyPetsController.adoptPet",
+        "auth": "actor"
+      },
+      {
+        "method": "POST",
+        "base": "/api/pet",
+        "handler": "PetController.interact / LegacyPetsController.interact",
+        "auth": "actor"
+      },
+      {
+        "method": "PUT",
+        "base": "/api/pet",
+        "compat": ["/api/pets"],
+        "handler": "PetController.updatePet / LegacyPetsController.updatePet",
+        "auth": "actor"
+      },
+      {
+        "method": "POST",
+        "base": "/api/pet/students/:studentId/adopt",
         "handler": "PetController.adopt",
         "auth": "actor",
         "permissions": ["pet.adopt"]
       },
       {
         "method": "POST",
-        "base": "/api/pet",
+        "base": "/api/pet/students/:studentId/action",
         "handler": "PetController.act",
         "auth": "actor",
         "permissions": ["pet.interact"]
@@ -66,11 +85,19 @@
       {
         "id": "0001_init",
         "up": "migrations/0001_init.sql"
+      },
+      {
+        "id": "0002_retire_reference_tables",
+        "up": "migrations/0002_retire_reference_tables.sql"
       }
     ]
   },
   "data": {
-    "tables": ["p_pet_pets"],
-    "reads": []
+    "tables": [],
+    "adopted": ["pets"],
+    "_adopted_note": "`pets` is the domain's real table, carrying its legacy name until P7 renames it to `p_pet_pets`. It replaced the P3 reference table of nearly that name, which this plugin's own `0002_retire_reference_tables` migration drops: the two are different tables, and only `pets` ever held live data (3 rows in the developer database; `p_pet_pets` was empty).",
+    "reads": ["praises", "parent_activity"],
+    "_reads_note": "Both are declared READS because a read is all this domain needs, and neither has an owner to ask yet. `praises` (teacher praise shown on the pet dashboard) belongs to no plugin - it is classroom-adjacent data that P7 should either move into classroom or expose through a port. `parent_activity` is owned by plugins/parent-buff, which writes it from its own route; the pet domain reads `last_active_date` to answer `has_parent_buff`, and that column exists in the kernel composition only because of api/schema/legacyCompatColumns.ts. The correct fix for both is a port (`parent-buff.public.hasTodayBuff`, `classroom.public.listPraises`) once those plugins publish one; until then an undeclared read would be refused by ctx.db, so this is honest rather than silent.",
+    "_known_debt": "The 17 legacy routes are unauthenticated, exactly as they were in api/modules/pet: HANDOFF §10 item 3 records that systematic authorization is pending. Only this plugin's own `/adopt` and `/action` aliases enforce pet.adopt / pet.interact. Also: `interact` deducts points through the classroom port and then updates `pets`; the two writes cannot share a transaction across the plugin boundary (see the service header)."
   }
 }

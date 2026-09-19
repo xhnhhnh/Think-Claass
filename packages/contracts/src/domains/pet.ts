@@ -113,27 +113,42 @@ export type PetBattleResponse = ApiSuccess<{ result: PetBattleResult }>;
 // ---------------------------------------------------------------------------
 // Cross-plugin port.
 //
-// Other domains (achievements, battles, classroom dashboards) need to know whether
-// a student has a pet without owning the pet tables. They resolve this port.
+// Other domains (achievements, challenge, classroom dashboards) need to know about a
+// student's pet without owning the `pets` table. They resolve this port.
+//
+// Reshaped in P4.3b.6, when the pet domain stopped being a reference implementation on
+// invented tables (`name`, `element`, `stage`) and adopted the real one. The old shape
+// described fields that do not exist in storage; the new one is a projection of `pets`.
+// `applyAction` was dropped rather than adapted: mutation carries domain rules (death clock,
+// level ceiling, point debit) and belongs behind the HTTP surface, not on a port. Nothing
+// consumed either version, so the change is breaking in principle and free in practice.
 // ---------------------------------------------------------------------------
 
 export interface PetSnapshot {
   id: number;
   studentId: number;
-  name: string;
+  elementType: string;
   level: number;
-  element: PetElementType;
-  stage: number;
+  experience: number;
+  attackPower: number;
+  isDead: boolean;
+}
+
+/**
+ * The three numbers the battle and world-boss domains need from a pet.
+ *
+ * `plugins/challenge` used to declare `data.reads: ["pets"]` and select `attack_power`
+ * directly - a cross-plugin table read with no interface. This is that interface.
+ */
+export interface PetBattleProfile {
+  attackPower: number;
+  level: number;
+  isDead: boolean;
 }
 
 export interface PetPort {
   getPetForStudent(studentId: number): Promise<PetSnapshot | null>;
   hasPet(studentId: number): Promise<boolean>;
-  /** Feed / play / train; returns the resulting state. */
-  applyAction(input: {
-    studentId: number;
-    action: 'feed' | 'play' | 'train';
-    actorId: number;
-  }): Promise<{ pet: PetSnapshot; experienceGained: number; leveledUp: boolean }>;
+  getBattleProfile(studentId: number): Promise<PetBattleProfile | null>;
 }
 

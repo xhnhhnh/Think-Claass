@@ -1,94 +1,176 @@
 /**
  * Pet repository.
  *
- * Takes the plugin's namespaced `DbApi` rather than a raw connection, so every
- * statement is checked against the plugin's declared table ownership. The
- * repository has no idea whether it is talking to SQLite, and it cannot reach a
- * table the manifest did not claim.
+ * Takes the plugin's namespaced `DbApi` rather than a raw connection, so every statement is
+ * checked against the plugin's declared data ownership. `pets` is *adopted* (it still carries
+ * its legacy name; P7 renames it to `p_pet_pets`), so `ctx.db` allows reads and writes on it.
+ * `praises` and `parent_activity` are declared reads: a write to either is refused at the call
+ * site, which is exactly what the pre-plugin code would have done silently through Prisma or
+ * the shared connection.
+ *
+ * The legacy repository also owned `students` queries (points, names) and the `records`
+ * ledger append. Those are not here: `students` and `records` belong to the classroom plugin,
+ * so they go through `classroom.public` in the service instead.
  */
 
-import type { PetElementType, PetSnapshot } from '@thinkclass/contracts/domains/pet';
+import type { AdoptPetInput, UpdatePetInput } from '@thinkclass/contracts/domains/pet';
 import type { DbApi } from '@thinkclass/plugin-sdk';
 
-export interface PetRow {
-  id: number;
-  student_id: number;
-  name: string;
-  element: string;
-  level: number;
-  experience: number;
-  stage: number;
-  created_at: string;
-  updated_at: string;
-}
+import type { PetRepository, PetRow, PraiseRow } from './pet.types.js';
 
-export function toPetSnapshot(row: PetRow): PetSnapshot {
+/** Explicit column list: `SELECT *` would silently start returning columns added later. */
+const PET_COLUMNS = `
+  id, student_id, element_type, custom_image,
+  image_stage1, image_stage2, image_stage3, image_stage4, image_stage5, image_stage6,
+  level, experience, attack_power, mood, last_fed_at
+`;
+
+export function createPetRepository(db: DbApi): PetRepository {
   return {
-    id: row.id,
-    studentId: row.student_id,
-    name: row.name,
-    level: row.level,
-    element: row.element as PetElementType,
-    stage: row.stage,
-  };
-}
-
-export interface PetRepository {
-  findByStudentId(studentId: number): PetRow | null;
-  findById(id: number): PetRow | null;
-  insert(input: { studentId: number; name: string; element: PetElementType }): PetRow;
-  updateProgress(id: number, level: number, experience: number, stage: number): PetRow;
-  logPraise(input: { petId: number; actorId: number; message: string }): void;
-  countPraise(petId: number): number;
-}
-
-export function createPetRepository(db: DbApi, now: () => string = () => new Date().toISOString()): PetRepository {
-  return {
-    findByStudentId(studentId) {
-      return db.get<PetRow>(`SELECT * FROM p_pet_pets WHERE student_id = ?`, [studentId]) ?? null;
+    getPet(studentId) {
+      return db.get<PetRow>(`SELECT ${PET_COLUMNS} FROM pets WHERE student_id = ?`, [studentId]) ?? null;
     },
 
-    findById(id) {
-      return db.get<PetRow>(`SELECT * FROM p_pet_pets WHERE id = ?`, [id]) ?? null;
+    listPetsFor(studentIds) {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(', ');
+      return db.query<PetRow>(`SELECT ${PET_COLUMNS} FROM pets WHERE student_id IN (${placeholders})`, studentIds);
     },
 
-    insert({ studentId, name, element }) {
-      const timestamp = now();
-      const result = db.run(
-        `INSERT INTO p_pet_pets (student_id, name, element, level, experience, stage, created_at, updated_at)
-         VALUES (?, ?, ?, 1, 0, 1, ?, ?)`,
-        [studentId, name, element, timestamp, timestamp],
+    listLeaderboardPets(studentIds, limit) {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(', ');
+      // The ORDER BY and LIMIT stay in SQL, exactly as the pre-plugin JOIN had them: sorting
+      // the same rows in JavaScript would be equal for distinct values and arbitrary for ties,
+      // and the class leaderboard is full of ties.
+      return db.query<PetRow>(
+        `SELECT ${PET_COLUMNS} FROM pets WHERE student_id IN (${placeholders})
+          ORDER BY level DESC, experience DESC LIMIT ?`,
+        [...studentIds, limit],
       );
-      const row = db.get<PetRow>(`SELECT * FROM p_pet_pets WHERE id = ?`, [Number(result.lastInsertRowid)]);
-      if (!row) throw new Error('pet insert succeeded but the row could not be read back');
-      return row;
     },
 
-    updateProgress(id, level, experience, stage) {
-      db.run(`UPDATE p_pet_pets SET level = ?, experience = ?, stage = ?, updated_at = ? WHERE id = ?`, [
-        level,
+    createPet(studentId, input: AdoptPetInput) {
+      const result = db.run(
+        `INSERT INTO pets (
+           student_id, element_type, custom_image,
+           image_stage1, image_stage2, image_stage3,
+           image_stage4, image_stage5, image_stage6
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          studentId,
+          input.elementType,
+          input.custom_image ?? null,
+          input.image_stage1 ?? null,
+          input.image_stage2 ?? null,
+          input.image_stage3 ?? null,
+          input.image_stage4 ?? null,
+          input.image_stage5 ?? null,
+          input.image_stage6 ?? null,
+        ],
+      );
+
+      return Number(result.lastInsertRowid);
+    },
+
+    upsertPet(studentId, input: UpdatePetInput) {
+      const finalElementType = input.elementType ?? input.element_type;
+      const finalCustomImage = input.customImage ?? input.custom_image;
+      const existing = this.getPet(studentId);
+
+      if (existing) {
+        // `COALESCE(?, column)` is what makes a partial update partial: level, experience and
+        // attack_power keep their stored value when the body omits them. The artwork columns
+        // do NOT coalesce - they are overwritten, including with NULL, which is the legacy
+        // behaviour this route is pinned to.
+        db.run(
+          `UPDATE pets SET
+             element_type = COALESCE(?, element_type),
+             custom_image = ?,
+             image_stage1 = ?, image_stage2 = ?, image_stage3 = ?,
+             image_stage4 = ?, image_stage5 = ?, image_stage6 = ?,
+             level = COALESCE(?, level),
+             experience = COALESCE(?, experience),
+             attack_power = COALESCE(?, attack_power)
+           WHERE student_id = ?`,
+          [
+            finalElementType ?? null,
+            finalCustomImage ?? null,
+            input.image_stage1 ?? null,
+            input.image_stage2 ?? null,
+            input.image_stage3 ?? null,
+            input.image_stage4 ?? null,
+            input.image_stage5 ?? null,
+            input.image_stage6 ?? null,
+            input.level ?? null,
+            input.experience ?? null,
+            input.attack_power ?? null,
+            studentId,
+          ],
+        );
+        return;
+      }
+
+      db.run(
+        `INSERT INTO pets (
+           student_id, element_type, custom_image,
+           image_stage1, image_stage2, image_stage3,
+           image_stage4, image_stage5, image_stage6,
+           level, experience, attack_power
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          studentId,
+          finalElementType || 'normal',
+          finalCustomImage ?? null,
+          input.image_stage1 ?? null,
+          input.image_stage2 ?? null,
+          input.image_stage3 ?? null,
+          input.image_stage4 ?? null,
+          input.image_stage5 ?? null,
+          input.image_stage6 ?? null,
+          input.level ?? 1,
+          input.experience ?? 0,
+          input.attack_power ?? 10,
+        ],
+      );
+    },
+
+    updatePetProgress(petId, experience, level, attackPower) {
+      db.run(`UPDATE pets SET experience = ?, level = ?, attack_power = ?, last_fed_at = CURRENT_TIMESTAMP WHERE id = ?`, [
         experience,
-        stage,
-        now(),
-        id,
-      ]);
-      const row = db.get<PetRow>(`SELECT * FROM p_pet_pets WHERE id = ?`, [id]);
-      if (!row) throw new Error(`pet ${id} disappeared during update`);
-      return row;
-    },
-
-    logPraise({ petId, actorId, message }) {
-      db.run(`INSERT INTO p_pet_praise_log (pet_id, actor_id, message, created_at) VALUES (?, ?, ?, ?)`, [
+        level,
+        attackPower,
         petId,
-        actorId,
-        message,
-        now(),
       ]);
     },
 
-    countPraise(petId) {
-      const row = db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM p_pet_praise_log WHERE pet_id = ?`, [petId]);
-      return row?.n ?? 0;
+    addPetExperience(petId, expGain) {
+      db.run(`UPDATE pets SET experience = experience + ? WHERE id = ?`, [expGain, petId]);
+    },
+
+    listPraises(studentId) {
+      // No JOIN: the legacy query joined `students` only to decrypt the name, which the
+      // classroom port does now. A missing student therefore drops the rows, matching the
+      // INNER JOIN it replaces - the service filters them out.
+      return db.query<PraiseRow>(
+        `SELECT id, teacher_id, student_id, content, color, created_at
+           FROM praises WHERE student_id = ? ORDER BY created_at DESC`,
+        [studentId],
+      );
+    },
+
+    hasTodayParentActivity(studentId) {
+      // `last_active_date` (not `created_at`): it is the column the parent-login path writes,
+      // and the pet domain's "parent buff" has always meant "a parent was active today".
+      // `parent_activity` reaches both compositions' schema through
+      // `0000c_legacy_compat_columns` - before that migration the kernel composition did not
+      // have the column at all, which this query would have reported as a 500.
+      const row = db.get<{ present: number }>(
+        `SELECT 1 AS present FROM parent_activity
+          WHERE student_id = ? AND last_active_date = DATE('now') LIMIT 1`,
+        [studentId],
+      );
+      return Boolean(row);
     },
   };
 }

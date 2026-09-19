@@ -5,7 +5,6 @@ import { ClassroomModule } from './modules/classroom/classroom.module.js';
 import { EngagementModule } from './modules/engagement/engagement.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
 import { LearningModule } from './modules/learning/learning.module.js';
-import { PetModule } from './modules/pet/pet.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 
 /**
@@ -25,6 +24,7 @@ import { PlatformModule } from './modules/platform/platform.module.js';
  *   PortalModule        -> plugins/portal        (P4.3b.4)
  *   SettingsModule      -> kernel               (P5.3c)
  *   SystemModule        -> plugins/system        (P4.3b.5)
+ *   PetModule           -> plugins/pet           (P4.3b.6)
  *
  * `SettingsModule` is the one entry that did not become a plugin: its entire body
  * was `SELECT key, value FROM settings`, and `settings` is kernel-owned storage, so
@@ -53,7 +53,6 @@ import { PlatformModule } from './modules/platform/platform.module.js';
     EngagementModule,
     InsightsModule,
     LearningModule,
-    PetModule,
     PlatformModule,
   ],
 })

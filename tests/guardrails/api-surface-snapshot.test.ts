@@ -111,7 +111,8 @@ describe('G11 no two controllers claim the same route', () => {
   it('lowering the allowance is the only allowed change', () => {
     // The ceiling tracks the measured value so that a *new* collision has to be
     // deliberately acknowledged by editing both this number and the allowance, rather
-    // than slipping in under a stale one.
-    expect(allowances.routeCollisions).toBeLessThanOrEqual(1);
+    // than slipping in under a stale one. 0 since P4.3b.6: the last collision went away
+    // when api/modules/pet was deleted after its routes were ported into plugins/pet.
+    expect(allowances.routeCollisions).toBeLessThanOrEqual(0);
   });
 });

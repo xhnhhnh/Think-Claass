@@ -1,59 +1,65 @@
 /**
- * pet - feature plugin.
+ * pet - the real pet domain, as a plugin.
  *
- * The reference implementation for a feature-tier plugin. Between this file and its
- * manifest it exercises every extension point the runtime offers:
+ * This plugin started life in P3 as a reference implementation on invented tables
+ * (`p_pet_pets`, with `name`/`element`/`stage` columns that no part of the product ever had).
+ * P4.3b.6 makes it the actual domain: it adopts the legacy `pets` table and serves the 17
+ * routes the frontend already calls, so `api/modules/pet` can be deleted - which is what
+ * removes the last route collision in the tree (G11).
  *
- *   own schema     migrations/0001_init.sql, applied through the versioned runner
- *                  with table-ownership enforcement
- *   HTTP surface   a Nest controller, assembled at boot into a per-plugin module
- *   service port   publishes `pet.public` for other plugins
+ * What it demonstrates now, all of it on real data:
+ *
+ *   HTTP surface   two Nest controllers, assembled at boot into a per-plugin module
+ *   service port   publishes `pet.public` for other plugins (`getBattleProfile` exists so the
+ *                  challenge domain can stop reading `pets.attack_power` directly)
  *   events         emits `pet.adopted` / `pet.action.performed`, subscribes to
  *                  `classroom.student.points.changed`
- *   permissions    `pet.adopt`, `pet.interact`, declared in the manifest
- *   collaboration  consumes `classroom.public` instead of touching `students`
+ *   permissions    `pet.adopt`, `pet.interact`, enforced on this plugin's own alias routes
+ *   collaboration  students, the point ledger and the class feature flags come through
+ *                  `classroom.public`; only `pets` is read or written locally
+ *   migrations     the versioned runner, including retiring its own invented tables
  */
 
 import type { Provider } from '@nestjs/common';
 
 import { definePlugin, type KernelContext } from '@thinkclass/plugin-sdk';
 
-import { PetController } from './pet.controllers.js';
+import { LegacyPetsController, PetController } from './pet.controllers.js';
 import { createPetRepository } from './pet.repository.js';
 import { PetService } from './pet.service.js';
 
 /**
- * Populated during `setup()` and read when the runtime builds the plugin's Nest
- * module.
+ * Populated during `setup()` and read when the runtime builds the plugin's Nest module.
  *
- * `setup()` runs before the module graph exists, so the service instance cannot be
- * created by Nest's own factory and still be available for `ctx.provide()`. Building
- * it here gives one instance that is both published on the port and injected into
- * the controller.
+ * `setup()` runs before the module graph exists, so the service instance cannot be created by
+ * Nest's own factory and still be available for `ctx.provide()`. Building it here gives one
+ * instance that is both published on the port and injected into the controllers.
  */
 const providers: Provider[] = [];
 
 let service: PetService | null = null;
 
 export default definePlugin({
-  controllers: [PetController],
+  controllers: [PetController, LegacyPetsController],
   providers,
 
   async setup(ctx: KernelContext) {
-    // `ctx.use` throws when classroom is missing. pet declares it in dependsOn, so
-    // the resolver guarantees it is active before this runs.
+    // `ctx.use` throws when classroom is missing. pet declares it in dependsOn, so the
+    // resolver guarantees it is active before this runs.
     const classroom = ctx.use('classroom.public');
 
     service = new PetService(createPetRepository(ctx.db), classroom, ctx);
     providers.push({ provide: PetService, useValue: service });
 
     ctx.provide('pet.public', service.toPort());
-    ctx.log.info('pet service ready', { owns: ctx.plugin.slug });
+    ctx.log.info('pet service ready', { owns: 'pets (adopted)', reads: ['praises', 'parent_activity'] });
   },
 
   async onStart(ctx: KernelContext) {
-    // Declared in the manifest's `provides.events.subscribes`; the runtime rejects
-    // an undeclared subscription rather than silently allowing it.
+    // Declared in the manifest's `provides.events.subscribes`; the runtime rejects an
+    // undeclared subscription rather than silently allowing it. The reaction is a log line
+    // because the pet domain has no rule that depends on a points change - the subscription
+    // is here to keep that relationship visible rather than implied.
     ctx.events.on('classroom.student.points.changed', (payload) => {
       ctx.log.debug('student points changed', {
         studentId: payload.studentId,
@@ -66,8 +72,8 @@ export default definePlugin({
   },
 
   async onStop(ctx: KernelContext) {
-    // Event subscriptions are disposed by the runtime when the plugin stops; this is
-    // for plugin-owned resources.
+    // Event subscriptions are disposed by the runtime when the plugin stops; this is for
+    // plugin-owned resources.
     service = null;
     providers.length = 0;
     ctx.log.info('pet plugin stopped');

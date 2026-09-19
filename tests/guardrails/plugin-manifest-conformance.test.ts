@@ -194,8 +194,9 @@ describe('G10 adopted legacy tables ratchet', () => {
   it('the allowance tracks the measured count', () => {
     // Same reasoning as the route-collision ceiling: an increment must be an explicit
     // edit in two places, because migrating a domain is the only legitimate reason for
-    // this number to move.
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(33);
+    // this number to move. 33 -> 34 in P4.3b.6, when the pet domain adopted its real
+    // `pets` table and dropped the invented one it had been carrying since P3.
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(34);
   });
 
   it('never declares a table as both owned and adopted', () => {

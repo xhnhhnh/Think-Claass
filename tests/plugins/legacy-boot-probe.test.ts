@@ -213,10 +213,33 @@ describe('legacy composition serves plugin routes', () => {
     expect(missingResource.status).toBe(404);
     expect(missingRoute.status).toBe(404);
 
-    // Both are 404, but only one went through a controller. If the plugin module
-    // had been shadowed, `missingResource` would carry Nest's catch-all body.
+    // Both are 404, but only one went through a controller. Since P4.3b.6 there is no
+    // `api/modules/pet` left at all, so "Student not found" can only come from the plugin's
+    // own service: the legacy module that used to answer this path is deleted.
     expect(missingResource.body).toContain('Student not found');
     expect(missingRoute.body).toContain('Cannot GET');
     expect(missingResource.body).not.toBe(missingRoute.body);
+  });
+
+  it('serves the migrated pet domain from its plugin, through the classroom port', async () => {
+    // `GET /api/pet/classes/:classId` builds its answer from `classroom.public.listClassStudents`,
+    // so an empty database answering `{success, data:{students:[]}, students:[]}` proves three
+    // things at once: the plugin's controller ran, the port resolved, and both envelope copies
+    // are intact. A route that was not mounted would be Nest's catch-all instead.
+    const response = await probe('/api/pet/classes/1');
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toContain('Cannot GET');
+    expect(JSON.parse(response.body)).toEqual({ success: true, data: { students: [] }, students: [] });
+  });
+
+  it('serves the legacy /api/pets alias family from the plugin too', async () => {
+    // The parent dashboard still calls `/api/pets/${studentId}`. Its envelope has no `data`
+    // key at all - a different shape from `/api/pet/...` - and the pet plugin answers both.
+    const response = await probe('/api/pets/999');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toContain('Student not found');
+    expect(response.body).not.toContain('Cannot GET');
   });
 });
