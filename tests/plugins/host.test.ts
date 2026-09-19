@@ -105,6 +105,7 @@ describe('plugin discovery and activation', () => {
       'gacha',
       'marketplace',
       'pet',
+      'portal',
       'slg',
     ]);
   });
@@ -140,6 +141,7 @@ describe('plugin discovery and activation', () => {
       'gacha:active',
       'marketplace:active',
       'pet:active',
+      'portal:active',
       'slg:active',
     ]);
   });
@@ -167,15 +169,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(10);
-    expect(body.kernel.plugins.active).toBe(10);
+    expect(body.kernel.plugins.total).toBe(11);
+    expect(body.kernel.plugins.active).toBe(11);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'pet', 'slg']);
+    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'pet', 'portal', 'slg']);
   });
 });
 

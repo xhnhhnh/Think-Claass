@@ -195,7 +195,7 @@ describe('G10 adopted legacy tables ratchet', () => {
     // Same reasoning as the route-collision ceiling: an increment must be an explicit
     // edit in two places, because migrating a domain is the only legitimate reason for
     // this number to move.
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(23);
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(26);
   });
 
   it('never declares a table as both owned and adopted', () => {

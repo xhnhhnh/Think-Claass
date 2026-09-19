@@ -131,6 +131,7 @@ describe('legacy composition serves plugin routes', () => {
       'gacha',
       'marketplace',
       'pet',
+      'portal',
       'slg',
     ]);
   });

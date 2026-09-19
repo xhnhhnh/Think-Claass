@@ -108,9 +108,10 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3b.0 | **结构前置**：legacy 组装也能挂载插件 + 扫描/护栏补盲区 | `bd613f8` | ✅ |
 | P4.3b.1 | **`economy` 迁成插件**（首个域，模板） | `3296a41` | ✅ |
 | P4.3b.2 | **`dungeon`/`gacha`/`slg`/`battles`/`challenge` 五个域批量迁成插件** | `a844e01` | ✅ |
-| P4.3b.3 | **`collaboration`/`marketplace` 迁成插件** | 见 `git log` | ✅ |
-| **P4.3b.4** | **剩余域**：`engagement`/`insights`/`portal`/`platform` | — | ⬜ **下一步** |
-| P4.3b.5 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `settings`/`system` | — | ⬜ |
+| P4.3b.3 | **`collaboration`/`marketplace` 迁成插件** | `4279ea7` | ✅ |
+| P4.3b.4 | **`portal` 迁成插件** + 修 dbApi 正则误判 | 见 `git log` | ✅ |
+| **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`（见下方"platform 不是干净域"）/`learning` | — | ⬜ **下一步** |
+| P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `settings`/`system` | — | ⬜ |
 | P4.3c | `api/db.ts` 78 条启动期 DDL → 编号迁移 | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
@@ -211,18 +212,18 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.3 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面是 P4.3b.4 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        113 文件 / 555 用例全绿
+npm test        113 文件 / 567 用例全绿
 npm run check   exit 0
 api:surface     unchanged (292 endpoints)
 guardrails      8 文件 / 34 用例
 ```
 
-**已迁成插件的域（10 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace（+ 原有 classroom, pet）
-**仍在 `api/modules/` 的域（11 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform, portal, settings, system
+**已迁成插件的域（11 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal（+ 原有 classroom, pet）
+**仍在 `api/modules/` 的域（10 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform, settings, system
 
 **验收基线**：
 
@@ -232,8 +233,19 @@ guardrails      8 文件 / 34 用例
 | `deadCode` | **66** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | 62 | P5 之前不应变化 |
 | `legacyFeatureKeySurfaces` | 1 | 迁 `classroom` 端点时应降到 0 |
-| `adoptedTables` | **23** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
-| `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 —— 峰值曾到 33 |
+| `adoptedTables` | **26** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
+| `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 |
+
+### ⚠️ `platform` 不是一个干净的功能域（迁移前必读）
+
+`api/modules/platform` 的 4 条路由里，**3 条是支付基础设施**（`POST /api/payment/create`、`GET /api/payment/status/:orderNo`、`POST /api/payment/notify`），
+依赖 `api/services/paymentService.ts`、`api/services/paymentProviders/**`、`prisma.settings`（`payment_environment`）。
+只有 `POST /api/parent-buff` 是业务（写 `parent_activity`）。
+
+**按"一个域一个插件"机械迁移会把 `api/services/**` 一起拖进插件**，那是把基础设施当业务迁。
+建议的拆法（尚未实施）：
+- `parent-buff` → 一个 feature 插件（`data.adopted: ['parent_activity']`，`dependsOn: classroom`）
+- `payment/*` → 归内核/平台侧（它读 `settings` 与 `payment_orders`，且 `payment_orders`/`payment_transactions` **只存在于 Prisma**，见 §9 P4.3c 注意事项）
 
 **批量迁移的实测经验（P4.3b.2，五个域并行）**：
 - **`api:surface -- --check` 的括号数字在迁移中途会是"虚高"的**（如 345），因为它打印的是**声明条数**，而判定用的是**集合**。旧模块与插件并存期间每条路由声明两次。**别把它当成漂移**，要看 `added`/`removed` 是否为空；删掉旧模块后自然回到 292。
@@ -360,6 +372,20 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 **⚠️ 团队名额上限 8（含 Lead），且名字不可复用**：一个会话里最多雇 7 个 teammate，用完无法回收（inactive 也占位）。
 批次并行时记住这条：R4 就是因为 6 个旧 teammate 占位，后 4 个域只能串行。
+
+### 8.7 `dbApi` 的 SQL 表名提取器：假阳性会打断合法查询
+
+`packages/plugin-runtime/src/dbApi.ts` 的 `referencedTables()` 用正则从 SQL 里猜表名，猜错有两个方向：
+
+- **假阳性**（把关键字当表名）：`INSERT ... ON CONFLICT DO UPDATE SET col = ?` 里的 `DO UPDATE SET` 长得和 `UPDATE <table>` 一模一样，
+  于是 `SET` 被当成表名，**每一条 upsert 都被拒绝**，报错还是极具误导性的
+  `plugin "portal" may not write to table "SET"`。这个 bug 由 `plugins/portal` 的首页批量 upsert 首次触发 —— 单元测试全绿（因为都 fake 了 repository），只有真实启动才暴露。
+- **假阴性**（漏掉真表名）：会放过一次越权写入，更危险。
+
+现在的实现是「宽松匹配 + 关键字黑名单」：正则只负责抓「动词后面的标识符」，`NON_TABLE_KEYWORDS` 负责剔除关键字。
+两条回归测试在 `tests/plugins/isolation.test.ts`（upsert 可通过、DDL 目标仍能解析）。
+
+**教训**：新增域时如果用了此前没出现过的 SQL 形态（upsert / CTE / 子查询 / 复合语句），**必须真启动一次**，不要只跑单测。
 
 ### 8.6 并行迁移的可行性（P4.3b.2 实证）
 

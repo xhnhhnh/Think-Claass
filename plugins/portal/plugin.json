@@ -1,0 +1,35 @@
+{
+  "id": "portal",
+  "name": "门户网站",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Public website surface: homepage sections, articles and the contact form. Owns three legacy-named tables and reads nothing else. Declares no dependsOn because it never touches students or classes.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/website", "handler": "WebsiteController.getHome", "auth": "public" },
+      { "method": "PUT", "base": "/api/website", "handler": "WebsiteController.updateHome", "auth": "public" },
+      { "method": "GET", "base": "/api/website", "handler": "WebsiteController.listArticles", "auth": "public" },
+      { "method": "GET", "base": "/api/website", "handler": "WebsiteController.getArticle", "auth": "public" },
+      { "method": "POST", "base": "/api/website", "handler": "WebsiteController.createArticle", "auth": "public" },
+      { "method": "PUT", "base": "/api/website", "handler": "WebsiteController.updateArticle", "auth": "public" },
+      { "method": "DELETE", "base": "/api/website", "handler": "WebsiteController.deleteArticle", "auth": "public" },
+      { "method": "POST", "base": "/api/website", "handler": "WebsiteController.createContact", "auth": "public" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["articles", "homepage_content", "contact_messages"],
+    "_adopted_note": "All three keep their legacy names: `SELECT *` rows from articles are returned to the frontend as-is, so column names (cover_image, is_published, view_count) are the JSON contract.",
+    "reads": []
+  }
+}

@@ -175,6 +175,41 @@ describe('plugin database ownership', () => {
     expect(() => api.query(`SELECT * FROM classes`)).toThrow(/without declaring it/);
   });
 
+  /**
+   * The extractor must not read SQL keywords as table names.
+   *
+   * An upsert's `DO UPDATE SET col = ...` looks exactly like `UPDATE <table>` to a
+   * pattern matcher, so `SET` was reported as a *table* and EVERY
+   * `INSERT ... ON CONFLICT DO UPDATE` was refused with the confusing message
+   * `plugin "demo" may not write to table "SET"`. Portal's bulk homepage upsert was the
+   * first statement in the codebase to use that form; it failed at runtime with a 500
+   * while the unit tests - which fake the repository - were all green.
+   *
+   * `name` is not unique here, but the point is the extractor: the statement must reach
+   * SQLite rather than being rejected before it runs.
+   */
+  it('treats SQL keywords after a verb as keywords, not tables', () => {
+    const api = setup();
+
+    expect(() =>
+      api.run(
+        `INSERT INTO p_demo_things (id, name) VALUES (?, ?)
+           ON CONFLICT(id) DO UPDATE SET name = excluded.name`,
+        [1, 'upserted'],
+      ),
+    ).not.toThrow();
+
+    expect(api.query(`SELECT name FROM p_demo_things`)).toEqual([{ name: 'upserted' }]);
+  });
+
+  it('still resolves DDL targets', () => {
+    const api = setup();
+    // `CREATE TABLE IF NOT EXISTS x` must resolve to `x`, not to `IF`.
+    expect(() => api.exec(`CREATE TABLE IF NOT EXISTS p_demo_things (id INTEGER, name TEXT)`)).not.toThrow();
+    expect(() => api.exec(`ALTER TABLE p_demo_things ADD COLUMN note TEXT`)).not.toThrow();
+    expect(api.query(`SELECT name FROM sqlite_master WHERE name = 'p_demo_things'`)).toHaveLength(1);
+  });
+
   it('reports the offending table in the error', () => {
     const api = setup();
     try {

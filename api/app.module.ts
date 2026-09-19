@@ -8,7 +8,6 @@ import { InsightsModule } from './modules/insights/insights.module.js';
 import { LearningModule } from './modules/learning/learning.module.js';
 import { PetModule } from './modules/pet/pet.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
-import { PortalModule } from './modules/portal/portal.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { SystemModule } from './modules/system/system.module.js';
 
@@ -26,6 +25,7 @@ import { SystemModule } from './modules/system/system.module.js';
  *   ChallengeModule     -> plugins/challenge    (P4.3b.2)
  *   CollaborationModule -> plugins/collaboration (P4.3b.3)
  *   MarketplaceModule   -> plugins/marketplace   (P4.3b.3)
+ *   PortalModule        -> plugins/portal        (P4.3b.4)
  *
  * A migrated domain must NOT appear in both places. Two registrations of the same
  * METHOD+PATH means only the first is reachable and the other is unreachable code;
@@ -44,7 +44,6 @@ import { SystemModule } from './modules/system/system.module.js';
     LearningModule,
     PetModule,
     PlatformModule,
-    PortalModule,
     SettingsModule,
     SystemModule,
   ],

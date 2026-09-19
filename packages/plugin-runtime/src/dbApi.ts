@@ -13,13 +13,51 @@ import type { DbApi, DbRunResult, SqlParam } from '@thinkclass/plugin-sdk';
 import type { Database, Logger } from '@thinkclass/kernel';
 
 /**
- * Tables referenced by a statement.
+ * SQL keywords that may follow FROM / INTO / JOIN / UPDATE / TABLE without being a
+ * table name.
  *
- * Single capture group with a keyword guard: `DROP TABLE x` must resolve to `x`,
- * and `CREATE TABLE IF NOT EXISTS ${x}` must resolve to nothing rather than to "IF".
+ * Neither a plain pattern nor a keyword list alone is enough, so the extractor does
+ * both. `DO UPDATE SET col = ...` in an upsert looks exactly like `UPDATE <table>` to a
+ * pattern matcher, which made every `INSERT ... ON CONFLICT DO UPDATE` fail the
+ * ownership check with the message `plugin "x" may not write to table "SET"`.
+ *
+ * Found by portal's bulk homepage upsert - the first statement in this codebase to use
+ * that form. Nothing in this list may ever be a legal table name.
+ */
+const NON_TABLE_KEYWORDS = new Set([
+  'set', 'where', 'values', 'select', 'limit', 'order', 'group', 'by', 'having',
+  'on', 'and', 'or', 'as', 'not', 'in', 'is', 'null', 'default', 'primary',
+  'foreign', 'unique', 'check', 'constraint', 'references', 'collate', 'using',
+  'if', 'exists', 'table', 'conflict', 'do', 'nothing', 'returning', 'with',
+  'recursive', 'union', 'all', 'distinct', 'case', 'when', 'then', 'else', 'end',
+  'inner', 'left', 'right', 'outer', 'cross', 'natural', 'index', 'view', 'trigger',
+]);
+
+/**
+ * Candidate table references.
+ *
+ * Deliberately permissive - it captures whatever follows a table-introducing verb,
+ * including `IF` after `CREATE TABLE`. Filtering happens in `extractTargets`, which is
+ * more robust than encoding every exclusion into the pattern.
  */
 const TARGET_RE =
-  /\b(?:(?:FROM|INTO|UPDATE|JOIN)\s+(?!IF\b|EXISTS\b|NOT\b|TABLE\b)|(?:CREATE|DROP|ALTER)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?!IF\b|EXISTS\b|NOT\b|TABLE\b))[`"[]?([A-Za-z_][A-Za-z0-9_]*)/gi;
+  /\b(?:(?:FROM|INTO|JOIN|UPDATE)\s+|(?:CREATE|DROP|ALTER)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?)[`"[]?([A-Za-z_][A-Za-z0-9_]*)/gi;
+
+/**
+ * Tables referenced by a statement.
+ *
+ * Used by the ownership check, so a *false positive* breaks a legitimate query (as
+ * `SET` did) and a *false negative* would let a plugin write outside its declaration.
+ * The keyword filter is what makes the permissive pattern safe.
+ */
+export function extractTargets(sql: string): string[] {
+  const found = new Set<string>();
+  for (const match of sql.matchAll(TARGET_RE)) {
+    const name = match[1];
+    if (!NON_TABLE_KEYWORDS.has(name.toLowerCase())) found.add(name);
+  }
+  return [...found];
+}
 
 const WRITE_RE = /^\s*(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|WITH\s+RECURSIVE)/i;
 
@@ -46,11 +84,13 @@ export class TableOwnershipError extends Error {
   }
 }
 
-/** Extract the tables a statement targets. */
+/**
+ * Tables a statement targets, for the ownership check.
+ *
+ * Kept under its original name so the public export and every call site stay stable.
+ */
 export function referencedTables(sql: string): string[] {
-  const found = new Set<string>();
-  for (const match of sql.matchAll(TARGET_RE)) found.add(match[1]);
-  return [...found];
+  return extractTargets(sql);
 }
 
 export function isWriteStatement(sql: string): boolean {

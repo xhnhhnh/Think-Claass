@@ -43,6 +43,7 @@ export const ADOPTED_TABLE_NAMES = {
   challenge: ['challenge_records', 'world_bosses'],
   collaboration: ['task_nodes', 'student_task_nodes', 'team_quests', 'team_quest_progress', 'peer_reviews'],
   marketplace: ['auctions', 'blind_boxes', 'shop_items', 'redemption_tickets'],
+  portal: ['articles', 'homepage_content', 'contact_messages'],
 } as const;
 
 /**
@@ -444,6 +445,34 @@ export function ensureAdoptedSchema(db: Database): void {
       reward_value INTEGER,
       probability INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- P4.3b.4: portal. The public website surface; independent of students and classes.
+    CREATE TABLE IF NOT EXISTS homepage_content (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      section_key TEXT UNIQUE NOT NULL,
+      content_json TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS articles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      summary TEXT,
+      content TEXT NOT NULL,
+      cover_image TEXT,
+      category TEXT,
+      is_published INTEGER DEFAULT 0,
+      view_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS contact_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT,
+      message TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
