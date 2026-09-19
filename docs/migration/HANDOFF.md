@@ -116,7 +116,10 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
 | P4.3c.2 | **两套组装共用同一份 DDL**（删掉 `adoptedTables.ts` 的重复定义） | 见 `git log` | ✅ |
 | P4.3c.3 | 按域拆分 migration（让 kernel-only 部署不再建业务表） | — | ⬜ |
-| P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
+| P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | 🔶 |
+| P5.1 | **19 个 `enable_*` 前端硬编码表 → 从插件 manifest 生成** | 见 `git log` | ✅ |
+| P5.2 | 62 个转发 shim → 真实 UI 移入插件；`AppRoutes` 的 80 条 Route → 注册表驱动 | — | ⬜ |
+| P5.3 | 4 个布局的硬编码菜单 → `MenuRegistry`；`window.__TC_CONFIG__` 取代部署期 `sed` | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
 

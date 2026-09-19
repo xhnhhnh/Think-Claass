@@ -479,13 +479,22 @@ function buildHost(input: BuildHostInput): PluginHost {
     health: () => boundary.snapshot(),
 
     publicDescriptors(): PublicPluginDescriptor[] {
-      return active.map((entry) => ({
-        id: entry.manifest.id,
-        name: entry.manifest.name,
-        version: entry.manifest.version,
-        frontend: entry.manifest.provides?.frontend ?? {},
-        permissions: (entry.manifest.provides?.permissions ?? []).map((permission) => permission.key),
-      }));
+      return active.map((entry) => {
+        const declarations = entry.manifest.provides?.permissions ?? [];
+        return {
+          id: entry.manifest.id,
+          name: entry.manifest.name,
+          version: entry.manifest.version,
+          frontend: entry.manifest.provides?.frontend ?? {},
+          permissions: declarations.map((permission) => permission.key),
+          // The labels come from the manifest so the browser does not need its own copy.
+          permissionDeclarations: declarations.map((permission) => ({
+            key: permission.key,
+            label: permission.label,
+            scope: permission.scope,
+          })),
+        };
+      });
     },
 
     summary() {

@@ -25,7 +25,9 @@
     "baseline": "node scripts/migration/measure.mjs --write",
     "api:surface": "node scripts/migration/api-surface.mjs",
     "api:surface:check": "node scripts/migration/api-surface.mjs --check",
-    "api:surface:update": "node scripts/migration/api-surface.mjs --update"
+    "api:surface:update": "node scripts/migration/api-surface.mjs --update",
+    "class-features": "node scripts/migration/class-features.mjs --update",
+    "class-features:check": "node scripts/migration/class-features.mjs --check"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

@@ -170,4 +170,14 @@ export interface PublicPluginDescriptor {
   version: string;
   frontend: PluginFrontendDeclaration;
   permissions: string[];
+  /**
+   * The same permissions, with the label and scope their manifest declared.
+   *
+   * `permissions` alone is enough to authorise a request but not to *render* a settings
+   * screen: the labels live in the manifest, and the alternative is a second hardcoded
+   * copy in the frontend. That copy exists today (`src/lib/classFeatures.ts` repeats all
+   * 19 class-scope flags and their Chinese labels) and it is the last surface guardrail
+   * G4 counts. Sending the declarations is what lets the frontend derive them instead.
+   */
+  permissionDeclarations: Array<{ key: string; label: string; scope: string }>;
 }
