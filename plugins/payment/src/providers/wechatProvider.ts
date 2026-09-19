@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 
-import { ApiError } from '../../utils/apiError.js';
+import { ApiError } from '@thinkclass/kernel';
+
 import type {
   CreatePaymentOrderInput,
   CreatePaymentOrderResult,

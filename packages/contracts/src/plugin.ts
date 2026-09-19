@@ -9,7 +9,23 @@
 
 import type { PermissionDeclaration, Role, ScopeType } from './identity.js';
 
-export type PluginTier = 'foundation' | 'feature';
+/**
+ * What kind of plugin this is. Decides load order, and the `required` invariant beside it.
+ *
+ *   foundation      - a domain others depend on (classroom, identity). `required: true`; the
+ *                     resolver sorts it first, because a dependent plugin's `setup()` may use its
+ *                     port.
+ *   feature         - an ordinary domain. `required: false`; disabling it degrades one feature.
+ *   infrastructure  - not a domain: it carries a cross-cutting capability the platform needs
+ *                     (payment). `required: true` like foundation - "the system cannot honestly
+ *                     pretend to work without it" - but it sorts with the *feature* group rather
+ *                     than the foundation group, because no plugin's `setup()` resolves its port.
+ *                     Added in P4.3b.8 to settle the question HANDOFF section 8.9 left open
+ *                     ("kernel side, or a non-feature plugin?"): giving the kernel payment
+ *                     knowledge would break guardrail G5, and calling it a `feature` would claim
+ *                     it can simply be switched off.
+ */
+export type PluginTier = 'foundation' | 'feature' | 'infrastructure';
 
 export type PluginIsolation = 'in-process' | 'restricted' | 'worker';
 

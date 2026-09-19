@@ -134,6 +134,7 @@ describe('legacy composition serves plugin routes', () => {
       'learning',
       'marketplace',
       'parent-buff',
+      'payment',
       'pet',
       'portal',
       'slg',
@@ -354,6 +355,78 @@ describe('legacy composition serves plugin routes', () => {
     expect(missingResource.body).toContain('Student not found');
     expect(missingRoute.body).toContain('Cannot GET');
     expect(missingResource.body).not.toBe(missingRoute.body);
+  });
+
+  it('runs the migrated payment domain end to end: order, webhook, and the account it opens up', async () => {
+    // `api/modules/platform` is gone (P4.3b.8) and these three routes are plugins/payment's - an
+    // `infrastructure`-tier plugin, because it owns live orders and cannot be switched off like a
+    // feature. This walks the whole chain against the real server:
+    //
+    //   login -> create an order -> a bad signature is rejected -> the real mock webhook settles it
+    //   -> the order reads PAID *and* the account it paid for reports is_activated: true.
+    //
+    // The last step is the one that matters. `is_activated` lives in `users` (identity's table) and
+    // the order lives in `payment_orders` (this plugin's), so observing both changed proves the
+    // cross-plugin activation port actually ran - no fake can show that.
+    const login = await probe('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'admin123', role: 'teacher' }),
+    });
+    const token = (JSON.parse(login.body) as { token: string }).token;
+    const auth = { 'content-type': 'application/json', authorization: `Bearer ${token}` };
+
+    const created = await probe('/api/payment/create', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ method: 'wechat' }),
+    });
+    expect(created.status, `create body: ${created.body}`).toBe(200);
+
+    const order = JSON.parse(created.body) as {
+      success: boolean;
+      message: string;
+      data: { orderNo: string; status: string; amount: number; environment: string; providerMode: string };
+    };
+    expect(order.success).toBe(true);
+    expect(order.message).toBe('订单创建成功');
+    expect(order.data.status).toBe('AWAITING_PAYMENT');
+    expect(order.data.environment).toBe('mock');
+
+    const status = await probe(`/api/payment/status/${order.data.orderNo}`, { headers: auth });
+    expect(status.status).toBe(200);
+    expect(JSON.parse(status.body)).toMatchObject({ success: true, data: { orderNo: order.data.orderNo } });
+
+    // A webhook with no signature header must be refused: the mock provider only accepts the
+    // literal `mock-valid-signature`, so this proves verification runs before anything is written.
+    const unsigned = await probe('/api/payment/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orderNo: order.data.orderNo, method: 'wechat', trade_status: 'SUCCESS' }),
+    });
+    expect(unsigned.status).toBe(401);
+    expect(unsigned.body).toContain('Invalid signature');
+
+    const notified = await probe('/api/payment/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-payment-signature': 'mock-valid-signature' },
+      body: JSON.stringify({ orderNo: order.data.orderNo, method: 'wechat', trade_status: 'SUCCESS' }),
+    });
+    // The channel expects the literal `success` string, not an envelope.
+    expect(notified.status, `notify body: ${notified.body}`).toBe(200);
+    expect(notified.body).toBe('success');
+
+    const settled = await probe(`/api/payment/status/${order.data.orderNo}`, { headers: auth });
+    expect(JSON.parse(settled.body)).toMatchObject({ success: true, data: { status: 'PAID' } });
+
+    // And the account is open: `users.is_activated` flipped through identity.public.activateUser.
+    const profile = await probe('/api/auth/profile', {
+      method: 'PUT',
+      headers: auth,
+      body: JSON.stringify({ username: 'admin' }),
+    });
+    expect(profile.status, `profile body: ${profile.body}`).toBe(200);
+    expect(JSON.parse(profile.body)).toMatchObject({ success: true, user: { is_activated: true } });
   });
 
   it('serves the migrated pet domain from its plugin, through the classroom port', async () => {

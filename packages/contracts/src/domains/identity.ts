@@ -105,10 +105,15 @@ export interface IdentityPort {
    * write a second event - the behaviour the pre-migration service had, and the reason its
    * dedupe query is part of this contract rather than an implementation detail.
    *
-   * It writes `users.is_activated` and appends to `activation_events`. It does **not** touch
-   * `payment_orders`: that table belongs to the payment domain, which marks its own order paid.
-   * That is the one thing the original single transaction did which this split hands back to the
-   * owner - see `ActivateUserInput.orderId`.
+   * **Idempotency is also the payment retry contract.** The pre-migration
+   * `activationService.activateUser` wrote the event and flipped `payment_orders.status` inside
+   * one transaction, and `paymentService.markOrderPaid` short-circuited when the order was
+   * already `PAID`. That combination had a hole: if the process died between the two writes, a
+   * retry returned the existing event and the order stayed unpaid forever. Since this port does
+   * not touch `payment_orders` at all (the payment domain owns that table), the caller can order
+   * the writes the other way round - activate here first, then mark the order paid - so a retry
+   * re-enters, gets the same event back, and still completes the order update. See
+   * `plugins/payment` for the call site.
    */
   activateUser(input: ActivateUserInput): Promise<ActivationResult>;
 }

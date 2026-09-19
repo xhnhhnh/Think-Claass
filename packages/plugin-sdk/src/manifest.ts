@@ -52,7 +52,7 @@ const EVENT_TOPIC_RE = /^[a-z][a-z0-9]*(?:\.[a-z0-9]+)*(?:\.\*)?$/;
  */
 const PERMISSION_KEY_RE = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/;
 
-const TIERS: PluginTier[] = ['foundation', 'feature'];
+export const TIERS: PluginTier[] = ['foundation', 'feature', 'infrastructure'];
 const ISOLATIONS: PluginIsolation[] = ['in-process', 'restricted', 'worker'];
 const SCOPES: ScopeType[] = ['platform', 'school', 'class', 'student'];
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
@@ -189,11 +189,16 @@ export function validateManifest(raw: unknown, options: { kernelApiVersion?: num
   if (required !== undefined && typeof required !== 'boolean') {
     issues.error('required', 'must be a boolean');
   }
-  if (tier === 'foundation' && required !== true) {
-    issues.error('required', 'foundation-tier plugins must set "required": true');
+  // `required` means "the composition cannot honestly pretend to work without it", and it is
+  // orthogonal to `tier`'s load order: foundation and infrastructure both need it, feature must
+  // not claim it. A required plugin that is missing still does not stop the boot - the resolver
+  // reports it and the host records a rejection (HANDOFF section 9), which is what makes
+  // `required` a statement of intent rather than a startup switch.
+  if (tier !== 'feature' && required !== true) {
+    issues.error('required', `${tier}-tier plugins must set "required": true`);
   }
   if (tier === 'feature' && required === true) {
-    issues.error('required', 'only foundation-tier plugins may be required');
+    issues.error('required', 'only foundation- and infrastructure-tier plugins may be required');
   }
 
   const isolation = source.isolation ?? 'restricted';

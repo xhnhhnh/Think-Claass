@@ -1,0 +1,38 @@
+{
+  "id": "payment",
+  "name": "支付与开通",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "infrastructure",
+  "required": true,
+  "isolation": "in-process",
+  "description": "Payment infrastructure: the three /api/payment routes, the order and transaction ledger, and the WeChat/Alipay provider layer. Relocated from api/modules/platform plus api/services/paymentService.ts and api/services/paymentProviders/** (P4.3b.8), which empties api/modules/platform and makes api/modules/** hold only un-migrated domains. The user activation it performs is identity.public.activateUser - this plugin owns the order, identity owns the user, and the ordering between those two writes is chosen so a retried webhook always finishes the job.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "identity": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "POST", "base": "/api/payment", "handler": "PaymentController.createPayment", "auth": "actor" },
+      { "method": "GET", "base": "/api/payment", "handler": "PaymentController.getPaymentStatus", "auth": "actor" },
+      { "method": "POST", "base": "/api/payment", "handler": "PaymentController.notifyPayment", "auth": "public" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": [
+      "payment_orders",
+      "payment_transactions"
+    ],
+    "_adopted_note": "Both tables keep their legacy names (the P7 namespace migration tracked by guardrail G10 renames them to p_payment_*). They were created by the 0000b_payment_tables migration rather than by the boot schema, because they had only ever existed in Prisma - every /api/payment route answered 500 on a boot-schema database until P4.3b.5c measured it. `activation_events` is NOT here even though the old activationService wrote it: that table belongs to identity, and the activation now happens through identity.public.",
+    "reads": [],
+    "_reads_note": "Empty, and that is the design. The only outside resources are the kernel's `settings` table (six payment_* keys, read through ctx.settings.getPlatform - a read-only accessor, so it is not a data declaration) and identity's activation port. Every statement in payment.repository.ts names one of the two adopted tables.",
+    "_known_debt": "1. `payment_transactions.updated_at` has `DEFAULT CURRENT_TIMESTAMP` and no trigger, so it never changes after insert - the Prisma schema has the same property, and P4.3b.5c decided not to half-fix it. 2. The two writes a settled payment needs - the identity activation event + `users.is_activated`, and this plugin's WEBHOOK transaction + order status - cannot be atomic across a plugin boundary. The ordering here (activate first, then mark paid) makes a retry converge; it does not make the pair atomic. Recorded rather than hidden. 3. `payment_environment: production` requires WeChat/Alipay credentials that this deployment has never had; the provider layer throws a clear 400 (`微信支付未配置：...`) rather than silently issuing mock URLs, and no test exercises a real channel call (no network in this environment)."
+  }
+}

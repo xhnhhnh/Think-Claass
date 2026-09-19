@@ -123,6 +123,7 @@ describe('plugin discovery and activation', () => {
       'learning',
       'marketplace',
       'parent-buff',
+      'payment',
       'pet',
       'portal',
       'slg',
@@ -170,6 +171,7 @@ describe('plugin discovery and activation', () => {
       'learning:active',
       'marketplace:active',
       'parent-buff:active',
+      'payment:active',
       'pet:active',
       'portal:active',
       'slg:active',
@@ -211,15 +213,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(16);
-    expect(body.kernel.plugins.active).toBe(16);
+    expect(body.kernel.plugins.total).toBe(17);
+    expect(body.kernel.plugins.active).toBe(17);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'identity', 'learning', 'marketplace', 'parent-buff', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'identity', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
   });
 });
 

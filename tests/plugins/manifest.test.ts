@@ -74,10 +74,23 @@ describe('manifest validation', () => {
     expect(result.errors[0].message).toContain('this kernel provides API 1');
   });
 
-  it('requires foundation plugins to be required, and feature plugins not to be', () => {
+  it('requires foundation and infrastructure plugins to be required, and feature plugins not to be', () => {
     expect(errorsOf(baseManifest({ tier: 'foundation' })).join()).toContain('must set "required": true');
-    expect(errorsOf(baseManifest({ tier: 'feature', required: true })).join()).toContain('only foundation-tier');
+    expect(errorsOf(baseManifest({ tier: 'infrastructure' })).join()).toContain('must set "required": true');
+    expect(errorsOf(baseManifest({ tier: 'feature', required: true })).join()).toContain('may be required');
     expect(validateManifest(baseManifest({ tier: 'foundation', required: true })).ok).toBe(true);
+    expect(validateManifest(baseManifest({ tier: 'infrastructure', required: true })).ok).toBe(true);
+  });
+
+  it('accepts exactly the three tiers, and rejects an invented one', () => {
+    // The tier list is a closed set: `tier: "platform"` or a typo must fail loudly rather than
+    // silently falling into the feature group.
+    for (const tier of ['foundation', 'feature', 'infrastructure']) {
+      expect(errorsOf(baseManifest({ tier, required: tier !== 'feature' }))).toEqual([]);
+    }
+    expect(errorsOf(baseManifest({ tier: 'platform', required: true })).join()).toContain(
+      'must be one of foundation, feature, infrastructure',
+    );
   });
 
   it('rejects a backend entry that escapes the plugin directory', () => {

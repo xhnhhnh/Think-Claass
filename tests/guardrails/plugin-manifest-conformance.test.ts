@@ -21,7 +21,11 @@ const allowances = readAllowances();
 
 const PLUGIN_ROOTS = ['plugins', 'plugins-ext'];
 
-const TIERS = new Set(['foundation', 'feature']);
+// `infrastructure` joined in P4.3b.8 for the payment plugin: not a domain, cannot be switched off,
+// and not kernel material either (guardrail G5 keeps `payment_orders` out of `packages/kernel`).
+// The set is repeated here on purpose - a manifest tier the SDK accepts but this guardrail has
+// never heard of is exactly the kind of drift these tests exist to catch.
+const TIERS = new Set(['foundation', 'feature', 'infrastructure']);
 const ISOLATION = new Set(['in-process', 'restricted', 'worker']);
 const REQUIRED_STRING_FIELDS = ['id', 'name', 'version', 'kernel', 'tier'];
 
@@ -202,7 +206,11 @@ describe('G10 adopted legacy tables ratchet', () => {
     // 50 -> 53 in P4.3b.7, when identity adopted `users`, `activation_codes` and
     // `activation_events` - three tables that existed since the boot schema and that no
     // plugin owned, which is why nothing checked who wrote them.
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(53);
+    // 53 -> 55 in P4.3b.8, when the payment plugin adopted `payment_orders` and
+    // `payment_transactions`. Those two are the tables that had *no* table at all until
+    // P4.3b.5c created them from the Prisma schema, so this increment closes the loop on the
+    // finding that started G13's reverse check.
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(55);
   });
 
   it('never declares a table as both owned and adopted', () => {

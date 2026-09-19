@@ -56,6 +56,12 @@ export interface ResolveOptions {
  * Kafka's ordering rule is not needed here, but determinism is: two runs over the
  * same plugin set must activate in the same order so logs and side effects are
  * reproducible. Ties break on tier (foundation first) then id.
+ *
+ * `infrastructure` deliberately sorts with `feature`, not with `foundation`: the tier says
+ * "the platform needs this and cannot be disabled", not "other plugins resolve its port during
+ * setup". Payment is the one member, and no plugin's `setup()` asks it for anything - it is a
+ * consumer of `identity.public`. Sorting it second also keeps the foundation plugins' `use()`
+ * calls resolvable, which is the only reason the group exists.
  */
 function activationSortKey(manifest: PluginManifest): [number, string] {
   return [manifest.tier === 'foundation' ? 0 : 1, manifest.id];

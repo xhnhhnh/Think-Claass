@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { AdminModule } from './modules/admin/admin.module.js';
 import { EngagementModule } from './modules/engagement/engagement.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
-import { PlatformModule } from './modules/platform/platform.module.js';
 
 /**
  * The legacy composition's module list.
@@ -30,9 +29,15 @@ import { PlatformModule } from './modules/platform/platform.module.js';
  *   AuthModule          -> plugins/identity      (P4.3b.7) - login / profile / register /
  *                          activate over `users` + the activation ledger, which also took
  *                          api/services/activationService.ts with it
+ *   PlatformModule      -> plugins/payment       (P4.3b.8) - the three /api/payment routes, the
+ *                          order ledger and the channel providers; it also took
+ *                          api/services/paymentService.ts and paymentProviders/** with it
  *
- * After P4.3b.7 this list is down to four modules, and every one of them is a domain the
- * migration has not reached yet (admin, engagement, insights, and the payment half of platform).
+ * After P4.3b.8 this list is down to three modules, and each one is a domain the migration has not
+ * reached yet: admin, engagement, insights. `api/modules/platform` is gone entirely - it stopped
+ * being a domain in P4.3b.5d (parent-buff left) and the payment half moved into an
+ * `infrastructure`-tier plugin rather than into the kernel, which would have made the kernel know
+ * what a payment order is (guardrail G5).
  *
  * `SettingsModule` is the one entry that did not become a plugin: its entire body
  * was `SELECT key, value FROM settings`, and `settings` is kernel-owned storage, so
@@ -58,7 +63,6 @@ import { PlatformModule } from './modules/platform/platform.module.js';
     AdminModule,
     EngagementModule,
     InsightsModule,
-    PlatformModule,
   ],
 })
 export class AppModule {}
