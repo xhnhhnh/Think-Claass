@@ -85,7 +85,7 @@ npm test                      # 核对我声称的 114 文件 / 437 用例
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 15 组防伪护栏（棘轮，45 用例）
+npm run guard         # 15 组防伪护栏（棘轮，47 用例）
 
 npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
@@ -209,10 +209,10 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | `deadCode` | **65**（70 → 69 → 66 → 65）| 0 | 应用不可达文件 |
 | `staticPluginRoutes` | **0** ✅（76 → 0）| 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
-| `adoptedTables` | 2 | 0 | 仍带旧名的插件自有表 |
+| `adoptedTables` | **32**（26 → 28 → 32）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入） |
 | `routeCollisions` | **1 → 0**（P4.3b R1 新增）| 0 | 同一 METHOD+PATH 被两个控制器文件声明 |
 
-其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**。
+其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；**反向：每个 Prisma 模型都要有表**）。
 
 ### ⚠️ 快照的三个盲区（第三个在 P5.3c 发现）
 
@@ -239,7 +239,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 npm test        117 文件 / 634 用例全绿
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)
-guardrails      11 文件 / 45 用例
+guardrails      11 文件 / 47 用例
 ```
 
 **已迁成插件的域（13 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments（+ 原有 classroom, pet）
@@ -608,6 +608,84 @@ admin 走 Prisma `$transaction` 而非 `DbApi`，所有权检查看不见 ——
 
 ---
 
+### ⚠️ P4.3b.5c 的三个实测发现（都很容易再踩）
+
+#### 1. `.env` 把 Prisma 与 `api/db.ts` 指向了**两个不同的库**
+
+- Prisma 的 datasource 是 `env("DATABASE_URL")`，而 `.env` 里写死 `DATABASE_URL="file:../database.sqlite"`。
+- `api/db.ts` 走 `DATABASE_FILE`（默认 `process.cwd()/database.sqlite`）。
+
+**实测**（`.tmp/prisma-vs-db-probe.mts`，设 `DATABASE_FILE=.tmp/x.sqlite`）：
+
+```
+api/db.ts file:  ["D:\\think-class\\.tmp\\payment-probe2.sqlite"]
+prisma    file:  ["D:\\think-class\\database.sqlite"]
+```
+
+所以设了 `DATABASE_FILE` 之后，**应用与 Prisma 在不同库上工作**。之前"内核组装下读到空表/缺表"的很多现象都有这一半原因。
+**探针/测试凡是走 Prisma 的，不能再靠 `DATABASE_FILE` 隔离** —— 要么不覆盖它（就用 `database.sqlite`），要么同时设 `DATABASE_URL`。
+这是环境配置缺陷，尚未修（它属于 P4.3c.3 的收尾，与"内核单独部署"一起做更合适）。
+
+#### 2. `payment_orders` / `payment_transactions` **两个模型根本没有表**
+
+它们只在 `prisma/schema.prisma` 里，boot DDL 里没有、`database.sqlite` 里也没有。后果是实测出来的（`.tmp/payment-live-probe.mts`，legacy 组装 + 全新库）：
+
+```
+POST /api/payment/create          -> 500   no such table: payment_orders
+GET  /api/payment/status/:orderNo -> 500   （同上）
+POST /api/payment/notify          -> 401   'Invalid signature'  ← 更早失败，根本没碰到表
+```
+
+**整个 `/api/payment` 面在任何靠 boot schema 建起来的库上都是死的**，只有 `prisma db push` 建过它们。
+`activation_codes`/`activation_events` 一直在 boot DDL 里，正是这个对比让人漏掉了它们。
+
+**修法**：新增 `api/schema/paymentTables.ts`（`0000b_payment_tables`，`owner: 'legacy'`），
+列定义取自 Prisma 自己的输出（`prisma migrate diff --from-empty --to-schema-datamodel`），不是手抄近似值。
+两处刻意翻译：唯一索引在 Prisma 输出里叫 `sqlite_autoindex_payment_orders_1`，而 SQLite 只允许隐式约束占用这个名字，
+所以写成列上的 `UNIQUE`（结果就是同一个索引）；`updated_at` 默认 `CURRENT_TIMESTAMP` 但**没有触发器去更新它**，
+与 Prisma schema 一致，本轮不半修。
+
+**修完实测**（`.tmp/payment-real-db-probe.mts`，不覆盖 `DATABASE_FILE`，两个连接都落到 `database.sqlite`）：
+
+```
+prisma payment_orders count: 0                  ← Prisma 终于能看见表了
+POST /api/payment/create   -> 200 {"success":true,"message":"订单创建成功","data":{...}}
+GET  /api/payment/status   -> 200
+transactions recorded: [{"transaction_type":"CREATE","status":"AWAITING_PAYMENT","provider":"wechat"}]
+```
+
+`/api/payment/notify` 仍是 401（mock provider 的签名校验），这一条**不在本轮范围内**，未改动。
+
+#### 3. **绝对不能改已应用的迁移**（本轮差点酿成部署事故）
+
+本轮第一次实现是**把两张表追加进 `0000_legacy_boot_schema` 的 SQL**。这是错的，而且错得很危险：
+字符串迁移的 checksum 就是那段 SQL，`runMigrations` 对已应用的迁移做 checksum 比对，不一致就**直接抛错拒绝启动**：
+
+```
+migration "0000_legacy_boot_schema" was modified after it was applied
+(recorded <a>, now <b>). Add a new migration instead of editing an applied one.
+```
+
+也就是说，那次改动会让**每一个已经迁移过的库**（包括线上库）在启动时崩掉。已 `git checkout` 撤回。
+正确做法就是现在的样子：**新的、id 排在后面的迁移**（`0000b_` 排在 `0000_` 之后、`0001_` 之前，
+所以 `users` 表先存在，外键才建得起来）。
+
+**G13 现在同时盯住两个维护方向**（`tests/guardrails/boot-schema-completeness.test.ts`）：
+
+- 正向（原有）：每个插件 manifest 声明的表都必须被建出来；
+- **反向（本轮新增）**：**每个 Prisma 模型都必须有表**。这条如果早存在，发现 #2 会当场被拦下。
+  已用**变异验证**过它非空转：临时把 `paymentTablesMigration` 从清单里去掉，测试立刻报
+  `prisma model "payment_orders" has no table in the application migrations`。
+
+#### 实测数字
+
+```
+prisma models: 79        迁移建出的表: 80        （80 = 79 个模型 + __core_migrations 账本）
+models with NO table: 0  tables with no model: 0
+```
+
+---
+
 ### P4.3c · `api/db.ts` 启动期 DDL —— 🔶 进行中
 
 **P4.3c.1 已完成**：`initDb()` 里那 787 行 DDL（79 张表 + 60 个索引）收编为编号迁移：
@@ -617,7 +695,7 @@ export const BOOT_SCHEMA_MIGRATION_ID = '0000_legacy_boot_schema';
 export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `...787 行 SQL...` };
 ```
 
-- `initDb()` 现在直接 `runMigrations(db, [bootSchemaMigration])`，然后**照旧**每次启动执行 seed 段
+- `initDb()` 现在直接 `runMigrations(db, [bootSchema, paymentTablesMigration])`，然后**照旧**每次启动执行 seed 段
   （首页内容、14 条 settings、`addColumnIfNotExists` 兼容列）—— 行为逐字不变。
   （原文这里写的是"先 `ensureAdoptedSchema(db)`"，那个函数连同 `api/schema/adoptedTables.ts` 已在 **P4.3c.2** 删除：它曾与 boot DDL 重复定义 6 张表，且 P4.3c.2 移走 DDL 时正是这 6 张表静默消失、测试却全绿的原因。）
 - **注意**：`ensureAdoptedSchema` / `ensureReadOnlyLegacyTables` 这两个名字在旧笔记、旧探针（如 `.tmp/collaboration-probe.mts`）和 `plugins/challenge/plugin.json` 的 `_reads_note` 里都出现过，**它们现在都不存在**。看到就当过时信息处理。
@@ -635,7 +713,7 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 
 - DDL 移到 `api/schema/legacyBootSchema.ts`（**应用侧**，不是 kernel 包）。
 - legacy 组装：`initDb()` 通过 ledger 跑它。
-- kernel 组装：`api/app.ts` 用 **`createKernel({ migrations: [bootSchemaMigration] })`** 注入它
+- kernel 组装：`api/app.ts` 用 **`createKernel({ migrations: [bootSchemaMigration, paymentTablesMigration] })`** 注入它
   —— 这个注入点在 `CreateKernelOptions` 里本来就有，专为"应用提供自己的迁移"而设。
 - `createKernel` 的 `ensureSchema?` 钩子**已删除**（它存在的唯一理由是补 `adoptedTables.ts` 的重复 DDL）。
 - 插件唯一能建的表仍是 `p_<slug>_`，插件 manifest 的 `data.adopted` 语义不变。
@@ -666,8 +744,12 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 
 **P4.3c.3 待做**：schema 仍是**一整块**，kernel-only 部署会建出全部 78 张业务表。
 按域拆分 migration 之后，kernel 才能只建自己需要的表；那也是删除 §8.8 那类漂移风险的最后一步。
+**收尾时一并解决**：`.env` 的 `DATABASE_URL` 与 `DATABASE_FILE` 两个独立设置指向同一个库这件事（见上文 P4.3b.5c 发现 #1），
+应该收敛成一个来源，否则"内核单独部署"永远无法配出一个 Prisma 与应用都对的库。
 
-- 注意 `payment_orders`/`payment_transactions` **只存在于 Prisma**（不在 `initDb` 的 DDL 里），`messages_new` 只存在于原始 SQL、不在 Prisma。
+- 注意 `messages_new` 只存在于原始 SQL、不在 Prisma。
+- ~~`payment_orders`/`payment_transactions` 只存在于 Prisma（不在 `initDb` 的 DDL 里）~~ → **P4.3b.5c 已修**：
+  新增 `0000b_payment_tables` 迁移，G13 现在会拦住这类"有模型没表"的缺口（见上文）。
 
 ### P5 · 前端插件化
 - 删掉 62 个一行 shim（`src/features/*/pages/*`），把真实 UI 从 `src/pages/<Role>/` 移入插件
@@ -730,5 +812,5 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 | `docs/migration/03-plugin-runtime.md` | 插件运行时全貌、10 个缺陷 |
 | `docs/migration/04-capabilities-and-domains.md` | 能力系统、审计下沉、`game` 拆分 |
 | `scripts/migration/lib/analysis.mjs` | 所有度量的单一实现 |
-| `tests/guardrails/` | 11 条护栏（G1–G13）+ 棘轮额度 |
+| `tests/guardrails/` | 11 条护栏（G1–G16 中已实现的那些）+ 棘轮额度 |
 | `scripts/migration/spikes/nest-dynamic-controllers.mjs` | R10 证据（判断 Nest 能否动态装配时先跑它） |

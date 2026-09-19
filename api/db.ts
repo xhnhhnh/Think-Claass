@@ -131,6 +131,12 @@ export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: str
 import { bootSchemaMigration as bootSchema } from './schema/legacyBootSchema.js';
 export { BOOT_SCHEMA_MIGRATION_ID, bootSchemaMigration } from './schema/legacyBootSchema.js';
 
+// The payment tables are a separate migration appended after the boot schema, because
+// editing the boot schema's SQL would change its checksum and `runMigrations` refuses to
+// start against a database that already applied it. See api/schema/paymentTables.ts.
+import { paymentTablesMigration } from './schema/paymentTables.js';
+export { PAYMENT_TABLES_MIGRATION_ID, paymentTablesMigration } from './schema/paymentTables.js';
+
 export function initDb() {
   db.pragma('foreign_keys = ON');
 
@@ -139,7 +145,9 @@ export function initDb() {
   // student_stocks) that plugins declare under `data.adopted`. Already-applied databases
   // skip it and the ledger records that fact, instead of re-running ~800 lines of DDL
   // silently on every start.
-  runMigrations(db, [bootSchema], { logger: createLogger('legacy-schema', { level: 'warn' }) });
+  runMigrations(db, [bootSchema, paymentTablesMigration], {
+    logger: createLogger('legacy-schema', { level: 'warn' }),
+  });
 
 
   // 初始化首页内容默认数据

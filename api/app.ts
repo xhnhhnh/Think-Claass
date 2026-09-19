@@ -45,6 +45,7 @@ import {
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb, decrypt } from './db.js'
 import { bootSchemaMigration } from './schema/legacyBootSchema.js'
+import { paymentTablesMigration } from './schema/paymentTables.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
 import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
@@ -254,7 +255,12 @@ export async function createApp(): Promise<Express> {
     // injected rather than registered inside the kernel because the kernel must stay
     // domain-free (guardrail G5) - `enable_economy`, `pets` and `dungeon_runs` are not
     // kernel concepts. See api/schema/legacyBootSchema.ts.
-    migrations: [bootSchemaMigration],
+    //
+    // `paymentTablesMigration` is listed separately rather than folded into the boot
+    // schema: its SQL is already applied in the wild, and a string migration's checksum IS
+    // its SQL, so appending to it would make the runner refuse to start. See
+    // api/schema/paymentTables.ts.
+    migrations: [bootSchemaMigration, paymentTablesMigration],
     // Student names are AES-encrypted at rest and the key belongs to the application,
     // not the kernel. Handing the decryptor over lets `classroom.public` publish
     // readable names without any plugin importing `api/**`.

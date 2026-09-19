@@ -18,6 +18,13 @@
  *      for every class instead of erroring, because the capability fallback reads
  *      `classes.<feature>` by name.
  *
+ * A third shape was added in P4.3b.5c, after it had already shipped: a table that
+ * `prisma/schema.prisma` declares but the migrations never create. `payment_orders` and
+ * `payment_transactions` were in exactly that state, so every `/api/payment` route answered
+ * 500 on any database built from these migrations, and `prisma db push` was the only thing
+ * that could ever have created them. The check is now symmetric: every manifest
+ * declaration AND every Prisma model must have a table.
+ *
  * The schema is executed against an in-memory database, so this checks the SQL that
  * actually runs rather than the text of the file.
  */
@@ -28,7 +35,36 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { bootSchemaMigration } from '../../api/schema/legacyBootSchema.js';
+import { paymentTablesMigration } from '../../api/schema/paymentTables.js';
 import { ROOT } from './lib/paths.mjs';
+
+/**
+ * Every migration that contributes to the application schema, in id order.
+ *
+ * `paymentTablesMigration` is separate rather than appended to the boot schema on purpose:
+ * a string migration's checksum is its SQL text, so editing the boot schema would make
+ * `runMigrations` refuse to start against every database that had already applied it.
+ */
+const APPLICATION_MIGRATIONS = [bootSchemaMigration, paymentTablesMigration];
+
+/** All application tables, built by running the migrations for real. */
+function createSchema(): Database.Database {
+  const db = new Database(':memory:');
+  for (const migration of APPLICATION_MIGRATIONS) {
+    expect(typeof migration.up, `${migration.id} must be a string migration`).toBe('string');
+    db.exec(migration.up as string);
+  }
+  return db;
+}
+
+function tableNames(db: Database.Database): Set<string> {
+  return new Set(
+    db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table'`)
+      .all()
+      .map((row) => (row as { name: string }).name),
+  );
+}
 
 /** Columns whose absence is a silent wrong answer rather than an error. */
 const REQUIRED_COLUMNS: Record<string, string[]> = {
@@ -76,12 +112,44 @@ describe('G13 boot schema satisfies its declarations', () => {
     expect(bootSchemaMigration.id).toBe('0000_legacy_boot_schema');
   });
 
+  it('does not edit an already-applied migration', () => {
+    // The boot schema's SQL is frozen: its checksum IS that text, and the runner throws
+    // "was modified after it was applied" rather than re-running it. New tables therefore
+    // arrive as new, later-sorting migrations - which is what `paymentTablesMigration` is.
+    // This pins the id ORDER (not the text, which legitimately has no reason to change):
+    // anything that must run after the boot schema has to sort after `0000_`.
+    for (const migration of APPLICATION_MIGRATIONS.slice(1)) {
+      expect(
+        migration.id > bootSchemaMigration.id,
+        `${migration.id} must sort after ${bootSchemaMigration.id} so users/classes exist first`,
+      ).toBe(true);
+    }
+  });
+
+  it('creates a table for every Prisma model', () => {
+    // The inverse of the manifest check below, and the one that was missing. A model the
+    // generated client can query but no migration creates is a 500 on every route that
+    // touches it - and because `prisma db push` can paper over it locally, the failure is
+    // invisible until a fresh deployment. `payment_orders` and `payment_transactions` sat
+    // in exactly that hole.
+    const db = createSchema();
+    const tables = tableNames(db);
+
+    const schemaText = fs.readFileSync(path.join(ROOT, 'prisma', 'schema.prisma'), 'utf8');
+    const models = [...schemaText.matchAll(/^model\s+(\w+)\s*\{/gm)].map((match) => match[1]);
+    expect(models.length, 'prisma schema parsed to zero models - the regex has drifted').toBeGreaterThan(50);
+
+    const missing = models
+      .filter((model) => !tables.has(model))
+      .map((model) => `prisma model "${model}" has no table in the application migrations`);
+
+    expect(missing, missing.join('\n')).toEqual([]);
+    db.close();
+  });
+
   it('creates every table the plugin manifests declare', () => {
-    const db = new Database(':memory:');
-    db.exec(bootSchemaMigration.up as string);
-    const tables = new Set(
-      db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all().map((row) => (row as { name: string }).name),
-    );
+    const db = createSchema();
+    const tables = tableNames(db);
 
     const missing: string[] = [];
     const pluginsDir = path.join(ROOT, 'plugins');
@@ -105,8 +173,7 @@ describe('G13 boot schema satisfies its declarations', () => {
   });
 
   it('creates every column the feature gates and compatibility layer need', () => {
-    const db = new Database(':memory:');
-    db.exec(bootSchemaMigration.up as string);
+    const db = createSchema();
 
     const missing: string[] = [];
     for (const [table, columns] of Object.entries(REQUIRED_COLUMNS)) {
