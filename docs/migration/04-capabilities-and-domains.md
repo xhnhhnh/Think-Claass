@@ -1,15 +1,20 @@
 # P4 — Capabilities and Domain Migration
 
-**Status:** in progress (part 1 of 3 complete)
+**Status:** in progress (3 of 4 parts complete)
 **Depends on:** [P3 plugin runtime](03-plugin-runtime.md)
 
-P4 is the largest phase, so it lands in three parts:
+**→ Resuming in a new session? Start with [`HANDOFF.md`](HANDOFF.md), which is the
+authoritative entry point and records the exact state, remaining work and traps.**
+
+P4 is the largest phase, so it lands in four parts:
 
 | Part | Scope | Status |
 |---|---|---|
 | **4.1 Capability system** | Replace the 19 `enable_*` columns with scope-addressed capability assignments; make the compatibility layer generic | ✅ complete |
 | **4.2 Audit sink** | Replace the hardcoded audit matcher with a descriptor registry and a kernel sink | ✅ complete |
-| 4.3 `game` split + remaining domains + schema | Split the `game` god-module into its six domains as plugins; move the remaining backend domains; retire `api/db.ts` boot DDL into numbered migrations | ⬜ |
+| **4.3a `game` split** | Dissolve the `game` god-module into six per-domain Nest modules | ✅ complete |
+| 4.3b Domains → plugins | Move those domains (and the rest) into `plugins/<domain>` | ⬜ next |
+| 4.3c Schema | Retire `api/db.ts` boot DDL into numbered migrations | ⬜ |
 
 ---
 
@@ -109,14 +114,66 @@ when menus and route gating come from plugin manifests.
 
 ---
 
-## What P4.3 still owes
+## What P4.3b and P4.3c still owe
 
-- The `game` god-module still holds 79 route handlers for six domains
-  (`battles`, `challenge`, `dungeon`, `economy`, `gacha`, `slg`), each of which has a
-  service and repository but no module or controller of its own.
+- The six domains are now independent **Nest modules**, but they are still `api/`
+  code, not plugins. Moving them needs the `ClassroomPort` feature-gate method and a
+  legacy composition that can mount plugin controllers — both designed in
+  [`HANDOFF.md`](HANDOFF.md) §8.
 - `api/db.ts` still re-runs its full boot DDL and owns 78 `CREATE TABLE` statements
   outside the migration ledger.
 - Seven `*.repository.prisma.ts` files and two dead service/util files still exist.
+
+---
+
+## P4.3a — Splitting the `game` god-module
+
+`api/modules/game/game.controllers.ts` was a single 741-line file holding six
+controllers (`challenge`, `economy`, `dungeon`, `gacha`, `battles`, `slg`) wired by
+one `GameModule`. Every one of those domains already had its own service, repository
+interface and SQLite repository — **only the HTTP surface was shared**, which is
+precisely what made the vertical domain layout cosmetic:
+
+```
+api/modules/game/          api/modules/<domain>/
+  game.controllers.ts  →     <domain>.controllers.ts   (own folder)
+  game.module.ts       →     <domain>.module.ts        (own module)
+  game.errors.ts       →   api/utils/gameErrors.ts     (shared by all six)
+```
+
+`app.module.ts` now imports six modules where it imported one, and `modules/game` is
+gone. The module file carries a comment recording why: "one module per domain" looks
+obvious until someone re-merges them.
+
+### Two things the mechanical move broke, and how they were caught
+
+1. **A module-private `ok()` helper.** The original file defined
+   `function ok(data, legacyPayload)` at module scope, and all six controllers called
+   it. It could not travel with any single one of them. It now lives in
+   `api/utils/apiResponse.ts` as a shared helper — six copies of the same three lines
+   is how the response shape drifted between modules in the first place.
+2. **A relative import that changed depth.** `game.errors.ts` moved up a directory,
+   so its `../../utils/apiError.js` had to become `./apiError.js`. The broken import
+   made `ApiError` unresolvable, which silently disabled the `instanceof` narrowing
+   and produced three further errors.
+
+Both were caught by `tsc`, not by inspection — the typecheck runs before every commit
+for exactly this reason.
+
+### Verification that this is a pure relocation
+
+| Check | Result |
+|---|---|
+| `npm run api:surface -- --check` | **288 endpoints unchanged** |
+| Runtime probe, one real route per domain, legacy server | `200 / 403` on all five probed — never `404` |
+| `npm test` | 114 files / 437 tests green |
+| `npm run guard` | 8 files / 27 tests green |
+| Dead code | still 70 |
+
+The 403s are the feature gate working: the route exists and the class-scope
+capability is off, which is a different outcome from a missing route.
+
+---
 
 ---
 
@@ -226,16 +283,7 @@ test genuinely changed:
 `classroom.service` asserts the capability call instead of the column loop, and the
 plugin host test now expects the 19 classroom permissions alongside pet's two.
 
----
-
-## What P4.2 and P4.3 still owe
-
-- The `game` god-module still holds 79 route handlers for six domains
-  (`battles`, `challenge`, `dungeon`, `economy`, `gacha`, `slg`), each of which has a
-  service and repository but no module or controller of its own.
-- `api/db.ts` still re-runs its full boot DDL and owns 78 `CREATE TABLE` statements
-  outside the migration ledger.
-- `api/utils/logMiddleware.ts` still matches four hardcoded paths to produce audit
-  entries, with `teacherId` defaulting to `1`.
-- Seven `*.repository.prisma.ts` files and two dead service/util files still exist.
+New in 4.3a: no new tests. The split is a relocation, so the guarantee comes from the
+frozen 288-endpoint snapshot plus a runtime probe of one route per domain — a new
+unit test here would assert the file layout, not behaviour.
 
