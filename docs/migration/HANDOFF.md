@@ -432,11 +432,11 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 - ~~**`plugins/pet` 与 `api/modules/pet` 路由碰撞**~~ ✅ **P4.3b.6 已还**：17 条旧路由按原语义/原信封搬进 `plugins/pet`（改用旧 `pets` 表），旧模块删除，`routeCollisions` 归 0。见 §9 的 P4.3b.6 记录。
 - ~~在 `plugins/pet` 补完之前，不要在 legacy 组装下开启插件后跑端到端前端流程~~ —— 前提已消失（碰撞为 0），legacy 组装现在由插件提供全部 pet 路由，实测两套组装的 14 条请求 body 完全一致。
 - **`admin.repository.ts` 的删教师级联是最后一笔跨域写债，而且它比本文档原先写的更具体**（P4.3b.11 实测，见 §9 的 P4.3b.11 记录）：
-  它删 **58 张表 / 65 条语句**（`.tmp/admin-cascade-inventory.mjs` 量出来的），全部在**一个** Prisma `$transaction` 里，
+  它删 **58 张表 / 65 条语句**（`scripts/migration/probes/admin-cascade-inventory.mjs` 量出来的），全部在**一个** Prisma `$transaction` 里，
   所以"删干净"是**原子**的 —— 这正是它不能用端口方法改写的约束：65 个端口调用 = 65 个独立事务，
   进程死在中间就留下半删的账号。它还绕开 `DbApi`，所以所有权检查对它完全无效。
   **另外**：61 张表持有指向 `users`/`classes`/`students` 的外键，其中**只有 1 张**没被这个级联清理：
-  `blind_boxes.teacher_id`（`.tmp/admin-cascade-fk-coverage.mjs`）。它的行永远是 NULL，因为
+  `blind_boxes.teacher_id`（`scripts/migration/probes/admin-cascade-fk-coverage.mjs`）。它的行永远是 NULL，因为
   `plugins/marketplace` 的插入语句根本不写这一列 —— 所以今天不是活 bug，而是一处**此前没人看到的 schema 漂移**（见下一条）。
 - **`records` 的其余写入方**（collaboration/marketplace/engagement/insights/pointsService/classroom）在各自迁移时都要改调 `classroom.public.recordStudentLedgerEntry()`。
   `api/services/pointsService.ts` 是共享 helper（marketplace 在用），它自己也要改。（pet 已在 P4.3b.6 改完。）
@@ -1048,7 +1048,7 @@ METHOD+PATH 不变，端点数仍是 297。**`api/modules/` 因此只剩 `admin`
 因为 admin 是本项目剩下最大的一块（940 行 repository + 58 张表的级联），在不知道约束的情况下动它
 只会重演 §0 那个反面教材。
 
-#### 1. 级联的规模与**原子性约束**（`数量来自 .tmp/admin-cascade-inventory.mjs`）
+#### 1. 级联的规模与**原子性约束**（`数量来自 scripts/migration/probes/admin-cascade-inventory.mjs`）
 
 `DELETE /api/admin/users/:id` → `deleteTeacherCascade` 删 **58 张表 / 65 条语句**（2 读 63 写），
 全部包在**一个** `prisma.$transaction` 里。
@@ -1082,11 +1082,11 @@ METHOD+PATH 不变，端点数仍是 297。**`api/modules/` 因此只剩 `admin`
 
 #### 3. 一条此前没人看到的 schema 漂移（已加护栏）
 
-`.tmp/admin-cascade-fk-coverage.mjs` 数出 **61 张表**持有指向 `users`/`classes`/`students` 的外键，
+`scripts/migration/probes/admin-cascade-fk-coverage.mjs` 数出 **61 张表**持有指向 `users`/`classes`/`students` 的外键，
 其中**只有 `blind_boxes`** 没被级联清理。继续查下去发现真正的问题不是级联：**`blind_boxes.teacher_id`
 在 boot DDL 里是 `REFERENCES users(id)`，却不在 `prisma/schema.prisma` 的模型里**。
 
-`.tmp/schema-prisma-column-drift.mjs` 把两个方向的差集都量了一遍：**SQLite 有而 Prisma 没有的列恰好 2 个** ——
+`scripts/migration/probes/schema-prisma-column-drift.mjs` 把两个方向的差集都量了一遍：**SQLite 有而 Prisma 没有的列恰好 2 个** ——
 `blind_boxes.teacher_id`（**没有任何代码写它**：`plugins/marketplace` 的插入语句是
 `(name, description, price, is_active)`，所以那列永远是 NULL）与 `peer_reviews.team_quest_id`
 （`0000c` 加的，collaboration 在用，合法）。
@@ -1399,6 +1399,10 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | `api/prismaClient.ts` | Prisma 客户端被钉在与内核相同的库文件上（显式 datasource 覆盖 `.env`），以及 `applicationDatabaseFile/Url` 两个函数 |
 | `tests/kernel/database-path-alignment.test.ts` | 两条数据路径必须同一库：规则一致性 + 真子进程验证 Prisma 实际打开的文件 + 「第四个 `DATABASE_FILE` 读取者」围栏 |
 | `tests/kernel/fixtures/database-path-probe.mts` | 上面那条子进程断言用的探针。**放在 `tests/` 而不是 `.tmp/`**：`.tmp/` 已 gitignore，第一版把它放在那里 —— 本机通过、新克隆必然失败。只在本机能跑的测试夹具不算测试 |
+| `scripts/migration/probes/admin-cascade-inventory.mjs` | 量 admin 级联：58 张表 / 65 条语句 / **1 个事务** —— P4.3b.11 的原子性约束就是这么得出来的 |
+| `scripts/migration/probes/admin-cascade-fk-coverage.mjs` | 61 张表持有指向 users/classes/students 的外键，并列出级联**没**清理的那 1 张（`blind_boxes`） |
+| `scripts/migration/probes/schema-prisma-column-drift.mjs` | SQLite 有而 Prisma 模型没有的列（当前恰好 2 个）；G13 的第二个方向断言就用它的结果 |
+| ⚠️ **这批探针为什么从 `.tmp/` 搬到这里** | `.tmp/` 是 gitignore 的。P4.3b.9 已经踩过一次同样的坑（测试夹具放在 `.tmp/` → 本机通过、新克隆必挂），P4.3b.11 又踩了一次（测量脚本）。**规则：凡会成为证据或断言依据的东西，一律放被跟踪的路径**；只有一次性、不需要复现的临时脚本才留在 `.tmp/` |
 | `tests/plugins/identity-service.test.ts` | 真迁移链建库 + 真 `DbApi(strict)`；两家端口都是 fake 并记录调用，证明"只走端口" |
 | `tests/plugins/identity-controllers.test.ts` | 4 条路由的动词/路径/`@HttpCode`、信封、以及 `ApiError` 与 500 兜底的翻译 |
 | `tests/plugins/legacy-boot-probe.test.ts` | 唯一一条**真启动 + 真 HTTP** 的登录链路断言：登录拿 token → 用 token 打 profile → 200；以及 `/api/kernel/auth/login` 200（holder 接对了才算过） |
