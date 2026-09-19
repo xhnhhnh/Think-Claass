@@ -239,7 +239,16 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
    * skips both branches.
    */
   if (fs.existsSync(config.staticDir)) {
-    app.use(express.static(config.staticDir));
+    /**
+     * `index: false` is load-bearing.
+     *
+     * With the default settings `express.static` answers `/` from `index.html` itself, so the
+     * handler below - the only place that injects `window.__TC_CONFIG__` - never ran. The
+     * marker stayed a literal HTML comment in the served page and the frontend fell back to its
+     * build-time defaults, which is why the admin path still had to be rewritten in the built
+     * assets. Turning the automatic index off hands `/` to the handler.
+     */
+    app.use(express.static(config.staticDir, { index: false }));
     const indexHtml = path.join(config.staticDir, 'index.html');
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api')) return next();

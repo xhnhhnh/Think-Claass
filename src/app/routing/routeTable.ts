@@ -15,7 +15,7 @@
  * so a path typo fails immediately rather than blanking one page in production.
  */
 
-import { ADMIN_PATH } from '@/constants';
+import { adminPath } from '@/constants';
 
 import type { ClassFeatureKey } from '@/lib/classFeatures.generated';
 
@@ -62,11 +62,16 @@ export const flatRoutes: PageRoute[] = [
   { path: '/contact', component: '@/features/portal/pages/ContactPage' },
   { path: '/news', component: '@/features/portal/pages/NewsPage' },
   { path: '/services', component: '@/features/portal/pages/ServicesPage' },
-  { path: `${ADMIN_PATH}/login`, component: '@/pages/Admin/Login' },
 ];
 
-/** Layout routes: each wraps its children in a layout behind a role gate. */
-export const layoutRoutes: LayoutRoute[] = [
+/**
+ * Layout routes that are not tied to the deployment's admin path.
+ *
+ * The admin routes are built separately (see `layoutRoutes()`) because their path comes from
+ * the server at runtime - baking it in here is what forced a deploy-time `sed` rewrite of the
+ * built bundle.
+ */
+const roleLayoutRoutes: LayoutRoute[] = [
   {
     path: '/teacher',
     layout: '@/components/Layout/TeacherLayout',
@@ -145,30 +150,49 @@ export const layoutRoutes: LayoutRoute[] = [
       { path: 'assignments', component: '@/pages/Parent/Assignments' },
     ],
   },
-  {
-    path: ADMIN_PATH,
-    layout: '@/components/Layout/AdminLayout',
-    allowedRoles: ['admin', 'superadmin'],
-    children: [
-      { path: '', component: '@/pages/Admin/Dashboard' },
-      { path: 'announcements', component: '@/features/admin/pages/AdminAnnouncementsPage' },
-      { path: 'articles', component: '@/features/admin/pages/AdminArticlesPage' },
-      { path: 'website', component: '@/features/admin/pages/AdminWebsitePage' },
-      { path: 'audit-logs', component: '@/features/admin/pages/AdminAuditLogsPage' },
-      { path: 'teachers', component: '@/features/admin/pages/AdminTeachersPage' },
-      { path: 'settings', component: '@/pages/Admin/Settings' },
-      { path: 'codes', component: '@/features/admin/pages/AdminCodesPage' },
-      { path: 'openapi', component: '@/features/admin/pages/AdminOpenApiPage' },
-      { path: 'reset', component: '@/pages/Admin/SystemReset' },
-    ],
-  },
 ];
+
+/**
+ * Route table as data.
+ *
+ * `layoutRoutes()` and `flatRoutesWithAdmin()` are functions rather than constants because the
+ * admin path is injected by the server at runtime (`window.__TC_CONFIG__.adminPath`). A
+ * module-level constant would freeze it at import time, before the config is guaranteed to be
+ * present, and would put the deployment path back in the built bundle.
+ */
+export function layoutRoutes(): LayoutRoute[] {
+  return [
+    ...roleLayoutRoutes,
+    {
+      path: adminPath(),
+      layout: '@/components/Layout/AdminLayout',
+      allowedRoles: ['admin', 'superadmin'],
+      children: [
+        { path: '', component: '@/pages/Admin/Dashboard' },
+        { path: 'announcements', component: '@/features/admin/pages/AdminAnnouncementsPage' },
+        { path: 'articles', component: '@/features/admin/pages/AdminArticlesPage' },
+        { path: 'website', component: '@/features/admin/pages/AdminWebsitePage' },
+        { path: 'audit-logs', component: '@/features/admin/pages/AdminAuditLogsPage' },
+        { path: 'teachers', component: '@/features/admin/pages/AdminTeachersPage' },
+        { path: 'settings', component: '@/pages/Admin/Settings' },
+        { path: 'codes', component: '@/features/admin/pages/AdminCodesPage' },
+        { path: 'openapi', component: '@/features/admin/pages/AdminOpenApiPage' },
+        { path: 'reset', component: '@/pages/Admin/SystemReset' },
+      ],
+    },
+  ];
+}
+
+/** Flat routes plus the admin login route, whose path is also deployment-dependent. */
+export function flatRoutesWithAdmin(): PageRoute[] {
+  return [...flatRoutes, { path: `${adminPath()}/login`, component: '@/pages/Admin/Login' }];
+}
 
 /** Every page module the table references, for the load-time existence check. */
 export function referencedPageModules(): string[] {
   const paths = new Set<string>();
-  for (const route of flatRoutes) paths.add(route.component);
-  for (const layout of layoutRoutes) {
+  for (const route of flatRoutesWithAdmin()) paths.add(route.component);
+  for (const layout of layoutRoutes()) {
     paths.add(layout.layout);
     for (const child of layout.children) paths.add(child.component);
   }

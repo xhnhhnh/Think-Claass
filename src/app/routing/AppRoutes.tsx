@@ -12,7 +12,7 @@ import { Route, Routes } from 'react-router-dom';
 import PrivateRoute from '@/app/routing/PrivateRoute';
 import { assertRoutesResolve, resolvePage } from '@/app/routing/pageModules';
 import {
-  flatRoutes,
+  flatRoutesWithAdmin,
   layoutRoutes,
   referencedPageModules,
   type LayoutRoute,
@@ -98,13 +98,16 @@ function RouteLoadingState() {
 }
 
 export default function AppRoutes() {
+  // The admin path comes from the server (`window.__TC_CONFIG__.adminPath`), so the route table
+  // is built per render rather than at module load. It is cheap - a handful of object literals -
+  // and the alternative was freezing a per-deployment value into the bundle.
   return (
     <Suspense fallback={<RouteLoadingState />}>
       <Routes>
-        {flatRoutes.map((route) => (
+        {flatRoutesWithAdmin().map((route) => (
           <Route key={route.path} path={route.path} element={renderPage(route)} />
         ))}
-        {layoutRoutes.map(renderLayout)}
+        {layoutRoutes().map(renderLayout)}
       </Routes>
     </Suspense>
   );

@@ -122,7 +122,8 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P5.1 | **19 个 `enable_*` 前端硬编码表 → 从插件 manifest 生成** | 见 `git log` | ✅ |
 | P5.2 | ~~62 个转发 shim~~ ✅ **P5.2a**：61 个 shim 变成真实实现，1 个错位重复 shim 删除 | 见 `git log` | ✅ |
 | P5.2b | ~~`AppRoutes` 的 80 条 static import~~ ✅ 路由表 + 生成式模块映射（`import.meta.glob` 被否决，见 §9 说明） | 见 `git log` | ✅ |
-| P5.3 | 4 个布局的硬编码菜单 → `MenuRegistry`；`window.__TC_CONFIG__` 取代部署期 `sed` | — | ⬜ |
+| P5.3a | ~~`window.__TC_CONFIG__` 取代部署期 `sed`~~ ✅ 运行时配置真的生效了（发现它此前**从未生效**） | 见 `git log` | ✅ |
+| P5.3b | 4 个布局的硬编码菜单 → 从路由表派生（`MenuRegistry`） | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
 
@@ -406,6 +407,30 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 **代价**：新增路由要重新生成一次 —— 这正是想要的：`--check` 让「忘记生成」变成测试失败，
 而不是线上某个路由白屏。
 
+### 8.11 `window.__TC_CONFIG__` 的注入链**一直是断的**（P5.3a 实证）
+
+任务书写「用 `window.__TC_CONFIG__` 取代部署期 `sed`」。实测发现这条链有**三个断点，每一环都断**：
+
+1. **模板里没有占位符**。`createKernel` 做的是
+   `readFileSync(indexHtml).replace('<!--__TC_CONFIG__-->', '<script>window.__TC_CONFIG__=...')`，
+   而 `index.html` 里**根本没有这个注释** → replace 什么也没替换，注入是死代码。
+2. **`express.static` 先截走了 `/`**。即使补上占位符，`app.use(express.static(dir))` 会自己用 `index.html` 响应 `/`，
+   下面那个负责注入的 `app.get('*')` **永远不会执行** → 必须加 `{ index: false }`。
+3. **前端从来没人读它**。`ADMIN_PATH = import.meta.env.VITE_ADMIN_PATH || '/beiadmin'` 是**构建期**常量；
+   前端从未读过 `window.__TC_CONFIG__` → 新增 `src/constants.ts` 的 `runtimeConfig()` / `adminPath()`。
+
+顺带：`scripts/deploy-common.sh` 的 `replace_custom_admin_path()`
+（`find dist ... -exec sed -i "s|/beiadmin|...|g"`，**无法撤销**）是**定义了但全仓库从未调用**的死代码，已删除。
+
+**现在**：`ADMIN_PATH=/control-room` + 重启 → 服务端注入 HTML、前端运行时读取；
+管理端路由随之改变（`routeTable.layoutRoutes()` 因此**改成函数**——路径是运行时值，
+模块级常量会在注入之前就固化它）。实测：起服务后 `/` 返回的 HTML 里确实有
+`{"adminPath":"/control-room",...}`。
+
+**教训**：这三处都是「声明了但没接通」的接线。补任何一条「某个设置应该生效」的链路时，
+**必须端到端实测一次**（起服务 → 拉 HTML → 断言值在里面），否则很容易只改了其中一环，
+而三环全断时每一环单独看都像是对的。
+
 `packages/plugin-runtime/src/dbApi.ts` 的 `referencedTables()` 用正则从 SQL 里猜表名，猜错有两个方向：
 
 - **假阳性**（把关键字当表名）：`INSERT ... ON CONFLICT DO UPDATE SET col = ?` 里的 `DO UPDATE SET` 长得和 `UPDATE <table>` 一模一样，
@@ -548,7 +573,8 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 - ~~`src/lib/classFeatures.ts` 的 19 键 → 从插件 manifest 派生~~ ✅ **P5.1 已完成**：
   目录由 `plugins/classroom/plugin.json` 生成（`npm run class-features`），路由映射移到 `src/lib/featureRoutes.ts`，
   `PublicPluginDescriptor` 现在带 `permissionDeclarations`（键 + 标签 + 作用域）。新增 **G14** 保证生成物与 manifest 不漂移。
-- 用 `window.__TC_CONFIG__` 取代 `scripts/deploy-common.sh` 里的 `sed /beiadmin`
+- ~~用 `window.__TC_CONFIG__` 取代 `scripts/deploy-common.sh` 里的 `sed /beiadmin`~~ ✅ **P5.3a**：
+  但实测发现这条链**从来没通过**，两半都断了，见 §8.11。现在 `ADMIN_PATH=/x` 改环境变量 + 重启即可。
 - 复活从未挂载的 `src/components/ErrorBoundary.tsx`
 
 ### P6 · 运行期安装

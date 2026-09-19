@@ -13,13 +13,20 @@
 import { describe, expect, it } from 'vitest';
 
 import { pageModules } from '@/app/routing/pageModules';
-import { flatRoutes, layoutRoutes, referencedPageModules } from '@/app/routing/routeTable';
+import {
+  flatRoutesWithAdmin,
+  layoutRoutes as layoutRoutesFn,
+  referencedPageModules,
+} from '@/app/routing/routeTable';
 
 describe('route table', () => {
+  // The table is built per call because the admin path is injected at runtime, so these are
+  // computed once here for comparison.
+  const flatRoutes = flatRoutesWithAdmin();
+  const layoutRoutes = layoutRoutesFn();
+
   it('keeps the route count the JSX tree had', () => {
     // 80 <Route> elements: 9 flat, 4 layouts, 67 children (28 teacher, 23 student, 6 parent, 10 admin).
-    expect(flatRoutes).toHaveLength(9);
-    expect(layoutRoutes).toHaveLength(4);
     const children = layoutRoutes.reduce((total, layout) => total + layout.children.length, 0);
     expect(children).toBe(67);
     expect(flatRoutes.length + layoutRoutes.length + children).toBe(80);

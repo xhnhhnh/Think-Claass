@@ -192,15 +192,19 @@ set_env_value() {
     fi
 }
 
-replace_custom_admin_path() {
-    local admin_path="${1:-/beiadmin}"
-    [ "$admin_path" != "/beiadmin" ] || return 0
-    [ -d "dist" ] || return 0
-
-    log "恢复自定义后台路径 (${admin_path})..."
-    find dist -type f \( -name "*.js" -o -name "*.html" \) -exec sed -i "s|/beiadmin|${admin_path}|g" {} +
-}
-
+# NOTE: there used to be a replace_custom_admin_path() here that rewrote the built bundle:
+#
+#     find dist -type f \( -name "*.js" -o -name "*.html" \) -exec sed -i "s|/beiadmin|...|g" {} +
+#
+# It was dead code - defined but never called anywhere in the repository - and the wrong
+# mechanism regardless. The admin path is now a runtime setting:
+#
+#   * the server resolves it from ADMIN_PATH (or VITE_ADMIN_PATH) at start-up,
+#   * it injects it into the served HTML as window.__TC_CONFIG__.adminPath,
+#   * the frontend reads it through adminPath() in src/constants.ts.
+#
+# Changing the admin path on a deployment is therefore an environment change and a restart,
+# not a rewrite of the built assets - and a rewrite cannot be undone, while a restart can.
 github_latest_release_json() {
     local headers=(
         -H "Accept: application/vnd.github+json"
