@@ -24,6 +24,14 @@ import {
   capabilityAssignmentsMigration,
   createSqliteAssignmentStore,
 } from '../permissions/capabilityStore.js';
+import {
+  AUDIT_LOGS_MIGRATION_ID,
+  auditLogsMigration,
+  createAuditLog,
+  createAuditRegistry,
+  type AuditLog,
+  type AuditRegistry,
+} from '../logging/auditLog.js';
 import { runMigrations, type Migration, type MigrationResult } from '../storage/migrations.js';
 import { createErrorMiddleware } from '../http/errorEnvelope.js';
 import { createRequestContextMiddleware } from '../http/requestContext.js';
@@ -40,6 +48,7 @@ export const kernelMigrations: Migration[] = [
   settingsMigration,
   sessionsMigration as unknown as Migration,
   capabilityAssignmentsMigration,
+  auditLogsMigration,
 ];
 
 export interface Kernel {
@@ -51,6 +60,8 @@ export interface Kernel {
   events: EventBus;
   permissions: PermissionEngine;
   sessions: SessionService;
+  audit: AuditLog;
+  auditRegistry: AuditRegistry;
   plugins: PluginHostView;
   migrations: MigrationResult;
   startedAt: number;
@@ -144,6 +155,21 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
   });
   const sessions = createSessionService({ db, logger: logger.child('sessions') });
   const settings = createSettingsStore(db);
+
+  // Audit: a registry of declarative descriptors plus a sink. Any module or plugin
+  // may add a descriptor or emit `kernel.request.audit`; the kernel persists both.
+  const auditRegistry = createAuditRegistry();
+  const auditLog = createAuditLog({ db, logger: logger.child('audit') });
+  events.on('kernel.request.audit', (payload) => {
+    auditLog.record({
+      action: payload.action,
+      detail: payload.detail ?? null,
+      actorId: payload.actorId,
+      role: payload.role,
+      ip: payload.ip ?? null,
+      requestId: payload.requestId ?? null,
+    });
+  });
 
   // --- plugin host ---------------------------------------------------------
   /**
@@ -267,6 +293,8 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
     events,
     permissions,
     sessions,
+    audit: auditLog,
+    auditRegistry,
     plugins: pluginsRef.current,
     migrations,
     startedAt,

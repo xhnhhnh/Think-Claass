@@ -40,6 +40,7 @@ import { initDb } from './db.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
 import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
+import { CORE_AUDIT_DESCRIPTORS, CORE_AUDIT_OWNER } from './audit/descriptors.js';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -185,6 +186,11 @@ export async function createApp(): Promise<Express> {
     authProvider: createLegacyAuthProvider(),
     ...(kernelEnabled ? { mountPlugins } : {}),
   })
+
+  // Audit coverage is data, not a branch chain: the descriptors say which operations
+  // are recorded and how they read. Registering them in both compositions means the
+  // legacy app keeps exactly the coverage it had.
+  bootedKernel.auditRegistry.register(CORE_AUDIT_DESCRIPTORS, CORE_AUDIT_OWNER)
 
   if (kernelEnabled) {
     return bootedKernel.app

@@ -1,57 +1,72 @@
-import { Request, Response, NextFunction } from 'express';
-import { logOperation } from './logger.js';
+/**
+ * Audit middleware.
+ *
+ * The baseline version wrapped `res.json` and matched four hardcoded paths inline,
+ * attributing every entry to teacher id `1` because it read `req.body.teacherId`
+ * with a literal fallback. Anything else was silently unaudited.
+ *
+ * This version is generic: it consults the kernel's audit registry of declarative
+ * descriptors and writes through the kernel's audit log. Attribution comes from the
+ * verified request context, so an entry names the authenticated caller rather than
+ * whatever the request body claimed - the body was attacker-controlled.
+ *
+ * The middleware is built once, on first request, because the kernel is created
+ * during `createApp()` and this module is imported before that.
+ */
 
-export function operationLogger(req: Request, res: Response, next: NextFunction) {
-  // Capture original send
-  const originalSend = res.json;
+import type { NextFunction, Request, Response } from 'express';
 
-  res.json = function (body) {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      const method = req.method;
-      const path = req.baseUrl + req.path;
-      
-      // Define key operations to log
-      if (method !== 'GET') {
-        try {
-          let action = '';
-          let details = '';
+import { createAuditMiddleware, getActiveKernel, getRequestContext, type AuditRegistry, type AuditLog } from '@thinkclass/kernel';
 
-          if (path.includes('/api/students/batch-points')) {
-            action = '批量加/扣分';
-            details = `操作人数: ${req.body?.studentIds?.length || 0}, 分数: ${req.body?.amount || 0}, 理由: ${req.body?.reason || ''}`;
-          } else {
-            const studentPointsMatch = path.match(/\/api\/students\/(\d+)\/points/);
-            if (studentPointsMatch) {
-              action = '单个加/扣分';
-              details = `学生ID: ${studentPointsMatch[1]}, 分数: ${req.body?.amount || 0}, 理由: ${req.body?.reason || ''}`;
-            } else if (path.includes('/api/shop') && method === 'POST') {
-              action = '添加商品';
-              details = `商品名称: ${req.body?.name || ''}, 价格: ${req.body?.price || 0}`;
-            } else if (path.includes('/api/classes') && method === 'POST') {
-              action = '创建班级';
-              details = `班级名称: ${req.body?.name || ''}`;
-            } else {
-              const shopStatusMatch = path.match(/\/api\/shop\/(\d+)\/status/);
-              if (shopStatusMatch) {
-                action = '更新商品状态';
-                details = `商品ID: ${shopStatusMatch[1]}, 状态: ${req.body?.is_active ? '上架' : '下架'}`;
-              }
-            }
-          }
+interface AuditMiddleware {
+  (req: Request, res: Response, next: NextFunction): void;
+  /** Set by `registerAuditDescriptors` so callers can inspect coverage. */
+  registry?: AuditRegistry;
+}
 
-          if (action) {
-            // In a real app we'd get teacherId from session/token. Here we mock it as 1.
-            const teacherId = req.body?.teacherId || req.query?.teacherId || 1;
-            const ip = req.ip || req.socket?.remoteAddress || '';
-            logOperation(Number(teacherId), action, details, ip);
-          }
-        } catch (err) {
-          console.error('[Logger Error] Failed to process operation log:', err);
-        }
-      }
-    }
-    return originalSend.call(this, body);
-  };
+let middleware: AuditMiddleware | null = null;
 
-  next();
+function build(): AuditMiddleware | null {
+  const kernel = getActiveKernel();
+  if (!kernel) return null;
+
+  const mw = createAuditMiddleware({
+    registry: kernel.auditRegistry,
+    auditLog: kernel.audit,
+    getContext: (request) => {
+      const context = getRequestContext(request as unknown as Request);
+      return {
+        actorId: context.actor?.userId ?? null,
+        role: context.actor?.role ?? null,
+        requestId: context.requestId,
+      };
+    },
+  }) as AuditMiddleware;
+
+  mw.registry = kernel.auditRegistry;
+  return mw;
+}
+
+/**
+ * The middleware. Resolves the kernel lazily and caches the result, so a request
+ * that arrives before boot is a no-op rather than an error.
+ */
+export function operationLogger(req: Request, res: Response, next: NextFunction): void {
+  if (!middleware) middleware = build();
+  if (!middleware) return next();
+  middleware(req, res, next);
+}
+
+/** Register descriptors declared by the core. Safe to call more than once. */
+export function registerAuditDescriptors(
+  registry: AuditRegistry,
+  descriptors: Parameters<AuditRegistry['register']>[0],
+  owner: string,
+): void {
+  registry.register(descriptors, owner);
+}
+
+/** The audit log, for callers that want to record an entry directly. */
+export function getAuditLog(): AuditLog | null {
+  return getActiveKernel()?.audit ?? null;
 }

@@ -20,8 +20,15 @@ import { type Database } from './connection.js';
 export interface Migration {
   /** Stable, ordered id, e.g. `0001_kernel_core`. */
   id: string;
-  /** SQL to apply. */
-  up: string;
+  /**
+   * SQL to apply, or a function when the change cannot be expressed declaratively -
+   * adding a column only when it is missing, for instance, which SQLite has no
+   * `ADD COLUMN IF NOT EXISTS` for.
+   *
+   * A function migration must be idempotent: the ledger prevents re-running, but a
+   * partially migrated legacy database is exactly the case that needs logic.
+   */
+  up: string | ((db: Database) => void);
   /** Optional SQL to undo. Not all migrations are reversible. */
   down?: string;
   /** Owning plugin id, or `kernel`. Drives table-ownership enforcement. */
@@ -49,8 +56,9 @@ export interface AppliedMigration {
 
 const LEDGER = '__core_migrations';
 
-function checksum(sql: string): string {
-  return crypto.createHash('sha256').update(sql).digest('hex').slice(0, 32);
+function checksum(migration: Migration | string): string {
+  const material = typeof migration === 'string' ? migration : typeof migration.up === 'string' ? migration.up : migration.up.toString();
+  return crypto.createHash('sha256').update(material).digest('hex').slice(0, 32);
 }
 
 /**
@@ -102,6 +110,10 @@ export function checkTableOwnership(
   options: { pluginPrefix?: string } = {},
 ): OwnershipViolation[] {
   const violations: OwnershipViolation[] = [];
+  // A function migration cannot be inspected statically; ownership for those is
+  // enforced by the caller declaring the tables it touches.
+  if (typeof migration.up !== 'string') return violations;
+
   for (const { operation, table } of extractTableOperations(migration.up)) {
     if (allowedTables.has(table)) continue;
     if (options.pluginPrefix && table.startsWith(options.pluginPrefix)) continue;
@@ -151,10 +163,10 @@ export function runMigrations(db: Database, migrations: Migration[], options: Ru
   // the recorded schema a lie.
   for (const migration of ordered) {
     const previous = alreadyApplied.get(migration.id);
-    if (previous && previous.checksum !== checksum(migration.up)) {
+    if (previous && previous.checksum !== checksum(migration)) {
       throw new Error(
         `migration "${migration.id}" was modified after it was applied ` +
-          `(recorded ${previous.checksum}, now ${checksum(migration.up)}). ` +
+          `(recorded ${previous.checksum}, now ${checksum(migration)}). ` +
           `Add a new migration instead of editing an applied one.`,
       );
     }
@@ -174,11 +186,12 @@ export function runMigrations(db: Database, migrations: Migration[], options: Ru
     }
 
     const apply = db.transaction(() => {
-      db.exec(migration.up);
+      if (typeof migration.up === 'string') db.exec(migration.up);
+      else migration.up(db);
       db.prepare(`INSERT INTO ${LEDGER} (id, owner, checksum, applied_at) VALUES (?, ?, ?, ?)`).run(
         migration.id,
         migration.owner,
-        checksum(migration.up),
+        checksum(migration),
         new Date().toISOString(),
       );
     });

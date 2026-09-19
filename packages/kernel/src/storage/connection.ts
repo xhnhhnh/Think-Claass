@@ -77,6 +77,19 @@ export function quoteIdentifier(identifier: string): string {
   return `"${identifier}"`;
 }
 
+/**
+ * Add a column when it is absent.
+ *
+ * SQLite has no `ADD COLUMN IF NOT EXISTS`, so a conditional change like this cannot
+ * be expressed as a SQL migration - it is the reason `Migration.up` may be a
+ * function. Returns true when the column was added.
+ */
+export function addColumnIfMissing(db: Database, table: string, column: string, definition: string): boolean {
+  if (tableColumns(db, table).includes(column)) return false;
+  db.exec(`ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN ${quoteIdentifier(column)} ${definition}`);
+  return true;
+}
+
 /** Wrap `fn` in a transaction. Nested calls join the outer transaction. */
 export function transaction<T>(db: Database, fn: () => T): T {
   return db.transaction(fn)();

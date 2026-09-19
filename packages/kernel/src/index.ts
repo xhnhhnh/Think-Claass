@@ -17,6 +17,25 @@ export type { KernelConfig, LoadConfigOptions } from './config/loadConfig.js';
 // --- logging ---------------------------------------------------------------
 export { createLogger, createNullLogger } from './logging/logger.js';
 export type { LogFields, LogRecord, LogSink, Logger, LogLevel } from './logging/logger.js';
+export {
+  AUDIT_LOGS_MIGRATION_ID,
+  auditLogsMigration,
+  createAuditLog,
+  createAuditMiddleware,
+  createAuditRegistry,
+  renderDetail,
+} from './logging/auditLog.js';
+export type {
+  AuditDescriptor,
+  AuditEntry,
+  AuditLog,
+  AuditLogOptions,
+  AuditMatch,
+  AuditRegistry,
+  AuditRow,
+  RequestLike,
+  ResponseLike,
+} from './logging/auditLog.js';
 
 // --- events ----------------------------------------------------------------
 export { createEventBus } from './events/eventBus.js';
