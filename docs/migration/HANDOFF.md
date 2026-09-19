@@ -1,11 +1,11 @@
 # 交接文档 · ThinkClass「最小 Core + 无限 Plugins」重构
 
 > **用途**：在**新对话**中接续本重构。本文档是唯一权威入口。
-> **生成时间**：第 6 轮结束时（P4.3b.0 已按 §11 的规矩复核并修正）
+> **生成时间**：第 7 轮结束时（P4.3c.3a 完成：迁移链补上 1 列 + 19 索引）
 > **工作区**：`D:\think-class`
 > **分支**：`refactor/plugin-kernel`
-> **HEAD**：以 `git log --oneline -1` 为准。撰写时为 `d69098e`；P4.3b.0 开工时核实到实际 HEAD 是 `eab37e4`
-> （**本文档 §7 当时写的 `b2a8f7b` 已经落后两个提交** —— 这正是不要盲信本文档的理由之一，见 §0 反面教材）。
+> **HEAD**：以 `git log --oneline -1` 为准。本轮开工时核实到 HEAD 是 `a865c42`（§4 先前把
+> 「下一步」标在 P4.3b.5 上，那是过时标记 —— 5a–5d 早已完成，见 §0 反面教材）。
 > **目标**：把现有前端、后端、数据库与整体架构重构为真正的 `Core → Plugin Runtime → Plugin API/SDK → Plugins`
 
 ---
@@ -72,7 +72,16 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 ## 1. 一句话现状
 
 **P0–P4.3a 已完成并全部验证。** 内核、插件运行时、SDK、两个参考插件、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
-**剩余**：把其余后端域真正迁成插件（P4.3b）、把 `api/db.ts` 启动期 DDL 收编（P4.3c）、前端插件化（P5）、运行期安装（P6）、清理（P7）。
+**P4.3b 已迁走 14 个域**，但 `pet` 的 HTTP 面与 `learning` 的剩余部分还在 `api/modules/`。
+**P4.3c 已把两套组装的 schema 合成同一份迁移链**（含本轮补上的 1 列 + 19 索引）。
+**剩余**：把其余后端域真正迁成插件（P4.3b.5c/6）、按域拆 migration（P4.3c.3）、前端插件化收尾（P5）、运行期安装（P6）、清理（P7）。
+
+**下一步（P4.3b.6）**：`plugins/pet` 目前**不是** `api/modules/pet` 的等价替换 —— 它只有 4 个端点，
+且用的是 `p_pet_pets` 表（真实前端用的是旧 `/api/pet/**` 17 条路由 + 旧 `pets` 表，见 §8.3.1）。
+本轮已把它的前置阻塞（`parent_activity.last_active_date` 在 kernel 组装下缺失）修掉，
+所以下一轮可以：把 17 条路由按原语义/原信封补进 `plugins/pet`（`data.adopted: ["pets"]`），再删旧模块，
+把 `routeCollisions` 从 1 降到 0。**注意 `plugins/pet` 现有的 `GET /api/pet/students/:studentId` 与旧模块同路径但形状不同**
+（现代快照 vs 旧 `PetDto`），这也是它必须在同一轮里改成旧形状的原因。
 
 ---
 
@@ -94,7 +103,7 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 15 组防伪护栏（棘轮，47 用例）
+npm run guard         # 防伪护栏棘轮（12 文件 / 53 用例；含 G17「schema 只住在迁移里」）
 
 npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
@@ -121,7 +130,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3b.2 | **`dungeon`/`gacha`/`slg`/`battles`/`challenge` 五个域批量迁成插件** | `a844e01` | ✅ |
 | P4.3b.3 | **`collaboration`/`marketplace` 迁成插件** | `4279ea7` | ✅ |
 | P4.3b.4 | **`portal` 迁成插件** + 修 dbApi 正则误判 | 见 `git log` | ✅ |
-| **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`（见下方"platform 不是干净域"）/`learning` | — | ⬜ **下一步** |
+| **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`/`learning` → 见下方 5a–5d 拆分，**标记已作废**（5a/5b/5d 已完成，只剩 5c 与 6） | 见 `git log` | 🔶 |
 | P4.3b.5a | **`system` 迁成插件**（8 条路由；`operation_logs` 只读，内核审计 sink 拥有） | 见 `git log` | ✅ |
 | P4.3b.5b | **`assignments` 插件**：`learning` 里唯一不碰 Prisma 的 14 条路由（作业+考试）先切出来 | 见 `git log` | ✅ |
 | P4.3b.5c | `learning` **其余部分**（papers/knowledge/wrong-questions/study-plans，28 个 Prisma 模型） | — | ⬜ |
@@ -132,6 +141,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
 | P4.3c.2 | **两套组装共用同一份 DDL**（删掉 `adoptedTables.ts` 的重复定义） | 见 `git log` | ✅ |
 | P4.3c.3 | 按域拆分 migration（让 kernel-only 部署不再建业务表） | — | ⬜ |
+| **P4.3c.3a** | **迁移链补全 schema**：`parent_activity.last_active_date`（1 列）+ 19 个索引（含 2 个 UNIQUE）；`api/db.ts` 不再自带 DDL；新增护栏 **G17** | 见 `git log` | ✅ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | 🔶 |
 | P5.1 | **19 个 `enable_*` 前端硬编码表 → 从插件 manifest 生成** | 见 `git log` | ✅ |
 | P5.2 | ~~62 个转发 shim~~ ✅ **P5.2a**：61 个 shim 变成真实实现，1 个错位重复 shim 删除 | 见 `git log` | ✅ |
@@ -184,6 +194,14 @@ api/schema/adoptedTables.ts  adopted 表的**唯一**权威定义（students/cla
                              测试也调它 —— 两份定义会静默漂移：capability 回落是按列名读
                              `classes.enable_*` 的，缺列会让每个班都"功能已关闭"而不报错
 
+api/schema/appMigrations.ts  **两套组装共用的唯一迁移清单**（P4.3c.3a 新增）
+                             0000 boot schema → 0000b payment → 0000c 兼容列 → 0000d 兼容索引
+                             API_MIGRATIONS 被 api/db.ts、api/app.ts、G13、G17 同时引用
+                             —— 之前这个清单有三份手抄副本，那正是两套组装漂移的成因
+api/schema/legacyCompatColumns.ts  53 个兼容列（**函数迁移**，见 §9 的 checksum 陷阱）
+api/schema/legacyCompatIndexes.ts  19 个索引（字符串迁移，`IF NOT EXISTS` 幂等；含 2 个 UNIQUE）
+api/schema/paymentTables.ts  payment_orders/payment_transactions（原本只存在于 Prisma）
+
 plugins/classroom       基础插件，required:true，owns students+classes+records（adopted），
                         发布 classroom.public，声明 19 条 classroom.enable_* 权限
                         classroom.public 端口（迁移的公共依赖）：
@@ -223,7 +241,24 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | `adoptedTables` | **33**（26 → 28 → 32 → 33）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入） |
 | `routeCollisions` | **1 → 0**（P4.3b R1 新增）| 0 | 同一 METHOD+PATH 被两个控制器文件声明 |
 
-其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；**反向：每个 Prisma 模型都要有表**）。
+其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；**反向：每个 Prisma 模型都要有表**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）。
+
+### ⚠️ schema 的第四个盲区（P4.3c.3a 发现，G13/G17 之前都看不见）
+
+「两套组装共用一份 DDL」这句话在 P4.3c.2 之后**只对了一半**：共用的只是 `CREATE TABLE` 那一段。`api/db.ts` 的 `initDb()` 后面还有一段约 120 行的兼容 DDL —— 53 个 `addColumnIfNotExists(...)`、3 个裸 `ALTER TABLE ... ADD COLUMN`、20 条 `CREATE INDEX` —— 而 `initDb()` **只在 legacy 组装里被调用**。
+
+实测（`.tmp/schema-gap-probe.mts`，真起 `createKernel()` 然后逐条核对上面那些语句）：
+
+```
+MISSING COLUMNS (1):  parent_activity.last_active_date
+MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_classes_invite_code（UNIQUE）+ 17 条查询索引
+```
+
+两个 UNIQUE 索引不是性能问题：没有 `idx_parent_activity_parent_student` 时 `INSERT ... ON CONFLICT(parent_id, student_id)` 会被 SQLite **直接拒绝**（"ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint"），没有 `idx_classes_invite_code` 则两个班可以撞邀请码。
+
+**为什么现有护栏看不到**：G8 比的是端点集合、G13 查的是「表 + 一份手写列清单」、G11 查路由。而缺列的典型症状不是报错 —— 按列名读的**回落逻辑**会给出错误答案（"功能已关闭"）。这正是 §8.8 记的那类坑，只是这次缺的列不在那份手写清单里。
+
+**修法**：把上面那些语句**整体搬进迁移**（不是删掉 —— 它们是老库的升级路径：`CREATE TABLE IF NOT EXISTS` 对已存在的表什么都不做，老库的列全靠这些 ALTER 补上）。`api/db.ts` 现在只剩 DML（seed、邀请码回填、`messages` 重建），G17 逐条枚举允许留下的 DDL，多一条就红。
 
 ### ⚠️ 快照的三个盲区（第三个在 P5.3c 发现）
 
@@ -243,14 +278,14 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.5d 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面是 P4.3c.3a 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        118 文件 / 647 用例全绿
+npm test        119 文件 / 653 用例全绿（+1 文件 / +6 用例 = 新护栏 G17）
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)
-guardrails      11 文件 / 47 用例
+guardrails      12 文件 / 53 用例
 ```
 
 **已迁成插件的域（14 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments, parent-buff（+ 原有 classroom, pet）
@@ -268,6 +303,7 @@ guardrails      11 文件 / 47 用例
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
 | `adoptedTables` | **33** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。P4.3b.5a 加了 system 的 2 张，P4.3b.5b 加了 assignments 的 4 张，P4.3b.5d 加了 parent-buff 的 1 张 |
 | `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 |
+| 两套组装的 schema | **一致** | 实测（P4.3c.3a）：fresh kernel 组装与 fresh legacy 组装都是 **86 表 / 89 索引**，`parent_activity.last_active_date` 与 19 个兼容索引都在。P4.3c.3a 之前 kernel 侧是 **83 表 / 65 索引且没有那一列**，而没有任何测试会失败 |
 
 ### ⚠️ `platform` 不是一个干净的功能域（迁移前必读）
 
@@ -501,13 +537,13 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 1. **SQL 注释里不能出现反引号**：整个 DDL 是模板字符串，一个反引号就会提前结束它，报错却是 `Expected ")" but found "xxx"`。
    新增护栏 **G12**（`tests/guardrails/ddl-template-literals.test.ts`）会在 2ms 内直接指出行号。
-2. **DDL 必须包含所有 `addColumnIfNotExists` 添加的列**：`api/db.ts` 对**已存在**的表用 `ALTER` 补列，
-   而 `adoptedTables.ts` 是 kernel 组装下**唯一**的建表者 —— 少一列不会报错，只会让按列名读的回退逻辑静默给出错误答案。
+2. **DDL 必须包含所有兼容列**：`api/db.ts` 过去对**已存在**的表用 `ALTER` 补列，而迁移链是 kernel 组装下**唯一**的建表者 —— 少一列不会报错，只会让按列名读的回退逻辑静默给出错误答案。
+   **P4.3c.3a 之后这条已经机械化**：那 53 个 `addColumnIfNotExists`/裸 ALTER 变成了 `0000c_legacy_compat_columns` 迁移，`api/db.ts` 里不再有列 DDL，**G17** 会拦住任何回流的写法，而 G13 的列清单负责"按名读的列必须存在"。
    已实测并核对过的清单（这些列现已全部就位）：
    `classes.enable_*`(19) / `classes.settings` / `classes.invite_code` / `classes.pet_selection_mode`、
    `students.group_id` / `students.last_checkin_date` / `students.birthday`、
-   `pets.mood` / `pets.last_fed_at`、`peer_reviews.team_quest_id`、`world_bosses.status`。
-   **新增 adopted 表时，务必对照 `addColumnIfNotExists` 全表清单再核对一次**（用 `PRAGMA table_info` 实测，不要靠肉眼）。
+   `pets.mood` / `pets.last_fed_at`、`peer_reviews.team_quest_id`、`world_bosses.status`、`parent_activity.last_active_date`。
+   **新增按列名读的回退逻辑时，仍然要 `PRAGMA table_info` 实测，不要靠肉眼** —— 但更该做的是直接往 G13 的清单里加一行。
 
 ### 8.9 剩余域的**具体阻塞点**（2026 轮实测，不是猜测）
 
@@ -787,10 +823,69 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 - kernel 组装真实启动：**84 张表**、11 个插件全活、零 rejection，
   `/api/website/home`、`/api/peer-reviews`、`/api/challenge/questions` 正常。
 
-**P4.3c.3 待做**：schema 仍是**一整块**，kernel-only 部署会建出全部 78 张业务表。
-按域拆分 migration 之后，kernel 才能只建自己需要的表；那也是删除 §8.8 那类漂移风险的最后一步。
+### P4.3c.3a · 迁移链补全 schema（1 列 + 19 索引）—— ✅ 已完成
+
+**发现**：P4.3c.2 的「两套组装共用同一份 DDL」只对了一半。共用的只有 `CREATE TABLE` 那一段；
+`initDb()` 后面还有约 120 行兼容 DDL（53 个 `addColumnIfNotExists`、3 个裸 `ALTER TABLE ... ADD COLUMN`、
+20 条 `CREATE INDEX`），而 `initDb()` **只在 legacy 组装里跑**。实测（`.tmp/schema-gap-probe.mts`，
+真 `createKernel()` 启动后逐条核对）：
+
+```
+kernel 组装实测：83 表 / 65 索引
+MISSING COLUMNS (1):  parent_activity.last_active_date
+MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_classes_invite_code（UNIQUE）+ 17 条
+```
+
+第一次跑探针时还报了 `operation_logs.user_id`/`role`（以及 20 个索引）—— 那是探针自己的错：
+它只跑了应用迁移、没跑内核迁移。`operation_logs` 那两列由内核自己的 `0005_kernel_operation_logs` 负责，
+`idx_operation_logs_teacher_id` 也是它建的。**教训：探针必须跑"生产真正会跑的那套迁移"，否则量出来的是探针的形状，不是产品的形状。**
+
+**修法**（`0000c_legacy_compat_columns` + `0000d_legacy_compat_indexes`）：
+
+- 兼容语句**整体搬进迁移，一条不删**。它们是老库的升级路径：`CREATE TABLE IF NOT EXISTS` 对已存在的表什么都不做，
+  老库的列全靠这些 ALTER 补上 —— 删掉等于把所有现存库留在旧形状。
+- 列用**函数迁移**（SQLite 没有 `ADD COLUMN IF NOT EXISTS`）：`0000c` 先 `PRAGMA table_info` 再 ALTER，因此
+  对已经跑过 legacy ALTER 的库是 no-op。
+- 19 个索引用**字符串迁移**：全是 `IF NOT EXISTS`，本身幂等，可以保留"checksum = SQL 文本"这种搬家安全的形态。
+  `idx_operation_logs_teacher_id` **不搬** —— 内核 `0005` 已经建了它，搬过来就是一个索引两个主人。
+- `api/db.ts` 里的对应语句全部删除，`initDb()` 现在只剩 DML（seed、邀请码回填、`messages` 重建）。
+- 新增 `api/schema/appMigrations.ts`：**两套组装共用的唯一迁移清单**。之前这份清单有三份手抄副本
+  （`api/db.ts`、`api/app.ts`、G13 测试），那正是漂移的成因；G13 的副本还要求"每个迁移的 `up` 必须是字符串"，
+  所以它连函数迁移都跑不了。
+
+**两个必须记住的 checksum 陷阱**：
+
+1. **函数迁移的 checksum 是 `up.toString()`，即"转换后的源码"，不是文件里的文本。**
+   实测：tsx/esbuild 会把 `['a', 'b']` 重写成 `["a","b"]`。本项目服务端用 `tsx api/server.ts` 直接跑、
+   **不打包**，所以同一个函数在各处 `toString()` 一致 —— 但**一旦给服务端加打包/压缩，每个函数迁移都会 checksum 失配、
+   拒绝启动已迁移的库**。内核的 `0005_kernel_operation_logs` 已经依赖这个前提。
+   （这也是 `0000c` 的列清单必须写在 `up` **函数体内部**的原因：写在模块顶层的话，改清单不会改 checksum，
+   已迁移的库会永远停在旧形状，而且静默。）
+2. **已应用的迁移一个字都不能改**（§上文 P4.3b.5c 发现 #3），所以两个新迁移的 id 都排在 `0000b_` 之后。
+
+**实测（四种场景，全部真启动）**：
+
+| 场景 | 结果 |
+|---|---|
+| 全新库 + kernel 组装 | ready；86 表 / 89 索引；`last_active_date` 在；19 个兼容索引齐；两个 UNIQUE 都是 `CREATE UNIQUE INDEX` |
+| 全新库 + legacy 组装 | 同上（86 / 89，逐项一致）—— **两套组装现在产出同一个 schema** |
+| 真实 13MB 库（副本）+ legacy 组装 | ready；既有 ledger checksum **一字未变**（`83c1006f…`、`35ed6b97…` 等 8 条前后完全相同），新增 2 行 ledger；数据完好（11 users / 3 students / 5 classes） |
+| 真实库（副本，legacy 建的）+ **kernel** 组装 | ready；列与 19 索引全在，数据完好 —— 这是 P4.3c.3 要的"kernel-only 部署在既有库上"路径 |
+
+**新增护栏 G17**（`tests/guardrails/schema-lives-in-migrations.test.ts`，5 个用例）：
+`api/db.ts` 不得出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；剩下的 DDL 被**逐条枚举**
+（当前只有 `messages` 重建那三条），多一条就报错、少一条也报错（棘轮）；19 个索引必须在迁移建出的库里存在
+且两个 UNIQUE 仍是 UNIQUE；列清单必须在 `up` 函数体内；两套组装必须引用同一份清单。
+**变异验证过非空转**：去掉一个索引语句 → 报 `compatibility indexes not created`；把 UNIQUE 改成普通索引 →
+报 `must stay UNIQUE`；往 `api/db.ts` 塞回一条 ALTER → 报两条断言；删掉 `parent_activity` 那一列 →
+G13 报 `read by name but is not created`、G17 报列数 52 < 53。
+
+**P4.3c.3 剩余待做**：schema 仍是**一整块**，kernel-only 部署会建出全部业务表。
+按域拆分 migration 之后，kernel 才能只建自己需要的表。
 **收尾时一并解决**：`.env` 的 `DATABASE_URL` 与 `DATABASE_FILE` 两个独立设置指向同一个库这件事（见上文 P4.3b.5c 发现 #1），
 应该收敛成一个来源，否则"内核单独部署"永远无法配出一个 Prisma 与应用都对的库。
+**另外还欠一笔**：`api/db.ts` 里 `messages` 表的重建（去掉 `sender_id` 外键）仍是只在 legacy 组装里跑的 DDL ——
+kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就意味着把 G17 的允许清单降到空。
 
 - 注意 `messages_new` 只存在于原始 SQL、不在 Prisma。
 - ~~`payment_orders`/`payment_transactions` 只存在于 Prisma（不在 `initDb` 的 DDL 里）~~ → **P4.3b.5c 已修**：
@@ -856,6 +951,10 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 | `docs/migration/02-contracts-and-auth.md` | 契约收口、会话认证、凭据降级修复 |
 | `docs/migration/03-plugin-runtime.md` | 插件运行时全貌、10 个缺陷 |
 | `docs/migration/04-capabilities-and-domains.md` | 能力系统、审计下沉、`game` 拆分 |
+| `api/schema/appMigrations.ts` | **两套组装共用的唯一迁移清单**（P4.3c.3a） |
+| `api/schema/legacyCompatColumns.ts` | 53 个兼容列的函数迁移（含 checksum 陷阱说明） |
+| `api/schema/legacyCompatIndexes.ts` | 19 个兼容索引（2 个是 UNIQUE 完整性约束） |
 | `scripts/migration/lib/analysis.mjs` | 所有度量的单一实现 |
-| `tests/guardrails/` | 11 条护栏（G1–G16 中已实现的那些）+ 棘轮额度 |
+| `tests/guardrails/` | 已实现的护栏（G1–G17）+ 棘轮额度 |
+| `tests/guardrails/schema-lives-in-migrations.test.ts` | **G17**：`api/db.ts` 不得再带 schema DDL |
 | `scripts/migration/spikes/nest-dynamic-controllers.mjs` | R10 证据（判断 Nest 能否动态装配时先跑它） |

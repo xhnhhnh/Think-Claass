@@ -108,13 +108,6 @@ export function reopenDb() {
 }
 
 
-function addColumnIfNotExists(tableName: string, columnName: string, columnDef: string) {
-  const info = db.pragma(`table_info(${tableName})`) as any[];
-  if (!info.some(c => c.name === columnName)) {
-    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
-  }
-}
-
 export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: string) => unknown } = db) {
   connection.exec(`
     UPDATE messages
@@ -124,28 +117,36 @@ export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: str
   `);
 }
 
-// The boot schema lives in api/schema/legacyBootSchema.ts. It is the single definition of
-// every table, used by BOTH compositions: here through the migration ledger, and by the
-// kernel composition through `createKernel({ migrations })`. Re-exported because this
-// module was its historical home and callers still import it from `api/db.ts`.
-import { bootSchemaMigration as bootSchema } from './schema/legacyBootSchema.js';
-export { BOOT_SCHEMA_MIGRATION_ID, bootSchemaMigration } from './schema/legacyBootSchema.js';
-
-// The payment tables are a separate migration appended after the boot schema, because
-// editing the boot schema's SQL would change its checksum and `runMigrations` refuses to
-// start against a database that already applied it. See api/schema/paymentTables.ts.
-import { paymentTablesMigration } from './schema/paymentTables.js';
-export { PAYMENT_TABLES_MIGRATION_ID, paymentTablesMigration } from './schema/paymentTables.js';
+// The application schema lives in `api/schema/`, and `APP_MIGRATIONS` there is the single
+// list BOTH compositions apply: this one through `initDb()`, the kernel one through
+// `createKernel({ migrations })`. Until P4.3c.3 this file kept its own copy of the list,
+// which is precisely how the two schemas drifted apart - see `api/schema/appMigrations.ts`.
+//
+// This module used to also perform schema DDL itself (`addColumnIfNotExists` calls, a raw
+// `ALTER TABLE` trio, 20 `CREATE INDEX` statements). That was the second, silent
+// definition: it ran only in this composition, so the kernel composition was short one
+// column and 19 indexes. All of it is now migrations, and G17 fails if DDL reappears here.
+import { APP_MIGRATIONS } from './schema/appMigrations.js';
+export {
+  APP_MIGRATIONS,
+  BOOT_SCHEMA_MIGRATION_ID,
+  LEGACY_COMPAT_COLUMNS_MIGRATION_ID,
+  LEGACY_COMPAT_INDEXES_MIGRATION_ID,
+  PAYMENT_TABLES_MIGRATION_ID,
+  bootSchemaMigration,
+  paymentTablesMigration,
+} from './schema/appMigrations.js';
 
 export function initDb() {
   db.pragma('foreign_keys = ON');
 
-  // The boot schema is a versioned migration and the single definition of every table -
+  // The schema is a versioned migration chain and the single definition of every table -
   // including the foundation tables (classes, students, records, bank_accounts, stocks,
-  // student_stocks) that plugins declare under `data.adopted`. Already-applied databases
-  // skip it and the ledger records that fact, instead of re-running ~800 lines of DDL
+  // student_stocks) that plugins declare under `data.adopted`, the compatibility columns
+  // old databases gained from ALTERs, and the query indexes. Already-applied databases skip
+  // what they have and the ledger records that fact, instead of re-running ~800 lines of DDL
   // silently on every start.
-  runMigrations(db, [bootSchema, paymentTablesMigration], {
+  runMigrations(db, APP_MIGRATIONS, {
     logger: createLogger('legacy-schema', { level: 'warn' }),
   });
 
@@ -226,47 +227,12 @@ export function initDb() {
     db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_alipay', '1')").run();
   }
 
-  // Add user_id and role to operation_logs if not exists (migration)
-  addColumnIfNotExists('operation_logs', 'user_id', 'INTEGER REFERENCES users(id)');
-  addColumnIfNotExists('operation_logs', 'role', 'TEXT');
+  // The compatibility columns (operation_logs user attribution, articles metadata,
+  // students.birthday, the 19 class feature flags, pets' artwork/mood/feeding columns,
+  // shop_items and messages extras) are applied by `0000c_legacy_compat_columns` above.
+  // They used to live here as `addColumnIfNotExists(...)` calls, which meant the kernel
+  // composition - the one that never calls `initDb()` - did not have them.
 
-  // Add missing columns to articles if not exists (migration)
-  addColumnIfNotExists('articles', 'summary', 'TEXT');
-  addColumnIfNotExists('articles', 'cover_image', 'TEXT');
-  addColumnIfNotExists('articles', 'category', 'TEXT');
-  addColumnIfNotExists('articles', 'is_published', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('articles', 'view_count', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('articles', 'created_at', 'DATETIME');
-  addColumnIfNotExists('articles', 'updated_at', 'DATETIME');
-
-  // Add birthday column to students if not exists (migration)
-  addColumnIfNotExists('students', 'birthday', 'TEXT');
-
-  // Add feature flags to classes if not exists (migration)
-  addColumnIfNotExists('classes', 'enable_chat_bubble', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_peer_review', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_tree_hole', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_shop', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_lucky_draw', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_challenge', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_family_tasks', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_world_boss', 'INTEGER DEFAULT 0');
-
-  addColumnIfNotExists('classes', 'enable_task_tree', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_danmaku', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_class_brawl', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_slg', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_gacha', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_economy', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_dungeon', 'INTEGER DEFAULT 0');
-
-  addColumnIfNotExists('world_bosses', 'status', "TEXT DEFAULT 'active'");
-
-  addColumnIfNotExists('classes', 'enable_guild_pk', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_auction_blind_box', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_achievements', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'enable_parent_buff', 'INTEGER DEFAULT 0');
-  addColumnIfNotExists('classes', 'settings', 'TEXT');
 
   const classFeatureDefaultOffMigrationKey = 'class_features_default_off_migration_v1';
   const classFeatureDefaultOffMigrationExists = db
@@ -299,70 +265,19 @@ export function initDb() {
     db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(classFeatureDefaultOffMigrationKey, '1');
   }
 
-  // Add last_active_date to parent_activity
-  addColumnIfNotExists('parent_activity', 'last_active_date', 'TEXT');
-  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_activity_parent_student ON parent_activity(parent_id, student_id);');
-
-  // Add pet_selection_mode column to classes if not exists (migration)
-  addColumnIfNotExists('classes', 'pet_selection_mode', "TEXT DEFAULT 'student'");
-
-  // Add image_stage columns to pets if not exists (migration)
-  addColumnIfNotExists('pets', 'image_stage1', 'TEXT');
-  addColumnIfNotExists('pets', 'image_stage2', 'TEXT');
-  addColumnIfNotExists('pets', 'image_stage3', 'TEXT');
-  addColumnIfNotExists('pets', 'image_stage4', 'TEXT');
-  addColumnIfNotExists('pets', 'image_stage5', 'TEXT');
-  addColumnIfNotExists('pets', 'image_stage6', 'TEXT');
-
-  // Add mood column to pets if not exists (migration)
-  addColumnIfNotExists('pets', 'mood', "TEXT DEFAULT 'happy'");
-
-  // Add group_id column to students if not exists (migration)
-  addColumnIfNotExists('students', 'group_id', 'INTEGER REFERENCES student_groups(id)');
-
-  // Add team_quest_id column to peer_reviews if not exists (migration)
-  addColumnIfNotExists('peer_reviews', 'team_quest_id', 'INTEGER REFERENCES team_quests(id)');
-
-  // Add last_checkin_date column to students if not exists (migration)
-  addColumnIfNotExists('students', 'last_checkin_date', 'TEXT');
-
-  // Add invite_code column if not exists (migration)
-  addColumnIfNotExists('classes', 'invite_code', 'TEXT');
-  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_classes_invite_code ON classes(invite_code);');
-  // Generate codes for existing classes
+  // Generate invite codes for classes that have none. The column and its unique index come
+  // from `0000c_legacy_compat_columns` / `0000d_legacy_compat_indexes`; this stays here
+  // because it is data backfill, not schema.
   const classesWithoutCode = db.prepare('SELECT id FROM classes WHERE invite_code IS NULL').all() as {id: number}[];
   for (const c of classesWithoutCode) {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     db.prepare('UPDATE classes SET invite_code = ? WHERE id = ?').run(code, c.id);
   }
 
-  // Add is_active column if not exists (migration)
-  addColumnIfNotExists('shop_items', 'is_active', 'INTEGER DEFAULT 1');
+  // shop_items and pets compatibility columns, and users.is_activated, are part of
+  // `0000c_legacy_compat_columns`. What remains here is the data backfill below.
 
-  // Add custom_image column to pets if not exists (migration)
-  addColumnIfNotExists('pets', 'custom_image', 'TEXT');
-
-  // Add last_fed_at column to pets if not exists (migration)
-  addColumnIfNotExists('pets', 'last_fed_at', 'DATETIME');
-
-  // Add teacher_id column to shop_items if not exists (migration)
-  addColumnIfNotExists('shop_items', 'teacher_id', 'INTEGER REFERENCES users(id)');
-
-  // Add holiday columns to shop_items if not exists (migration)
-  try {
-    db.exec('ALTER TABLE shop_items ADD COLUMN is_holiday_limited INTEGER DEFAULT 0;');
-    db.exec('ALTER TABLE shop_items ADD COLUMN holiday_start_time TEXT;');
-    db.exec('ALTER TABLE shop_items ADD COLUMN holiday_end_time TEXT;');
-  } catch (e) {
-    // Column might already exist, ignore error
-  }
-
-  // Add sender_role column to messages if not exists (migration)
-  addColumnIfNotExists('messages', 'sender_role', "TEXT DEFAULT 'student'");
   migrateLegacyHomeSchoolSenderRoles();
-
-  // Add is_activated column to users if not exists (migration)
-  addColumnIfNotExists('users', 'is_activated', 'INTEGER DEFAULT 0');
 
   // Insert initial teacher user if not exists
   const teacher = db.prepare('SELECT * FROM users WHERE role = ?').get('teacher') as any;
@@ -448,39 +363,12 @@ export function initDb() {
   }
 
   // =========================================
-  // 创建高频查询外键索引 (Performance Indexes)
+  // 高频查询外键索引 (Performance Indexes)
   // =========================================
-  const indexesToCreate = [
-    // 用户与班级
-    'CREATE INDEX IF NOT EXISTS idx_students_class_id ON students(class_id);',
-    'CREATE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id);',
-    'CREATE INDEX IF NOT EXISTS idx_classes_teacher_id ON classes(teacher_id);',
-    
-    // 游戏化系统
-    'CREATE INDEX IF NOT EXISTS idx_pets_student_id ON pets(student_id);',
-    'CREATE INDEX IF NOT EXISTS idx_shop_items_teacher_id ON shop_items(teacher_id);',
-    'CREATE INDEX IF NOT EXISTS idx_redemption_tickets_student_id ON redemption_tickets(student_id);',
-    
-    // 学习与教务
-    'CREATE INDEX IF NOT EXISTS idx_assignments_class_id ON assignments(class_id);',
-    'CREATE INDEX IF NOT EXISTS idx_exams_class_id ON exams(class_id);',
-    'CREATE INDEX IF NOT EXISTS idx_attendance_records_class_id ON attendance_records(class_id);',
-    'CREATE INDEX IF NOT EXISTS idx_attendance_records_student_id ON attendance_records(student_id);',
-    'CREATE INDEX IF NOT EXISTS idx_messages_class_id ON messages(class_id);',
-    'CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);',
-    'CREATE INDEX IF NOT EXISTS idx_operation_logs_teacher_id ON operation_logs(teacher_id);',
-    'CREATE INDEX IF NOT EXISTS idx_activation_events_user_id ON activation_events(user_id);',
-    'CREATE INDEX IF NOT EXISTS idx_activation_events_order_id ON activation_events(order_id);',
-    
-    // SLG 及其他
-    'CREATE INDEX IF NOT EXISTS idx_territories_class_id ON territories(class_id);',
-    'CREATE INDEX IF NOT EXISTS idx_student_pets_student_id ON student_pets(student_id);',
-    'CREATE INDEX IF NOT EXISTS idx_dungeon_runs_student_id ON dungeon_runs(student_id);'
-  ];
-
-  for (const sql of indexesToCreate) {
-    db.exec(sql);
-  }
+  // They live in `0000d_legacy_compat_indexes` now. Creating them here was invisible to the
+  // kernel composition, which is how 19 indexes - including the two UNIQUE ones that back
+  // `ON CONFLICT(parent_id, student_id)` and classes' invite-code uniqueness - came to be
+  // missing there.
 
 }
 

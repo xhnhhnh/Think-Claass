@@ -44,8 +44,7 @@ import {
 } from '@thinkclass/kernel';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb, decrypt } from './db.js'
-import { bootSchemaMigration } from './schema/legacyBootSchema.js'
-import { paymentTablesMigration } from './schema/paymentTables.js'
+import { APP_MIGRATIONS } from './schema/appMigrations.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
 import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
@@ -250,17 +249,18 @@ export async function createApp(): Promise<Express> {
   bootedKernel = await createKernel({
     authProvider: createLegacyAuthProvider(),
     mountPlugins,
-    // The application's schema, supplied as a migration. Both compositions apply the same
-    // definition: the legacy one through `initDb()` and this one through the ledger. It is
+    // The application's schema, supplied as a migration chain. Both compositions apply the
+    // same list: the legacy one through `initDb()` and this one through the ledger. It is
     // injected rather than registered inside the kernel because the kernel must stay
     // domain-free (guardrail G5) - `enable_economy`, `pets` and `dungeon_runs` are not
-    // kernel concepts. See api/schema/legacyBootSchema.ts.
+    // kernel concepts. See api/schema/appMigrations.ts.
     //
-    // `paymentTablesMigration` is listed separately rather than folded into the boot
-    // schema: its SQL is already applied in the wild, and a string migration's checksum IS
-    // its SQL, so appending to it would make the runner refuse to start. See
-    // api/schema/paymentTables.ts.
-    migrations: [bootSchemaMigration, paymentTablesMigration],
+    // The compatibility columns and indexes are separate migrations rather than folded into
+    // the boot schema: its SQL is already applied in the wild, and a string migration's
+    // checksum IS its SQL, so appending to it would make the runner refuse to start. They
+    // must still come through here, because this composition never calls `initDb()` - that
+    // omission is what left it without `parent_activity.last_active_date` and 19 indexes.
+    migrations: APP_MIGRATIONS,
     // Student names are AES-encrypted at rest and the key belongs to the application,
     // not the kernel. Handing the decryptor over lets `classroom.public` publish
     // readable names without any plugin importing `api/**`.

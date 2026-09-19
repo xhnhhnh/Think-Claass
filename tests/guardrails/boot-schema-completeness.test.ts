@@ -34,26 +34,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { bootSchemaMigration } from '../../api/schema/legacyBootSchema.js';
-import { paymentTablesMigration } from '../../api/schema/paymentTables.js';
+import { APP_MIGRATIONS, bootSchemaMigration } from '../../api/schema/appMigrations.js';
 import { ROOT } from './lib/paths.mjs';
+// Relative path on purpose: this project deliberately declares no `@thinkclass/*` aliases
+// (see vitest.guardrails.config.ts), and the point of these two guards is to execute the
+// REAL migration runner rather than a re-implementation of it.
+import { runMigrations } from '../../packages/kernel/src/storage/migrations.js';
 
 /**
  * Every migration that contributes to the application schema, in id order.
  *
- * `paymentTablesMigration` is separate rather than appended to the boot schema on purpose:
- * a string migration's checksum is its SQL text, so editing the boot schema would make
- * `runMigrations` refuse to start against every database that had already applied it.
+ * Imported from `api/schema/appMigrations.ts` rather than listed here: this file used to
+ * keep its own copy of the list, which is how the guard and the two compositions could have
+ * disagreed about what "the schema" is. `paymentTablesMigration` and the two `0000c`/`0000d`
+ * compatibility migrations are separate from the boot schema because a string migration's
+ * checksum is its SQL text, so editing the boot schema would make `runMigrations` refuse to
+ * start against every database that had already applied it.
  */
-const APPLICATION_MIGRATIONS = [bootSchemaMigration, paymentTablesMigration];
+const APPLICATION_MIGRATIONS = APP_MIGRATIONS;
 
-/** All application tables, built by running the migrations for real. */
+/**
+ * All application tables, built by running the migrations for real.
+ *
+ * Through `runMigrations` and not `db.exec(migration.up)` (which is what this used to do):
+ * a function migration has no SQL text to exec, and `runMigrations` is also what applies the
+ * ledger, the ordering and the checksum verification in production.
+ */
 function createSchema(): Database.Database {
   const db = new Database(':memory:');
-  for (const migration of APPLICATION_MIGRATIONS) {
-    expect(typeof migration.up, `${migration.id} must be a string migration`).toBe('string');
-    db.exec(migration.up as string);
-  }
+  runMigrations(db, APPLICATION_MIGRATIONS, {});
   return db;
 }
 
@@ -102,6 +111,11 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   messages: ['sender_role'],
   shop_items: ['is_active', 'teacher_id'],
   users: ['is_activated'],
+  // Written by the parent-login path (`api/modules/auth/auth.service.ts`, which targets it in
+  // an `ON CONFLICT` upsert) and read by name by the pet domain's parent-buff check. The boot
+  // schema's CREATE omits it; it arrives through `0000c_legacy_compat_columns`. Its absence in
+  // the kernel composition was measured, not theorised - see that migration's header.
+  parent_activity: ['last_active_date'],
 };
 
 describe('G13 boot schema satisfies its declarations', () => {
