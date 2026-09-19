@@ -85,7 +85,9 @@ npm test                      # 核对我声称的 114 文件 / 437 用例
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 11 组防伪护栏（棘轮，39 用例）
+npm run guard         # 13 组防伪护栏（棘轮，43 用例）
+
+npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
 npm run measure       # 基线度量（死代码/重复/schema 漂移）
 npm run api:surface -- --check     # 292 条端点必须零漂移（含 plugins/**）
@@ -200,7 +202,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | `shimPages` | 62 | 0 | 插件树里的一行转发 shim（"假插件化"） |
 | `deadCode` | 70 | 0 | 应用不可达文件 |
 | `staticPluginRoutes` | 76 | 0 | 路由表里静态 import 的插件页面 |
-| `legacyFeatureKeySurfaces` | **1**（原 2）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
+| `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
 | `adoptedTables` | 2 | 0 | 仍带旧名的插件自有表 |
 | `routeCollisions` | **1 → 0**（P4.3b R1 新增）| 0 | 同一 METHOD+PATH 被两个控制器文件声明 |
 
@@ -225,7 +227,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 npm test        113 文件 / 567 用例全绿
 npm run check   exit 0
 api:surface     unchanged (292 endpoints)
-guardrails      10 文件 / 39 用例
+guardrails      11 文件 / 43 用例
 ```
 
 **已迁成插件的域（11 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal（+ 原有 classroom, pet）
@@ -238,7 +240,7 @@ guardrails      10 文件 / 39 用例
 | `api:surface` 端点数 | **292** | 迁移期间**不应变化**。变小 → 扫描漏了插件；变大 → 多出端点 |
 | `deadCode` | **66** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | 62 | P5 之前不应变化 |
-| `legacyFeatureKeySurfaces` | 1 | 迁 `classroom` 端点时应降到 0 |
+| `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
 | `adoptedTables` | **26** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
 | `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 |
 
@@ -520,7 +522,9 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 - 删掉 62 个一行 shim（`src/features/*/pages/*`），把真实 UI 从 `src/pages/<Role>/` 移入插件
 - `AppRoutes.tsx` 的 80 个 `<Route>` → 注册表驱动 + `import.meta.glob` 组件映射 + 服务端下发的路由清单
 - 4 个布局的硬编码菜单（Teacher 25 / Student 22 / Admin 10 / Parent 6 项）→ `MenuRegistry`
-- `src/lib/classFeatures.ts` 的 19 键 → 从插件 manifest 派生（这会把 `legacyFeatureKeySurfaces` 降到 0）
+- ~~`src/lib/classFeatures.ts` 的 19 键 → 从插件 manifest 派生~~ ✅ **P5.1 已完成**：
+  目录由 `plugins/classroom/plugin.json` 生成（`npm run class-features`），路由映射移到 `src/lib/featureRoutes.ts`，
+  `PublicPluginDescriptor` 现在带 `permissionDeclarations`（键 + 标签 + 作用域）。新增 **G14** 保证生成物与 manifest 不漂移。
 - 用 `window.__TC_CONFIG__` 取代 `scripts/deploy-common.sh` 里的 `sed /beiadmin`
 - 复活从未挂载的 `src/components/ErrorBoundary.tsx`
 
