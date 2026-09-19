@@ -116,6 +116,8 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3b.5a | **`system` 迁成插件**（8 条路由；`operation_logs` 只读，内核审计 sink 拥有） | 见 `git log` | ✅ |
 | P4.3b.5b | **`assignments` 插件**：`learning` 里唯一不碰 Prisma 的 14 条路由（作业+考试）先切出来 | 见 `git log` | ✅ |
 | P4.3b.5c | `learning` **其余部分**（papers/knowledge/wrong-questions/study-plans，28 个 Prisma 模型） | — | ⬜ |
+| P4.3b.5c | **支付表补建**：`payment_orders`/`payment_transactions` 根本没有表，整个 `/api/payment` 面是死的；G13 加固 | 见 `git log` | ✅ |
+| P4.3b.5d | **`parent-buff` 迁成插件**（`platform` 拆开：业务半边走插件，支付半边留在 `api/modules/platform`） | 见 `git log` | ✅ |
 | P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity`（`settings`/`system` 已完成） | — | ⬜ |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
@@ -209,7 +211,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | `deadCode` | **65**（70 → 69 → 66 → 65）| 0 | 应用不可达文件 |
 | `staticPluginRoutes` | **0** ✅（76 → 0）| 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
-| `adoptedTables` | **32**（26 → 28 → 32）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入） |
+| `adoptedTables` | **33**（26 → 28 → 32 → 33）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入） |
 | `routeCollisions` | **1 → 0**（P4.3b R1 新增）| 0 | 同一 METHOD+PATH 被两个控制器文件声明 |
 
 其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；**反向：每个 Prisma 模型都要有表**）。
@@ -232,18 +234,19 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.5b 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面是 P4.3b.5d 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        117 文件 / 634 用例全绿
+npm test        118 文件 / 647 用例全绿
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)
 guardrails      11 文件 / 47 用例
 ```
 
-**已迁成插件的域（13 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments（+ 原有 classroom, pet）
-**仍在 `api/modules/` 的域（8 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform
+**已迁成插件的域（14 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments, parent-buff（+ 原有 classroom, pet）
+**仍在 `api/modules/` 的域（7 个）**：admin, auth, classroom, engagement, insights, learning, pet。
+另外 **`platform` 现在只剩支付三条路由**（业务半边 `parent-buff` 已迁走），它已经不是一个功能域，而是一块基础设施 —— 见 §8.9。
 （`settings` 已在 P5.3c 并入内核 —— 它本来就只有一句 `SELECT key, value FROM settings`，而 `settings` 是内核自有存储。）
 
 **验收基线**：
@@ -254,7 +257,7 @@ guardrails      11 文件 / 47 用例
 | `deadCode` | **65** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | **0** | P5.2a 已达成 |
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
-| `adoptedTables` | **32** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。P4.3b.5a 加了 system 的 2 张，P4.3b.5b 加了 assignments 的 4 张 |
+| `adoptedTables` | **33** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。P4.3b.5a 加了 system 的 2 张，P4.3b.5b 加了 assignments 的 4 张，P4.3b.5d 加了 parent-buff 的 1 张 |
 | `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 |
 
 ### ⚠️ `platform` 不是一个干净的功能域（迁移前必读）
@@ -382,12 +385,13 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 1. ~~`economy`~~ ✅ `3296a41`
 2. ~~`dungeon`、`gacha`、`slg`、`battles`、`challenge`~~ ✅ P4.3b.2
 3. ~~`collaboration`、`marketplace`~~ ✅ P4.3b.3
-4. ~~`portal`、`system`~~ ✅ P4.3b.5a；**`platform`（小）** ← 下一个可独立搬的
+4. ~~`portal`、`system`~~ ✅ P4.3b.5a；~~`parent-buff`~~ ✅ P4.3b.5d（`platform` 的支付半边留在原处，见 §8.9）
 5. `learning`：作业+考试 ✅ **P4.3b.5b 已切出 `plugins/assignments`**；剩下的 papers/knowledge/wrong-questions/study-plans（28 个 Prisma 模型）← 单独一轮
 6. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
 7. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
 8. `auth` → `identity` 基础插件（`settings` ✅ P5.3c 并入内核；`system` ✅ P4.3b.5a 迁成插件）
 9. `insights`、`engagement` → **最后**：insights 是跨全域读模型（12 张表），engagement 卡在 `pets`/`redemption_tickets` 的所有权决定
+10. `platform` 的支付三条路由 → 未定归宿（内核侧 vs `tier: "infrastructure"` 插件），见 §8.9
 
 **共享文件只有 Lead 改**：`api/app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`、`packages/**`。
 `plugins/<slug>/**` 与 `tests/plugins/<slug>-*.test.ts` 是每域独占的，可以并行。
@@ -502,7 +506,7 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 |---|---|---|
 | `insights` | 3 条路由但**跨域读 12 张表**。P4.3b.5b 之后这 12 张表的归属更清楚了：`exams`/`student_exams`/`student_assignments`/`assignments` 现属 `plugins/assignments`，其余 `students`/`classes`/`records`/`praises`/`leave_requests`/`attendance_records` 属 classroom，`parent_students` 仍无主。classroom 与 assignments **都没有报表类端口** | 正确解法是**先迁 learning**（提供考试成绩），再迁 `insights`：它的每条 SQL 都跨 2–3 个域，靠 `data.reads` 硬堆是 12 张表的隐式耦合。上一轮实测后的结论：**insights 不是可以单独搬的域，它是一个跨全域的读模型**，应该在 learning 与 classroom 都发布报表端口之后再动 |
 | `engagement` | ① **写 `pets` 表**（:96 `UPDATE pets SET ... mood = ?`）——`pets` 属 pet 域；② 写 `redemption_tickets`（与 marketplace **双写**，已被 G10 的 `SHARED_WRITE_TABLES` 显式记录）；③ 读 `shop_items` | pet 需发布一个"宠物经验/等级"端口；`redemption_tickets` 需要一个真正的端口（marketplace 拥有？engagement 拥有？）——**这是必须先决定的所有权问题** |
-| `platform` | 4 条路由里 3 条是支付基础设施（依赖 `api/services/paymentService.ts`、`paymentProviders/**`、`prisma.settings`），只有 `POST /api/parent-buff` 是业务 | 拆开：`parent-buff` → feature 插件；`payment/*` → 内核/平台侧（`payment_orders`/`payment_transactions` 只存在于 Prisma） |
+| `platform` | **已拆开（P4.3b.5d）**：`POST /api/parent-buff` → `plugins/parent-buff` ✅。剩下 `POST /api/payment/create`、`GET /api/payment/status/:orderNo`、`POST /api/payment/notify`，依赖 `api/services/paymentService.ts`（Prisma 驱动 `payment_orders`/`payment_transactions`）与 `api/services/paymentProviders/**`，并经 `activationService` 开通用户 | **注意：它不是功能域，是基础设施。**把 `api/services/**` 一起搬进 feature 插件就是"把基础设施当业务迁"。未定的问题是归宿：内核侧（kernel 会因此认识支付概念，与 G5 的"零业务知识"张力最大）还是 `tier: "infrastructure"` 的非 feature 插件。**决定权留给下一轮**，先不动 —— 三条路由现在能正常工作（P4.3b.5c 补表之后实测 200） |
 | `learning` | **已切走一半**：`assignments`/`exams` 14 条路由变成 `plugins/assignments`（P4.3b.5b）。剩下的是 papers/knowledge/wrong-questions/study-plans，10 文件 / 1433 行 / 28 张表，**全 Prisma** | 剩下这部分单独一轮，不要和别的域混。注意 `learning.errors.ts` / `learning.module.ts` 仍在 `api/modules/learning/` |
 | `admin`/`auth`/`classroom`/`pet` | 见 §8.4 与 §8.3.1 | `auth`→`identity`；`pet`/`classroom` 的 HTTP 面。（`settings` ✅ P5.3c 并入内核；`system` ✅ P4.3b.5a 迁成插件，见下） |
 
@@ -605,6 +609,38 @@ admin 走 Prisma `$transaction` 而非 `DbApi`，所有权检查看不见 ——
 
 **并且**：这一轮实测后可以把 `insights` 的结论说得更死 —— 它读 12 张表、每条 SQL 跨 2–3 个域，
 所以它**不该**靠 `data.reads` 搬走。正确顺序是 learning 与 classroom 都发布报表端口之后再迁它。
+
+---
+
+### P4.3b.5d · `platform` 拆成两半：`parent-buff` 走插件，支付留下 —— ✅ 已完成
+
+`api/modules/platform` 只有 4 条路由，但它们属于**两类东西**，这是 §8.9 早就标出来的：
+
+| 路由 | 性质 | 去向 |
+|---|---|---|
+| `POST /api/parent-buff` | 业务：往 `parent_activity` 写一行"今日祝福" | ✅ `plugins/parent-buff` |
+| `POST /api/payment/create`<br>`GET /api/payment/status/:orderNo`<br>`POST /api/payment/notify` | **基础设施**：Prisma 驱动 `payment_orders`/`payment_transactions`，`paymentProviders/**` 做签名校验，`activationService` 开通用户 | 仍留 `api/modules/platform`，**归宿未定** |
+
+**为什么不一起搬**：机械地把这 4 条路由搬进一个插件，等于把 `api/services/**` 一起拖进 feature 插件 —— 那是"把基础设施当业务迁"。
+支付那半边的正确归宿是个真问题：放内核意味着 kernel 要认识支付概念（与 G5"零业务知识"张力最大），
+放插件则要引入一个非 feature 的 `tier: "infrastructure"`。**本轮不替它做决定**，只把它从"一个域"降级成"一块待安置的基础设施"。
+
+**实测**（`.tmp/parent-buff-probe.mts`，内核组装 + 真插件）：
+
+```
+POST, no body                  -> 400 {"success":false,"message":"Student ID required"}
+POST, studentId 0              -> 400 （同上：`if (!studentId)` 把 0 也当缺失，行为保留）
+POST, studentId 10（今天首次）  -> 200 {"success":true}
+POST, studentId 10（今天再来）  -> 400 {"success":false,"message":"今日已经施放过祝福了"}
+POST, studentId 11（另一个学生）-> 200 {"success":true}
+POST, 不存在的学生 999          -> 500 （FK 约束，与迁移前一致）
+parent_activity rows: [{student_id:10,...,parent_id:null},{student_id:11,...,parent_id:null}]
+```
+
+**"每天一次"这条规则值得单独说**：它靠 `date(created_at) = ?` 与 SQLite 自己的日期函数比较，
+**假 repository 证明不了它**。所以测试里有一层真库断言：用 SQLite 写入一行、第二次被拒；
+再显式写一行 `date('now','-1 day')` 的昨天记录，证明它**不会**挡住今天。
+另外 `/api/payment/*` 在同一探针里是 404 —— 内核组装不加载 `api/modules/**`，这是预期，也顺带证明支付确实没被搬走。
 
 ---
 

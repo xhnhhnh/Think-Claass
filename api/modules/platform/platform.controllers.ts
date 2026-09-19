@@ -4,24 +4,18 @@ import type { Request, Response } from 'express';
 import { throwPlatformError } from './platform.errors.js';
 import { PlatformService } from './platform.service.js';
 
-const errorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Internal Server Error');
-
-@Controller('api/parent-buff')
-export class ParentBuffController {
-  constructor(@Inject(PlatformService) private readonly platformService: PlatformService) {}
-
-  @Post()
-  @HttpCode(HttpStatus.OK)
-  createParentBuff(@Body() body: Record<string, any>) {
-    try {
-      this.platformService.createParentBuff(body);
-      return { success: true };
-    } catch (error) {
-      throwPlatformError(error, errorMessage);
-    }
-  }
-}
-
+/**
+ * Payment infrastructure HTTP surface.
+ *
+ * `ParentBuffController` left this file in P4.3b.5d, when the parent-blessing action became
+ * `plugins/parent-buff`; what remains is the payment half.
+ *
+ * Payment is deliberately still here and NOT a plugin. `api/services/paymentService.ts`
+ * drives `payment_orders` / `payment_transactions` through Prisma and activates users via
+ * `api/services/activationService.ts` - platform infrastructure that a feature plugin
+ * should not swallow. Whether it ends up kernel-side or as a non-feature plugin (tier
+ * `infrastructure`) is an open decision, tracked in HANDOFF §8.9.
+ */
 @Controller('api/payment')
 export class PaymentController {
   constructor(@Inject(PlatformService) private readonly platformService: PlatformService) {}

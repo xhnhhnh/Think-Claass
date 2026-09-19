@@ -59,8 +59,8 @@ let base = '';
 let tempDir = '';
 let startupLog = '';
 
-async function probe(pathname: string): Promise<ProbeResponse> {
-  const response = await fetch(base + pathname, { redirect: 'manual' });
+async function probe(pathname: string, init?: RequestInit): Promise<ProbeResponse> {
+  const response = await fetch(base + pathname, { redirect: 'manual', ...init });
   return { status: response.status, body: await response.text() };
 }
 
@@ -131,6 +131,7 @@ describe('legacy composition serves plugin routes', () => {
       'economy',
       'gacha',
       'marketplace',
+      'parent-buff',
       'pet',
       'portal',
       'slg',
@@ -191,6 +192,18 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
     expect(JSON.parse(response.body)).toEqual({ success: true, data: [] });
+  });
+
+  it('serves the split-out parent-buff action from its plugin', async () => {
+    // `api/modules/platform` no longer declares ParentBuffController (P4.3b.5d). An empty
+    // body is rejected by the *plugin's* first guard before any write, so this needs no
+    // seeded student - and the body is what distinguishes "the plugin's controller ran"
+    // from "the route is not mounted" (Nest answers `Cannot POST /api/parent-buff`).
+    const response = await probe('/api/parent-buff', { method: 'POST' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toContain('Student ID required');
+    expect(response.body).not.toContain('Cannot POST');
   });
 
   it('distinguishes a missing resource from a missing route', async () => {

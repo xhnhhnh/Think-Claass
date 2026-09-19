@@ -1,0 +1,26 @@
+{
+  "id": "parent-buff",
+  "name": "家长祝福",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "The parent-blessing action: one POST that records a once-per-day blessing against a student. Split out of api/modules/platform (P4.3b.5d), which mixed this business action with three payment-infrastructure routes; only the business half moved, because relocating api/services/paymentService.ts into a feature plugin would be migrating infrastructure as if it were a domain.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "provides": {
+    "routes": [{ "method": "POST", "base": "/api/parent-buff", "handler": "ParentBuffController.createParentBuff", "auth": "actor" }],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["parent_activity"],
+    "_adopted_note": "Keeps its legacy name because the row shape is what other readers see: `activity_type` is the literal 'PARENT_BUFF' and `points_awarded` is always 0, so the table is an attendance log rather than a points ledger. Renaming is the P7 namespace migration tracked by guardrail G10. `parent_id` is nullable and this domain never sets it - the blessing is recorded against the student. auth's parent login writes the *same* table with activity_type 'login' through Prisma (api/modules/auth/auth.service.ts), so that module is a cross-owner writer until it migrates.",
+    "reads": []
+  }
+}

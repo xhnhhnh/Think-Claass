@@ -3,11 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../utils/apiError';
 
-const dbMocks = vi.hoisted(() => ({
-  get: vi.fn(),
-  prepare: vi.fn(),
-  run: vi.fn(),
-}));
+// The `dbMocks` block that used to be here was deleted with `createParentBuff` (P4.3b.5d):
+// the parent-blessing action and its two SQL statements now live in `plugins/parent-buff`,
+// with their own tests in `tests/plugins/parent-buff-service.test.ts`. This suite is
+// payment-only, which is what the remaining service is.
 
 const prismaMocks = vi.hoisted(() => ({
   settingsFindUnique: vi.fn(),
@@ -22,12 +21,6 @@ const paymentMocks = vi.hoisted(() => ({
 const providerMocks = vi.hoisted(() => ({
   createPaymentProvider: vi.fn(),
   verifyWebhookSignature: vi.fn(),
-}));
-
-vi.mock('../../db.js', () => ({
-  default: {
-    prepare: dbMocks.prepare,
-  },
 }));
 
 vi.mock('../../prismaClient.js', () => ({
@@ -49,13 +42,6 @@ vi.mock('../../services/paymentProviders/index.js', () => ({
 }));
 
 import { PlatformService } from './platform.service';
-
-function mockPreparedStatement() {
-  dbMocks.prepare.mockImplementation((sql: string) => ({
-    get: (...args: unknown[]) => dbMocks.get(sql, ...args),
-    run: (...args: unknown[]) => dbMocks.run(sql, ...args),
-  }));
-}
 
 function mockReq(role = 'student', id: number | null = 1): Request {
   return {
@@ -89,28 +75,10 @@ describe('PlatformService', () => {
   let service: PlatformService;
 
   beforeEach(() => {
-    Object.values(dbMocks).forEach((mock) => mock.mockReset());
     Object.values(prismaMocks).forEach((mock) => mock.mockReset());
     Object.values(paymentMocks).forEach((mock) => mock.mockReset());
     Object.values(providerMocks).forEach((mock) => mock.mockReset());
-    mockPreparedStatement();
     service = new PlatformService();
-  });
-
-  it('keeps parent buff required student, duplicate guard, and success side effect', () => {
-    expectApiError(() => service.createParentBuff({}), 400, 'Student ID required');
-
-    dbMocks.get.mockReturnValueOnce({ id: 1 });
-    expectApiError(() => service.createParentBuff({ studentId: 2 }), 400, '今日已经施放过祝福了');
-
-    dbMocks.get.mockReturnValueOnce(undefined);
-    expect(service.createParentBuff({ studentId: 2 })).toBeUndefined();
-    expect(dbMocks.run).toHaveBeenCalledWith(
-      'INSERT INTO parent_activity (student_id, activity_type, points_awarded) VALUES (?, ?, ?)',
-      2,
-      'PARENT_BUFF',
-      0,
-    );
   });
 
   it('keeps payment create/status response payloads and auth/method guards', async () => {

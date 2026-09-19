@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 
-import db from '../../db.js';
 import { prisma } from '../../prismaClient.js';
 import { createPaymentOrder, getOrderForUser, markOrderPaid } from '../../services/paymentService.js';
 import { createPaymentProvider } from '../../services/paymentProviders/index.js';
 import { ApiError } from '../../utils/apiError.js';
 import { getRequestActor } from '../../utils/requestAuth.js';
+
+/**
+ * Payment infrastructure service.
+ *
+ * `createParentBuff` moved to `plugins/parent-buff` in P4.3b.5d - it was the one method here
+ * that was business rather than infrastructure. What remains talks to Prisma and to
+ * `api/services/paymentService.ts` / `paymentProviders/**`.
+ */
 
 function readOrderRuntime(channelPayload: string | null) {
   try {
@@ -40,22 +47,6 @@ function paymentOrderPayload(order: any) {
 
 @Injectable()
 export class PlatformService {
-  createParentBuff(input: Record<string, any>) {
-    const { studentId } = input ?? {};
-    if (!studentId) {
-      throw new ApiError(400, 'Student ID required');
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    const existing = db.prepare('SELECT id FROM parent_activity WHERE student_id = ? AND date(created_at) = ?').get(studentId, today);
-    if (existing) {
-      throw new ApiError(400, '今日已经施放过祝福了');
-    }
-
-    db.prepare('INSERT INTO parent_activity (student_id, activity_type, points_awarded) VALUES (?, ?, ?)')
-      .run(studentId, 'PARENT_BUFF', 0);
-  }
-
   async createPayment(req: Request, input: Record<string, any>) {
     const actor = getRequestActor(req);
     if (!actor.id) throw new ApiError(403, '未登录');
