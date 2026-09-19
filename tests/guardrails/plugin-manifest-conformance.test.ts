@@ -196,7 +196,10 @@ describe('G10 adopted legacy tables ratchet', () => {
     // edit in two places, because migrating a domain is the only legitimate reason for
     // this number to move. 33 -> 34 in P4.3b.6, when the pet domain adopted its real
     // `pets` table and dropped the invented one it had been carrying since P3.
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(34);
+    // 34 -> 50 in P4.3b.6b, when the learning domain (papers / knowledge graph / wrong
+    // questions / study plans) adopted its 16 legacy-named tables. That set is the
+    // measured one, not a guess, and it is enumerated in allowances.json.
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(50);
   });
 
   it('never declares a table as both owned and adopted', () => {

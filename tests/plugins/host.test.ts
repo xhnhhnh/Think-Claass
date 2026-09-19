@@ -111,6 +111,7 @@ describe('plugin discovery and activation', () => {
       'dungeon',
       'economy',
       'gacha',
+      'learning',
       'marketplace',
       'parent-buff',
       'pet',
@@ -156,6 +157,7 @@ describe('plugin discovery and activation', () => {
       'dungeon:active',
       'economy:active',
       'gacha:active',
+      'learning:active',
       'marketplace:active',
       'parent-buff:active',
       'pet:active',
@@ -188,15 +190,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(14);
-    expect(body.kernel.plugins.active).toBe(14);
+    expect(body.kernel.plugins.total).toBe(15);
+    expect(body.kernel.plugins.active).toBe(15);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'parent-buff', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'learning', 'marketplace', 'parent-buff', 'pet', 'portal', 'slg', 'system']);
   });
 });
 
@@ -329,6 +331,38 @@ describe('cross-plugin collaboration', () => {
     const classroomManifest = host!.active.find((entry) => entry.manifest.id === 'classroom')!.manifest;
     expect(classroomManifest.data.adopted).toEqual(['students', 'classes', 'records']);
     expect(classroomManifest.data.tables).toEqual([]);
+  });
+
+  it('challenge takes its boss damage from pet.public, resolved late', async () => {
+    // This is the test that would have caught a real bug: resolving an OPTIONAL port inside
+    // `setup()` looks right and is wrong, because plugins are set up in slug order and
+    // `challenge` runs before `pet`. The first version of this wiring captured
+    // `ctx.tryUse('pet.public')` during setup, got null, and answered 10 damage forever while
+    // the database held a pet with attack_power 777 (the real-boot probe measured it).
+    //
+    // The value is deliberately not the fallback: 777 cannot be produced by `?? 10`, and it
+    // cannot come from a direct `pets` read either - that statement no longer exists.
+    kernel.db.prepare(`UPDATE pets SET attack_power = 777 WHERE student_id = 10`).run();
+    kernel.db.prepare(`INSERT INTO world_bosses (id, name, hp, max_hp, level, status) VALUES (77, '测试Boss', 1000, 1000, 1, 'active')`).run();
+    kernel.permissions.store.set({
+      scopeType: 'class',
+      scopeId: 1,
+      capabilityKey: 'classroom.enable_world_boss',
+      enabled: true,
+    });
+
+    const { status, body } = await api('POST', '/api/challenge/bosses/77/attacks', { studentId: 10 });
+
+    expect(status).toBe(201);
+    expect(body.damage).toBe(777);
+    expect(body.newHp).toBe(223);
+
+    const boss = kernel.db.prepare(`SELECT hp FROM world_bosses WHERE id = 77`).get() as { hp: number };
+    expect(boss.hp).toBe(223);
+
+    // And the plugin's own manifest says it does not read `pets` at all any more.
+    const challengeManifest = host!.active.find((entry) => entry.manifest.id === 'challenge')!.manifest;
+    expect(challengeManifest.data.reads).toEqual(['question_bank']);
   });
 
   it('awarding points through the port updates the student and emits an event', async () => {

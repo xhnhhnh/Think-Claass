@@ -1,0 +1,73 @@
+{
+  "id": "learning",
+  "name": "试卷与知识图谱",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "The paper/knowledge engine: the 24 routes of api/papers, api/paper-submissions, api/knowledge, api/wrong-questions and api/study-plans, lifted out of api/modules/learning after plugins/assignments took the Prisma-free assignments+exams half (P4.3b.5b). Adopts the 16 tables of its own schema cluster - papers and their assets/sections/items/answers/submissions/rubric points, the question bank, the knowledge graph, wrong questions and their attempts, study plans and their items. Reaches students only through `classroom.public`, so the ownership check in ctx.db is the proof that it never touches another domain's table.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/papers", "handler": "PapersController.listPapers", "auth": "actor" },
+      { "method": "POST", "base": "/api/papers", "handler": "PapersController.createPaper", "auth": "actor" },
+      { "method": "GET", "base": "/api/papers", "handler": "PapersController.getPaper", "auth": "actor" },
+      { "method": "PUT", "base": "/api/papers", "handler": "PapersController.updatePaper", "auth": "actor" },
+      { "method": "PUT", "base": "/api/papers", "handler": "PapersController.saveStructure", "auth": "actor" },
+      { "method": "POST", "base": "/api/papers", "handler": "PapersController.uploadAsset", "auth": "actor" },
+      { "method": "POST", "base": "/api/paper-submissions", "handler": "PaperSubmissionsController.start", "auth": "actor" },
+      { "method": "PUT", "base": "/api/paper-submissions", "handler": "PaperSubmissionsController.saveAnswers", "auth": "actor" },
+      { "method": "POST", "base": "/api/paper-submissions", "handler": "PaperSubmissionsController.submit", "auth": "actor" },
+      { "method": "GET", "base": "/api/knowledge", "handler": "KnowledgeController.getSubjects", "auth": "actor" },
+      { "method": "POST", "base": "/api/knowledge", "handler": "KnowledgeController.createSubject", "auth": "actor" },
+      { "method": "GET", "base": "/api/knowledge", "handler": "KnowledgeController.getNodes", "auth": "actor" },
+      { "method": "POST", "base": "/api/knowledge", "handler": "KnowledgeController.createNode", "auth": "actor" },
+      { "method": "PUT", "base": "/api/knowledge", "handler": "KnowledgeController.updateNode", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/knowledge", "handler": "KnowledgeController.deleteNode", "auth": "actor" },
+      { "method": "GET", "base": "/api/knowledge", "handler": "KnowledgeController.getEdges", "auth": "actor" },
+      { "method": "POST", "base": "/api/knowledge", "handler": "KnowledgeController.createEdge", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/knowledge", "handler": "KnowledgeController.deleteEdge", "auth": "actor" },
+      { "method": "GET", "base": "/api/wrong-questions", "handler": "WrongQuestionsController.my", "auth": "actor" },
+      { "method": "POST", "base": "/api/wrong-questions", "handler": "WrongQuestionsController.attempt", "auth": "actor" },
+      { "method": "POST", "base": "/api/wrong-questions", "handler": "WrongQuestionsController.generate", "auth": "actor" },
+      { "method": "GET", "base": "/api/study-plans", "handler": "StudyPlansController.my", "auth": "actor" },
+      { "method": "POST", "base": "/api/study-plans", "handler": "StudyPlansController.create", "auth": "actor" },
+      { "method": "PUT", "base": "/api/study-plans", "handler": "StudyPlansController.updateItem", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": [
+      "knowledge_edges",
+      "knowledge_nodes",
+      "paper_answers",
+      "paper_assets",
+      "paper_items",
+      "paper_sections",
+      "paper_submissions",
+      "papers",
+      "question_knowledge",
+      "questions",
+      "rubric_points",
+      "study_plan_items",
+      "study_plans",
+      "subjects",
+      "wrong_question_attempts",
+      "wrong_questions"
+    ],
+    "_adopted_note": "These 16 tables are exactly the ones the migrated code reads or writes - measured, not guessed: `grep 'prisma\\.(papers|paper_|questions|rubric_points|subjects|knowledge_|question_knowledge|wrong_question|study_plan)' api/modules/learning/learning.service.ts` before deletion, plus the JOIN-free child lookups the repository performs. They keep their legacy names because `SELECT *` rows are the HTTP contract and renaming them is the coordinated P7 namespace migration (guardrail G10). Child tables stay with their parents, because neither has meaning alone and the delete paths (`savePaperStructure` -> `deletePaperStructure`) remove children first - there is no ON DELETE CASCADE on `rubric_points.paper_item_id`. `question_knowledge` is the questions<->knowledge_nodes join table, read by `generateWrongQuestionPractice`. NOT adopted, deliberately: `rubric_point_scores`, `knowledge_products`, `notes`, `note_assets`, `note_products` sit in the same schema cluster but no route in this plugin touches them; claiming them would inflate the G10 ratchet for tables this domain does not serve. They are also unowned today - recorded in `_known_debt`.",
+    "reads": [],
+    "_reads_note": "Empty on purpose, and that is the design: this domain needs `students` (the caller's own student row) and nothing else from outside its own tables, and `students` is classroom-owned, so it is fetched through `ctx.use('classroom.public').getStudentByUserId(actor.userId)` instead. Declaring `students` here would both weaken the ownership model (a read declaration where a port exists) and invite a direct query. Every statement in `learning.repository.ts` therefore names an adopted table, and the non-production ownership check in `ctx.db` enforces it on every call.",
+    "_known_debt": "1. `api/modules/admin` still deletes from eight of these tables during `DELETE /api/admin/users/:id` (`admin.repository.ts:242-369`: papers, questions, paper_items, rubric_points, paper_submissions, paper_answers, wrong_questions, study_plans) through Prisma `$transaction`, which bypasses `DbApi` entirely - so the ownership check cannot see it. Same debt as plugins/assignments and plugins/pet; it must become a port call (or disappear with admin) when that domain migrates. `api/modules/insights` does NOT read these tables (verified by exhaustive grep), unlike the assignments half. 2. `POST /api/papers/:id/assets` writes a file into `<cwd>/uploads/papers` with `node:fs`, as the deleted service did. A `restricted` plugin has no declared filesystem capability for this; the honest fix is a host-provided storage port, which does not exist yet. 3. Missing-row `update`/`delete` still answers **500** (the Prisma P2025 status the legacy translator produced for an unknown id) rather than 404 - preserved on purpose; the 500 body now carries the kernel envelope's message instead of the driver's. 4. The route `base` entries above are the real controller prefixes (`/api/papers`, …), which the manifest validator warns are not namespaced under `/api/learning`; that warning is expected - these are the paths the deployed frontend calls, and the legacy names are the contract."
+  }
+}

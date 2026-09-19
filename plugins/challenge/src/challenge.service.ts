@@ -37,6 +37,7 @@
  */
 
 import type { ClassroomPort, ClassroomRefusal, StudentSnapshot } from '@thinkclass/contracts/domains/classroom';
+import type { PetPort } from '@thinkclass/contracts/domains/pet';
 import { ApiError } from '@thinkclass/kernel';
 
 import { isAnswerCorrect, mapQuestionRow, parseMaybeJson, toAnswerList } from './challenge.mappers.js';
@@ -75,6 +76,21 @@ export class ChallengeService {
   constructor(
     private readonly repository: ChallengeRepository,
     private readonly classroom: ClassroomPort,
+    /**
+     * Resolves the pet domain's port, or null when the pet plugin is not active.
+     *
+     * A **function**, not the port itself, and that is not a style choice: plugins are set up
+     * in slug order, so `challenge` initialises before `pet` does and `ctx.tryUse('pet.public')`
+     * called during `setup()` returns null - permanently, because the result was captured. The
+     * first real-boot probe of this change measured exactly that: damage stayed at the fallback
+     * of 10 while the database held a pet with `attack_power` 468. The registry is a live map,
+     * so resolving at call time sees the port that `pet` publishes a few milliseconds later.
+     *
+     * Resolving lazily is also what keeps this dependency optional: `ctx.use` plus
+     * `dependsOn: { pet }` would make the resolver reject challenge entirely whenever pet is
+     * disabled, for a value that already has a sensible fallback.
+     */
+    private readonly resolvePets: () => PetPort | null = () => null,
   ) {}
 
   /**
@@ -231,7 +247,9 @@ export class ChallengeService {
     }
 
     const student = await this.requireStudent(studentId);
-    const damage = this.repository.getPetAttackPower(studentId) ?? 10;
+    // `?? 10` is the pre-migration default, and it now covers two cases that used to be one:
+    // the student has no pet, and the pet plugin is not running at all.
+    const damage = (await this.resolvePets()?.getBattleProfile(studentId))?.attackPower ?? 10;
     const newHp = Math.max(0, boss.hp - damage);
     const defeated = newHp <= 0;
     const rewardPoints = defeated ? boss.level * 50 : 0;

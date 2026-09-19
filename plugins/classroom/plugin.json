@@ -6,7 +6,7 @@
   "tier": "foundation",
   "required": true,
   "isolation": "in-process",
-  "description": "Foundation plugin: owns access to classes and students and publishes the classroom.public port. Every other domain reaches student and class data through that port rather than through the tables. Also declares the class-scope capability catalogue that replaced the 19 enable_* columns.",
+  "description": "Foundation plugin: owns access to classes and students, publishes the classroom.public port, and since P4.3b.6b also serves the domain's whole HTTP surface (api/students, api/classes + api/class, api/groups, api/presets, api/attendance, api/leaves), which used to live in api/modules/classroom. Every other domain reaches student and class data through the port rather than through the tables. Also declares the class-scope capability catalogue that replaced the 19 enable_* columns.",
   "entry": {
     "backend": "./src/index.ts"
   },
@@ -38,7 +38,50 @@
       { "key": "classroom.enable_economy", "scope": "class", "default": true, "label": "经济系统" },
       { "key": "classroom.enable_dungeon", "scope": "class", "default": true, "label": "无尽塔" }
     ],
-    "routes": [],
+    "routes": [
+      { "method": "GET", "base": "/api/students", "handler": "StudentsController.listStudents", "auth": "actor" },
+      { "method": "GET", "base": "/api/students/records", "handler": "StudentsController.getRecords", "auth": "actor" },
+      { "method": "GET", "base": "/api/students/progress-star", "handler": "StudentsController.getProgressStar", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/checkin", "handler": "StudentsController.checkin", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/gift", "handler": "StudentsController.gift", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/batch-import", "handler": "StudentsController.batchImport", "auth": "actor" },
+      { "method": "POST", "base": "/api/students", "handler": "StudentsController.createStudent", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/batch-points", "handler": "StudentsController.batchPoints", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/batch-edit", "handler": "StudentsController.batchEdit", "auth": "actor" },
+      { "method": "GET", "base": "/api/students/:id", "handler": "StudentsController.getStudent", "auth": "actor" },
+      { "method": "PUT", "base": "/api/students/:id/class", "handler": "StudentsController.updateStudentClass", "auth": "actor" },
+      { "method": "PUT", "base": "/api/students/:id/group", "handler": "StudentsController.updateStudentGroup", "auth": "actor" },
+      { "method": "PUT", "base": "/api/students/:id/password", "handler": "StudentsController.resetStudentPassword", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/:id/points", "handler": "StudentsController.updateStudentPoints", "auth": "actor" },
+      { "method": "PUT", "base": "/api/students/:id/birthday", "handler": "StudentsController.updateBirthday", "auth": "actor" },
+      { "method": "GET", "base": "/api/students/:id/achievements", "handler": "StudentsController.getAchievements", "auth": "actor" },
+      { "method": "GET", "base": "/api/students/:id/peer-reviews/pending", "handler": "StudentsController.getPendingPeerReviews", "auth": "actor" },
+      { "method": "POST", "base": "/api/students/:id/peer-reviews", "handler": "StudentsController.createPeerReview", "auth": "actor" },
+
+      { "method": "GET", "base": "/api/classes", "compat": ["/api/class"], "handler": "ClassesController.listClasses", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/invite/:code", "compat": ["/api/class/invite/:code"], "handler": "ClassesController.getInvite", "auth": "actor" },
+      { "method": "POST", "base": "/api/classes", "compat": ["/api/class"], "handler": "ClassesController.createClass", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/:id", "compat": ["/api/class/:id"], "handler": "ClassesController.getClass", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/:id/features", "compat": ["/api/class/:id/features"], "handler": "ClassesController.getClassFeatures", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/:id/bigscreen", "compat": ["/api/class/:id/bigscreen"], "handler": "ClassesController.getBigscreen", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/:id/guild-ranking", "compat": ["/api/class/:id/guild-ranking"], "handler": "ClassesController.getGuildRanking", "auth": "actor" },
+      { "method": "PUT", "base": "/api/classes/:id/settings", "compat": ["/api/class/:id/settings", "/api/classes/:id/features", "/api/class/:id/features"], "handler": "ClassesController.updateClassSettings", "auth": "actor" },
+
+      { "method": "GET", "base": "/api/groups", "handler": "GroupsController.listGroups", "auth": "actor" },
+      { "method": "POST", "base": "/api/groups", "handler": "GroupsController.createGroup", "auth": "actor" },
+      { "method": "POST", "base": "/api/groups/assign", "handler": "GroupsController.assignStudent", "auth": "actor" },
+
+      { "method": "GET", "base": "/api/presets", "handler": "PresetsController.listPresets", "auth": "actor" },
+      { "method": "POST", "base": "/api/presets", "handler": "PresetsController.createPreset", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/presets/:id", "handler": "PresetsController.deletePreset", "auth": "actor" },
+
+      { "method": "GET", "base": "/api/attendance", "handler": "AttendanceController.listAttendance", "auth": "actor" },
+      { "method": "POST", "base": "/api/attendance", "handler": "AttendanceController.saveAttendance", "auth": "actor" },
+
+      { "method": "GET", "base": "/api/leaves", "handler": "LeavesController.listLeaves", "auth": "actor" },
+      { "method": "POST", "base": "/api/leaves", "handler": "LeavesController.createLeave", "auth": "actor" },
+      { "method": "PUT", "base": "/api/leaves/:id", "handler": "LeavesController.updateLeave", "auth": "actor" }
+    ],
     "events": {
       "emits": ["classroom.student.points.changed"],
       "subscribes": []
@@ -48,6 +91,23 @@
     "tables": [],
     "adopted": ["students", "classes", "records"],
     "_records_note": "`records` is the shared point ledger: points, gacha, marketplace, pet, dungeon, battles, challenge, collaboration, engagement AND economy all append to it, so no single feature domain can own it. classroom owns it because it owns student points, and other plugins append through classroom.public.recordStudentLedgerEntry() instead of writing it directly.",
-    "reads": []
+    "reads": [
+      "users",
+      "student_groups",
+      "parent_students",
+      "peer_reviews",
+      "point_presets",
+      "attendance_records",
+      "leave_requests",
+      "user_achievements",
+      "family_tasks",
+      "pets",
+      "praises",
+      "world_bosses",
+      "redemption_tickets",
+      "parent_activity"
+    ],
+    "_reads_note": "Every one of these is a table this plugin READS but does not own. `users` and `student_groups` are joined by the student list/detail and group queries; `parent_students` by the parent branch of listClasses; `peer_reviews` by the pending-review read; `parent_activity` by the 20% parent-buff check; `pets` by the achievement rule; `praises` / `world_bosses` / `records`-adjacent reads by the bigscreen; `redemption_tickets` by the lucky-draw achievement; `family_tasks` by the self-discipline achievement. Declaring them is what lets `ctx.db` serve those reads while still refusing a write.",
+    "_known_debt": "The HTTP surface also WRITES a set of tables this plugin does not own, because every one of those writes is part of the endpoint contract and dropping it would change behaviour. They go through `ctx.rawDb` and are enumerated with their reasons in `src/classroom.repository.ts`: `users` (student accounts and password resets - identity data with no identity plugin yet), `peer_reviews` (adopted by plugins/collaboration, which has no peer-review port), `pets` (adopted by plugins/pet; a port call would be a dependency cycle because pet dependsOn classroom), `messages`, `student_groups`, `point_presets`, `attendance_records`, `leave_requests`, `user_achievements` (no owner yet) and `capability_assignments` (kernel-owned; the SDK's PermissionsApi is read-only by design, so the dual write of a class feature flag cannot go through it today). The fixes are ports from the owning plugins, a decision to give the ownerless tables to classroom, and an assignment writer on PermissionsApi - each is a separate round, not something to hide in a migration. Also: these legacy routes are unauthenticated at the transport level exactly as they were in api/modules/classroom (HANDOFF §10 item 3); authorization is enforced inside the service for the teacher/admin-scoped operations, and systematically it is still pending."
   }
 }

@@ -7,12 +7,12 @@
  *                  tables, rather than renaming them (a plugin migration may only
  *                  create `p_<slug>_` names, and `world_bosses` rows are returned
  *                  straight through to the frontend)
- *   shared reads   `question_bank` (authored by the system domain) and `pets`
- *                  (`attack_power`, for the boss damage roll) are declared in
- *                  `data.reads` - read-only, and transitional: both should become
- *                  ports once their owner plugins exist
+ *   shared reads   `question_bank` (authored by the system domain) is declared in
+ *                  `data.reads` - read-only, and transitional: it should become a port
+ *                  once its owner publishes one
  *   service port   consumes `classroom.public` for student lookups, the class roster,
- *                  the feature gates, point awards and the shared ledger
+ *                  the feature gates, point awards and the shared ledger, and
+ *                  `pet.public` (optionally) for the boss damage roll
  *   HTTP surface   14 routes, two envelope styles, preserved exactly
  *
  * The pre-migration service wrote `students.total_points` / `students.available_points`
@@ -46,10 +46,15 @@ export default definePlugin({
     // so the resolver guarantees it is active before this runs.
     const classroom = ctx.use('classroom.public');
 
-    service = new ChallengeService(createChallengeRepository(ctx.db), classroom);
+    service = new ChallengeService(createChallengeRepository(ctx.db), classroom, () =>
+      // Resolved per call, never captured here: plugins are set up in slug order, so `pet`
+      // does not exist yet while `challenge` is initialising. Capturing the result of
+      // `tryUse` in setup() silently pins this dependency to "absent" - measured, not guessed.
+      ctx.tryUse('pet.public'),
+    );
     providers.push({ provide: ChallengeService, useValue: service });
 
-    ctx.log.info('challenge service ready', { owns: ctx.plugin.slug });
+    ctx.log.info('challenge service ready', { owns: ctx.plugin.slug, petDamage: 'pet.public (lazy)' });
   },
 
   async onStop() {

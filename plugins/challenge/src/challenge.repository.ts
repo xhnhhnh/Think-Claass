@@ -84,10 +84,5 @@ export function createChallengeRepository(db: DbApi): ChallengeRepository {
     deleteBoss(bossId) {
       db.run('DELETE FROM world_bosses WHERE id = ?', [bossId]);
     },
-
-    getPetAttackPower(studentId) {
-      const pet = db.get<{ attack_power: number }>('SELECT attack_power FROM pets WHERE student_id = ?', [studentId]);
-      return pet?.attack_power ?? null;
-    },
   };
 }

@@ -348,6 +348,35 @@ const CONTROLLER_RE = /@Controller\s*\(([^)]*)\)/g;
 const METHOD_RE = /@(Get|Post|Put|Patch|Delete|Head|Options|All)\s*\(\s*([^)]*?)\s*\)/g;
 
 /**
+ * Blank out comments, preserving length and line count.
+ *
+ * This scanner is a regex over source text, so a decorator *written about* in a doc
+ * comment is indistinguishable from a decorator that is applied. P4.3b.6b measured the
+ * consequence: `plugins/classroom/src/classroom.controllers.ts` explains its two-path
+ * class controller in prose (`@Controller(['api/classes', 'api/class'])`), and because
+ * that line sits before the real `@Controller('api/students')`, the four
+ * `@Get('records')` / `@Get('progress-star')` mentions further down the same comment
+ * were extracted as *routes* - which is why the snapshot reported 4 endpoints that Nest
+ * never registered. Deleting the prose fixes that instance; stripping comments here
+ * fixes the class of failure, which matters because the numbers this file produces are
+ * ratchets: a phantom route inflates the surface, and a phantom `@Controller` can
+ * re-label the routes of a real one.
+ *
+ * Only the line structure has to survive (the extractor reports lines), so comment
+ * characters are replaced by spaces rather than removed. A `//` is treated as a comment
+ * start when it begins a line or follows whitespace, which keeps `https://...` inside a
+ * string intact.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function stripComments(text) {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\r\n]/g, ' '))
+    .replace(/(^|[\s)\]}])\/\/[^\r\n]*/g, (m, lead) => lead + ' '.repeat(m.length - lead.length));
+}
+
+/**
  * `router.get('/api/x', ...)` style registration, used by the kernel's own HTTP
  * surface instead of Nest decorators.
  *
@@ -402,9 +431,12 @@ export function extractApiSurface(root) {
   for (const file of files) {
     if (isTestFile(file)) continue;
     const text = fs.readFileSync(file, 'utf8');
+    // Positions refer to the original text (unchanged length), so comment text never
+    // becomes a route while reported line numbers stay exact.
+    const source = stripComments(text);
 
     // Kernel routers: another registration style, same observable surface.
-    for (const m of text.matchAll(ROUTER_VERB_RE)) {
+    for (const m of source.matchAll(ROUTER_VERB_RE)) {
       routes.push({
         method: m[1].toUpperCase(),
         path: m[3].startsWith('/') ? m[3] : `/${m[3]}`,
@@ -415,10 +447,10 @@ export function extractApiSurface(root) {
     }
 
     const events = [];
-    for (const m of text.matchAll(CONTROLLER_RE)) {
+    for (const m of source.matchAll(CONTROLLER_RE)) {
       events.push({ kind: 'controller', index: m.index ?? 0, bases: parseDecoratorArg(m[1]) });
     }
-    for (const m of text.matchAll(METHOD_RE)) {
+    for (const m of source.matchAll(METHOD_RE)) {
       events.push({
         kind: 'method',
         index: m.index ?? 0,

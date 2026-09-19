@@ -48,15 +48,6 @@ export interface ChallengeRepository {
   createBoss(input: ChallengeBossInput): number;
   updateBossHp(bossId: number, hp: number, status: string): void;
   deleteBoss(bossId: number): void;
-
-  /**
-   * The attacking student's pet power, or `null` when they have no pet.
-   *
-   * `pets` is another domain's legacy table and there is no port accessor for
-   * `attack_power` yet, so this is a declared read (`data.reads`) rather than a port
-   * call. See the manifest's `_reads_note`.
-   */
-  getPetAttackPower(studentId: number): number | null;
 }
 
 export type {

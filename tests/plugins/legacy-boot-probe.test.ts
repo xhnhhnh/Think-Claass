@@ -130,6 +130,7 @@ describe('legacy composition serves plugin routes', () => {
       'dungeon',
       'economy',
       'gacha',
+      'learning',
       'marketplace',
       'parent-buff',
       'pet',
@@ -204,6 +205,66 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.status).toBe(400);
     expect(response.body).toContain('Student ID required');
     expect(response.body).not.toContain('Cannot POST');
+  });
+
+  it('serves the migrated classroom HTTP surface from its plugin', async () => {
+    // P4.3b.6b deleted api/modules/classroom, so the 47 METHOD+PATH pairs the frontend
+    // calls for students/classes/groups/presets/attendance/leaves are served by
+    // plugins/classroom through the legacy root module.
+    //
+    // This request carries no credential at all, and that is the point: `listClasses` has
+    // four actor branches and *throws 403* when none of them matches - the same
+    // `throw new ApiError(403, '无权限查看班级')` the pre-migration service ended with
+    // (`api/modules/classroom/classroom.service.ts` at HEAD, the method's last line). So 403
+    // is the correct pre-migration behaviour, and asserting 200 here asserted a world in
+    // which the service silently returned an empty list to an anonymous caller.
+    //
+    // Which means the status code proves nothing on its own - an unmounted route answers 404
+    // and a mounted one answers 403, but the *body* is what distinguishes "the plugin's
+    // controller ran" from "Nest's catch-all answered". Hence the message assertion.
+    const response = await probe('/api/classes');
+
+    expect(response.status).toBe(403);
+    expect(response.body).toContain('无权限查看班级');
+    expect(response.body).not.toContain('Cannot GET');
+  });
+
+  it('serves the migrated classroom envelope to a credentialed caller', async () => {
+    // The other half of the contract: with a teacher actor the same route answers 200, and the
+    // payload keeps this domain's legacy envelope - a `classes` key, not `data`, whose rows are
+    // the raw `classes` shape (the 19 `enable_*` columns included). `data.classes` would be a
+    // silently different response shape for every existing client.
+    //
+    // The list is not asserted empty: `initDb()` seeds a `默认班级` for the default teacher, so a
+    // fresh legacy database legitimately has one class. Asserting emptiness would pin the seed,
+    // not the route.
+    const response = await probe('/api/classes', {
+      headers: { 'x-user-role': 'teacher', 'x-user-id': '1' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toContain('Cannot GET');
+
+    const payload = JSON.parse(response.body) as { success: boolean; classes: Array<Record<string, unknown>> };
+    expect(payload.success).toBe(true);
+    expect(Array.isArray(payload.classes)).toBe(true);
+    expect(payload).not.toHaveProperty('data');
+    if (payload.classes.length > 0) {
+      expect(payload.classes[0]).toHaveProperty('enable_achievements');
+      expect(payload.classes[0]).toHaveProperty('invite_code');
+    }
+  });
+
+  it('serves the migrated learning domain from its plugin', async () => {
+    // The other half of api/modules/learning (papers / knowledge / wrong-questions /
+    // study-plans) is plugins/learning now. subjects is a plain list read, so an empty
+    // database answers `{success, data: []}` - and a route served by the deleted module
+    // cannot be what answered it.
+    const response = await probe('/api/knowledge/subjects');
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toContain('Cannot GET');
+    expect(JSON.parse(response.body)).toEqual({ success: true, data: [] });
   });
 
   it('distinguishes a missing resource from a missing route', async () => {

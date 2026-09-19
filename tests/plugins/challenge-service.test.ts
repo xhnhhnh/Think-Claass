@@ -17,6 +17,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ClassroomPort, PointLedgerEntry, StudentSnapshot } from '@thinkclass/contracts/domains/classroom';
+import type { PetPort } from '@thinkclass/contracts/domains/pet';
 import { ApiError } from '@thinkclass/kernel';
 
 import { createChallengeRepository } from '../../plugins/challenge/src/challenge.repository.js';
@@ -31,7 +32,6 @@ import type {
 class FakeChallengeRepository implements ChallengeRepository {
   questions = new Map<number, ChallengeQuestionRow>();
   bosses = new Map<number, WorldBossDto>();
-  petAttackPower = new Map<number, number>();
   challengeRecords: Array<{ studentId: number; score: number; correctCount: number; wrongCount: number }> = [];
   nextBossId = 10;
 
@@ -75,8 +75,35 @@ class FakeChallengeRepository implements ChallengeRepository {
   deleteBoss(bossId: number) {
     this.bosses.delete(bossId);
   }
-  getPetAttackPower(studentId: number) {
-    return this.petAttackPower.get(studentId) ?? null;
+}
+
+/**
+ * A fake pet domain: the damage roll reads `attackPower` through the port now, instead of
+ * selecting `pets.attack_power` from another plugin's table.
+ */
+class FakePetPort implements PetPort {
+  attackPower = new Map<number, number>();
+
+  async getPetForStudent(studentId: number) {
+    const power = this.attackPower.get(studentId);
+    if (power === undefined) return null;
+    return {
+      id: studentId,
+      studentId,
+      elementType: 'fire',
+      level: 1,
+      experience: 0,
+      attackPower: power,
+      isDead: false,
+    };
+  }
+  async hasPet(studentId: number) {
+    return this.attackPower.has(studentId);
+  }
+  async getBattleProfile(studentId: number) {
+    const power = this.attackPower.get(studentId);
+    if (power === undefined) return null;
+    return { attackPower: power, level: 1, isDead: false };
   }
 }
 
@@ -157,6 +184,7 @@ class FakeClassroom implements ClassroomPort {
 function setup() {
   const repository = new FakeChallengeRepository();
   const classroom = new FakeClassroom();
+  const pets = new FakePetPort();
 
   repository.questions.set(1, { id: 1, title: '单选', type: 'SINGLE', options: '["A","B"]', answer: 'A', explanation: '因为 A' });
   repository.questions.set(2, { id: 2, title: '多选', type: 'MULTIPLE', options: '["A","B"]', answer: '["A","B"]', explanation: '' });
@@ -167,18 +195,23 @@ function setup() {
   classroom.userIds.set(200, 2);
 
   repository.bosses.set(5, { id: 5, name: 'Boss', description: '', hp: 30, max_hp: 30, level: 2, status: 'active' });
-  repository.petAttackPower.set(1, 35);
+  pets.attackPower.set(1, 35);
 
-  return { repository, classroom, service: new ChallengeService(repository, classroom) };
+  // The third argument is a resolver, not the port: the service resolves it per call because
+  // plugins initialise in slug order and `pet` does not exist during challenge's setup.
+  const service = new ChallengeService(repository, classroom, () => pets);
+  return { repository, classroom, pets, service, withoutPets: new ChallengeService(repository, classroom) };
 }
 
 describe('ChallengeService', () => {
   let repository: FakeChallengeRepository;
   let classroom: FakeClassroom;
+  let pets: FakePetPort;
   let service: ChallengeService;
+  let withoutPets: ChallengeService;
 
   beforeEach(() => {
-    ({ repository, classroom, service } = setup());
+    ({ repository, classroom, pets, service, withoutPets } = setup());
   });
 
   it('parses question options', async () => {
@@ -248,13 +281,23 @@ describe('ChallengeService', () => {
   });
 
   it('falls back to 10 damage, leaves the boss active and pays nobody otherwise', async () => {
-    repository.petAttackPower.delete(1);
+    pets.attackPower.delete(1);
 
     const result = await service.attackBoss(5, 1);
 
     expect(result).toEqual({ defeated: false, damage: 10, newHp: 20, rewardPoints: 0 });
     expect(repository.bosses.get(5)?.status).toBe('active');
     expect(classroom.adjustments).toHaveLength(0);
+    expect(classroom.ledger.map((entry) => entry.type)).toEqual(['BOSS_ATTACK']);
+  });
+
+  it('works without the pet plugin at all, still defaulting to 10 damage', async () => {
+    // `ctx.tryUse('pet.public')` returns null when pet is disabled. The old implementation
+    // read `pets.attack_power` straight from another plugin's table, so this case did not
+    // exist for it - a disabled pet plugin meant a missing table, not a fallback.
+    const result = await withoutPets.attackBoss(5, 1);
+
+    expect(result).toEqual({ defeated: false, damage: 10, newHp: 20, rewardPoints: 0 });
     expect(classroom.ledger.map((entry) => entry.type)).toEqual(['BOSS_ATTACK']);
   });
 
@@ -349,15 +392,16 @@ describe('createChallengeRepository', () => {
     repository.createBoss({ name: 'Boss', description: '', hp: 10, level: 1, start_time: null, end_time: null });
     repository.updateBossHp(1, 5, 'active');
     repository.deleteBoss(1);
-    repository.getPetAttackPower(1);
 
     const touched = new Set<string>();
     for (const sql of seen) {
       for (const match of sql.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/gi)) touched.add(match[1]);
     }
 
-    expect([...touched].sort()).toEqual(['challenge_records', 'pets', 'question_bank', 'world_bosses']);
+    // `pets` is no longer in this set: the damage roll goes through pet.public.
+    expect([...touched].sort()).toEqual(['challenge_records', 'question_bank', 'world_bosses']);
     expect([...touched]).not.toContain('students');
     expect([...touched]).not.toContain('records');
+    expect([...touched]).not.toContain('pets');
   });
 });

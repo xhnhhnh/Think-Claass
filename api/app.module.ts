@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AdminModule } from './modules/admin/admin.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
-import { ClassroomModule } from './modules/classroom/classroom.module.js';
 import { EngagementModule } from './modules/engagement/engagement.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
-import { LearningModule } from './modules/learning/learning.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 
 /**
@@ -25,6 +23,11 @@ import { PlatformModule } from './modules/platform/platform.module.js';
  *   SettingsModule      -> kernel               (P5.3c)
  *   SystemModule        -> plugins/system        (P4.3b.5)
  *   PetModule           -> plugins/pet           (P4.3b.6)
+ *   ClassroomModule     -> plugins/classroom     (P4.3b.6b) - the whole HTTP surface,
+ *                          47 METHOD+PATH pairs over six controllers, ported verbatim
+ *   LearningModule      -> plugins/learning      (P4.3b.6b) - papers / knowledge /
+ *                          wrong-questions / study-plans, the 24 routes left after
+ *                          plugins/assignments took the assignments+exams half
  *
  * `SettingsModule` is the one entry that did not become a plugin: its entire body
  * was `SELECT key, value FROM settings`, and `settings` is kernel-owned storage, so
@@ -49,10 +52,8 @@ import { PlatformModule } from './modules/platform/platform.module.js';
   imports: [
     AdminModule,
     AuthModule,
-    ClassroomModule,
     EngagementModule,
     InsightsModule,
-    LearningModule,
     PlatformModule,
   ],
 })
