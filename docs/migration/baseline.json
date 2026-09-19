@@ -1,0 +1,2546 @@
+{
+  "generatedAt": "2026-09-19T04:47:21.638Z",
+  "commit": null,
+  "scale": {
+    "trackedSourceFiles": 576,
+    "srcFiles": 418,
+    "srcLines": 31883,
+    "apiFiles": 151,
+    "apiLines": 18622,
+    "testFiles": 102,
+    "controllers": 46,
+    "httpHandlers": 288,
+    "appRoutes": 80,
+    "prismaModels": 79,
+    "rawSqlTables": 78
+  },
+  "schemaDrift": {
+    "prismaOnly": [
+      "payment_orders",
+      "payment_transactions"
+    ],
+    "rawOnly": [
+      "messages_new"
+    ],
+    "inSync": 77
+  },
+  "deadCode": {
+    "total": 70,
+    "byArea": [
+      {
+        "name": "src/api",
+        "count": 31
+      },
+      {
+        "name": "src/hooks",
+        "count": 16
+      },
+      {
+        "name": "api/modules",
+        "count": 7
+      },
+      {
+        "name": "src/features",
+        "count": 7
+      },
+      {
+        "name": "src/components",
+        "count": 5
+      },
+      {
+        "name": "src/mocks",
+        "count": 2
+      },
+      {
+        "name": "api/services",
+        "count": 1
+      },
+      {
+        "name": "api/utils",
+        "count": 1
+      }
+    ],
+    "files": [
+      "api/modules/battles/battles.repository.prisma.ts",
+      "api/modules/challenge/challenge.repository.prisma.ts",
+      "api/modules/dungeon/dungeon.repository.prisma.ts",
+      "api/modules/economy/economy.repository.prisma.ts",
+      "api/modules/gacha/gacha.repository.prisma.ts",
+      "api/modules/pet/pet.repository.prisma.ts",
+      "api/modules/slg/slg.repository.prisma.ts",
+      "api/services/UserService.ts",
+      "api/utils/response.ts",
+      "src/api/admin.ts",
+      "src/api/analytics.ts",
+      "src/api/assignments.ts",
+      "src/api/auth.ts",
+      "src/api/battles.ts",
+      "src/api/certificates.ts",
+      "src/api/challenge.ts",
+      "src/api/classFeatures.ts",
+      "src/api/dungeon.ts",
+      "src/api/economy.ts",
+      "src/api/exams.ts",
+      "src/api/familyTasks.ts",
+      "src/api/gacha.ts",
+      "src/api/knowledge.ts",
+      "src/api/luckyDraw.ts",
+      "src/api/messages.ts",
+      "src/api/paperSubmissions.ts",
+      "src/api/papers.ts",
+      "src/api/payment.ts",
+      "src/api/pet.ts",
+      "src/api/praises.ts",
+      "src/api/redemption.ts",
+      "src/api/settings.ts",
+      "src/api/shop.ts",
+      "src/api/slg.ts",
+      "src/api/students.ts",
+      "src/api/studyPlans.ts",
+      "src/api/taskTree.ts",
+      "src/api/teacher.ts",
+      "src/api/teamQuests.ts",
+      "src/api/wrongQuestions.ts",
+      "src/components/Empty.tsx",
+      "src/components/ErrorBoundary.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/table.tsx",
+      "src/features/admin/api/adminAdapters.ts",
+      "src/features/admin/hooks/useAdminCms.ts",
+      "src/features/engagement/api/praisesApi.ts",
+      "src/features/engagement/hooks/useCertificates.ts",
+      "src/features/engagement/pages/StudentAuctionPage.tsx",
+      "src/features/platform/api/paymentApi.ts",
+      "src/features/portal/hooks/usePortal.ts",
+      "src/hooks/queries/useBattles.ts",
+      "src/hooks/queries/useChallenge.ts",
+      "src/hooks/queries/useEconomy.ts",
+      "src/hooks/queries/useExams.ts",
+      "src/hooks/queries/useGacha.ts",
+      "src/hooks/queries/useKnowledge.ts",
+      "src/hooks/queries/usePayment.ts",
+      "src/hooks/queries/usePet.ts",
+      "src/hooks/queries/useStudyPlan.ts",
+      "src/hooks/queries/useTaskTree.ts",
+      "src/hooks/queries/useTeacherPets.ts",
+      "src/hooks/queries/useTeamQuests.ts",
+      "src/hooks/queries/useTerritory.ts",
+      "src/hooks/queries/useWorldBoss.ts",
+      "src/hooks/queries/useWrongQuestions.ts",
+      "src/hooks/useTheme.ts",
+      "src/mocks/handlers.ts",
+      "src/mocks/server.ts"
+    ]
+  },
+  "surfacePluginization": {
+    "shimCount": 62,
+    "scannedDirs": [
+      "src/features",
+      "plugins"
+    ],
+    "shims": [
+      {
+        "file": "src/features/admin/pages/AdminAnnouncementsPage.tsx",
+        "target": "@/pages/Admin/Announcements",
+        "lines": 1
+      },
+      {
+        "file": "src/features/admin/pages/AdminArticlesPage.tsx",
+        "target": "@/pages/Admin/Articles",
+        "lines": 1
+      },
+      {
+        "file": "src/features/admin/pages/AdminAuditLogsPage.tsx",
+        "target": "@/pages/Admin/AuditLogs",
+        "lines": 1
+      },
+      {
+        "file": "src/features/admin/pages/AdminCodesPage.tsx",
+        "target": "@/pages/Admin/Codes",
+        "lines": 1
+      },
+      {
+        "file": "src/features/admin/pages/AdminOpenApiPage.tsx",
+        "target": "@/pages/Admin/OpenApi",
+        "lines": 1
+      },
+      {
+        "file": "src/features/admin/pages/AdminTeachersPage.tsx",
+        "target": "@/pages/Admin/Teachers",
+        "lines": 1
+      },
+      {
+        "file": "src/features/admin/pages/AdminWebsitePage.tsx",
+        "target": "@/pages/Admin/Website",
+        "lines": 1
+      },
+      {
+        "file": "src/features/auth/pages/ActivatePage.tsx",
+        "target": "@/pages/Activate",
+        "lines": 1
+      },
+      {
+        "file": "src/features/auth/pages/LoginPage.tsx",
+        "target": "@/pages/Login",
+        "lines": 1
+      },
+      {
+        "file": "src/features/battles/pages/StudentBrawlPage.tsx",
+        "target": "@/pages/Student/Brawl",
+        "lines": 1
+      },
+      {
+        "file": "src/features/battles/pages/TeacherBrawlPage.tsx",
+        "target": "@/pages/Teacher/Brawl",
+        "lines": 1
+      },
+      {
+        "file": "src/features/challenge/pages/StudentChallengePage.tsx",
+        "target": "@/pages/Student/Challenge",
+        "lines": 1
+      },
+      {
+        "file": "src/features/challenge/pages/TeacherWorldBossPage.tsx",
+        "target": "@/pages/Teacher/WorldBoss",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/StudentAchievementsPage.tsx",
+        "target": "@/pages/Student/Achievements",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/StudentGuildPKPage.tsx",
+        "target": "@/pages/Student/GuildPK",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/TeacherAddStudentPage.tsx",
+        "target": "@/pages/Teacher/AddStudent",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/TeacherBigscreenPage.tsx",
+        "target": "@/pages/Teacher/Bigscreen",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/TeacherDashboardPage.tsx",
+        "target": "@/pages/Teacher/Dashboard",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/TeacherRecordsPage.tsx",
+        "target": "@/pages/Teacher/Records",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/TeacherSettingsPage.tsx",
+        "target": "@/pages/Teacher/Settings",
+        "lines": 1
+      },
+      {
+        "file": "src/features/classroom/pages/TeacherToolsPage.tsx",
+        "target": "@/pages/Teacher/Tools",
+        "lines": 1
+      },
+      {
+        "file": "src/features/collaboration/pages/StudentTaskTreePage.tsx",
+        "target": "@/pages/Student/TaskTree",
+        "lines": 1
+      },
+      {
+        "file": "src/features/collaboration/pages/StudentTeamQuestsPage.tsx",
+        "target": "@/pages/Student/TeamQuests",
+        "lines": 1
+      },
+      {
+        "file": "src/features/collaboration/pages/TeacherTaskTreePage.tsx",
+        "target": "@/pages/Teacher/TaskTree",
+        "lines": 1
+      },
+      {
+        "file": "src/features/collaboration/pages/TeacherTeamQuestsPage.tsx",
+        "target": "@/pages/Teacher/TeamQuests",
+        "lines": 1
+      },
+      {
+        "file": "src/features/dungeon/pages/StudentDungeonPage.tsx",
+        "target": "@/pages/Student/Dungeon",
+        "lines": 1
+      },
+      {
+        "file": "src/features/economy/pages/StudentBankPage.tsx",
+        "target": "@/pages/Student/Bank",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/ParentCommunicationPage.tsx",
+        "target": "@/pages/Parent/Communication",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/StudentAuctionPage.tsx",
+        "target": "@/pages/Student/Auction",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/StudentCertificatesPage.tsx",
+        "target": "@/pages/Student/Certificates",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/StudentInteractiveWallPage.tsx",
+        "target": "@/pages/Student/InteractiveWall",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/StudentLuckyDrawPage.tsx",
+        "target": "@/pages/Student/LuckyDraw",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/StudentMyRedemptionsPage.tsx",
+        "target": "@/pages/Student/MyRedemptions",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/StudentPeerReviewPage.tsx",
+        "target": "@/pages/Student/PeerReview",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/TeacherCertificatesPage.tsx",
+        "target": "@/pages/Teacher/Certificates",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/TeacherCommunicationPage.tsx",
+        "target": "@/pages/Teacher/Communication",
+        "lines": 1
+      },
+      {
+        "file": "src/features/engagement/pages/TeacherLuckyDrawConfigPage.tsx",
+        "target": "@/pages/Teacher/LuckyDrawConfig",
+        "lines": 1
+      },
+      {
+        "file": "src/features/gacha/pages/StudentGachaPage.tsx",
+        "target": "@/pages/Student/Gacha",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/StudentAssignmentsPage.tsx",
+        "target": "@/pages/Student/Assignments",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/StudentPaperAttemptPage.tsx",
+        "target": "@/pages/Student/PaperAttempt",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/StudentPapersPage.tsx",
+        "target": "@/pages/Student/Papers",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/StudentPlanPage.tsx",
+        "target": "@/pages/Student/Plan",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/StudentWrongQuestionsPage.tsx",
+        "target": "@/pages/Student/WrongQuestions",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/TeacherAssignmentsPage.tsx",
+        "target": "@/pages/Teacher/Assignments",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/TeacherExamsPage.tsx",
+        "target": "@/pages/Teacher/Exams",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/TeacherKnowledgeGraphPage.tsx",
+        "target": "@/pages/Teacher/KnowledgeGraph",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/TeacherPaperEditorPage.tsx",
+        "target": "@/pages/Teacher/PaperEditor",
+        "lines": 1
+      },
+      {
+        "file": "src/features/learning/pages/TeacherPapersPage.tsx",
+        "target": "@/pages/Teacher/Papers",
+        "lines": 1
+      },
+      {
+        "file": "src/features/marketplace/pages/StudentAuctionPage.tsx",
+        "target": "@/pages/Student/Auction",
+        "lines": 1
+      },
+      {
+        "file": "src/features/marketplace/pages/StudentShopPage.tsx",
+        "target": "@/pages/Student/Shop",
+        "lines": 1
+      },
+      {
+        "file": "src/features/marketplace/pages/TeacherAuctionPage.tsx",
+        "target": "@/pages/Teacher/Auction",
+        "lines": 1
+      },
+      {
+        "file": "src/features/marketplace/pages/TeacherBlindBoxPage.tsx",
+        "target": "@/pages/Teacher/BlindBox",
+        "lines": 1
+      },
+      {
+        "file": "src/features/marketplace/pages/TeacherShopPage.tsx",
+        "target": "@/pages/Teacher/Shop",
+        "lines": 1
+      },
+      {
+        "file": "src/features/pet/pages/StudentPetPage.tsx",
+        "target": "@/pages/Student/Pet",
+        "lines": 1
+      },
+      {
+        "file": "src/features/pet/pages/TeacherPetsPage.tsx",
+        "target": "@/pages/Teacher/Pets",
+        "lines": 1
+      },
+      {
+        "file": "src/features/portal/pages/AboutPage.tsx",
+        "target": "@/pages/Home/About",
+        "lines": 1
+      },
+      {
+        "file": "src/features/portal/pages/ContactPage.tsx",
+        "target": "@/pages/Home/Contact",
+        "lines": 1
+      },
+      {
+        "file": "src/features/portal/pages/HomePage.tsx",
+        "target": "@/pages/Home",
+        "lines": 1
+      },
+      {
+        "file": "src/features/portal/pages/NewsPage.tsx",
+        "target": "@/pages/Home/News",
+        "lines": 1
+      },
+      {
+        "file": "src/features/portal/pages/ServicesPage.tsx",
+        "target": "@/pages/Home/Services",
+        "lines": 1
+      },
+      {
+        "file": "src/features/slg/pages/StudentTerritoryPage.tsx",
+        "target": "@/pages/Student/Territory",
+        "lines": 1
+      },
+      {
+        "file": "src/features/slg/pages/TeacherTerritoryPage.tsx",
+        "target": "@/pages/Teacher/Territory",
+        "lines": 1
+      }
+    ]
+  },
+  "extensionPoints": {
+    "featureKeyTables": [
+      {
+        "file": "api/utils/classFeatures.ts",
+        "keys": [
+          "enable_achievements",
+          "enable_auction_blind_box",
+          "enable_challenge",
+          "enable_chat_bubble",
+          "enable_class_brawl",
+          "enable_danmaku",
+          "enable_dungeon",
+          "enable_economy",
+          "enable_family_tasks",
+          "enable_gacha",
+          "enable_guild_pk",
+          "enable_lucky_draw",
+          "enable_parent_buff",
+          "enable_peer_review",
+          "enable_shop",
+          "enable_slg",
+          "enable_task_tree",
+          "enable_tree_hole",
+          "enable_world_boss"
+        ]
+      },
+      {
+        "file": "src/lib/classFeatures.ts",
+        "keys": [
+          "enable_achievements",
+          "enable_auction_blind_box",
+          "enable_challenge",
+          "enable_chat_bubble",
+          "enable_class_brawl",
+          "enable_danmaku",
+          "enable_dungeon",
+          "enable_economy",
+          "enable_family_tasks",
+          "enable_gacha",
+          "enable_guild_pk",
+          "enable_lucky_draw",
+          "enable_parent_buff",
+          "enable_peer_review",
+          "enable_shop",
+          "enable_slg",
+          "enable_task_tree",
+          "enable_tree_hole",
+          "enable_world_boss"
+        ]
+      }
+    ],
+    "classEnableColumns": [
+      "enable_achievements",
+      "enable_auction_blind_box",
+      "enable_challenge",
+      "enable_chat_bubble",
+      "enable_class_brawl",
+      "enable_danmaku",
+      "enable_dungeon",
+      "enable_economy",
+      "enable_family_tasks",
+      "enable_gacha",
+      "enable_guild_pk",
+      "enable_lucky_draw",
+      "enable_parent_buff",
+      "enable_peer_review",
+      "enable_shop",
+      "enable_slg",
+      "enable_task_tree",
+      "enable_tree_hole",
+      "enable_world_boss"
+    ]
+  },
+  "apiSurface": [
+    {
+      "method": "DELETE",
+      "path": "/api/admin/announcements/:id",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 226
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/announcements/:id",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 215
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/announcements",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 192
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/announcements",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 203
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/codes",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 168
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/codes",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 179
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/session",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 44
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/database/export",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 85
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/system/database/import",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 96
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/system/database/reset",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 110
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/settings",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 65
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/system/settings",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 75
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/stats",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 55
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/update/check",
+      "controller": "api/admin/system/update",
+      "file": "api/modules/admin/admin.update.ts",
+      "line": 341
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/update/status",
+      "controller": "api/admin/system/update",
+      "file": "api/modules/admin/admin.update.ts",
+      "line": 331
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/system/update",
+      "controller": "api/admin/system/update",
+      "file": "api/modules/admin/admin.update.ts",
+      "line": 351
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/:id",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 156
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/users/:id",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 145
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 122
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users",
+      "controller": "api/admin",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 133
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/classes/:classId/overview",
+      "controller": "api/analytics",
+      "file": "api/modules/insights/insights.controllers.ts",
+      "line": 11
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/students/:studentId/radar",
+      "controller": "api/analytics",
+      "file": "api/modules/insights/insights.controllers.ts",
+      "line": 29
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/students/:studentId/report",
+      "controller": "api/analytics",
+      "file": "api/modules/insights/insights.controllers.ts",
+      "line": 20
+    },
+    {
+      "method": "GET",
+      "path": "/api/announcements/active",
+      "controller": "api/announcements",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 30
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/assignments/:id",
+      "controller": "api/assignments",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 77
+    },
+    {
+      "method": "PUT",
+      "path": "/api/assignments/:id",
+      "controller": "api/assignments",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 68
+    },
+    {
+      "method": "PUT",
+      "path": "/api/assignments/student-assignments/:id",
+      "controller": "api/assignments",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 59
+    },
+    {
+      "method": "GET",
+      "path": "/api/assignments/student-assignments",
+      "controller": "api/assignments",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 50
+    },
+    {
+      "method": "GET",
+      "path": "/api/assignments",
+      "controller": "api/assignments",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 31
+    },
+    {
+      "method": "POST",
+      "path": "/api/assignments",
+      "controller": "api/assignments",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 40
+    },
+    {
+      "method": "GET",
+      "path": "/api/attendance",
+      "controller": "api/attendance",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 335
+    },
+    {
+      "method": "POST",
+      "path": "/api/attendance",
+      "controller": "api/attendance",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 344
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit-logs",
+      "controller": "api/audit-logs",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 322
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/activate",
+      "controller": "api/auth",
+      "file": "api/modules/auth/auth.controller.ts",
+      "line": 40
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "controller": "api/auth",
+      "file": "api/modules/auth/auth.controller.ts",
+      "line": 11
+    },
+    {
+      "method": "PUT",
+      "path": "/api/auth/profile",
+      "controller": "api/auth",
+      "file": "api/modules/auth/auth.controller.ts",
+      "line": 21
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/register",
+      "controller": "api/auth",
+      "file": "api/modules/auth/auth.controller.ts",
+      "line": 30
+    },
+    {
+      "method": "PUT",
+      "path": "/api/battles/:battleId/accept",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 634
+    },
+    {
+      "method": "PUT",
+      "path": "/api/battles/:battleId/end",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 652
+    },
+    {
+      "method": "PUT",
+      "path": "/api/battles/:battleId/reject",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 643
+    },
+    {
+      "method": "GET",
+      "path": "/api/battles/:battleId/stats",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 614
+    },
+    {
+      "method": "GET",
+      "path": "/api/battles/classes/:classId",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 604
+    },
+    {
+      "method": "GET",
+      "path": "/api/battles/classes/search",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 537
+    },
+    {
+      "method": "GET",
+      "path": "/api/battles/stats/:battleId",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 595
+    },
+    {
+      "method": "GET",
+      "path": "/api/battles/teacher/:classId",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 547
+    },
+    {
+      "method": "PUT",
+      "path": "/api/battles/teacher/accept/:battleId",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 565
+    },
+    {
+      "method": "PUT",
+      "path": "/api/battles/teacher/end/:battleId",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 585
+    },
+    {
+      "method": "POST",
+      "path": "/api/battles/teacher/initiate",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 556
+    },
+    {
+      "method": "PUT",
+      "path": "/api/battles/teacher/reject/:battleId",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 575
+    },
+    {
+      "method": "POST",
+      "path": "/api/battles",
+      "controller": "api/battles",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 624
+    },
+    {
+      "method": "GET",
+      "path": "/api/certificates",
+      "controller": "api/certificates",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 156
+    },
+    {
+      "method": "POST",
+      "path": "/api/certificates",
+      "controller": "api/certificates",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 168
+    },
+    {
+      "method": "POST",
+      "path": "/api/challenge/boss/:id/attack",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 53
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/challenge/boss/:id",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 80
+    },
+    {
+      "method": "GET",
+      "path": "/api/challenge/boss/active/:classId",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 44
+    },
+    {
+      "method": "POST",
+      "path": "/api/challenge/bosses/:id/attacks",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 148
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/challenge/bosses/:id",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 139
+    },
+    {
+      "method": "GET",
+      "path": "/api/challenge/bosses",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 120
+    },
+    {
+      "method": "POST",
+      "path": "/api/challenge/bosses",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 130
+    },
+    {
+      "method": "GET",
+      "path": "/api/challenge/boss",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 62
+    },
+    {
+      "method": "POST",
+      "path": "/api/challenge/boss",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 71
+    },
+    {
+      "method": "GET",
+      "path": "/api/challenge/classes/:classId/bosses/active",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 110
+    },
+    {
+      "method": "GET",
+      "path": "/api/challenge/questions",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 22
+    },
+    {
+      "method": "GET",
+      "path": "/api/challenge/students/:studentId/questions",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 90
+    },
+    {
+      "method": "POST",
+      "path": "/api/challenge/students/:studentId/submissions",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 100
+    },
+    {
+      "method": "POST",
+      "path": "/api/challenge/submit",
+      "controller": "api/challenge",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 35
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/class-announcements/:id",
+      "controller": "api/class-announcements",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 81
+    },
+    {
+      "method": "GET",
+      "path": "/api/class-announcements",
+      "controller": "api/class-announcements",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 48
+    },
+    {
+      "method": "POST",
+      "path": "/api/class-announcements",
+      "controller": "api/class-announcements",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 64
+    },
+    {
+      "method": "GET",
+      "path": "/api/class/:id/bigscreen",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 236
+    },
+    {
+      "method": "GET",
+      "path": "/api/class/:id/features",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 227
+    },
+    {
+      "method": "PUT",
+      "path": "/api/class/:id/features",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 254
+    },
+    {
+      "method": "GET",
+      "path": "/api/class/:id/guild-ranking",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 245
+    },
+    {
+      "method": "PUT",
+      "path": "/api/class/:id/settings",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 254
+    },
+    {
+      "method": "GET",
+      "path": "/api/class/:id",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 218
+    },
+    {
+      "method": "GET",
+      "path": "/api/class/invite/:code",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 199
+    },
+    {
+      "method": "GET",
+      "path": "/api/classes/:id/bigscreen",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 236
+    },
+    {
+      "method": "GET",
+      "path": "/api/classes/:id/features",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 227
+    },
+    {
+      "method": "PUT",
+      "path": "/api/classes/:id/features",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 254
+    },
+    {
+      "method": "GET",
+      "path": "/api/classes/:id/guild-ranking",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 245
+    },
+    {
+      "method": "PUT",
+      "path": "/api/classes/:id/settings",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 254
+    },
+    {
+      "method": "GET",
+      "path": "/api/classes/:id",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 218
+    },
+    {
+      "method": "GET",
+      "path": "/api/classes/invite/:code",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 199
+    },
+    {
+      "method": "GET",
+      "path": "/api/classes",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 190
+    },
+    {
+      "method": "POST",
+      "path": "/api/classes",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 208
+    },
+    {
+      "method": "GET",
+      "path": "/api/class",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 190
+    },
+    {
+      "method": "POST",
+      "path": "/api/class",
+      "controller": null,
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 208
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/danmaku/cleanup",
+      "controller": "api/danmaku",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 412
+    },
+    {
+      "method": "GET",
+      "path": "/api/danmaku",
+      "controller": "api/danmaku",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 379
+    },
+    {
+      "method": "POST",
+      "path": "/api/danmaku",
+      "controller": "api/danmaku",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 395
+    },
+    {
+      "method": "GET",
+      "path": "/api/dungeon/:studentId",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 395
+    },
+    {
+      "method": "POST",
+      "path": "/api/dungeon/abandon/:studentId",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 422
+    },
+    {
+      "method": "POST",
+      "path": "/api/dungeon/choice/:studentId",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 413
+    },
+    {
+      "method": "POST",
+      "path": "/api/dungeon/start/:studentId",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 404
+    },
+    {
+      "method": "POST",
+      "path": "/api/dungeon/students/:studentId/abandon",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 386
+    },
+    {
+      "method": "POST",
+      "path": "/api/dungeon/students/:studentId/choices",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 376
+    },
+    {
+      "method": "GET",
+      "path": "/api/dungeon/students/:studentId/run",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 356
+    },
+    {
+      "method": "POST",
+      "path": "/api/dungeon/students/:studentId/start",
+      "controller": "api/dungeon",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 366
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/bank/:studentId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 173
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/bank/deposit/:studentId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 182
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/bank/interest",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 315
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/bank/trigger-interest",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 163
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/bank/withdraw/:studentId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 192
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/classes/:classId/stocks",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 277
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/portfolio/:studentId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 211
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/stocks/:classId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 202
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/stocks/buy/:studentId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 220
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/stocks/sell/:studentId",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 230
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/students/:studentId/bank/deposits",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 259
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/students/:studentId/bank/withdrawals",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 268
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/students/:studentId/bank",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 249
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/students/:studentId/overview",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 240
+    },
+    {
+      "method": "GET",
+      "path": "/api/economy/students/:studentId/portfolio",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 287
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/students/:studentId/stocks/buy",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 297
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/students/:studentId/stocks/sell",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 306
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/economy/teacher/stocks/:id",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 342
+    },
+    {
+      "method": "PUT",
+      "path": "/api/economy/teacher/stocks/:id",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 333
+    },
+    {
+      "method": "POST",
+      "path": "/api/economy/teacher/stocks",
+      "controller": "api/economy",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 324
+    },
+    {
+      "method": "GET",
+      "path": "/api/exams/:id/grades",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 128
+    },
+    {
+      "method": "PUT",
+      "path": "/api/exams/:id/grades",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 138
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/exams/:id",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 156
+    },
+    {
+      "method": "PUT",
+      "path": "/api/exams/:id",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 147
+    },
+    {
+      "method": "PUT",
+      "path": "/api/exams/student-exams/:id",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 119
+    },
+    {
+      "method": "GET",
+      "path": "/api/exams/student-exams",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 110
+    },
+    {
+      "method": "GET",
+      "path": "/api/exams",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 91
+    },
+    {
+      "method": "POST",
+      "path": "/api/exams",
+      "controller": "api/exams",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 100
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/family-tasks/:id",
+      "controller": "api/family-tasks",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 312
+    },
+    {
+      "method": "PUT",
+      "path": "/api/family-tasks/:id",
+      "controller": "api/family-tasks",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 295
+    },
+    {
+      "method": "GET",
+      "path": "/api/family-tasks",
+      "controller": "api/family-tasks",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 261
+    },
+    {
+      "method": "POST",
+      "path": "/api/family-tasks",
+      "controller": "api/family-tasks",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 278
+    },
+    {
+      "method": "PUT",
+      "path": "/api/gacha/active/:studentId/:instanceId",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 483
+    },
+    {
+      "method": "GET",
+      "path": "/api/gacha/classes/:classId/pools",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 493
+    },
+    {
+      "method": "GET",
+      "path": "/api/gacha/collection/:studentId",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 474
+    },
+    {
+      "method": "GET",
+      "path": "/api/gacha/dictionary",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 437
+    },
+    {
+      "method": "POST",
+      "path": "/api/gacha/dictionary",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 447
+    },
+    {
+      "method": "POST",
+      "path": "/api/gacha/draw/:studentId",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 465
+    },
+    {
+      "method": "GET",
+      "path": "/api/gacha/pools/:classId",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 456
+    },
+    {
+      "method": "PUT",
+      "path": "/api/gacha/students/:studentId/active-pet/:instanceId",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 523
+    },
+    {
+      "method": "GET",
+      "path": "/api/gacha/students/:studentId/collection",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 513
+    },
+    {
+      "method": "POST",
+      "path": "/api/gacha/students/:studentId/draws",
+      "controller": "api/gacha",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 503
+    },
+    {
+      "method": "POST",
+      "path": "/api/groups/assign",
+      "controller": "api/groups",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 287
+    },
+    {
+      "method": "GET",
+      "path": "/api/groups",
+      "controller": "api/groups",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 268
+    },
+    {
+      "method": "POST",
+      "path": "/api/groups",
+      "controller": "api/groups",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 277
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "controller": "api/health",
+      "file": "api/health.controller.ts",
+      "line": 5
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/knowledge/edges/:id",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 340
+    },
+    {
+      "method": "GET",
+      "path": "/api/knowledge/edges",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 322
+    },
+    {
+      "method": "POST",
+      "path": "/api/knowledge/edges",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 331
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/knowledge/nodes/:id",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 312
+    },
+    {
+      "method": "PUT",
+      "path": "/api/knowledge/nodes/:id",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 303
+    },
+    {
+      "method": "GET",
+      "path": "/api/knowledge/nodes",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 285
+    },
+    {
+      "method": "POST",
+      "path": "/api/knowledge/nodes",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 294
+    },
+    {
+      "method": "GET",
+      "path": "/api/knowledge/subjects",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 267
+    },
+    {
+      "method": "POST",
+      "path": "/api/knowledge/subjects",
+      "controller": "api/knowledge",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 276
+    },
+    {
+      "method": "PUT",
+      "path": "/api/leaves/:id",
+      "controller": "api/leaves",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 379
+    },
+    {
+      "method": "GET",
+      "path": "/api/leaves",
+      "controller": "api/leaves",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 360
+    },
+    {
+      "method": "POST",
+      "path": "/api/leaves",
+      "controller": "api/leaves",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 369
+    },
+    {
+      "method": "GET",
+      "path": "/api/lucky-draw/config",
+      "controller": "api/lucky-draw",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 334
+    },
+    {
+      "method": "POST",
+      "path": "/api/lucky-draw/config",
+      "controller": "api/lucky-draw",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 344
+    },
+    {
+      "method": "POST",
+      "path": "/api/lucky-draw/draw",
+      "controller": "api/lucky-draw",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 359
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages",
+      "controller": "api/messages",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 222
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages",
+      "controller": "api/messages",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 234
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/openapi/keys/:id",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 264
+    },
+    {
+      "method": "GET",
+      "path": "/api/openapi/keys",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 243
+    },
+    {
+      "method": "POST",
+      "path": "/api/openapi/keys",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 253
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/openapi/schools/:id",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 306
+    },
+    {
+      "method": "PUT",
+      "path": "/api/openapi/schools/:id",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 296
+    },
+    {
+      "method": "GET",
+      "path": "/api/openapi/schools",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 275
+    },
+    {
+      "method": "POST",
+      "path": "/api/openapi/schools",
+      "controller": "api/openapi",
+      "file": "api/modules/admin/admin.controllers.ts",
+      "line": 285
+    },
+    {
+      "method": "PUT",
+      "path": "/api/paper-submissions/:id/answers",
+      "controller": "api/paper-submissions",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 243
+    },
+    {
+      "method": "POST",
+      "path": "/api/paper-submissions/:id/submit",
+      "controller": "api/paper-submissions",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 253
+    },
+    {
+      "method": "POST",
+      "path": "/api/paper-submissions/start",
+      "controller": "api/paper-submissions",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 234
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers/:id/assets",
+      "controller": "api/papers",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 215
+    },
+    {
+      "method": "PUT",
+      "path": "/api/papers/:id/structure",
+      "controller": "api/papers",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 206
+    },
+    {
+      "method": "GET",
+      "path": "/api/papers/:id",
+      "controller": "api/papers",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 188
+    },
+    {
+      "method": "PUT",
+      "path": "/api/papers/:id",
+      "controller": "api/papers",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 197
+    },
+    {
+      "method": "GET",
+      "path": "/api/papers",
+      "controller": "api/papers",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 170
+    },
+    {
+      "method": "POST",
+      "path": "/api/papers",
+      "controller": "api/papers",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 179
+    },
+    {
+      "method": "POST",
+      "path": "/api/parent-buff",
+      "controller": "api/parent-buff",
+      "file": "api/modules/platform/platform.controllers.ts",
+      "line": 13
+    },
+    {
+      "method": "POST",
+      "path": "/api/payment/create",
+      "controller": "api/payment",
+      "file": "api/modules/platform/platform.controllers.ts",
+      "line": 29
+    },
+    {
+      "method": "POST",
+      "path": "/api/payment/notify",
+      "controller": "api/payment",
+      "file": "api/modules/platform/platform.controllers.ts",
+      "line": 48
+    },
+    {
+      "method": "GET",
+      "path": "/api/payment/status/:orderNo",
+      "controller": "api/payment",
+      "file": "api/modules/platform/platform.controllers.ts",
+      "line": 39
+    },
+    {
+      "method": "GET",
+      "path": "/api/peer-reviews",
+      "controller": "api/peer-reviews",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 151
+    },
+    {
+      "method": "POST",
+      "path": "/api/peer-reviews",
+      "controller": "api/peer-reviews",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 160
+    },
+    {
+      "method": "POST",
+      "path": "/api/pet/battles",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 97
+    },
+    {
+      "method": "GET",
+      "path": "/api/pet/classes/:classId/leaderboard",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 87
+    },
+    {
+      "method": "GET",
+      "path": "/api/pet/classes/:classId",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 77
+    },
+    {
+      "method": "POST",
+      "path": "/api/pet/students/:studentId/actions",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 56
+    },
+    {
+      "method": "POST",
+      "path": "/api/pet/students/:studentId/adoptions",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 43
+    },
+    {
+      "method": "GET",
+      "path": "/api/pet/students/:studentId/classmates",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 33
+    },
+    {
+      "method": "GET",
+      "path": "/api/pet/students/:studentId/dashboard",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 24
+    },
+    {
+      "method": "GET",
+      "path": "/api/pet/students/:studentId",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 14
+    },
+    {
+      "method": "PUT",
+      "path": "/api/pet/students/:studentId",
+      "controller": "api/pet",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 67
+    },
+    {
+      "method": "GET",
+      "path": "/api/pets/:studentId",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 176
+    },
+    {
+      "method": "PUT",
+      "path": "/api/pets/:studentId",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 186
+    },
+    {
+      "method": "GET",
+      "path": "/api/pets/admin/class/:classId",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 113
+    },
+    {
+      "method": "POST",
+      "path": "/api/pets/adopt",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 150
+    },
+    {
+      "method": "POST",
+      "path": "/api/pets/battle",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 131
+    },
+    {
+      "method": "GET",
+      "path": "/api/pets/classmates/:studentId",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 122
+    },
+    {
+      "method": "POST",
+      "path": "/api/pets/interact",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 165
+    },
+    {
+      "method": "GET",
+      "path": "/api/pets/leaderboard/:classId",
+      "controller": "api/pets",
+      "file": "api/modules/pet/pet.controllers.ts",
+      "line": 141
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/praises/:id",
+      "controller": "api/praises",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 141
+    },
+    {
+      "method": "GET",
+      "path": "/api/praises/student/:id",
+      "controller": "api/praises",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 112
+    },
+    {
+      "method": "GET",
+      "path": "/api/praises",
+      "controller": "api/praises",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 96
+    },
+    {
+      "method": "POST",
+      "path": "/api/praises",
+      "controller": "api/praises",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 124
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/presets/:id",
+      "controller": "api/presets",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 321
+    },
+    {
+      "method": "GET",
+      "path": "/api/presets",
+      "controller": "api/presets",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 302
+    },
+    {
+      "method": "POST",
+      "path": "/api/presets",
+      "controller": "api/presets",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 311
+    },
+    {
+      "method": "GET",
+      "path": "/api/redemption/my",
+      "controller": "api/redemption",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 190
+    },
+    {
+      "method": "POST",
+      "path": "/api/redemption/verify",
+      "controller": "api/redemption",
+      "file": "api/modules/engagement/engagement.controllers.ts",
+      "line": 202
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "controller": "api/settings",
+      "file": "api/modules/settings/settings.controller.ts",
+      "line": 8
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shop/:id/status",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 39
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shop/:id",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 49
+    },
+    {
+      "method": "GET",
+      "path": "/api/shop/all",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 20
+    },
+    {
+      "method": "POST",
+      "path": "/api/shop/auctions/:id/bid",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 78
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/shop/auctions/:id",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 118
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shop/auctions/:id",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 108
+    },
+    {
+      "method": "GET",
+      "path": "/api/shop/auctions",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 69
+    },
+    {
+      "method": "POST",
+      "path": "/api/shop/auctions",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 98
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/shop/blind_boxes/:id",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 157
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shop/blind_boxes/:id",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 147
+    },
+    {
+      "method": "GET",
+      "path": "/api/shop/blind_boxes",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 128
+    },
+    {
+      "method": "POST",
+      "path": "/api/shop/blind_boxes",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 137
+    },
+    {
+      "method": "POST",
+      "path": "/api/shop/blind_box",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 88
+    },
+    {
+      "method": "POST",
+      "path": "/api/shop/buy",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 59
+    },
+    {
+      "method": "GET",
+      "path": "/api/shop/items",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 11
+    },
+    {
+      "method": "POST",
+      "path": "/api/shop",
+      "controller": "api/shop",
+      "file": "api/modules/marketplace/marketplace.controllers.ts",
+      "line": 29
+    },
+    {
+      "method": "GET",
+      "path": "/api/slg/classes/:classId/map",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 705
+    },
+    {
+      "method": "POST",
+      "path": "/api/slg/classes/:classId/territories",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 724
+    },
+    {
+      "method": "POST",
+      "path": "/api/slg/classes/:classId/yield",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 733
+    },
+    {
+      "method": "GET",
+      "path": "/api/slg/map/:classId",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 666
+    },
+    {
+      "method": "POST",
+      "path": "/api/slg/student/:studentId/contribute/:territoryId",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 675
+    },
+    {
+      "method": "POST",
+      "path": "/api/slg/students/:studentId/territories/:territoryId/contributions",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 715
+    },
+    {
+      "method": "POST",
+      "path": "/api/slg/teacher/yield/:classId",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 695
+    },
+    {
+      "method": "POST",
+      "path": "/api/slg/teacher",
+      "controller": "api/slg",
+      "file": "api/modules/game/game.controllers.ts",
+      "line": 685
+    },
+    {
+      "method": "GET",
+      "path": "/api/students/:id/achievements",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 157
+    },
+    {
+      "method": "PUT",
+      "path": "/api/students/:id/birthday",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 148
+    },
+    {
+      "method": "PUT",
+      "path": "/api/students/:id/class",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 109
+    },
+    {
+      "method": "PUT",
+      "path": "/api/students/:id/group",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 119
+    },
+    {
+      "method": "PUT",
+      "path": "/api/students/:id/password",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 129
+    },
+    {
+      "method": "GET",
+      "path": "/api/students/:id/peer-reviews/pending",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 166
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/:id/peer-reviews",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 175
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/:id/points",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 138
+    },
+    {
+      "method": "GET",
+      "path": "/api/students/:id",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 100
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/batch-edit",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 90
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/batch-import",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 60
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/batch-points",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 80
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/checkin",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 40
+    },
+    {
+      "method": "POST",
+      "path": "/api/students/gift",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 50
+    },
+    {
+      "method": "GET",
+      "path": "/api/students/progress-star",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 31
+    },
+    {
+      "method": "GET",
+      "path": "/api/students/records",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 22
+    },
+    {
+      "method": "GET",
+      "path": "/api/students",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 13
+    },
+    {
+      "method": "POST",
+      "path": "/api/students",
+      "controller": "api/students",
+      "file": "api/modules/classroom/classroom.controllers.ts",
+      "line": 70
+    },
+    {
+      "method": "PUT",
+      "path": "/api/study-plans/items/:id",
+      "controller": "api/study-plans",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 406
+    },
+    {
+      "method": "GET",
+      "path": "/api/study-plans/my",
+      "controller": "api/study-plans",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 388
+    },
+    {
+      "method": "POST",
+      "path": "/api/study-plans",
+      "controller": "api/study-plans",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 397
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backup/export",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 78
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/logs",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 70
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/questions/:id",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 46
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/questions/:id",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 38
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/questions",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 22
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/questions",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 30
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/settings",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 54
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/settings",
+      "controller": "api/system",
+      "file": "api/modules/system/system.controller.ts",
+      "line": 62
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-tree/student/:studentId/complete/:nodeId",
+      "controller": "api/task-tree",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 57
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-tree/student/:studentId",
+      "controller": "api/task-tree",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 48
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-tree/teacher/:classId",
+      "controller": "api/task-tree",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 10
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/task-tree/teacher/:id",
+      "controller": "api/task-tree",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 38
+    },
+    {
+      "method": "PUT",
+      "path": "/api/task-tree/teacher/:id",
+      "controller": "api/task-tree",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 28
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-tree/teacher",
+      "controller": "api/task-tree",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 19
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/team-quests/:id",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 100
+    },
+    {
+      "method": "PUT",
+      "path": "/api/team-quests/:id",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 90
+    },
+    {
+      "method": "GET",
+      "path": "/api/team-quests/progress/groups",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 110
+    },
+    {
+      "method": "GET",
+      "path": "/api/team-quests/progress",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 128
+    },
+    {
+      "method": "POST",
+      "path": "/api/team-quests/progress",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 137
+    },
+    {
+      "method": "GET",
+      "path": "/api/team-quests/student/current",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 119
+    },
+    {
+      "method": "GET",
+      "path": "/api/team-quests",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 72
+    },
+    {
+      "method": "POST",
+      "path": "/api/team-quests",
+      "controller": "api/team-quests",
+      "file": "api/modules/collaboration/collaboration.controllers.ts",
+      "line": 81
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/website/articles/:id",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 72
+    },
+    {
+      "method": "GET",
+      "path": "/api/website/articles/:id",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 43
+    },
+    {
+      "method": "PUT",
+      "path": "/api/website/articles/:id",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 62
+    },
+    {
+      "method": "GET",
+      "path": "/api/website/articles",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 34
+    },
+    {
+      "method": "POST",
+      "path": "/api/website/articles",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 52
+    },
+    {
+      "method": "POST",
+      "path": "/api/website/contact",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 82
+    },
+    {
+      "method": "GET",
+      "path": "/api/website/home",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 15
+    },
+    {
+      "method": "PUT",
+      "path": "/api/website/home",
+      "controller": "api/website",
+      "file": "api/modules/portal/portal.controllers.ts",
+      "line": 24
+    },
+    {
+      "method": "POST",
+      "path": "/api/wrong-questions/:id/attempt",
+      "controller": "api/wrong-questions",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 364
+    },
+    {
+      "method": "POST",
+      "path": "/api/wrong-questions/:id/generate",
+      "controller": "api/wrong-questions",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 374
+    },
+    {
+      "method": "GET",
+      "path": "/api/wrong-questions/my",
+      "controller": "api/wrong-questions",
+      "file": "api/modules/learning/learning.controllers.ts",
+      "line": 355
+    }
+  ]
+}

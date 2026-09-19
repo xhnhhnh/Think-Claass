@@ -1,10 +1,14 @@
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import StudentLayout from './StudentLayout';
 
+// StudentLayout renders CampusShell -> WebsiteIcon -> useSettings(), which is a
+// React Query hook. The real app supplies the client in AppProviders; the test
+// must do the same, otherwise the hook throws "No QueryClient set".
 const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),
   useClassFeatures: vi.fn(),
@@ -30,7 +34,11 @@ vi.mock('framer-motion', () => ({
 }));
 
 describe('StudentLayout', () => {
+  let queryClient: QueryClient;
+
   beforeEach(() => {
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
     const state = {
       user: {
         id: 1,
@@ -70,29 +78,35 @@ describe('StudentLayout', () => {
 
   it('filters disabled feature navigation items', () => {
     render(
-      <MemoryRouter initialEntries={['/student/pet']}>
-        <Routes>
-          <Route path="/student" element={<StudentLayout />}>
-            <Route path="pet" element={<div>pet page</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/student/pet']}>
+          <Routes>
+            <Route path="/student" element={<StudentLayout />}>
+              <Route path="pet" element={<div>pet page</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
-    expect(screen.getByText('我的精灵')).toBeInTheDocument();
+    // CampusShell renders the navigation twice (desktop sidebar + mobile drawer),
+    // so positive assertions must use the plural query - see ParentLayout.test.tsx.
+    expect(screen.getAllByText('我的精灵').length).toBeGreaterThan(0);
     expect(screen.queryByText('积分商城')).not.toBeInTheDocument();
   });
 
   it('redirects to the first enabled student route when current route is disabled', async () => {
     render(
-      <MemoryRouter initialEntries={['/student/shop']}>
-        <Routes>
-          <Route path="/student" element={<StudentLayout />}>
-            <Route path="pet" element={<div>pet page</div>} />
-            <Route path="shop" element={<div>shop page</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/student/shop']}>
+          <Routes>
+            <Route path="/student" element={<StudentLayout />}>
+              <Route path="pet" element={<div>pet page</div>} />
+              <Route path="shop" element={<div>shop page</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     await waitFor(() => {

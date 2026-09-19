@@ -1,10 +1,14 @@
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ParentLayout from './ParentLayout';
 
+// ParentLayout renders CampusShell -> WebsiteIcon -> useSettings(), which is a
+// React Query hook. The real app supplies the client in AppProviders; the test
+// must do the same, otherwise the hook throws "No QueryClient set".
 const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),
 }));
@@ -14,7 +18,11 @@ vi.mock('@/store/useStore', () => ({
 }));
 
 describe('ParentLayout', () => {
+  let queryClient: QueryClient;
+
   beforeEach(() => {
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
     const state = {
       user: {
         id: 2,
@@ -49,13 +57,15 @@ describe('ParentLayout', () => {
 
   it('hides disabled family task navigation', () => {
     render(
-      <MemoryRouter initialEntries={['/parent/dashboard']}>
-        <Routes>
-          <Route path="/parent" element={<ParentLayout />}>
-            <Route path="dashboard" element={<div>dashboard page</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/parent/dashboard']}>
+          <Routes>
+            <Route path="/parent" element={<ParentLayout />}>
+              <Route path="dashboard" element={<div>dashboard page</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(screen.getAllByText('温馨家园').length).toBeGreaterThan(0);
@@ -64,14 +74,16 @@ describe('ParentLayout', () => {
 
   it('redirects away from disabled family tasks route', async () => {
     render(
-      <MemoryRouter initialEntries={['/parent/tasks']}>
-        <Routes>
-          <Route path="/parent" element={<ParentLayout />}>
-            <Route path="dashboard" element={<div>dashboard page</div>} />
-            <Route path="tasks" element={<div>tasks page</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/parent/tasks']}>
+          <Routes>
+            <Route path="/parent" element={<ParentLayout />}>
+              <Route path="dashboard" element={<div>dashboard page</div>} />
+              <Route path="tasks" element={<div>tasks page</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     await waitFor(() => {
