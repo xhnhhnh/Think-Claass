@@ -111,8 +111,9 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   messages: ['sender_role'],
   shop_items: ['is_active', 'teacher_id'],
   users: ['is_activated'],
-  // Written by the parent-login path (`api/modules/auth/auth.service.ts`, which targets it in
-  // an `ON CONFLICT` upsert) and read by name by the pet domain's parent-buff check. The boot
+  // Written by the parent-login path - now `plugins/identity` through the
+  // `parent_buff.public.touchParentLogin` port, before that `api/modules/auth/auth.service.ts` in an
+  // `ON CONFLICT` upsert - and read by name by the pet domain's parent-buff check. The boot
   // schema's CREATE omits it; it arrives through `0000c_legacy_compat_columns`. Its absence in
   // the kernel composition was measured, not theorised - see that migration's header.
   parent_activity: ['last_active_date'],

@@ -129,6 +129,66 @@ export function createClassroomPort({ ctx, repository, features, cipher }: Class
       return row ? toClassSnapshot(row) : null;
     },
 
+    async findClassByInviteCode(code) {
+      const row = db.classByInviteCode(code);
+      if (!row) return null;
+      // `classByInviteCode` projects only `(id, name)` - what the invite lookup needs - so the
+      // remaining snapshot fields come from the full row rather than being invented here.
+      const full = db.findClassRow(row.id);
+      return full ? toClassSnapshot(full) : null;
+    },
+
+    /**
+     * The whole flag map, in the legacy key space.
+     *
+     * Wraps the resolver's `getClassFeaturesByClassId`, which throws the legacy 404 for a
+     * missing class: the port answers `null` instead, because its only caller (the login
+     * response) treated a missing class as "no features" rather than an error.
+     */
+    async getClassFeatureSnapshot(classId) {
+      if (!db.findClassRow(classId)) return null;
+      return features.getClassFeaturesByClassId(classId);
+    },
+
+    async getClassIdByStudentId(studentId) {
+      const row = db.findStudentRow(studentId);
+      if (!row) return null;
+      return row.class_id;
+    },
+
+    async listStudentsByParent(parentId) {
+      return db.listStudentsByParent(parentId).map((row) => toStudentSnapshot(row, cipher));
+    },
+
+    async linkParentToStudent(parentId, studentId) {
+      db.linkParentToStudent(parentId, studentId);
+    },
+
+    /**
+     * Bind a login account to a student row.
+     *
+     * The name is encrypted here rather than by the caller: `students.name` is AES-encrypted at
+     * rest, and this is the only write path the identity domain has to it. A caller passing
+     * plaintext would drop at-rest encryption for a name the product displays, silently.
+     */
+    async bindStudentToUser({ studentId, userId, name }) {
+      const row = db.findStudentRow(studentId);
+      if (!row) {
+        return { refusal: { code: 'student-not-found', message: '未找到该学生记录' } };
+      }
+      if (row.user_id != null && row.user_id !== userId) {
+        return { refusal: { code: 'already-bound', message: '该学生已被绑定' } };
+      }
+
+      const encrypted = name == null ? null : cipher.encrypt(String(name));
+      const updated = db.tx(() => {
+        db.bindStudentAccount(studentId, userId, encrypted);
+        return db.findStudentRow(studentId) as StudentRow;
+      });
+
+      return { value: toStudentSnapshot(updated, cipher) };
+    },
+
     async listClassStudents(classId) {
       return db.listClassStudents(classId).map((row) => toStudentSnapshot(row, cipher));
     },

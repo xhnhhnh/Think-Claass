@@ -14,7 +14,8 @@
     "services": [
       {
         "name": "classroom.public",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "_note": "P4.3b.7 added four operations for the identity domain: getClassFeatureSnapshot (the whole enable_* map the login response embeds - checkClassFeature answers one boolean at a time and publishes the classroom.enable_* key space instead), getClassIdByStudentId, listStudentsByParent, linkParentToStudent and bindStudentToUser. The last three exist because parent_students and students.user_id are classroom rows that identity must write during registration, and because students.name is encrypted at rest - a caller writing it directly would store plaintext."
       }
     ],
     "permissions": [

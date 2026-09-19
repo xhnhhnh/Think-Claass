@@ -787,6 +787,53 @@ export function createClassroomRepository(ctx: KernelContext) {
         )
         .run(scopeType, scopeId, capabilityKey, enabled ? 1 : 0, new Date().toISOString());
     },
+
+    // -- parent <-> student, and account binding (the identity port) --------
+    //
+    // These three exist because `parent_students` and `students.user_id` are classroom rows
+    // that the identity domain has to write during registration. See
+    // `ClassroomPort.linkParentToStudent` / `bindStudentToUser` for why the write lives here.
+
+    /** The students a parent account is linked to. `ORDER BY id` is part of the port contract. */
+    listStudentsByParent(parentId: unknown): StudentRow[] {
+      return db.query<StudentRow>(
+        `SELECT s.*
+           FROM students s
+           JOIN parent_students ps ON ps.student_id = s.id
+          WHERE ps.parent_id = ?
+          ORDER BY s.id`,
+        [parentId as never],
+      );
+    },
+
+    /**
+     * Link a parent to a student, tolerating a repeat.
+     *
+     * `INSERT OR IGNORE` rather than a bare INSERT: the PRIMARY KEY is
+     * `(parent_id, student_id)`, and the pre-migration registration simply inserted, so
+     * re-running it for the same pair must stay a no-op instead of throwing a constraint error.
+     */
+    linkParentToStudent(parentId: unknown, studentId: unknown): void {
+      db.run(`INSERT OR IGNORE INTO parent_students (parent_id, student_id) VALUES (?, ?)`, [
+        parentId as never,
+        studentId as never,
+      ]);
+    },
+
+    /**
+     * Bind a login account to a student row and store the displayed name.
+     *
+     * `name` is passed already encrypted by the caller (`cipher.encrypt`); this method owns only
+     * the SQL. See the port for why the encryption is not the caller's business: the caller that
+     * forgets it writes plaintext into a column the product decrypts on read.
+     */
+    bindStudentAccount(studentId: unknown, userId: unknown, encryptedName: string | null): void {
+      db.run(`UPDATE students SET user_id = ?, name = ? WHERE id = ?`, [
+        userId as never,
+        encryptedName as never,
+        studentId as never,
+      ]);
+    },
   };
 }
 

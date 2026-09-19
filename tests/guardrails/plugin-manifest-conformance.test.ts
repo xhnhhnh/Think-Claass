@@ -199,7 +199,10 @@ describe('G10 adopted legacy tables ratchet', () => {
     // 34 -> 50 in P4.3b.6b, when the learning domain (papers / knowledge graph / wrong
     // questions / study plans) adopted its 16 legacy-named tables. That set is the
     // measured one, not a guess, and it is enumerated in allowances.json.
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(50);
+    // 50 -> 53 in P4.3b.7, when identity adopted `users`, `activation_codes` and
+    // `activation_events` - three tables that existed since the boot schema and that no
+    // plugin owned, which is why nothing checked who wrote them.
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(53);
   });
 
   it('never declares a table as both owned and adopted', () => {

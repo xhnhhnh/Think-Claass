@@ -38,7 +38,10 @@ async function boot(overrides: Record<string, unknown> = {}): Promise<Harness> {
   const kernel = await createKernel({
     inMemoryDatabase: true,
     overrides: { logLevel: 'silent', ...overrides },
-    authProvider: stubAuthProvider(),
+    // A holder, not a provider: since P4.3b.7 the identity plugin registers the real verifier
+    // during setup, and the kernel router reads `current` per request. In a kernel-only test there
+    // is no plugin, so pre-filling the holder is how a test supplies one.
+    authProvider: { current: stubAuthProvider() },
   });
   const server = await new Promise<Server>((resolve) => {
     const s = kernel.app.listen(0, '127.0.0.1', () => resolve(s));

@@ -56,8 +56,14 @@ export interface KernelRoutesOptions {
   sessions: SessionService;
   /** Kernel-owned key/value storage, backing `GET /api/settings`. */
   settings: SettingsStore;
-  /** Absent until an identity owner is wired; login then reports 503. */
-  authProvider?: AuthProvider;
+  /**
+   * Where the credential verifier comes from.
+   *
+   * A holder rather than a value: this router is built before plugins are mounted, and the identity
+   * plugin registers its verifier during `setup`. Reading `current` per request is what makes the
+   * route work after boot - and what makes it degrade to 503 again if that plugin is stopped.
+   */
+  authProvider?: { current: AuthProvider | null };
 }
 
 function bearerToken(req: Request): string | null {
@@ -83,7 +89,7 @@ export function createKernelRouter(options: KernelRoutesOptions): Router {
       const { username, password, role } = (req.body ?? {}) as Record<string, unknown>;
       if (!username || !password) throw badRequest('用户名和密码不能为空');
 
-      const provider = options.authProvider;
+      const provider = options.authProvider?.current;
       if (!provider) {
         throw new ApiError(503, '认证提供者尚未配置', { code: 'AUTH_PROVIDER_MISSING' });
       }

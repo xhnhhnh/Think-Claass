@@ -1,0 +1,48 @@
+{
+  "id": "identity",
+  "name": "身份与开通",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "foundation",
+  "required": true,
+  "isolation": "in-process",
+  "description": "The identity domain: login, profile, registration and activation. Relocated from api/modules/auth/** plus api/services/activationService.ts (P4.3b.7), which makes users / activation_codes / activation_events owned tables for the first time and publishes identity.public.activateUser - the call the payment webhook ends in. Reaches students, classes and the parent link through classroom.public, and records parent-login activity through the optional parent_buff.public port instead of writing parent_activity itself. `required: true` because G7 requires it of a foundation plugin, and because nothing else can service a login: without it the composition serves no authentication at all, and the routes it owns are the four the frontend calls on every session.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "services": [
+      {
+        "name": "identity.public",
+        "version": "1.0.0",
+        "_note": "Two methods: getUserById and activateUser. Login and profile are HTTP routes rather than port operations - importing another plugin's route would couple far more than an activation call does. parent_buff.public is consumed as an OPTIONAL dependency (ctx.tryUse at call time): a deployment with parent-buff disabled must still allow a parent to log in."
+      }
+    ],
+    "routes": [
+      { "method": "POST", "base": "/api/auth", "handler": "IdentityController.login", "auth": "actor" },
+      { "method": "PUT", "base": "/api/auth", "handler": "IdentityController.updateProfile", "auth": "actor" },
+      { "method": "POST", "base": "/api/auth", "handler": "IdentityController.register", "auth": "actor" },
+      { "method": "POST", "base": "/api/auth", "handler": "IdentityController.activate", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": [
+      "users",
+      "activation_codes",
+      "activation_events"
+    ],
+    "_adopted_note": "These three tables keep their legacy names (the P7 namespace migration tracked by guardrail G10 renames them to p_identity_*). They were created by 0000_legacy_boot_schema and owned by nobody, so before this plugin the ownership check had nothing to check: the legacy service reached them through Prisma, and api/modules/admin still does. `users` is the widest-reaching of the three - classroom inserts a student login row and resets its password, and admin deletes users during account cleanup - so those writers remain a known debt until admin migrates (see _known_debt). No new tables are created: the domain is a pure relocation.",
+    "reads": [],
+    "_reads_note": "Empty on purpose. Students, classes and parent_students are reached through classroom.public (including the at-rest name encryption on the write path), and parent_activity through parent_buff.public. Every statement in identity.repository.ts names one of the three adopted tables, which is what makes the ownership check a proof rather than a formality.",
+    "_known_debt": "1. api/modules/admin/admin.repository.ts still reads and writes all three tables through Prisma $transaction (users create/update/delete, activation_codes create/update, activation_events delete), bypassing DbApi entirely - the same debt recorded for pet, assignments, learning and classroom. It must become port calls (or disappear) when admin migrates. 2. plugins/classroom/src/classroom.repository.ts inserts a `users` row and resets `password_hash` for student accounts it creates; `users` is now this plugin's table, so that is a cross-plugin write by a plugin that cannot import this one. The honest fix is a `identity.public.createStudentAccount` operation, which needs a decision about which domain owns 'create a student login'. Recorded rather than half-fixed. 3. POST /api/auth/register is not transactional across the plugin boundary: a user row is inserted here, then the student binding happens through classroom.public. Binding failure therefore depends on the same validation the legacy code ran first (invite code, student-in-class, already-bound), and the refusal path returns the legacy 400 message. The legacy code wrapped both halves in one Prisma $transaction; reproducing that would need a distributed transaction across two plugins' connections, which does not exist. 4. The route bases above are the real legacy prefixes (/api/auth), which the manifest validator warns are not namespaced under /api/identity; that warning is expected - these are the paths the deployed frontend calls.",
+    "_todo_note": "`SESSION_TTL_MS` reaches the plugin through the new `ctx.config.sessionTtlMs`, and `allow_teacher_registration` through `ctx.settings.getPlatform` - both added in this round because a plugin previously had no way to read either without reaching into api/**."
+  }
+}

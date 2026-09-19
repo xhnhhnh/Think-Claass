@@ -113,11 +113,14 @@ export interface CreateKernelOptions {
   /** Use an in-memory database; used by tests. */
   inMemoryDatabase?: boolean;
   /**
-   * Credential verification. Until the identity plugin exists (P3) the legacy
-   * application supplies an adapter, which is what lets real sessions be issued
-   * during the migration instead of after it.
+   * Credential verification for the kernel's own login route.
+   *
+   * Since P4.3b.7 this is a *holder* rather than a value: the identity plugin implements
+   * `AuthProvider` in its own repository and registers it during `setup`, which happens after this
+   * kernel is built. `api/app.ts` owns the holder and hands the same object to the plugin host, so
+   * the kernel router sees the registration without the kernel importing a plugin (guardrail G2).
    */
-  authProvider?: AuthProvider;
+  authProvider?: { current: AuthProvider | null };
 }
 
 /**

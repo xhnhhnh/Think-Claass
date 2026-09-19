@@ -31,8 +31,30 @@ export default definePlugin({
   providers,
 
   async setup(ctx: KernelContext) {
-    service = new ParentBuffService(createParentBuffRepository(ctx.db));
-    providers.push({ provide: ParentBuffService, useValue: service });
+    const instance = new ParentBuffService(createParentBuffRepository(ctx.db));
+    service = instance;
+    providers.push({ provide: ParentBuffService, useValue: instance });
+
+    /**
+     * The published port, delayed until here so it can close over the service instance
+     * rather than over the module-level `service` variable (which `onStop` clears).
+     *
+     * The name carries an underscore because the service registry requires the first segment to
+     * be exactly this plugin's derived slug - `slugOf('parent-buff')` is `parent_buff` - and
+     * `serviceRegistry.provide` throws otherwise.
+     *
+     * One method on purpose: this plugin owns `parent_activity`, and the identity domain needs
+     * exactly one operation on it - the parent-login activity upsert that
+     * `api/modules/auth/auth.service.ts` used to perform through Prisma. Publishing
+     * `createParentBuff` as well would invite a second HTTP path for a route that already
+     * exists.
+     */
+    ctx.provide('parent_buff.public', {
+      async touchParentLogin(parentId, studentId, day) {
+        instance.touchParentLogin(parentId, studentId, day);
+      },
+    });
+
     ctx.log.info('parent-buff service ready', { owns: ctx.plugin.slug });
   },
 

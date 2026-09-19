@@ -38,6 +38,7 @@ import {
   createKernelRouter,
   createRequestContextMiddleware,
   renderError,
+  type AuthProvider,
   type Kernel,
   type KernelRuntimeHooks,
   type PluginHostView,
@@ -47,7 +48,6 @@ import { initDb, decrypt } from './db.js'
 import { APP_MIGRATIONS } from './schema/appMigrations.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
-import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
 import { CORE_AUDIT_DESCRIPTORS, CORE_AUDIT_OWNER } from './audit/descriptors.js';
 
 // for esm mode
@@ -112,10 +112,26 @@ function mountKernelInfrastructure(server: Express, kernel: Kernel): void {
       permissions: kernel.permissions,
       sessions: kernel.sessions,
       settings: kernel.settings,
-      authProvider: createLegacyAuthProvider(),
+      authProvider: authProviderHolder,
     }),
   );
 }
+
+/**
+ * Where the identity plugin registers its credential verifier.
+ *
+ * The kernel router needs an `AuthProvider`, the kernel cannot import a plugin (G2), and the
+ * plugin is mounted *after* the router is built - so the verifier travels through this holder:
+ * `createKernel` reads `current` per request, the plugin host hands the same object to
+ * `createPluginContext`, and `plugins/identity` fills it during `setup`.
+ *
+ * Before P4.3b.7 this slot held `createLegacyAuthProvider()` - a temporary adapter in
+ * `api/modules/auth/` whose entire purpose was to bridge the gap until identity moved into a
+ * plugin. The plugin is that bridge's replacement, so the adapter is gone; with no identity
+ * plugin active, `POST /api/kernel/auth/login` answers 503 again, which is the honest state of
+ * "nothing owns authentication in this composition".
+ */
+const authProviderHolder: { current: AuthProvider | null } = { current: null };
 
 /**
  * The Nest root for the legacy composition.
@@ -222,6 +238,9 @@ async function mountPlugins(hooks: KernelRuntimeHooks): Promise<PluginHostView |
 
   pluginHost = await createPluginHost({
     ...hooks,
+    // The same holder the kernel router reads, so `plugins/identity` can register its verifier
+    // during setup and `/api/kernel/auth/login` starts working once it has.
+    authProvider: authProviderHolder,
     // Always include the in-repo plugin directory, so `plugins/*` works even when
     // PLUGIN_DIRS points at an external deployment location.
     pluginDirs: [path.join(hooks.config.rootDir, 'plugins')],
@@ -247,7 +266,9 @@ export async function createApp(): Promise<Express> {
   // in both: the legacy composition is the default and the rollback target, so a
   // domain that has moved into a plugin must keep serving there.
   bootedKernel = await createKernel({
-    authProvider: createLegacyAuthProvider(),
+    // The holder `plugins/identity` fills during setup. See its declaration for why this is not
+    // a plain value: the kernel is built before any plugin is mounted.
+    authProvider: authProviderHolder,
     mountPlugins,
     // The application's schema, supplied as a migration chain. Both compositions apply the
     // same list: the legacy one through `initDb()` and this one through the ledger. It is

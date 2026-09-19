@@ -31,4 +31,17 @@ export class ParentBuffService {
 
     this.repository.insert(studentId as SqlParam);
   }
+
+  /**
+   * Record that a parent was active with one of their students today.
+   *
+   * Published as `parent-buff.public` so the identity domain stops writing `parent_activity`
+   * itself. The rule is the pre-migration one from `auth.service.login`: upsert on
+   * `(parent_id, student_id)`, set `last_active_date`. No validation and no error path - the
+   * legacy call site wrapped it in `if (student)` and ignored nothing else, so this method is a
+   * straight write. `day` comes from the caller so the port does not invent a second clock.
+   */
+  touchParentLogin(parentId: number, studentId: number, day: string): void {
+    this.repository.upsertParentLogin(parentId, studentId, day);
+  }
 }

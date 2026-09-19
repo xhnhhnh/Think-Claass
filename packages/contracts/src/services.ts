@@ -17,6 +17,8 @@
  */
 
 import type { ClassroomPort } from './domains/classroom.js';
+import type { IdentityPort } from './domains/identity.js';
+import type { ParentActivityRecorder } from './domains/parent-buff.js';
 import type { PetPort } from './domains/pet.js';
 
 export interface ServiceContracts {
@@ -27,6 +29,28 @@ export interface ServiceContracts {
   'classroom.public': ClassroomPort;
   /** Supplied by the `pet` feature plugin. */
   'pet.public': PetPort;
+  /**
+   * Supplied by the `identity` foundation plugin.
+   *
+   * The activation write path: the activation-code route (identity's own) and the payment
+   * webhook (still in `api/modules/platform`) both end in `activateUser`, so that one
+   * operation is what crosses the boundary.
+   */
+  'identity.public': IdentityPort;
+  /**
+   * Supplied by the `parent-buff` feature plugin.
+   *
+   * The name is `parent_buff.public` - with an underscore - because that is the plugin's
+   * derived slug: `slugOf('parent-buff')` replaces hyphens, and `serviceRegistry.provide`
+   * rejects any name whose first segment is not exactly `manifest.slug`. Guardrail G7 checks
+   * the same rule against the manifest, so this key is the only spelling that both the type
+   * map and the runtime accept.
+   *
+   * Exists so `identity` stops writing `parent_activity` directly: parent login records
+   * activity there and the table's owner is parent-buff. Consumers treat it as optional - a
+   * parent must still be able to log in on a deployment where parent-buff is disabled.
+   */
+  'parent_buff.public': ParentActivityRecorder;
 }
 
 export type ServiceName = keyof ServiceContracts & string;

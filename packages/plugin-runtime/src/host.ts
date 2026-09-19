@@ -28,8 +28,17 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import type { Express, Response as ExpressResponse } from 'express';
 
 import type { PluginManifest, PublicPluginDescriptor } from '@thinkclass/contracts';
-import type { Database, EventBus, KernelConfig, Logger, PermissionEngine, SessionService } from '@thinkclass/kernel';
-import { KERNEL_API_VERSION, renderError, runMigrations } from '@thinkclass/kernel';
+import type {
+  AuthProvider,
+  Database,
+  EventBus,
+  KernelConfig,
+  Logger,
+  PermissionEngine,
+  SessionService,
+  SettingsStore,
+} from '@thinkclass/kernel';
+import { KERNEL_API_VERSION, createSettingsStore, renderError, runMigrations } from '@thinkclass/kernel';
 import {
   PLUGIN_CONTEXT,
   PLUGIN_MANIFEST,
@@ -54,6 +63,24 @@ export interface PluginHostOptions {
   permissions: PermissionEngine;
   logger: Logger;
   config: KernelConfig;
+  /**
+   * Kernel-owned settings, exposed read-only to plugins as `ctx.settings.getPlatform`.
+   *
+   * Omitted by hand-built hosts (tests): the runtime then reads the `settings` table directly,
+   * which is the same store `createSettingsStore` wraps but without the caller having to thread
+   * it through. Both paths return `undefined` for a missing row, so the semantics do not depend
+   * on which one is used.
+   */
+  settings?: SettingsStore;
+  /**
+   * Holder the identity plugin registers its credential verifier into, so the kernel's own
+   * `POST /api/kernel/auth/login` survives the retirement of `legacyAuthProvider`.
+   *
+   * A holder rather than a value because of ordering: the kernel router is built before plugins are
+   * mounted, so it must read through an indirection that is filled in later. Omitted by hosts that
+   * do not care, in which case a plugin calling `ctx.auth.registerProvider` gets a clear 500.
+   */
+  authProvider?: { current: AuthProvider | null };
   /** Extra directories to scan, appended to config.pluginDirs. */
   pluginDirs?: string[];
   /** Plugin ids to skip. */
@@ -152,8 +179,11 @@ function describe(plugin: DiscoveredPlugin) {
 // ---------------------------------------------------------------------------
 
 export async function createPluginHost(options: PluginHostOptions): Promise<PluginHost> {
-  const { app, db, sessions, events, permissions, logger, config } = options;
+  const { app, db, sessions, events, permissions, logger, config, authProvider } = options;
   const strict = config.env !== 'production';
+  // `ctx.settings.getPlatform` needs the kernel's settings view. The composition passes it; a
+  // hand-built host falls back to the same table so the accessor works either way.
+  const settings = options.settings ?? createSettingsStore(db);
 
   // The runtime owns its own bookkeeping table, so it migrates it through the same
   // versioned runner the plugins use rather than assuming it exists.
@@ -300,6 +330,8 @@ export async function createPluginHost(options: PluginHostOptions): Promise<Plug
       boundary,
       logger,
       config,
+      settings,
+      authProvider,
       mountedRouters,
       strict,
     });

@@ -41,7 +41,15 @@ beforeAll(async () => {
     // path: the kernel composition applies the same chain the legacy one does.
     migrations: APP_MIGRATIONS,
     mountPlugins: async (hooks) => {
-      host = await createPluginHost({ ...hooks, pluginDirs: [path.join(ROOT, 'plugins')] });
+      host = await createPluginHost({
+        ...hooks,
+        pluginDirs: [path.join(ROOT, 'plugins')],
+        // `plugins/identity` registers its credential verifier through this holder during setup.
+        // The kernel router normally reads the same object; this test does not exercise that route,
+        // but without a holder the identity plugin's setup fails - which is exactly the failure
+        // mode the ApiError in `ctx.auth.registerProvider` exists to surface loudly.
+        authProvider: { current: null },
+      });
       return host;
     },
   });
@@ -111,6 +119,7 @@ describe('plugin discovery and activation', () => {
       'dungeon',
       'economy',
       'gacha',
+      'identity',
       'learning',
       'marketplace',
       'parent-buff',
@@ -157,6 +166,7 @@ describe('plugin discovery and activation', () => {
       'dungeon:active',
       'economy:active',
       'gacha:active',
+      'identity:active',
       'learning:active',
       'marketplace:active',
       'parent-buff:active',
@@ -168,7 +178,18 @@ describe('plugin discovery and activation', () => {
   });
 
   it('publishes the declared service ports', () => {
-    expect(host!.services.list().map((s) => s.name).sort()).toEqual(['classroom.public', 'pet.public']);
+    // `parent_buff.public` joins in P4.3b.7: the parent-buff plugin owns `parent_activity` and
+    // now publishes the parent-login activity write that identity used to perform directly.
+    // The underscore is not a typo - the service registry requires the name's first segment to
+    // be exactly the plugin's derived slug (`slugOf('parent-buff') === 'parent_buff'`).
+    // `identity.public` joins in the same round: `activateUser` is the call the payment webhook
+    // ends in, and publishing it is what makes the payment half migratable next.
+    expect(host!.services.list().map((s) => s.name).sort()).toEqual([
+      'classroom.public',
+      'identity.public',
+      'parent_buff.public',
+      'pet.public',
+    ]);
   });
 
   it('registers the declared permissions only', () => {
@@ -190,15 +211,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(15);
-    expect(body.kernel.plugins.active).toBe(15);
+    expect(body.kernel.plugins.total).toBe(16);
+    expect(body.kernel.plugins.active).toBe(16);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'learning', 'marketplace', 'parent-buff', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'identity', 'learning', 'marketplace', 'parent-buff', 'pet', 'portal', 'slg', 'system']);
   });
 });
 

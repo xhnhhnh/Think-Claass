@@ -23,7 +23,7 @@ import type {
   ServiceContracts,
   ServiceName,
 } from '@thinkclass/contracts';
-import type { Database, Logger, SessionService } from '@thinkclass/kernel';
+import type { AuthProvider, Database, Logger, SessionService } from '@thinkclass/kernel';
 
 /** A parameter accepted by the database helpers. */
 export type SqlParam = string | number | bigint | null | Uint8Array;
@@ -65,6 +65,14 @@ export interface ConfigApi {
   readonly env: string;
   readonly rootDir: string;
   /**
+   * How long a session token lives, in milliseconds.
+   *
+   * The kernel owns session policy, and a plugin that mints a session
+   * (`identity` is the one that does) has to use the same TTL the middleware expects - so the
+   * value is published rather than re-derived from an environment variable on the plugin side.
+   */
+  readonly sessionTtlMs: number;
+  /**
    * Reverses at-rest encryption for application-encrypted values, when the host
    * provides one. `undefined` means the database stores plaintext (or the caller does
    * not need decryption).
@@ -72,8 +80,7 @@ export interface ConfigApi {
   readonly decryptName?: (value: string) => string;
 }
 
-export interface EventsApi {
-  emit<T extends EventTopic>(topic: T, payload: EventPayload<T>): void;
+export interface EventsApi {  emit<T extends EventTopic>(topic: T, payload: EventPayload<T>): void;
   on<T extends EventTopic>(
     topic: T | '*' | `${string}.*`,
     handler: (payload: EventPayload<T>, meta: EventMeta) => void | Promise<void>,
@@ -116,10 +123,43 @@ export interface MigrationsApi {
   run(): { applied: string[]; skipped: string[] };
 }
 
+export interface AuthApi {
+  /**
+   * Register the credential verifier the kernel's own login route uses.
+   *
+   * `POST /api/kernel/auth/login` predates the plugin runtime: it was served by
+   * `api/modules/auth/legacyAuthProvider.ts`, a temporary adapter whose only purpose was to
+   * implement the kernel's `AuthProvider` port until the identity domain moved into a plugin.
+   * The kernel cannot import a plugin (G2) and the route lives in the kernel router, so the
+   * plugin hands its verifier *in* instead - the same inversion `decryptName` uses.
+   *
+   * Last registration wins, and the kernel route reads the registered provider per request, so a
+   * plugin that is stopped mid-run degrades the route to 503 rather than leaving a dangling
+   * closure. One provider is expected; a second `registerProvider` call replaces the first.
+   */
+  registerProvider(provider: AuthProvider): void;
+}
+
 export interface SettingsApi {
   define(declarations: Array<{ key: string; type: string; default: unknown; label: string }>): void;
   get<T = unknown>(key: string): T;
   set(key: string, value: unknown): void;
+  /**
+   * Read a platform-level setting - one the kernel owns, not this plugin's namespace.
+   *
+   * `get()`/`set()` are namespaced (`plugin.<slug>.<key>`), which is what stops one plugin from
+   * reading another's settings. The cost is that a plugin needing a platform policy value had no
+   * way to read it: `allow_teacher_registration` decides whether the identity domain's
+   * registration route is open, and before this accessor the pre-migration code read it through
+   * Prisma, from inside what is supposed to be a plugin.
+   *
+   * Generic by design - it names no keys, so the kernel still knows no business vocabulary
+   * (guardrail G5). Read-only: a plugin writes only its own namespace, through `set`.
+   *
+   * `undefined` means "no such row", not "false", so an unset policy is distinguishable from a
+   * disabled one.
+   */
+  getPlatform?<T = unknown>(key: string): T | undefined;
 }
 
 export interface JobsApi {
@@ -149,6 +189,8 @@ export interface KernelContext {
   readonly settings: SettingsApi;
   readonly jobs: JobsApi;
   readonly capabilities: CapabilityApi;
+  /** Hand the kernel's login route the credential verifier for this domain. */
+  readonly auth: AuthApi;
 
   /**
    * Namespaced, ownership-checked database access. This is the default and what

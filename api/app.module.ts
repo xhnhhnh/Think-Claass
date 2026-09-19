@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AdminModule } from './modules/admin/admin.module.js';
-import { AuthModule } from './modules/auth/auth.module.js';
 import { EngagementModule } from './modules/engagement/engagement.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
@@ -28,6 +27,12 @@ import { PlatformModule } from './modules/platform/platform.module.js';
  *   LearningModule      -> plugins/learning      (P4.3b.6b) - papers / knowledge /
  *                          wrong-questions / study-plans, the 24 routes left after
  *                          plugins/assignments took the assignments+exams half
+ *   AuthModule          -> plugins/identity      (P4.3b.7) - login / profile / register /
+ *                          activate over `users` + the activation ledger, which also took
+ *                          api/services/activationService.ts with it
+ *
+ * After P4.3b.7 this list is down to four modules, and every one of them is a domain the
+ * migration has not reached yet (admin, engagement, insights, and the payment half of platform).
  *
  * `SettingsModule` is the one entry that did not become a plugin: its entire body
  * was `SELECT key, value FROM settings`, and `settings` is kernel-owned storage, so
@@ -51,7 +56,6 @@ import { PlatformModule } from './modules/platform/platform.module.js';
 @Module({
   imports: [
     AdminModule,
-    AuthModule,
     EngagementModule,
     InsightsModule,
     PlatformModule,

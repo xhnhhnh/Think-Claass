@@ -11,6 +11,13 @@
     "backend": "./src/index.ts"
   },
   "provides": {
+    "services": [
+      {
+        "name": "parent_buff.public",
+        "version": "1.0.0",
+        "_note": "Underscore, not hyphen: the service registry enforces that the first segment of a service name is exactly the plugin's derived slug, and slugOf('parent-buff') is 'parent_buff'. G7 checks the same rule against this manifest, so both sides agree on this spelling."
+      }
+    ],
     "routes": [{ "method": "POST", "base": "/api/parent-buff", "handler": "ParentBuffController.createParentBuff", "auth": "actor" }],
     "events": {
       "emits": [],
@@ -20,7 +27,7 @@
   "data": {
     "tables": [],
     "adopted": ["parent_activity"],
-    "_adopted_note": "Keeps its legacy name because the row shape is what other readers see: `activity_type` is the literal 'PARENT_BUFF' and `points_awarded` is always 0, so the table is an attendance log rather than a points ledger. Renaming is the P7 namespace migration tracked by guardrail G10. `parent_id` is nullable and this domain never sets it - the blessing is recorded against the student. auth's parent login writes the *same* table with activity_type 'login' through Prisma (api/modules/auth/auth.service.ts), so that module is a cross-owner writer until it migrates.",
+    "_adopted_note": "Keeps its legacy name because the row shape is what other readers see: `activity_type` is the literal 'PARENT_BUFF' and `points_awarded` is always 0, so the table is an attendance log rather than a points ledger. Renaming is the P7 namespace migration tracked by guardrail G10. `parent_id` is nullable and the blessing never sets it - the blessing is recorded against the student. The parent-login rows (`activity_type = 'login'`, `parent_id` set, `last_active_date` set) are written by this plugin too, through the published `parent_buff.public.touchParentLogin`: that write used to live in `api/modules/auth/auth.service.ts` via Prisma, which made identity a second writer of a table it does not own. As of P4.3b.7 the upsert lives here and identity calls the port.",
     "reads": []
   }
 }

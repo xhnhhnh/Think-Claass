@@ -130,6 +130,7 @@ describe('legacy composition serves plugin routes', () => {
       'dungeon',
       'economy',
       'gacha',
+      'identity',
       'learning',
       'marketplace',
       'parent-buff',
@@ -265,6 +266,79 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
     expect(JSON.parse(response.body)).toEqual({ success: true, data: [] });
+  });
+
+  it('runs the migrated identity domain through a real login', async () => {
+    // `api/modules/auth` is gone (P4.3b.7) and these four routes are plugins/identity's. This is
+    // the strongest available evidence that the move kept working: a real HTTP login against a real
+    // database, answered by the plugin's own repository through the ownership-checked `ctx.db`.
+    //
+    // The account is the teacher `initDb()` always seeds with a literal password (`admin` /
+    // `admin123`), not the superadmin: `createApp()` calls `dotenv.config()` before `initDb()`, so
+    // a populated `SUPERADMIN_USERNAME`/`SUPERADMIN_PASSWORD` in `.env` *replaces* the seeded
+    // superadmin's credentials and the literal defaults are then wrong. Measured, not assumed.
+    //
+    // The token matters as much as the body: it is minted from `ctx.sessions`, so a session that
+    // verifies on the next request proves the plugin is wired to the kernel's session store rather
+    // than to a private one.
+    const login = await probe('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'admin123', role: 'teacher' }),
+    });
+
+    expect(login.status, `login body: ${login.body}`).toBe(200);
+    expect(login.body).not.toContain('Cannot POST');
+
+    const payload = JSON.parse(login.body) as {
+      success: boolean;
+      user: { id: number; role: string; username: string };
+      token?: string;
+      expiresAt?: string;
+    };
+    expect(payload.success).toBe(true);
+    expect(payload.user.role).toBe('teacher');
+    expect(typeof payload.token).toBe('string');
+    expect(payload.expiresAt).toBeTruthy();
+
+    // The issued session is accepted on the next request: the profile route reads the actor from the
+    // kernel's request context, which resolves a Bearer token through the same session store the
+    // plugin issued it from. An invalid or unknown token would make the caller anonymous (403).
+    const profile = await probe('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${payload.token}` },
+      body: JSON.stringify({ username: 'admin' }),
+    });
+    expect(profile.status, `profile body: ${profile.body}`).toBe(200);
+    expect(JSON.parse(profile.body)).toMatchObject({ success: true, user: { username: 'admin' } });
+  });
+
+  it('answers a bad identity login with the plugin own 401, not a catch-all 404', async () => {
+    const response = await probe('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'wrong', role: 'teacher' }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toContain('账号或密码错误');
+    expect(response.body).not.toContain('Cannot POST');
+  });
+
+  it('serves the kernel login route through the verifier the identity plugin registered', async () => {
+    // `POST /api/kernel/auth/login` lives in the kernel router and predates the plugin runtime. It
+    // used to be served by `api/modules/auth/legacyAuthProvider.ts`; that adapter is deleted, and
+    // the route now works because plugins/identity registers an `AuthProvider` through
+    // `ctx.auth.registerProvider` during setup. Without that registration this answers 503, so a
+    // 200 here is the whole wiring proof.
+    const response = await probe('/api/kernel/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'admin123', role: 'teacher' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({ success: true, data: { token: expect.any(String) } });
   });
 
   it('distinguishes a missing resource from a missing route', async () => {

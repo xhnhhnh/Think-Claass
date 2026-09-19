@@ -207,7 +207,8 @@ export type ClassroomPortErrorCode =
   | 'class-not-found'
   | 'feature-disabled'
   | 'insufficient-credits'
-  | 'invalid-amount';
+  | 'invalid-amount'
+  | 'already-bound';
 
 export interface ClassroomRefusal {
   code: ClassroomPortErrorCode;
@@ -233,6 +234,9 @@ export interface ClassroomResult<T> {
   refusal?: ClassroomRefusal;
 }
 
+/** A class-scope feature flag map, keyed by the legacy flag name (`enable_shop`). */
+export type ClassFeatureSnapshot = Record<string, boolean>;
+
 export interface ClassroomPort {
   getStudentById(studentId: number): Promise<StudentSnapshot | null>;
   /**
@@ -245,6 +249,14 @@ export interface ClassroomPort {
    */
   getStudentByUserId(userId: number): Promise<StudentSnapshot | null>;
   getClassById(classId: number): Promise<ClassSnapshot | null>;
+  /**
+   * Resolve an invitation code to the class it belongs to.
+   *
+   * Registration is the reason this exists: the caller has only the code the student typed, and
+   * `invite_code` is classroom's column (UNIQUE since P4.3c.3a). Without this, identity would
+   * have to read `classes` to turn a code into an id before it could ask the port anything else.
+   */
+  findClassByInviteCode(code: string): Promise<ClassSnapshot | null>;
   listClassStudents(classId: number): Promise<StudentSnapshot[]>;
   /**
    * Name-fragment search over classes, excluding one id.
@@ -258,6 +270,62 @@ export interface ClassroomPort {
    * value to override either.
    */
   searchClasses(query: string | undefined, excludeClassId: number, limit?: number): Promise<ClassSnapshot[]>;
+  /**
+   * The class a student belongs to, or the legacy 404 when the student row is gone.
+   *
+   * `students` is classroom-owned, so the lookup belongs here rather than in the caller.
+   */
+  getClassIdByStudentId(studentId: number): Promise<number>;
+
+  // -- the parent <-> student relation --------------------------------------
+  //
+  // `parent_students` is a join table between two domains' rows: `parent_id` references
+  // `users` (identity) and `student_id` references `students` (classroom). Classroom owns it,
+  // because every read of it in the product is a classroom read - the parent's class list, the
+  // parent dashboard, the class roster - and because `students` is on this side.
+  //
+  // Identity still *writes* it during registration and *reads* it during parent login, which is
+  // why these three operations exist instead of identity touching the table: the assertion that
+  // the student belongs to the invited class and the write of `students.user_id` must happen
+  // together, and only this plugin can make that true.
+
+  /** The students a parent account is linked to, ordered by student id. */
+  listStudentsByParent(parentId: number): Promise<StudentSnapshot[]>;
+
+  /**
+   * Link a parent account to a student.
+   *
+   * Insert-only and idempotent: the table's PRIMARY KEY is `(parent_id, student_id)`, and the
+   * pre-migration registration path simply inserted, so a repeat is a no-op rather than a
+   * duplicate or an error.
+   */
+  linkParentToStudent(parentId: number, studentId: number): Promise<void>;
+
+  /**
+   * Bind a login account to an existing student row, and store the displayed name.
+   *
+   * This is the write half of student registration, and it replaces the pre-migration
+   * `tx.students.update({ where: { id }, data: { user_id, name } })`. It lives here for two
+   * reasons: `students` must keep exactly one writer, and `students.name` is encrypted at rest,
+   * so a caller writing it directly would store plaintext and silently drop at-rest encryption
+   * for a name the product displays (the same trap `classroom.support.ts` documents).
+   *
+   * `name` is stored verbatim - the caller passes the value the legacy code passed, including
+   * the `name || username` fallback, so an empty name stores `''` exactly as before. It is
+   * optional because the pre-migration `update` was called with `name: name || username`, which
+   * is `undefined` when a body carries neither; that lands as NULL in the nullable column, and
+   * collapsing it to `''` here would be a silent behaviour change.
+   *
+   * Refuses with `student-not-found` for an unknown id and `already-bound` when the student
+   * already has a *different* user, because the pre-migration registration rejected that case
+   * with 400 该学生已被绑定 rather than rebinding.
+   */
+  bindStudentToUser(input: {
+    studentId: number;
+    userId: number;
+    name?: string | null;
+  }): Promise<ClassroomResult<StudentSnapshot>>;
+
   /** Rejects when the student is not in the class; used to authorise requests. */
   assertStudentInClass(studentId: number, classId: number): Promise<void>;
   /** Add or subtract points, emitting `classroom.student.points.changed`. */
@@ -316,6 +384,24 @@ export interface ClassroomPort {
   sumClassPointsEarnedSince(classId: number, since: string): Promise<number>;
 
   // -- feature flags --------------------------------------------------------
+
+  /**
+   * Every class-scope flag for one class, in the legacy key space (`enable_shop` -> boolean).
+   *
+   * This is the *whole-map* read, and it exists because the login response embeds it verbatim:
+   * `POST /api/auth/login` answers `classFeatures: { enable_chat_bubble: true, ... }` and the
+   * frontend stores that map. `checkClassFeature` cannot serve that call site - it answers one
+   * boolean at a time, and calling it 19 times would both multiply queries and publish a
+   * different key space (`classroom.enable_shop`).
+   *
+   * Returns `null` when the class does not exist, because the only pre-migration caller
+   * (`auth.service.login`) treated a missing class as "no features" and answered `null`, not an
+   * error. The plugin-internal 404 stays internal.
+   *
+   * Resolution order is the same as the single-key checks: capability assignment first, then
+   * the legacy `classes.enable_*` column.
+   */
+  getClassFeatureSnapshot(classId: number): Promise<ClassFeatureSnapshot | null>;
 
   /**
    * Check whether the class that owns `student` has `feature` turned on.

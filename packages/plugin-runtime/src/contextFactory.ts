@@ -16,7 +16,16 @@ import fs from 'node:fs';
 import net from 'node:net';
 
 import type { EventTopic, PermissionDeclaration, ServiceContracts, ServiceName } from '@thinkclass/contracts';
-import type { Database, KernelConfig, Logger, PermissionEngine, SessionService, EventBus } from '@thinkclass/kernel';
+import type {
+  Database,
+  KernelConfig,
+  Logger,
+  PermissionEngine,
+  SessionService,
+  EventBus,
+  SettingsStore,
+  AuthProvider,
+} from '@thinkclass/kernel';
 import { ApiError, forbidden } from '@thinkclass/kernel';
 import type { DbApi, KernelContext } from '@thinkclass/plugin-sdk';
 import { tablePrefixOf } from '@thinkclass/plugin-sdk';
@@ -43,6 +52,22 @@ export interface ContextFactoryDeps {
   boundary: PluginBoundary;
   logger: Logger;
   config: KernelConfig;
+  /**
+   * Kernel-owned settings, for the read-only platform accessor (`ctx.settings.getPlatform`).
+   *
+   * Optional so a hand-built context in a test can omit it; the accessor then answers
+   * `undefined` rather than inventing a value, which is the same posture as an absent row.
+   */
+  settings?: SettingsStore;
+  /**
+   * Where a plugin registers its credential verifier for the kernel's own login route.
+   *
+   * A mutable holder rather than a plain value because the kernel is created before plugins are
+   * mounted: `api/app.ts` passes the holder into `createKernel`, the identity plugin fills it
+   * during `setup`, and the kernel router reads `current` per request. Without the indirection the
+   * kernel would capture `undefined` at boot and `/api/kernel/auth/login` would answer 503 forever.
+   */
+  authProvider?: { current: AuthProvider | null };
   /** Collected route registrations, mounted by the host. */
   mountedRouters: MountedRouter[];
   /** Topic pattern matcher for declared event subscriptions. */
@@ -109,6 +134,7 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
       },
       env: deps.config.env,
       rootDir: deps.config.rootDir,
+      sessionTtlMs: deps.config.sessionTtlMs,
       // Re-exported so a foundation plugin can publish readable values without
       // importing application code. See `KernelConfig.decryptName`.
       ...(deps.config.decryptName ? { decryptName: deps.config.decryptName } : {}),
@@ -229,6 +255,47 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
              ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
           )
           .run(settingKey, value === null || value === undefined ? null : String(value));
+      },
+      /**
+       * Read a *platform* setting - one the kernel owns, not this plugin's namespace.
+       *
+       * `get()` deliberately prefixes `plugin.<slug>.`, which is what keeps one plugin from
+       * reading another's settings. That namespacing is also why a plugin that needs a
+       * platform-level policy value (`allow_teacher_registration` decides whether the identity
+       * domain's registration route is open) had no way to read it at all, and the pre-migration
+       * code reached for Prisma instead.
+       *
+       * This accessor is generic on purpose: it knows no key names, so guardrail G5 (the kernel
+       * has zero domain knowledge) still holds - the business vocabulary stays in the plugin.
+       * It is read-only; a plugin writes only its own namespace, through `set`.
+       *
+       * `undefined` means "no such row", not "false", so a caller can tell an unset policy from a
+       * disabled one. The host's `SettingsStore` already has exactly those semantics.
+       */
+      getPlatform<T = unknown>(key: string): T | undefined {
+        return deps.settings?.get(key) as T | undefined;
+      },
+    },
+
+    /**
+     * Credential verification for the kernel's own login route.
+     *
+     * The kernel cannot import a plugin, so the plugin registers *into* the kernel. The identity
+     * plugin is the only expected caller; a second registration replaces the first, which is the
+     * honest outcome for two domains claiming to own authentication.
+     */
+    auth: {
+      registerProvider(provider: AuthProvider) {
+        if (!deps.authProvider) {
+          throw new ApiError(500, 'this host does not accept an auth provider registration', {
+            code: 'AUTH_PROVIDER_UNSUPPORTED',
+          });
+        }
+        if (deps.authProvider.current && deps.authProvider.current !== provider) {
+          log.warn('auth provider replaced', { plugin: manifest.id });
+        }
+        deps.authProvider.current = provider;
+        log.debug('auth provider registered', { plugin: manifest.id });
       },
     },
 
