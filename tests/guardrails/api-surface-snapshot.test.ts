@@ -106,6 +106,6 @@ describe('G11 no two controllers claim the same route', () => {
     // The ceiling tracks the measured value so that a *new* collision has to be
     // deliberately acknowledged by editing both this number and the allowance, rather
     // than slipping in under a stale one.
-    expect(allowances.routeCollisions).toBeLessThanOrEqual(33);
+    expect(allowances.routeCollisions).toBeLessThanOrEqual(1);
   });
 });
