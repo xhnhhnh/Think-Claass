@@ -6,12 +6,12 @@
     "Numbers recorded at P0 (baseline-1.7.0) unless noted. See docs/migration/."
   ],
   "shimPages": 62,
-  "deadCode": 70,
+  "deadCode": 69,
   "staticPluginRoutes": 76,
   "_legacyFeatureKeySurfaces_note": "Files that still hardcode the 19 legacy class feature keys. P4 part 1 removed the backend copy by deriving the names from the class row and moving the catalogue into the classroom plugin manifest; the frontend copy goes in P5.",
   "legacyFeatureKeySurfaces": 1,
-  "_adoptedTables_note": "P3: plugins that own a table still carrying its legacy name (see PluginDataDeclaration.adopted). Counted down as the namespace migration proceeds.",
-  "adoptedTables": 2,
-  "_routeCollisions_note": "METHOD+PATH pairs served by more than one controller file. Invisible to the surface snapshot because it compares sets. P4.3b turned one up: plugins/pet and api/modules/pet both answer GET /api/pet/students/:studentId, so only the first registration is reachable. Each domain migration removes its own entry; target 0.",
+  "_adoptedTables_note": "P3: plugins that own a table still carrying its legacy name (see PluginDataDeclaration.adopted). P4.3b: classroom owns students+classes, economy adopts bank_accounts+stocks+student_stocks = 5 transitional tables, all renamed to p_<slug>_ by P7. Permanently-shared tables (currently `records`) are excluded from this count and checked separately by G10 - they will never be namespaced to one plugin.",
+  "adoptedTables": 5,
+  "_routeCollisions_note": "METHOD+PATH pairs served by more than one controller file. Invisible to the surface snapshot because it compares sets. P4.3b R1 turned one up; economy's is gone with api/modules/economy. The remaining one is plugins/pet vs api/modules/pet on GET /api/pet/students/:studentId - it needs the pet HTTP surface completed before the legacy module can be deleted (HANDOFF 8.3.1). Target 0.",
   "routeCollisions": 1
 }

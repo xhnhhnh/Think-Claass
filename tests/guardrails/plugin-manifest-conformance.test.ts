@@ -158,13 +158,33 @@ describe('G7 plugin manifest conformance', () => {
  * namespace migration has renamed it, without either lying about ownership or
  * breaking the `p_<slug>_` rule. Every entry is debt with a finite life, so the
  * total is ratcheted.
+ *
+ * One exception, listed explicitly rather than buried in the allowance: a small set
+ * of *permanently shared* tables is written by nearly every domain and will never be
+ * namespaced to one plugin. Renaming such a table would fragment one ledger into ten,
+ * and its column names are the JSON contract the frontend already reads. Counting a
+ * permanent fact as debt would make the ratchet permanently wrong - so these are
+ * excluded from the count, but still declared, so ownership stays visible.
  */
+const PERMANENTLY_SHARED_TABLES = new Set(['records']);
+
 describe('G10 adopted legacy tables ratchet', () => {
-  const adopted = findManifests().flatMap(({ rel, manifest }) =>
+  const allAdopted = findManifests().flatMap(({ rel, manifest }) =>
     (manifest.data?.adopted ?? []).map((table: string) => ({ rel, table })),
   );
+  const adopted = allAdopted.filter((entry) => !PERMANENTLY_SHARED_TABLES.has(entry.table));
 
-  it('does not grow (target: 0 when the namespace migration completes)', () => {
+  it('every permanently-shared table is declared by exactly one plugin', () => {
+    const problems = [];
+    for (const table of PERMANENTLY_SHARED_TABLES) {
+      const owners = allAdopted.filter((entry) => entry.table === table);
+      if (owners.length === 0) problems.push(`"${table}" should be declared by one plugin but is declared by none`);
+      if (owners.length > 1) problems.push(`"${table}" is declared by ${owners.map((o) => o.rel).join(', ')}`);
+    }
+    expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  it('transitional debt does not grow (target: 0 when the namespace migration completes)', () => {
     expect(
       adopted.length,
       `Plugins owning legacy-named tables:\n${adopted.map((a) => `  ${a.rel}: ${a.table}`).join('\n')}`,

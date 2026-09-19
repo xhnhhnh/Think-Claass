@@ -7,7 +7,6 @@ import { ChallengeModule } from './modules/challenge/challenge.module.js';
 import { ClassroomModule } from './modules/classroom/classroom.module.js';
 import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
 import { DungeonModule } from './modules/dungeon/dungeon.module.js';
-import { EconomyModule } from './modules/economy/economy.module.js';
 import { EngagementModule } from './modules/engagement/engagement.module.js';
 import { GachaModule } from './modules/gacha/gacha.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
@@ -26,6 +25,12 @@ import { SystemModule } from './modules/system/system.module.js';
  * `GameModule` used to appear here and internally hosted six independent domains
  * (challenge, economy, dungeon, gacha, battles, slg) in one file and one module.
  * Each now has its own module and its own controller file; `modules/game` is gone.
+ *
+ * `EconomyModule` is gone too: economy moved to `plugins/economy` in P4.3b, and the
+ * legacy composition mounts plugin modules by importing `host.modules` into this root
+ * (see `createLegacyRootModule()` in api/app.ts). The domain must NOT exist in both
+ * places at once - that would serve the same 20 routes twice, and only the first
+ * registration would be reachable (guardrail G11).
  */
 @Module({
   imports: [
@@ -36,7 +41,6 @@ import { SystemModule } from './modules/system/system.module.js';
     ClassroomModule,
     CollaborationModule,
     DungeonModule,
-    EconomyModule,
     EngagementModule,
     GachaModule,
     InsightsModule,

@@ -67,6 +67,7 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
   const declaredEmits = new Set(manifest.provides?.events?.emits ?? []);
   const declaredSubscribes = manifest.provides?.events?.subscribes ?? [];
   const declaredSettings = manifest.provides?.settings ?? [];
+  const declaredPermissionKeys = new Set((manifest.provides?.permissions ?? []).map((p) => p.key));
 
   // `adopted` tables are owned too, just still under their legacy names.
   const ownedTables = new Set([...(manifest.data.tables ?? []), ...(manifest.data.adopted ?? [])]);
@@ -146,6 +147,19 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
         if (!deps.permissions.can(actor, key, scope)) {
           throw forbidden(`缺少权限：${key}`);
         }
+      },
+      /**
+       * Scoped to keys this plugin declared.
+       *
+       * Without that restriction a plugin could enumerate another plugin's capability
+       * assignments, which is exactly the cross-plugin reach G1 forbids. `can()` needs
+       * no such guard because it only ever reports a boolean about the calling actor.
+       */
+      assignedTo(scopeType, scopeId, key) {
+        if (!declaredPermissionKeys.has(key)) {
+          throw forbidden(`权限未声明：${key}`);
+        }
+        return deps.permissions.store.get(scopeType, scopeId, key);
       },
     },
 

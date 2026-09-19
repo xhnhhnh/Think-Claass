@@ -105,6 +105,22 @@ export interface CreateKernelOptions {
   /** Use an in-memory database; used by tests. */
   inMemoryDatabase?: boolean;
   /**
+   * Bring pre-existing ("adopted") tables into existence before plugins activate.
+   *
+   * A plugin may only *create* tables under its own `p_<slug>_` prefix, yet P4.3b
+   * migrates domains whose tables already exist under legacy names and whose column
+   * names are the frontend's JSON contract, so renaming them is not an option. Those
+   * tables therefore have to be created by the host, not by the plugin.
+   *
+   * The kernel does not know what "the legacy schema" is - the application supplies
+   * it. This is a bridge with a finite life: once `api/db.ts`'s boot DDL becomes
+   * numbered migrations (P4.3c) it runs through the normal migration path and this
+   * hook goes away. Without it, a plugin that adopts a table would activate happily
+   * and then fail on the first request in the kernel composition, because the DDL
+   * only ever ran inside `createLegacyApp()`.
+   */
+  ensureSchema?: (db: Database) => void;
+  /**
    * Credential verification. Until the identity plugin exists (P3) the legacy
    * application supplies an adapter, which is what lets real sessions be issued
    * during the migration instead of after it.
@@ -144,6 +160,13 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
     logger,
   });
   const migrations = runMigrations(db, [...kernelMigrations, ...(options.migrations ?? [])], { logger });
+
+  // Adopted tables must exist before any plugin activates, because a plugin's
+  // repository would otherwise fail on first use rather than at boot.
+  if (options.ensureSchema) {
+    options.ensureSchema(db);
+    logger.info('host schema ensured (adopted tables)');
+  }
 
   // --- core services -------------------------------------------------------
   const events = createEventBus({ logger: logger.child('events') });

@@ -1,7 +1,7 @@
 /**
  * End-to-end plugin host test.
  *
- * Boots a real kernel with the real `classroom` and `pet` plugins from `plugins/`,
+ * Boots a real kernel with the real `classroom`, `pet` and `economy` plugins from `plugins/`,
  * then exercises them over HTTP. This is the test that proves the architecture
  * rather than the parts: discovery, manifest validation, dependency ordering,
  * migrations, the Nest dynamic-module assembly, the classroom port, permissions and
@@ -15,6 +15,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createKernel, type Kernel } from '@thinkclass/kernel';
 import { createPluginHost, type PluginHost } from '@thinkclass/plugin-runtime';
+
+import { ensureAdoptedSchema } from '../../api/schema/adoptedTables.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -39,23 +41,14 @@ beforeAll(async () => {
     },
   });
 
-  // The legacy schema owns students/classes today; the classroom plugin reads them.
-  // Seeded after boot because plugin setup does not query them.
+  // Tables that plugins adopt rather than create (students, classes, records,
+  // bank_accounts, stocks, student_stocks) are created by the host, not by a plugin
+  // migration - a plugin may only create `p_<slug>_` tables. Same call the real
+  // application makes, so this test exercises the same boot path.
+  ensureAdoptedSchema(kernel.db);
+
+  // Seeded after boot because plugin setup does not query these tables.
   kernel.db.exec(`
-    CREATE TABLE IF NOT EXISTS classes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      teacher_id INTEGER,
-      invite_code TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS students (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      class_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      total_points INTEGER DEFAULT 0,
-      available_points INTEGER DEFAULT 0
-    );
     INSERT INTO classes (id, name, teacher_id, invite_code) VALUES (1, '一班', 7, 'ABC123');
     INSERT INTO students (id, user_id, class_id, name, total_points, available_points)
       VALUES (10, 100, 1, '小明', 0, 0);
@@ -97,9 +90,9 @@ describe('plugin discovery and activation', () => {
     expect(host!.rejections).toEqual([]);
   });
 
-  it('activates both reference plugins', () => {
+  it('activates every in-repo plugin', () => {
     expect(host).not.toBeNull();
-    expect(host!.active.map((entry) => entry.manifest.id)).toEqual(['classroom', 'pet']);
+    expect(host!.active.map((entry) => entry.manifest.id)).toEqual(['classroom', 'economy', 'pet']);
   });
 
   it('orders the foundation plugin before its dependent', () => {
@@ -121,9 +114,13 @@ describe('plugin discovery and activation', () => {
     expect(ledger[0].id).toBe('p_pet_0001_init');
   });
 
-  it('records both plugins in the state store', () => {
+  it('records every activated plugin in the state store', () => {
     const rows = host!.stateStore.list();
-    expect(rows.map((r) => `${r.id}:${r.state}`).sort()).toEqual(['classroom:active', 'pet:active']);
+    expect(rows.map((r) => `${r.id}:${r.state}`).sort()).toEqual([
+      'classroom:active',
+      'economy:active',
+      'pet:active',
+    ]);
   });
 
   it('publishes the declared service ports', () => {
@@ -149,15 +146,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(2);
-    expect(body.kernel.plugins.active).toBe(2);
+    expect(body.kernel.plugins.total).toBe(3);
+    expect(body.kernel.plugins.active).toBe(3);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['classroom', 'pet']);
+    expect(ids).toEqual(['classroom', 'economy', 'pet']);
   });
 });
 
@@ -226,7 +223,7 @@ describe('cross-plugin collaboration', () => {
 
   it('classroom owns the legacy tables through an explicit transitional declaration', () => {
     const classroomManifest = host!.active.find((entry) => entry.manifest.id === 'classroom')!.manifest;
-    expect(classroomManifest.data.adopted).toEqual(['students', 'classes']);
+    expect(classroomManifest.data.adopted).toEqual(['students', 'classes', 'records']);
     expect(classroomManifest.data.tables).toEqual([]);
   });
 
@@ -250,5 +247,89 @@ describe('cross-plugin collaboration', () => {
     };
     expect(rows.total_points).toBeGreaterThanOrEqual(0);
     await kernel.events.drain();
+  });
+});
+
+/**
+ * The migrated domain, end to end, in the kernel composition.
+ *
+ * economy is the first domain that used to be an `api/modules` Nest module. These
+ * tests run the whole path the migration is meant to establish: plugin controller ->
+ * economy service -> classroom.public port -> capability/column fallback -> the
+ * plugin's own tables. They also pin the two things that could silently regress:
+ * the feature gate, and the fact that the balance moves through the port rather than
+ * through a direct write to `students`.
+ */
+describe('economy, migrated to a plugin', () => {
+  /** Enable the class-scope feature the way the real admin surface does. */
+  const enableEconomy = (classId: number, enabled: boolean) =>
+    kernel.permissions.store.set({
+      scopeType: 'class',
+      scopeId: classId,
+      capabilityKey: 'classroom.enable_economy',
+      enabled,
+    });
+
+  it('refuses with 403 when the class has the feature turned off', async () => {
+    enableEconomy(1, false);
+    const { status, body } = await api('GET', '/api/economy/students/10/bank');
+    expect(status).toBe(403);
+    expect(body.message).toContain('该功能当前已关闭');
+  });
+
+  it('serves the domain once the feature is on', async () => {
+    enableEconomy(1, true);
+    const { status, body } = await api('GET', '/api/economy/students/10/bank');
+    expect(status).toBe(200);
+    // Two envelope styles are part of the contract; this route carries both.
+    expect(body.success).toBe(true);
+    expect(body.data.account).toMatchObject({ student_id: 10, deposit_amount: 0 });
+    expect(body.account).toEqual(body.data.account);
+  });
+
+  it('moves the balance through the port and records the ledger, not by writing tables', async () => {
+    enableEconomy(1, true);
+    kernel.db.prepare(`UPDATE students SET available_points = 100 WHERE id = 10`).run();
+
+    const deposited = await api('POST', '/api/economy/students/10/bank/deposits', { amount: 40 });
+    expect(deposited.status).toBe(201);
+
+    const student = kernel.db.prepare(`SELECT available_points FROM students WHERE id = 10`).get() as {
+      available_points: number;
+    };
+    expect(student.available_points).toBe(60);
+
+    const ledger = kernel.db.prepare(`SELECT type, amount FROM records WHERE student_id = 10`).all() as Array<{
+      type: string;
+      amount: number;
+    }>;
+    expect(ledger).toEqual([{ type: 'BANK_DEPOSIT', amount: -40 }]);
+
+    const account = kernel.db.prepare(`SELECT deposit_amount FROM bank_accounts WHERE student_id = 10`).get() as {
+      deposit_amount: number;
+    };
+    expect(account.deposit_amount).toBe(40);
+  });
+
+  it('refuses an overdraft without moving anything', async () => {
+    enableEconomy(1, true);
+    kernel.db.prepare(`UPDATE students SET available_points = 10 WHERE id = 10`).run();
+
+    const { status, body } = await api('POST', '/api/economy/students/10/bank/deposits', { amount: 500 });
+    expect(status).toBe(400);
+    expect(body.message).toContain('余额不足');
+
+    const account = kernel.db.prepare(`SELECT deposit_amount FROM bank_accounts WHERE student_id = 10`).get() as {
+      deposit_amount: number;
+    };
+    expect(account.deposit_amount).toBe(40);
+  });
+
+  it('declares the tables it adopted and no read access to another plugin tables', () => {
+    const manifest = host!.active.find((entry) => entry.manifest.id === 'economy')!.manifest;
+    expect(manifest.data.adopted).toEqual(['bank_accounts', 'stocks', 'student_stocks']);
+    expect(manifest.data.tables).toEqual([]);
+    expect(manifest.data.reads ?? []).toEqual([]);
+    expect(manifest.dependsOn).toEqual({ classroom: '^1.0.0' });
   });
 });

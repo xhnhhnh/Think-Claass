@@ -1,0 +1,50 @@
+{
+  "id": "economy",
+  "name": "经济系统",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Bank accounts and classroom stock market. First domain migrated out of api/modules/**. Adopts three pre-existing tables rather than renaming them, because the table and column names are the JSON contract the frontend reads.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.legacyBank", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.legacyDeposit", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.legacyWithdraw", "auth": "actor" },
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.legacyStocks", "auth": "actor" },
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.legacyPortfolio", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.legacyBuy", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.legacySell", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.legacyTriggerInterest", "auth": "actor" },
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.overview", "auth": "actor" },
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.bank", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.deposit", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.withdraw", "auth": "actor" },
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.stocks", "auth": "actor" },
+      { "method": "GET", "base": "/api/economy", "handler": "EconomyController.portfolio", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.buy", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.sell", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.triggerInterest", "auth": "actor" },
+      { "method": "POST", "base": "/api/economy", "handler": "EconomyController.createStock", "auth": "actor" },
+      { "method": "PUT", "base": "/api/economy", "handler": "EconomyController.updateStock", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/economy", "handler": "EconomyController.deleteStock", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": ["classroom.student.points.changed"]
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["bank_accounts", "stocks", "student_stocks"],
+    "_adopted_note": "All three carry their legacy names because `SELECT *` rows are returned straight through to the frontend: deposit_amount, interest_rate, average_buy_price and the JSON-string trend_history are part of the HTTP contract. Renaming them is a coordinated frontend change, tracked as namespace debt by guardrail G10.",
+    "reads": []
+  }
+}

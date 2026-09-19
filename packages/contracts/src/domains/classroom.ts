@@ -163,6 +163,58 @@ export interface ClassSnapshot {
   inviteCode: string;
 }
 
+/** One entry of a student's point ledger. */
+export interface PointLedgerEntry {
+  studentId: number;
+  /** Ledger type, e.g. `BANK_DEPOSIT`, `STOCK_BUY`, `ADD_POINTS`. */
+  type: string;
+  /** Signed amount: negative for a debit. */
+  amount: number;
+  description: string;
+}
+
+/**
+ * Why a classroom operation was refused.
+ *
+ * A port cannot throw the kernel's `ApiError` (that would need a runtime import, and
+ * contracts are type-only - guardrail G6), and it should not throw a bespoke error
+ * class either, for the same reason. So a refusal is *data*: the port returns it and
+ * each caller maps it onto its own HTTP status.
+ *
+ * `classroom` is the only plugin that knows about students and classes, so it is the
+ * only place that can answer these questions at all.
+ */
+export type ClassroomPortErrorCode =
+  | 'student-not-found'
+  | 'class-not-found'
+  | 'feature-disabled'
+  | 'insufficient-credits'
+  | 'invalid-amount';
+
+export interface ClassroomRefusal {
+  code: ClassroomPortErrorCode;
+  message: string;
+}
+
+/**
+ * Result of an operation that can be refused.
+ *
+ * Deliberately not a discriminated union on a boolean literal (`{ok:true}|{ok:false}`).
+ * This project compiles with `strict: false`, where TypeScript widens a boolean
+ * literal discriminant to `boolean` and union narrowing stops working - verified: even
+ * a locally declared `{ ok: true; value: T } | { ok: false; refusal: R }` fails to
+ * narrow here. An optional discriminant sidesteps that entirely and narrows on
+ * `refusal == null` / `refusal != null` in every strictness mode.
+ *
+ * Because `strictNullChecks` is off, `refusal` is typed `ClassroomRefusal` rather than
+ * `ClassroomRefusal | null`; `undefined` is always assignable to it. Read it as
+ * "absent means the operation succeeded".
+ */
+export interface ClassroomResult<T> {
+  value?: T;
+  refusal?: ClassroomRefusal;
+}
+
 export interface ClassroomPort {
   getStudentById(studentId: number): Promise<StudentSnapshot | null>;
   getClassById(classId: number): Promise<ClassSnapshot | null>;
@@ -176,4 +228,53 @@ export interface ClassroomPort {
     reason: string;
     actorId: number;
   }): Promise<{ totalPoints: number; availablePoints: number }>;
+
+  // -- credit balance -------------------------------------------------------
+  // Feature plugins spend and earn a student's *available* points (the spendable
+  // half of the balance). They must not write `students.available_points`
+  // themselves: `students` is classroom-owned, so a second writer would make that
+  // ownership declaration a lie. These two operations are the sanctioned path.
+
+  /**
+   * Move a student's available balance by `delta` (negative spends).
+   *
+   * Refuses with `insufficient-credits` when a debit would take the balance below
+   * zero, so a caller cannot overdraw by ignoring a prior read.
+   */
+  transferStudentCredits(input: {
+    studentId: number;
+    delta: number;
+    reason: string;
+    actorId: number;
+  }): Promise<ClassroomResult<{ availablePoints: number }>>;
+
+  /**
+   * Record a point ledger entry.
+   *
+   * The ledger is a shared table (points, gacha, marketplace, pet, dungeon, battles,
+   * challenge, collaboration, engagement and economy all append to it), so it belongs
+   * to no single feature domain. `classroom` owns it because it owns student points.
+   */
+  recordStudentLedgerEntry(entry: PointLedgerEntry): Promise<void>;
+
+  // -- feature flags --------------------------------------------------------
+
+  /**
+   * Check whether the class that owns `student` has `feature` turned on.
+   *
+   * `feature` is the legacy flag name (`enable_economy`). Resolution order is
+   * capability assignment first, then the legacy `classes.enable_*` column - the same
+   * semantics the pre-migration `api/utils/classFeatures.ts` implemented, moved behind
+   * the plugin boundary so feature plugins never import `api/**`.
+   */
+  checkStudentFeature(studentId: number, feature: string): Promise<ClassroomResult<true>>;
+
+  /**
+   * The class-scoped form of the same check.
+   *
+   * Needed because four pre-migration call sites hold a class id (a stock belongs to a
+   * class) and no student id. Deriving the class from an arbitrary student instead
+   * would be both wrong and a query per request.
+   */
+  checkClassFeature(classId: number, feature: string): Promise<ClassroomResult<true>>;
 }

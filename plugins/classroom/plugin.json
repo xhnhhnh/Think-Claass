@@ -46,7 +46,8 @@
   },
   "data": {
     "tables": [],
-    "adopted": ["students", "classes"],
+    "adopted": ["students", "classes", "records"],
+    "_records_note": "`records` is the shared point ledger: points, gacha, marketplace, pet, dungeon, battles, challenge, collaboration, engagement AND economy all append to it, so no single feature domain can own it. classroom owns it because it owns student points, and other plugins append through classroom.public.recordStudentLedgerEntry() instead of writing it directly.",
     "reads": []
   }
 }

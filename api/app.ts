@@ -20,7 +20,7 @@
  */
 
 import 'reflect-metadata';
-import { Module, type Type } from '@nestjs/common';
+import { Module, type ArgumentsHost, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -37,12 +37,14 @@ import {
   createKernel,
   createKernelRouter,
   createRequestContextMiddleware,
+  renderError,
   type Kernel,
   type KernelRuntimeHooks,
   type PluginHostView,
 } from '@thinkclass/kernel';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb } from './db.js'
+import { ensureAdoptedSchema } from './schema/adoptedTables.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
 import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
@@ -161,6 +163,27 @@ export async function createLegacyApp(kernel: Kernel): Promise<Express> {
 
   nest.enableCors()
 
+  /**
+   * Render errors through the kernel envelope.
+   *
+   * This matters more since plugins are mounted here: a plugin throws the kernel's
+   * `ApiError`, and without a global filter Nest's default one answers 500 (it only
+   * recognises its own `HttpException`). Plugin routes would then return 500 for
+   * every 400/403/404, in the default and rollback composition.
+   *
+   * Legacy `api/utils/apiError.ts` throws a different class, but `renderError`
+   * duck-types `statusCode` as well, so both render into the same envelope this
+   * composition already relied on.
+   */
+  nest.useGlobalFilters({
+    catch(exception: unknown, host: ArgumentsHost) {
+      const response = host.switchToHttp().getResponse<Response>();
+      const { status, body } = renderError(exception);
+      if (response.headersSent) return;
+      response.status(status).json(body);
+    },
+  })
+
   server.use(express.json({ limit: '10mb' }))
   server.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
@@ -225,6 +248,11 @@ export async function createApp(): Promise<Express> {
   bootedKernel = await createKernel({
     authProvider: createLegacyAuthProvider(),
     mountPlugins,
+    // Tables that plugins adopt instead of creating. A plugin may only create
+    // `p_<slug>_` tables, so the host has to bring these into existence - and it has
+    // to do so in BOTH compositions, because otherwise a plugin activates happily in
+    // the kernel composition and fails on its first request.
+    ensureSchema: ensureAdoptedSchema,
   })
 
   // Audit coverage is data, not a branch chain: the descriptors say which operations

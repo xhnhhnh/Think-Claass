@@ -121,7 +121,7 @@ describe('legacy composition serves plugin routes', () => {
 
     const payload = JSON.parse(response.body) as { data: Array<{ id: string }> };
     const ids = payload.data.map((plugin) => plugin.id).sort();
-    expect(ids).toEqual(['classroom', 'pet']);
+    expect(ids).toEqual(['classroom', 'economy', 'pet']);
   });
 
   it('serves a plugin-only route (the route does not exist in api/modules)', async () => {
@@ -130,12 +130,27 @@ describe('legacy composition serves plugin routes', () => {
     expect(JSON.parse(response.body)).toMatchObject({ success: true, data: { plugin: 'pet' } });
   });
 
-  it('still serves a route owned by a not-yet-migrated module', async () => {
-    // 403 is the module's own answer ("该功能当前已关闭"); a shadowed or unmounted
-    // route would be 404. Any non-404 proves the legacy controller ran.
+  it('serves a migrated domain from the plugin, not from api/modules', async () => {
+    // `api/modules/economy` no longer exists - these 20 routes are served by
+    // plugins/economy through the legacy root module. 403 is the class feature gate
+    // ("该功能当前已关闭") firing through the port, which proves the whole path ran:
+    // plugin controller -> service -> classroom.public -> capability/column fallback.
+    // A route that was not mounted would be 404.
     const response = await probe('/api/economy/classes/1/stocks');
     expect(response.status).toBe(403);
     expect(response.body).toContain('该功能当前已关闭');
+  });
+
+  it('serves a route owned by a not-yet-migrated module', async () => {
+    // dungeon is still an api/modules Nest module, so this asserts the legacy modules
+    // did not regress when plugin modules joined the root. The route answers 404 for a
+    // student that does not exist, so status alone proves nothing - the *body* is what
+    // distinguishes "controller ran" ("学生未找到") from "route not mounted"
+    // (Nest's catch-all "Cannot GET ...").
+    const response = await probe('/api/dungeon/students/1/run');
+
+    expect(response.body).toContain('学生未找到');
+    expect(response.body).not.toContain('Cannot GET');
   });
 
   it('distinguishes a missing resource from a missing route', async () => {

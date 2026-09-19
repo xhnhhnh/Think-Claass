@@ -19,6 +19,7 @@ import type {
   PermissionDeclaration,
   PluginTier,
   ScopeRef,
+  ScopeType,
   ServiceContracts,
   ServiceName,
 } from '@thinkclass/contracts';
@@ -78,6 +79,19 @@ export interface PermissionsApi {
   register(declarations: PermissionDeclaration[]): void;
   can(actor: Actor, key: string, scope?: ScopeRef): boolean;
   require(actor: Actor, key: string, scope?: ScopeRef): void;
+  /**
+   * The explicit assignment for one scope, or `undefined` when that scope never set
+   * the key.
+   *
+   * `can()` answers "may this actor do it" by walking the actor's whole scope chain
+   * and falling back to the declared default - which cannot express "this class has
+   * never been configured". The distinction matters when a legacy column is still the
+   * source of truth for unconfigured scopes: the assignment must win where it exists,
+   * and the column must win where it does not.
+   *
+   * Read-only on purpose: a plugin reads assignments, it does not get the store.
+   */
+  assignedTo(scopeType: ScopeType, scopeId: number, key: string): boolean | undefined;
 }
 
 export interface RoutesApi {

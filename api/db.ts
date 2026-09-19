@@ -2,6 +2,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
 
+import { ensureAdoptedSchema } from './schema/adoptedTables.js';
+
 /**
  * The database file this layer opens.
  *
@@ -124,6 +126,12 @@ export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: str
 
 export function initDb() {
   db.pragma('foreign_keys = ON');
+
+  // Tables adopted by plugins (students, classes, records, bank_accounts, stocks,
+  // student_stocks) are defined in exactly one place and created first, because the
+  // rest of this DDL and the plugin repositories reference them.
+  ensureAdoptedSchema(db);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,37 +139,6 @@ export function initDb() {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       is_activated INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS classes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      invite_code TEXT UNIQUE,
-      teacher_id INTEGER REFERENCES users(id),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      settings TEXT,
-      enable_chat_bubble INTEGER DEFAULT 0,
-      enable_peer_review INTEGER DEFAULT 0,
-      enable_tree_hole INTEGER DEFAULT 0,
-      enable_shop INTEGER DEFAULT 0,
-      enable_lucky_draw INTEGER DEFAULT 0,
-      enable_challenge INTEGER DEFAULT 0,
-      enable_family_tasks INTEGER DEFAULT 0,
-      enable_world_boss INTEGER DEFAULT 0,
-      enable_guild_pk INTEGER DEFAULT 0,
-      enable_auction_blind_box INTEGER DEFAULT 0,
-      enable_achievements INTEGER DEFAULT 0,
-      enable_parent_buff INTEGER DEFAULT 0,
-      pet_selection_mode TEXT DEFAULT 'student'
-    );
-
-    CREATE TABLE IF NOT EXISTS students (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER REFERENCES users(id),
-      class_id INTEGER,
-      name TEXT NOT NULL,
-      total_points INTEGER DEFAULT 0,
-      available_points INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS pets (
@@ -212,15 +189,6 @@ export function initDb() {
       code TEXT UNIQUE NOT NULL,
       status TEXT DEFAULT 'pending', -- 'pending', 'used'
       used_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER REFERENCES students(id),
-      type TEXT NOT NULL, -- 'ADD_POINTS', 'DEDUCT_POINTS', 'BUY_ITEM', 'FEED_PET'
-      amount INTEGER NOT NULL,
-      description TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -534,35 +502,6 @@ export function initDb() {
       n_rate REAL DEFAULT 0.59,
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Economic System (Bank & Stocks)
-    CREATE TABLE IF NOT EXISTS bank_accounts (
-      student_id INTEGER PRIMARY KEY REFERENCES students(id),
-      deposit_amount INTEGER DEFAULT 0,
-      interest_rate REAL DEFAULT 0.05, -- 5% daily
-      last_interest_date TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS stocks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      class_id INTEGER REFERENCES classes(id),
-      name TEXT NOT NULL,
-      symbol TEXT NOT NULL,
-      current_price INTEGER NOT NULL,
-      trend_history TEXT, -- JSON array of previous prices
-      volatility REAL DEFAULT 0.1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS student_stocks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER REFERENCES students(id),
-      stock_id INTEGER REFERENCES stocks(id),
-      shares INTEGER DEFAULT 0,
-      average_buy_price REAL DEFAULT 0,
-      UNIQUE(student_id, stock_id)
     );
 
     -- Roguelike Dungeon (Endless Tower)
@@ -1292,7 +1231,6 @@ export function initDb() {
     // 游戏化系统
     'CREATE INDEX IF NOT EXISTS idx_pets_student_id ON pets(student_id);',
     'CREATE INDEX IF NOT EXISTS idx_shop_items_teacher_id ON shop_items(teacher_id);',
-    'CREATE INDEX IF NOT EXISTS idx_records_student_id ON records(student_id);',
     'CREATE INDEX IF NOT EXISTS idx_redemption_tickets_student_id ON redemption_tickets(student_id);',
     
     // 学习与教务
