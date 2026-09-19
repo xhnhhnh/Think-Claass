@@ -387,6 +387,33 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 **教训**：新增域时如果用了此前没出现过的 SQL 形态（upsert / CTE / 子查询 / 复合语句），**必须真启动一次**，不要只跑单测。
 
+### 8.8 `adoptedTables.ts` 的两类坑（P4.3b 期间各踩中多次）
+
+1. **SQL 注释里不能出现反引号**：整个 DDL 是模板字符串，一个反引号就会提前结束它，报错却是 `Expected ")" but found "xxx"`。
+   新增护栏 **G12**（`tests/guardrails/ddl-template-literals.test.ts`）会在 2ms 内直接指出行号。
+2. **DDL 必须包含所有 `addColumnIfNotExists` 添加的列**：`api/db.ts` 对**已存在**的表用 `ALTER` 补列，
+   而 `adoptedTables.ts` 是 kernel 组装下**唯一**的建表者 —— 少一列不会报错，只会让按列名读的回退逻辑静默给出错误答案。
+   已实测并核对过的清单（这些列现已全部就位）：
+   `classes.enable_*`(19) / `classes.settings` / `classes.invite_code` / `classes.pet_selection_mode`、
+   `students.group_id` / `students.last_checkin_date` / `students.birthday`、
+   `pets.mood` / `pets.last_fed_at`、`peer_reviews.team_quest_id`、`world_bosses.status`。
+   **新增 adopted 表时，务必对照 `addColumnIfNotExists` 全表清单再核对一次**（用 `PRAGMA table_info` 实测，不要靠肉眼）。
+
+### 8.9 剩余域的**具体阻塞点**（2026 轮实测，不是猜测）
+
+| 域 | 阻塞点 | 需要的动作 |
+|---|---|---|
+| `insights` | 3 条路由但**跨域读 10 张表**：`students`/`classes`/`records`（classroom 所有）+ `exams`/`student_exams`/`student_assignments`/`assignments`/`attendance_records`/`praises`/`leave_requests`（learning/classroom，**均未迁移**），且 `parent_students` 也要读。classroom 目前**没有报表类端口**（只有单人/单班查询） | 先给 `classroom.public` 加班级级聚合端口（或等 learning 迁移后提供），否则 insights 只能靠一堆 `data.reads`，那等于把"跨域读"合法化 |
+| `engagement` | ① **写 `pets` 表**（:96 `UPDATE pets SET ... mood = ?`）——`pets` 属 pet 域；② 写 `redemption_tickets`（与 marketplace **双写**，已被 G10 的 `SHARED_WRITE_TABLES` 显式记录）；③ 读 `shop_items` | pet 需发布一个"宠物经验/等级"端口；`redemption_tickets` 需要一个真正的端口（marketplace 拥有？engagement 拥有？）——**这是必须先决定的所有权问题** |
+| `platform` | 4 条路由里 3 条是支付基础设施（依赖 `api/services/paymentService.ts`、`paymentProviders/**`、`prisma.settings`），只有 `POST /api/parent-buff` 是业务 | 拆开：`parent-buff` → feature 插件；`payment/*` → 内核/平台侧（`payment_orders`/`payment_transactions` 只存在于 Prisma） |
+| `learning` | 10 文件 / 1433 行 / 28 张表，最大 | 单独一轮，不要和别的域混 |
+| `admin`/`auth`/`classroom`/`pet`/`settings`/`system` | 见 §8.4 与 §8.3.1 | `auth`→`identity`；`settings`/`system`→内核；`pet`/`classroom` 的 HTTP 面 |
+
+**`redemption_tickets` 的双写是当前最该先解决的结构问题**：它决定 engagement 能不能迁。
+现状是 marketplace 与 engagement 都 `data.adopted` 它（`SHARED_WRITE_TABLES` 例外），
+这违反了"一张表一个写者"的模型。正确解法是让拥有方（看谁的生命周期更完整：marketplace 有 CRUD，engagement 只在发奖时 INSERT/UPDATE）
+发布端口，另一方调用；或者把"兑换券"提升为一个独立的基础插件。
+
 ### 8.6 并行迁移的可行性（P4.3b.2 实证）
 
 五个域同时交给五个 agent 是**可行**的，前提是：

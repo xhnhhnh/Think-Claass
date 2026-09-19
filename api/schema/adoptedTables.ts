@@ -94,6 +94,12 @@ export function ensureReadOnlyLegacyTables(db: Database): void {
     -- The *legacy* pets table. Note this is NOT plugins/pet's p_pet_pets: that plugin
     -- owns its own namespaced table, while the legacy module and challenge both read
     -- this one. It disappears when api/modules/pet is deleted (HANDOFF 8.3.1).
+    --
+    -- last_fed_at and mood are ALTER-only in api/db.ts (addColumnIfNotExists at
+    -- :1089-1090 and :1100). They must be listed here: this is the only creator on the
+    -- kernel-composition path, and engagement's praise handler writes mood - a
+    -- missing column would be "no such column: mood" at request time, in one code path
+    -- that no unit test exercises.
     CREATE TABLE IF NOT EXISTS pets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       student_id INTEGER REFERENCES students(id),
@@ -107,7 +113,9 @@ export function ensureReadOnlyLegacyTables(db: Database): void {
       image_stage6 TEXT,
       level INTEGER DEFAULT 1,
       experience INTEGER DEFAULT 0,
-      attack_power INTEGER DEFAULT 10
+      attack_power INTEGER DEFAULT 10,
+      mood TEXT DEFAULT 'happy',
+      last_fed_at DATETIME
     );
   `);
 }
