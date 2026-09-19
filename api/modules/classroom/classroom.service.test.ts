@@ -15,6 +15,7 @@ const { dbMocks, featureMocks } = vi.hoisted(() => ({
     assertClassFeatureEnabled: vi.fn(),
     assertStudentFeatureEnabled: vi.fn(),
     getClassFeaturesByClassId: vi.fn(),
+    setClassFeatures: vi.fn(),
   },
 }));
 
@@ -31,6 +32,7 @@ vi.mock('../../services/featureService.js', () => ({
   assertClassFeatureEnabled: featureMocks.assertClassFeatureEnabled,
   assertStudentFeatureEnabled: featureMocks.assertStudentFeatureEnabled,
   getClassFeaturesByClassId: featureMocks.getClassFeaturesByClassId,
+  setClassFeatures: featureMocks.setClassFeatures,
 }));
 
 import { ClassroomService } from './classroom.service';
@@ -142,21 +144,24 @@ describe('ClassroomService', () => {
     expect(created).toMatchObject({ id: 10, name: '三班', teacher_id: 9 });
     expect(typeof created.invite_code).toBe('string');
 
-    dbMocks.get.mockReturnValueOnce({ id: 1, enable_peer_review: 1, pet_selection_mode: 'manual' });
+    // Feature flags are resolved by the capability layer, which does its own read;
+    // the service test asserts the shape it returns, not where the values came from.
+    dbMocks.get.mockReturnValueOnce({ id: 1, pet_selection_mode: 'manual' });
+    featureMocks.getClassFeaturesByClassId.mockReturnValueOnce({ enable_peer_review: true });
     expect(service.getClassFeatures('1')).toMatchObject({
       classId: 1,
       features: { enable_peer_review: true },
       pet_selection_mode: 'manual',
     });
 
-    dbMocks.get
-      .mockReturnValueOnce({ id: 1 })
-      .mockReturnValueOnce({ id: 1, enable_peer_review: 1, pet_selection_mode: 'random' });
+    dbMocks.get.mockReturnValueOnce({ id: 1 }).mockReturnValueOnce({ pet_selection_mode: 'random' });
+    featureMocks.setClassFeatures.mockReturnValueOnce({ enable_peer_review: true });
     expect(service.updateClassSettings('1', { enable_peer_review: true })).toMatchObject({
       message: 'Settings updated successfully',
       features: { enable_peer_review: true },
       pet_selection_mode: 'random',
     });
+    expect(featureMocks.setClassFeatures).toHaveBeenCalledWith(1, { enable_peer_review: true });
 
     dbMocks.get.mockReturnValueOnce({ id: 1, name: '一班', invite_code: 'ABC123' }).mockReturnValueOnce({ id: 99 });
     dbMocks.all

@@ -131,7 +131,20 @@ describe('plugin discovery and activation', () => {
   });
 
   it('registers the declared permissions only', () => {
-    expect(kernel.permissions.list().map((p) => p.key)).toEqual(['pet.adopt', 'pet.interact']);
+    // classroom declares the class-scope capability catalogue (19 legacy flags);
+    // pet declares its two feature permissions. Nothing else may appear.
+    const keys = kernel.permissions.list().map((p) => p.key);
+    const classroomKeys = keys.filter((key) => key.startsWith('classroom.'));
+    const petKeys = keys.filter((key) => key.startsWith('pet.'));
+
+    expect(classroomKeys).toHaveLength(19);
+    expect(classroomKeys).toContain('classroom.enable_shop');
+    expect(petKeys).toEqual(['pet.adopt', 'pet.interact']);
+    expect(keys).toHaveLength(21);
+
+    // Every declared permission is attributed to the plugin that declared it.
+    const owners = new Set(kernel.permissions.list().map((p) => p.pluginId));
+    expect([...owners].sort()).toEqual(['classroom', 'pet']);
   });
 
   it('reports the plugin summary through /api/health', async () => {

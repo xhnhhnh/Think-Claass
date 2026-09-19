@@ -29,6 +29,12 @@ export type {
   PermissionEngine,
   PermissionEngineOptions,
 } from './permissions/permissionEngine.js';
+export {
+  CAPABILITY_ASSIGNMENTS_MIGRATION_ID,
+  capabilityAssignmentsMigration,
+  createSqliteAssignmentStore,
+  seedAssignments,
+} from './permissions/capabilityStore.js';
 
 // --- auth ------------------------------------------------------------------
 export { hashPassword, isPasswordHash, verifyPassword } from './auth/password.js';

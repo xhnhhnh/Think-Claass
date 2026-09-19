@@ -9,10 +9,18 @@ const authClassMocks = vi.hoisted(() => ({
   findParentStudent: vi.fn(),
   findStudentById: vi.fn(),
   executeRaw: vi.fn(),
+  getClassFeaturesByClassId: vi.fn(),
 }));
 
 vi.mock('../../db.js', () => ({
   decrypt: authClassMocks.decrypt,
+}));
+
+// Login now resolves flags through the capability layer (assignment first, legacy
+// column as fallback) rather than reading the row directly, so the unit test mocks
+// that boundary instead of the column values.
+vi.mock('../../utils/classFeatures.js', () => ({
+  getClassFeaturesByClassId: authClassMocks.getClassFeaturesByClassId,
 }));
 
 vi.mock('../../prismaClient.js', () => ({
@@ -55,6 +63,7 @@ describe('auth login class context', () => {
     authClassMocks.findParentStudent.mockReset();
     authClassMocks.findStudentById.mockReset();
     authClassMocks.executeRaw.mockReset();
+    authClassMocks.getClassFeaturesByClassId.mockReset();
   });
 
   it('returns both classId and class_id for student sessions', async () => {
@@ -75,6 +84,7 @@ describe('auth login class context', () => {
       enable_shop: 1,
       enable_lucky_draw: 0,
     });
+    authClassMocks.getClassFeaturesByClassId.mockReturnValue({ enable_shop: true, enable_lucky_draw: false });
 
     const response = await postLogin({ username: 'student01', password: '123456', role: 'student' });
 
@@ -111,6 +121,7 @@ describe('auth login class context', () => {
       enable_family_tasks: 1,
       enable_parent_buff: 0,
     });
+    authClassMocks.getClassFeaturesByClassId.mockReturnValue({ enable_family_tasks: true, enable_parent_buff: false });
 
     const response = await postLogin({ username: 'parent01', password: '123456', role: 'parent' });
 

@@ -461,12 +461,18 @@ export function readRawSqlTables(root) {
 
 /**
  * Hardcoded class feature flag keys (the extension point that must disappear).
+ *
+ * Only files that actually contain keys are reported: a file that merely mentions the
+ * flags without declaring a list is not a source of truth, and counting it would
+ * hide real progress.
+ *
  * @param {string} root
  * @returns {Array<{ file: string, keys: string[] }>}
  */
 export function readFeatureKeyTables(root) {
   const candidates = [
     'api/utils/classFeatures.ts',
+    'api/services/featureService.ts',
     'src/lib/classFeatures.ts',
   ];
   /** @type {Array<{ file: string, keys: string[] }>} */
@@ -477,6 +483,7 @@ export function readFeatureKeyTables(root) {
     const text = fs.readFileSync(abs, 'utf8');
     const keys = new Set();
     for (const m of text.matchAll(/'(enable_[a-z_]+)'/g)) keys.add(m[1]);
+    if (keys.size === 0) continue;
     out.push({ file: rel, keys: [...keys].sort() });
   }
   return out;

@@ -3,10 +3,9 @@ import type { Request } from 'express';
 
 import db, { decrypt } from '../../db.js';
 import { addStudentPoints, adjustStudentPoints } from '../../services/pointsService.js';
-import { assertClassFeatureEnabled, assertStudentFeatureEnabled, getClassFeaturesByClassId } from '../../services/featureService.js';
+import { assertClassFeatureEnabled, assertStudentFeatureEnabled, getClassFeaturesByClassId, setClassFeatures } from '../../services/featureService.js';
 import { createStudentAccount, decryptStudentList, getStudentOrThrow } from '../../services/studentService.js';
 import { ApiError } from '../../utils/apiError.js';
-import { classFeatureKeys, pickClassFeatures } from '../../utils/classFeatures.js';
 import { hashPassword } from '../../utils/password.js';
 import { getRequestActor } from '../../utils/requestAuth.js';
 
@@ -580,7 +579,9 @@ export class ClassroomService {
     if (!cls) throw new ApiError(404, 'Class not found');
     return {
       classId: Number(id),
-      features: pickClassFeatures(cls),
+      // Resolved through the capability layer: assignments first, legacy columns
+      // as the fallback - the same path every feature assertion uses.
+      features: getClassFeaturesByClassId(Number(id)),
       pet_selection_mode: cls.pet_selection_mode ?? 'random',
     };
   }
@@ -644,30 +645,40 @@ export class ClassroomService {
     const cls = db.prepare('SELECT id FROM classes WHERE id = ?').get(id) as any;
     if (!cls) throw new ApiError(404, 'Class not found');
 
+    // Feature flags go through the capability layer (assignment + legacy column);
+    // everything else stays a direct update.
+    const featureUpdates: Record<string, unknown> = {};
+    for (const key of Object.keys(input ?? {})) {
+      if (key.startsWith('enable_')) featureUpdates[key] = input[key];
+    }
+
     const setClauses: string[] = [];
     const values: Array<number | string> = [];
-
-    for (const key of classFeatureKeys) {
-      if (input?.[key] !== undefined) {
-        setClauses.push(`${key} = ?`);
-        values.push(input[key] ? 1 : 0);
-      }
-    }
 
     if (input?.pet_selection_mode !== undefined) {
       setClauses.push('pet_selection_mode = ?');
       values.push(input.pet_selection_mode);
     }
 
-    if (setClauses.length === 0) throw new ApiError(400, 'No settings provided');
+    if (Object.keys(featureUpdates).length === 0 && setClauses.length === 0) {
+      throw new ApiError(400, 'No settings provided');
+    }
 
-    values.push(id);
-    db.prepare(`UPDATE classes SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
-    const updated = db.prepare('SELECT * FROM classes WHERE id = ?').get(id) as Record<string, unknown>;
+    if (setClauses.length > 0) {
+      values.push(id);
+      db.prepare(`UPDATE classes SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+    }
+
+    const features =
+      Object.keys(featureUpdates).length > 0
+        ? setClassFeatures(Number(id), featureUpdates)
+        : getClassFeaturesByClassId(Number(id));
+
+    const updated = db.prepare('SELECT pet_selection_mode FROM classes WHERE id = ?').get(id) as Record<string, unknown>;
     return {
       message: 'Settings updated successfully',
-      features: pickClassFeatures(updated),
-      pet_selection_mode: updated.pet_selection_mode ?? 'random',
+      features,
+      pet_selection_mode: updated?.pet_selection_mode ?? 'random',
     };
   }
 

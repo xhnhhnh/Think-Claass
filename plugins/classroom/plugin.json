@@ -6,7 +6,7 @@
   "tier": "foundation",
   "required": true,
   "isolation": "in-process",
-  "description": "Foundation plugin: owns access to classes and students and publishes the classroom.public port. Every other domain reaches student and class data through that port rather than through the tables.",
+  "description": "Foundation plugin: owns access to classes and students and publishes the classroom.public port. Every other domain reaches student and class data through that port rather than through the tables. Also declares the class-scope capability catalogue that replaced the 19 enable_* columns.",
   "entry": {
     "backend": "./src/index.ts"
   },
@@ -17,7 +17,27 @@
         "version": "1.0.0"
       }
     ],
-    "permissions": [],
+    "permissions": [
+      { "key": "classroom.enable_chat_bubble", "scope": "class", "default": true, "label": "聊天气泡" },
+      { "key": "classroom.enable_peer_review", "scope": "class", "default": true, "label": "同伴互评" },
+      { "key": "classroom.enable_tree_hole", "scope": "class", "default": true, "label": "互动墙" },
+      { "key": "classroom.enable_shop", "scope": "class", "default": true, "label": "积分商城" },
+      { "key": "classroom.enable_lucky_draw", "scope": "class", "default": true, "label": "翻牌抽奖" },
+      { "key": "classroom.enable_challenge", "scope": "class", "default": true, "label": "挑战模式" },
+      { "key": "classroom.enable_family_tasks", "scope": "class", "default": true, "label": "家校任务" },
+      { "key": "classroom.enable_world_boss", "scope": "class", "default": true, "label": "世界 Boss" },
+      { "key": "classroom.enable_guild_pk", "scope": "class", "default": true, "label": "公会 PK" },
+      { "key": "classroom.enable_auction_blind_box", "scope": "class", "default": true, "label": "拍卖盲盒" },
+      { "key": "classroom.enable_achievements", "scope": "class", "default": true, "label": "成就系统" },
+      { "key": "classroom.enable_parent_buff", "scope": "class", "default": true, "label": "家长增益" },
+      { "key": "classroom.enable_task_tree", "scope": "class", "default": true, "label": "技能树" },
+      { "key": "classroom.enable_danmaku", "scope": "class", "default": true, "label": "弹幕互动" },
+      { "key": "classroom.enable_class_brawl", "scope": "class", "default": true, "label": "大乱斗" },
+      { "key": "classroom.enable_slg", "scope": "class", "default": true, "label": "版图玩法" },
+      { "key": "classroom.enable_gacha", "scope": "class", "default": true, "label": "召唤法阵" },
+      { "key": "classroom.enable_economy", "scope": "class", "default": true, "label": "经济系统" },
+      { "key": "classroom.enable_dungeon", "scope": "class", "default": true, "label": "无尽塔" }
+    ],
     "routes": [],
     "events": {
       "emits": ["classroom.student.points.changed"],

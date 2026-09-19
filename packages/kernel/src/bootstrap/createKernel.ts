@@ -20,6 +20,10 @@ import { createSessionService, sessionsMigration, type SessionService } from '..
 import type { AuthProvider } from '../auth/authProvider.js';
 import { openDatabase, type Database } from '../storage/connection.js';
 import { createSettingsStore, settingsMigration, type SettingsStore } from '../storage/settingsStore.js';
+import {
+  capabilityAssignmentsMigration,
+  createSqliteAssignmentStore,
+} from '../permissions/capabilityStore.js';
 import { runMigrations, type Migration, type MigrationResult } from '../storage/migrations.js';
 import { createErrorMiddleware } from '../http/errorEnvelope.js';
 import { createRequestContextMiddleware } from '../http/requestContext.js';
@@ -35,6 +39,7 @@ import { createKernelRouter, createEmptyPluginHost, type PluginHostView } from '
 export const kernelMigrations: Migration[] = [
   settingsMigration,
   sessionsMigration as unknown as Migration,
+  capabilityAssignmentsMigration,
 ];
 
 export interface Kernel {
@@ -131,7 +136,12 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
 
   // --- core services -------------------------------------------------------
   const events = createEventBus({ logger: logger.child('events') });
-  const permissions = createPermissionEngine({ logger: logger.child('permissions') });
+  // Capability assignments are persisted, so a decision made for one class scope
+  // survives a restart - unlike the in-memory default used by unit tests.
+  const permissions = createPermissionEngine({
+    store: createSqliteAssignmentStore(db),
+    logger: logger.child('permissions'),
+  });
   const sessions = createSessionService({ db, logger: logger.child('sessions') });
   const settings = createSettingsStore(db);
 

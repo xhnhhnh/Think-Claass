@@ -4,7 +4,7 @@ import { decrypt } from '../../db.js';
 import { prisma } from '../../prismaClient.js';
 import { activateUser } from '../../services/activationService.js';
 import { ApiError } from '../../utils/apiError.js';
-import { pickClassFeatures } from '../../utils/classFeatures.js';
+import { getClassFeaturesByClassId } from '../../utils/classFeatures.js';
 import { hashPassword, isPasswordHash, verifyPassword } from '../../utils/password.js';
 import { getRequestActor } from '../../utils/requestAuth.js';
 
@@ -42,7 +42,7 @@ export class AuthService {
           name: student ? decrypt(student.name) : undefined,
           is_activated: !!user.is_activated,
         },
-        classFeatures: cls ? pickClassFeatures(cls as unknown as Record<string, unknown>) : null,
+        classFeatures: cls ? getClassFeaturesByClassId(cls.id) : null,
       };
     }
 
@@ -73,7 +73,7 @@ export class AuthService {
           name: student ? decrypt(student.name) : undefined,
           is_activated: !!user.is_activated,
         },
-        classFeatures: cls ? pickClassFeatures(cls as unknown as Record<string, unknown>) : null,
+        classFeatures: cls ? getClassFeaturesByClassId(cls.id) : null,
       };
     }
 

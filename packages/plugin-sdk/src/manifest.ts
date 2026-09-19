@@ -44,7 +44,13 @@ export interface ManifestValidationResult {
 const ID_RE = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const TABLE_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const EVENT_TOPIC_RE = /^[a-z][a-z0-9]*(?:\.[a-z0-9]+)*(?:\.\*)?$/;
-const PERMISSION_KEY_RE = /^[a-z][a-z0-9]*(?:\.[a-z0-9]+)+$/;
+/**
+ * Permission keys are dot-namespaced and lowercase. Underscores are allowed inside a
+ * segment: real keys look like `pet.adopt`, `shop.purchase` and
+ * `classroom.enable_shop`, and rejecting the underscore would force invented names
+ * for no benefit.
+ */
+const PERMISSION_KEY_RE = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/;
 
 const TIERS: PluginTier[] = ['foundation', 'feature'];
 const ISOLATIONS: PluginIsolation[] = ['in-process', 'restricted', 'worker'];
