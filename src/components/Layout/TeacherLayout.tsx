@@ -1,13 +1,8 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { 
-  Users, ClipboardList, Award, Store, Settings, MonitorPlay, 
-  BarChart, MessageCircle, Gift, Wrench, CheckCircle, UserCog, BookOpen, 
-  FileSpreadsheet, CalendarCheck, Target, Sparkles, ShieldAlert, Package, 
-  Gavel, Swords, Map, FileText, Network, Landmark
-} from "lucide-react";
 import { useEffect, useMemo } from 'react';
 import CampusShell from '@/components/Layout/CampusShell';
+import { iconFor, navEntries } from '@/components/Layout/navRegistry';
 import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import { useClasses } from '@/hooks/queries/useClasses';
 import {
@@ -16,35 +11,27 @@ import {
   type FeatureRequirement,
 } from '@/lib/classFeatures';
 
-const navItems = [
-  { path: '/teacher', icon: Users, label: '班级与学生管理' },
-  { path: '/teacher/attendance', icon: CalendarCheck, label: '考勤与请假' },
-  { path: '/teacher/assignments', icon: BookOpen, label: '作业管理' },
-  { path: '/teacher/exams', icon: FileSpreadsheet, label: '考试与成绩' },
-  { path: '/teacher/papers', icon: FileText, label: '试卷系统' },
-  { path: '/teacher/knowledge', icon: Network, label: '知识点图谱' },
-  { path: '/teacher/team-quests', icon: Target, label: '团队任务' },
-  { path: '/teacher/pets', icon: Sparkles, label: '精灵管理' },
-  { path: '/teacher/brawl', icon: Swords, label: '跨班大乱斗' },
-  { path: '/teacher/territory', icon: Map, label: '领土扩张' },
-  { path: '/teacher/records', icon: ClipboardList, label: '积分与兑换记录' },
-  { path: '/teacher/certificates', icon: Award, label: '荣誉奖状' },
-  { path: '/teacher/shop', icon: Store, label: '商品管理' },
-  { path: '/teacher/economy', icon: Landmark, label: '股票管理' },
-  { path: '/teacher/auction', icon: Gavel, label: '拍卖行管理' },
-  { path: '/teacher/blind-box', icon: Package, label: '盲盒管理' },
-  { path: '/teacher/features', icon: Settings, label: '功能开关' },
-  { path: '/teacher/world-boss', icon: ShieldAlert, label: '世界BOSS管理' },
-  { path: '/teacher/lucky-draw-config', icon: Gift, label: '抽奖设置' },
-  { path: '/teacher/verification', icon: CheckCircle, label: '奖品核销' },
-  { path: '/teacher/communication', icon: MessageCircle, label: '家校与留言' },
-  { path: '/teacher/analysis', icon: BarChart, label: '数据分析' },
-  { path: '/teacher/tools', icon: Wrench, label: '教学工具' },
-  { path: '/teacher/bigscreen', icon: MonitorPlay, label: '大屏展示' },
-  { path: '/teacher/settings', icon: UserCog, label: '个人设置' },
-];
-
-const teacherFeatureRequirements: Partial<Record<string, FeatureRequirement>> = {
+/**
+ * Teacher menu gates.
+ *
+ * The path, label and menu order come from the route table (see `navRegistry.ts`); this map adds
+ * the gate where it does not agree with the route's own `feature`.
+ *
+ * The two are separate on purpose here rather than by oversight. The visitor-facing gate answers
+ * "may this route be loaded" - `/teacher/brawl` is gated on `enable_class_brawl` both ways. The
+ * menu gate answers "is this entry useful right now", which is sometimes a different question:
+ *
+ *   - `/teacher/communication` is an inbox fed by six student-facing features, so it is shown if
+ *     ANY of them is on, while the route itself is ungated;
+ *   - `/teacher/certificates` is gated on `enable_achievements` here but on nothing in the route
+ *     table;
+ *   - `/teacher/task-tree` and `/teacher/world-boss` are not menu entries at all (no label), and
+ *     appear below only because a future menu entry is expected.
+ *
+ * Collapsing these into the route table would change which pages teachers can reach, so they stay
+ * explicit until someone decides they should match.
+ */
+const teacherMenuGates: Partial<Record<string, FeatureRequirement>> = {
   '/teacher/shop': { key: 'enable_shop' },
   '/teacher/economy': { key: 'enable_economy' },
   '/teacher/lucky-draw-config': { key: 'enable_lucky_draw' },
@@ -78,12 +65,14 @@ export default function TeacherLayout() {
   const { data: classFeatureData } = useClassFeatures(defaultClassId, { refetchInterval: 5000 });
   const features = classFeatureData?.features ?? defaultClassFeatures;
 
+  const allNavItems = useMemo(() => navEntries('/teacher'), []);
+
   const filteredNavItems = useMemo(
     () =>
-      navItems.filter((item) =>
-        isFeatureRequirementEnabled(features, teacherFeatureRequirements[item.path]),
-      ),
-    [features],
+      allNavItems
+        .filter((item) => isFeatureRequirementEnabled(features, teacherMenuGates[item.path]))
+        .map((item) => ({ path: item.path, label: item.label, icon: iconFor(item) })),
+    [allNavItems, features],
   );
 
   const fallbackPath = useMemo(
@@ -97,7 +86,7 @@ export default function TeacherLayout() {
       return;
     }
 
-    const requirement = teacherFeatureRequirements[location.pathname];
+    const requirement = teacherMenuGates[location.pathname];
     if (requirement && !isFeatureRequirementEnabled(features, requirement)) {
       navigate(fallbackPath, { replace: true });
     }
@@ -105,10 +94,9 @@ export default function TeacherLayout() {
 
   if (!user) return null;
 
+  // Titles for routes that are not menu entries (adding a student) come from the same table.
   const currentTitle =
-    filteredNavItems.find(item => item.path === location.pathname)?.label
-    || navItems.find(item => item.path === location.pathname)?.label
-    || '添加学生';
+    allNavItems.find((item) => item.path === location.pathname)?.label || '添加学生';
 
   return (
     <CampusShell

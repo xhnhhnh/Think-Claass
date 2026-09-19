@@ -123,7 +123,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P5.2 | ~~62 个转发 shim~~ ✅ **P5.2a**：61 个 shim 变成真实实现，1 个错位重复 shim 删除 | 见 `git log` | ✅ |
 | P5.2b | ~~`AppRoutes` 的 80 条 static import~~ ✅ 路由表 + 生成式模块映射（`import.meta.glob` 被否决，见 §9 说明） | 见 `git log` | ✅ |
 | P5.3a | ~~`window.__TC_CONFIG__` 取代部署期 `sed`~~ ✅ 运行时配置真的生效了（发现它此前**从未生效**） | 见 `git log` | ✅ |
-| P5.3b | 4 个布局的硬编码菜单 → 从路由表派生（`MenuRegistry`） | — | ⬜ |
+| P5.3b | ~~4 个布局的硬编码菜单~~ ✅ 全部从路由表派生（`navRegistry.ts`，护栏 G16） | 见 `git log` | ✅ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
 
@@ -442,6 +442,35 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 两条回归测试在 `tests/plugins/isolation.test.ts`（upsert 可通过、DDL 目标仍能解析）。
 
 **教训**：新增域时如果用了此前没出现过的 SQL 形态（upsert / CTE / 子查询 / 复合语句），**必须真启动一次**，不要只跑单测。
+
+### 8.12 菜单的「三份同键清单」（P5.3b 实证）
+
+四个布局各自维护一份 `navItems` 数组，把每条路径**又写了一遍**：
+
+    const allNavItems = [
+      { path: '/student/pet', icon: Star, label: '我的精灵' },
+      ...
+
+而 `studentFeatureRequirements`（决定这条菜单是否**显示**的开关表）把同样的路径**写了第三遍**。
+三份清单用同一批字符串做键：任一处的笔误都会产生「点了没反应」的菜单项、或永远到不了的页面，而**没有任何测试会失败**。
+
+现在：`label` 写在路由表里（**有 label = 是菜单项**），开关用路由表自己的 `feature`，
+图标留在 `src/components/Layout/navRegistry.ts`（那才是表现层的事）。四个布局都不再有菜单数组。
+
+**两点必须记住**：
+
+1. **数组顺序 = 菜单顺序**。因此各布局的 child 顺序被调整成菜单顺序 —— 这也是为什么
+   `routeTable.test.ts` 里那些「保持 child 路径」的断言改成了**集合比较**：
+   顺序现在是表现层决定，断言顺序会让每次调整菜单都挂掉一个路由测试。
+   真正不能变的（少一条路由、丢一个 label）仍然被断言。
+2. **教师菜单的开关表和路由表故意不一致**，不是疏忽：`/teacher/communication` 由六个功能任一开启即显示，
+   `/teacher/certificates` 在菜单里挂 `enable_achievements` 但路由本身不限，
+   `/teacher/task-tree` 有开关却没有 label（不是菜单项）。合并它们会改变教师能看到的页面，
+   所以在有人正式决定之前保持显式，并在代码里写明原因。
+
+**新增护栏 G16**：菜单条数（teacher 25 / student 22 / parent 6 / admin 10）、每条都有图标、
+每条 path/label 合法、同一布局内 path 不重复、以及**管理端菜单不依赖写死的 `/beiadmin`**
+（按 layout 模块查、图标按路由表路径做键，否则改了 `ADMIN_PATH` 的部署会全部丢图标）。
 
 ### 8.8 `adoptedTables.ts` 的两类坑（P4.3b 期间各踩中多次）
 

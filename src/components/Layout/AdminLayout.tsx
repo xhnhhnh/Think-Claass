@@ -1,31 +1,33 @@
-import { ADMIN_PATH } from "@/constants";
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { LayoutDashboard, Settings, Megaphone, FileText, Globe, Users, Shield, Server, Key, AlertTriangle } from 'lucide-react';
 import CampusShell from '@/components/Layout/CampusShell';
+import { adminNavEntries, iconFor } from '@/components/Layout/navRegistry';
+import { adminPath } from '@/constants';
 
+/**
+ * Admin shell.
+ *
+ * The menu comes from the route table like the other three layouts. The admin path is injected at
+ * runtime (`window.__TC_CONFIG__.adminPath`), so this asks `adminPath()` rather than importing the
+ * build-time constant - using the constant here would send a renamed deployment's login redirect
+ * to `/beiadmin/login`.
+ */
 export default function AdminLayout() {
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
+  const basePath = adminPath();
 
   if (!user) return null;
 
-  const navItems = [
-    { path: ADMIN_PATH, icon: LayoutDashboard, label: '系统仪表盘' },
-    { path: `${ADMIN_PATH}/announcements`, icon: Megaphone, label: '公告管理' },
-    { path: `${ADMIN_PATH}/articles`, icon: FileText, label: '文章管理' },
-    { path: `${ADMIN_PATH}/website`, icon: Globe, label: '网站设置' },
-    { path: `${ADMIN_PATH}/teachers`, icon: Users, label: '教师管理' },
-    { path: `${ADMIN_PATH}/codes`, icon: Key, label: '激活码管理' },
-    { path: `${ADMIN_PATH}/settings`, icon: Settings, label: '系统设置' },
-    { path: `${ADMIN_PATH}/openapi`, icon: Server, label: '开发者与校园' },
-    { path: `${ADMIN_PATH}/audit-logs`, icon: Shield, label: '审计日志' },
-    { path: `${ADMIN_PATH}/reset`, icon: AlertTriangle, label: '系统重置' },
-  ];
+  const navItems = adminNavEntries().map((entry) => ({
+    path: entry.path,
+    label: entry.label,
+    icon: iconFor(entry),
+  }));
 
-  const currentTitle = navItems.find(item => item.path === location.pathname)?.label || '系统仪表盘';
+  const currentTitle = navItems.find((item) => item.path === location.pathname)?.label || '系统仪表盘';
 
   return (
     <CampusShell
@@ -36,10 +38,10 @@ export default function AdminLayout() {
       brandLabel="超级管理员"
       userLabel={user.username}
       userMeta="系统运营"
-      homePath={ADMIN_PATH}
+      homePath={basePath}
       onLogout={() => {
         logout();
-        navigate(`${ADMIN_PATH}/login`);
+        navigate(`${basePath}/login`);
       }}
     >
       <Outlet />

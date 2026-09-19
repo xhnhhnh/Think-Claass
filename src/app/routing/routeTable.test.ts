@@ -41,67 +41,101 @@ describe('route table', () => {
     ]);
   });
 
-  it('keeps the teacher child paths', () => {
+  /**
+   * The contracts pinned here are the route *set* and which routes are menu entries - not the
+   * declaration order within the array.
+   *
+   * Order became meaningful in P5.3b: a labelled route is a menu entry, and the array order is the
+   * menu order. But that is a presentation decision the layout owns, and asserting it here would
+   * make every menu reordering fail a routing test. What must not change silently is dropping a
+   * route or losing a label, so those are what these check.
+   */
+  it('keeps every teacher child path', () => {
     const teacher = layoutRoutes.find((layout) => layout.path === '/teacher')!;
-    expect(teacher.children.map((child) => child.path)).toEqual([
-      '',
-      'records',
-      'add-student',
-      'shop',
-      'auction',
-      'task-tree',
-      'brawl',
-      'territory',
-      'features',
-      'bigscreen',
-      'analysis',
-      'communication',
-      'lucky-draw-config',
-      'tools',
-      'verification',
-      'assignments',
-      'exams',
-      'papers',
-      'papers/:id/edit',
-      'knowledge',
-      'attendance',
-      'world-boss',
-      'economy',
-      'blind-box',
-      'pets',
-      'team-quests',
-      'certificates',
-      'settings',
-    ]);
+    expect([...teacher.children.map((child) => child.path)].sort()).toEqual(
+      [
+        '',
+        'add-student',
+        'analysis',
+        'assignments',
+        'attendance',
+        'auction',
+        'bigscreen',
+        'blind-box',
+        'brawl',
+        'certificates',
+        'communication',
+        'economy',
+        'exams',
+        'features',
+        'knowledge',
+        'lucky-draw-config',
+        'papers',
+        'papers/:id/edit',
+        'pets',
+        'records',
+        'settings',
+        'shop',
+        'task-tree',
+        'team-quests',
+        'territory',
+        'tools',
+        'verification',
+        'world-boss',
+      ].sort(),
+    );
+  });
+
+  it('labels exactly the teacher routes that appear in the menu', () => {
+    const teacher = layoutRoutes.find((layout) => layout.path === '/teacher')!;
+    const labelled = teacher.children.filter((child) => child.label).map((child) => child.path);
+    const unlabelled = teacher.children.filter((child) => !child.label).map((child) => child.path);
+
+    // 25 menu entries, matching the old hand-written navItems array.
+    expect(labelled).toHaveLength(25);
+    // Reachable but not linked, exactly as before.
+    expect([...unlabelled].sort()).toEqual(['add-student', 'papers/:id/edit', 'task-tree']);
   });
 
   it('keeps the student child paths, including the parameterised ones', () => {
     const student = layoutRoutes.find((layout) => layout.path === '/student')!;
-    expect(student.children.map((child) => child.path)).toEqual([
-      'pet',
-      'shop',
-      'auction',
-      'task-tree',
-      'brawl',
-      'territory',
-      'gacha',
-      'bank',
-      'dungeon',
-      'challenge',
-      'lucky-draw',
-      'my-redemptions',
-      'certificates',
-      'achievements',
-      'interactive-wall',
-      'peer-review',
-      'guild-pk',
-      'papers',
-      'papers/:id',
-      'wrong-questions',
-      'plan',
-      'assignments',
-      'team-quests',
-    ]);
+    expect([...student.children.map((child) => child.path)].sort()).toEqual(
+      [
+        'pet',
+        'shop',
+        'auction',
+        'task-tree',
+        'brawl',
+        'territory',
+        'gacha',
+        'bank',
+        'dungeon',
+        'challenge',
+        'lucky-draw',
+        'my-redemptions',
+        'certificates',
+        'achievements',
+        'interactive-wall',
+        'peer-review',
+        'guild-pk',
+        'papers',
+        'papers/:id',
+        'wrong-questions',
+        'plan',
+        'assignments',
+        'team-quests',
+      ].sort(),
+    );
+  });
+
+  it('labels exactly the student routes that appear in the menu', () => {
+    const student = layoutRoutes.find((layout) => layout.path === '/student')!;
+    const labelled = student.children.filter((child) => child.label).map((child) => child.path);
+
+    // 22 menu entries, matching the old hand-written allNavItems array; `papers/:id` is the one
+    // route that is reachable without being linked.
+    expect(labelled).toHaveLength(22);
+    expect(student.children.filter((child) => !child.label).map((child) => child.path)).toEqual(['papers/:id']);
   });
 
   it('keeps the parent and admin child paths', () => {
@@ -116,18 +150,21 @@ describe('route table', () => {
     ]);
 
     const admin = layoutRoutes.find((layout) => layout.path === '/beiadmin')!;
-    expect(admin.children.map((child) => child.path)).toEqual([
-      '',
-      'announcements',
-      'articles',
-      'website',
-      'audit-logs',
-      'teachers',
-      'settings',
-      'codes',
-      'openapi',
-      'reset',
-    ]);
+    // Compared as a set: the order is the admin menu's, and it differs from the route list's.
+    expect([...admin.children.map((child) => child.path)].sort()).toEqual(
+      [
+        '',
+        'announcements',
+        'articles',
+        'website',
+        'audit-logs',
+        'teachers',
+        'settings',
+        'codes',
+        'openapi',
+        'reset',
+      ].sort(),
+    );
   });
 
   it('every referenced module resolves through the page map', () => {
@@ -143,29 +180,33 @@ describe('route table', () => {
   });
 
   it('gates exactly the routes the feature catalogue declares', () => {
+    // Compared as a set: the route order is now menu order, which is a presentation concern.
     const gated = layoutRoutes
       .flatMap((layout) => layout.children)
       .filter((child) => child.feature)
-      .map((child) => child.path);
+      .map((child) => child.path)
+      .sort();
 
-    // The four student flags that are gated by a route, plus the parent one.
-    expect(gated).toEqual([
-      'shop',
-      'auction',
-      'task-tree',
-      'brawl',
-      'territory',
-      'gacha',
-      'bank',
-      'dungeon',
-      'challenge',
-      'lucky-draw',
-      'achievements',
-      'interactive-wall',
-      'peer-review',
-      'guild-pk',
-      'tasks',
-    ]);
+    // 14 student flags gated by a route, plus the parent one.
+    expect(gated).toEqual(
+      [
+        'shop',
+        'auction',
+        'task-tree',
+        'brawl',
+        'territory',
+        'gacha',
+        'bank',
+        'dungeon',
+        'challenge',
+        'lucky-draw',
+        'achievements',
+        'interactive-wall',
+        'peer-review',
+        'guild-pk',
+        'tasks',
+      ].sort(),
+    );
   });
 
   it('every gated route names a flag the catalogue declares', () => {

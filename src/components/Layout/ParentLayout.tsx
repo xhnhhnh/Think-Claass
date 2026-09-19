@@ -1,24 +1,17 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { Home, MessageSquare, PieChart, CheckSquare, Calendar, BookOpen } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import CampusShell from '@/components/Layout/CampusShell';
-import {
-  defaultClassFeatures,
-  getFirstEnabledRoute,
-  isFeatureRequirementEnabled,
-  parentFeatureRequirements,
-} from '@/lib/classFeatures';
+import { visibleNavItems } from '@/components/Layout/navRegistry';
+import { defaultClassFeatures, getFirstEnabledRoute } from '@/lib/classFeatures';
+import { parentFeatureRequirements, isFeatureRequirementEnabled } from '@/lib/featureRoutes';
 
-const navItems = [
-  { path: '/parent/dashboard', icon: Home, label: '温馨家园' },
-  { path: '/parent/communication', icon: MessageSquare, label: '家校信箱' },
-  { path: '/parent/report', icon: PieChart, label: '成长足迹' },
-  { path: '/parent/tasks', icon: CheckSquare, label: '家庭时光' },
-  { path: '/parent/leave-request', icon: Calendar, label: '请假假条' },
-  { path: '/parent/assignments', icon: BookOpen, label: '学习采撷' },
-];
-
+/**
+ * Parent shell.
+ *
+ * The menu comes from the route table, which owns each route's path, label and feature gate -
+ * see `navRegistry.ts` for why. This file used to restate all six entries.
+ */
 export default function ParentLayout() {
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
@@ -26,13 +19,7 @@ export default function ParentLayout() {
   const location = useLocation();
   const features = user?.classFeatures ?? defaultClassFeatures;
 
-  const filteredNavItems = useMemo(
-    () =>
-      navItems.filter((item) =>
-        isFeatureRequirementEnabled(features, parentFeatureRequirements[item.path]),
-      ),
-    [features],
-  );
+  const filteredNavItems = useMemo(() => visibleNavItems('/parent', features), [features]);
 
   const fallbackPath = useMemo(
     () => getFirstEnabledRoute('parent', features) ?? '/parent/dashboard',
@@ -53,7 +40,7 @@ export default function ParentLayout() {
 
   if (!user) return null;
 
-  const currentTitle = filteredNavItems.find(item => item.path === location.pathname)?.label || '温馨家园';
+  const currentTitle = filteredNavItems.find((item) => item.path === location.pathname)?.label || '温馨家园';
 
   return (
     <CampusShell
