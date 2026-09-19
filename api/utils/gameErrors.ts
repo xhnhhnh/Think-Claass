@@ -1,6 +1,13 @@
+/**
+ * Domain HTTP error translation.
+ *
+ * Moved from `api/modules/game/game.errors.ts` in P4.3, when the `game` folder was
+ * dissolved and its six domains became independent modules.
+ */
+
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-import { ApiError } from '../../utils/apiError.js';
+import { ApiError } from './apiError.js';
 
 export function gameHttpError(error: unknown): HttpException {
   if (error instanceof HttpException) return error;
