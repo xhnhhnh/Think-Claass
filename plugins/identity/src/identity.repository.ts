@@ -26,6 +26,8 @@ export interface IdentityRepository {
   findUserByCredentials(username: string, role: string): UserRow | undefined;
   findUserById(userId: SqlParam): UserRow | undefined;
   findUserByUsername(username: string): { id: number } | undefined;
+  /** Lowest id for a role, or `undefined`. Ordered, unlike the pre-migration bare `LIMIT 1`. */
+  findFirstUserIdByRole(role: string): { id: number } | undefined;
   findUserByUsernameOtherThan(username: string, excludeUserId: number): { id: number } | undefined;
   createUser(input: { role: string; username: string; passwordHash: string }): number;
   updateUserPasswordHash(userId: SqlParam, passwordHash: string): void;
@@ -86,6 +88,10 @@ export function createIdentityRepository(db: DbApi): IdentityRepository {
      */
     findUserByUsername(username) {
       return db.get<{ id: number }>(`SELECT id FROM users WHERE username = ? LIMIT 1`, [username]);
+    },
+
+    findFirstUserIdByRole(role) {
+      return db.get<{ id: number }>(`SELECT id FROM users WHERE role = ? ORDER BY id LIMIT 1`, [role]);
     },
 
     createUser(input) {

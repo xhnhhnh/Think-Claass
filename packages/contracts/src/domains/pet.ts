@@ -150,5 +150,25 @@ export interface PetPort {
   getPetForStudent(studentId: number): Promise<PetSnapshot | null>;
   hasPet(studentId: number): Promise<boolean>;
   getBattleProfile(studentId: number): Promise<PetBattleProfile | null>;
+  /**
+   * Grow a pet by experience, using this domain's own level and attack-power rules.
+   *
+   * Added in P4.3b.10 for engagement's praise route, which used to `UPDATE pets SET experience,
+   * level, attack_power, mood` **directly** - a cross-plugin write that `data.reads` could not even
+   * describe, because it is a write.
+   *
+   * The growth formula stays here rather than being passed in: it is the pet domain's rule (level
+   * only rises, ceiling 6, `Math.floor(experience * 0.1) || 10`), and a consumer that recomputed it
+   * would be a second implementation of the thing this plugin owns. The consumer supplies only how
+   * much experience and the mood to leave behind.
+   *
+   * Returns the pet after the change, or `null` when the student has none - the pre-migration code
+   * skipped the update in that case rather than failing, and a praise must still be recorded.
+   */
+  grantPetExperience(input: {
+    studentId: number;
+    expGain: number;
+    mood: string;
+  }): Promise<PetSnapshot | null>;
 }
 

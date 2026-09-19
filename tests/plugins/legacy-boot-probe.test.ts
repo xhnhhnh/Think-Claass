@@ -129,6 +129,7 @@ describe('legacy composition serves plugin routes', () => {
       'collaboration',
       'dungeon',
       'economy',
+      'engagement',
       'gacha',
       'identity',
       'learning',

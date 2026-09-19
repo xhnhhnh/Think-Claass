@@ -807,6 +807,22 @@ export function createClassroomRepository(ctx: KernelContext) {
     },
 
     /**
+     * Names for a set of student ids, one query.
+     *
+     * Ids are bound as individual parameters rather than interpolated; an empty list returns
+     * nothing without a query, because `IN ()` is a syntax error in SQLite and building the string
+     * is the one place this could go wrong with attacker-influenced input.
+     */
+    listStudentNamesByIds(studentIds: number[]): Array<{ id: number; name: string }> {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(',');
+      return db.query<{ id: number; name: string }>(
+        `SELECT id, name FROM students WHERE id IN (${placeholders})`,
+        studentIds as never[],
+      );
+    },
+
+    /**
      * Link a parent to a student, tolerating a repeat.
      *
      * `INSERT OR IGNORE` rather than a bare INSERT: the PRIMARY KEY is

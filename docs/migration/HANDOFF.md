@@ -70,19 +70,18 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ## 1. 一句话现状
 
-**P0–P4.3b.9 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
-**P4.3b 已迁走 19 个域**：P4.3b.6b 迁走 `classroom` 的整个 HTTP 面（47 条）与 `learning` 剩余部分（24 条）；P4.3b.7 把 `auth` 迁成 `plugins/identity`；P4.3b.8 把支付基础设施迁成 `plugins/payment`（`tier: "infrastructure"`）。`routeCollisions` 保持 **0**，端点数保持 **297**。
+**P0–P4.3b.10 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
+**P4.3b 已迁走 20 个域**：P4.3b.6b 迁走 `classroom` 的整个 HTTP 面（47 条）与 `learning` 剩余部分（24 条）；P4.3b.7 把 `auth` 迁成 `plugins/identity`；P4.3b.8 把支付基础设施迁成 `plugins/payment`；**P4.3b.10 把 `engagement` 迁成 `plugins/engagement`**（17 条路由、9 个控制器、10 张表），并顺手把 §8.9 的两个所有权问题各自了结或写明。`routeCollisions` 保持 **0**，端点数保持 **297**。
 **P4.3c 已把两套组装的 schema 合成同一份迁移链**（含 1 列 + 19 索引的补全）。
-**P4.3b.9 修掉了那条悬了五轮的配置陷阱**：Prisma 与 `ctx.db` 现在**保证**打开同一个库（见 §9 的 P4.3b.9 记录）——此前 `DATABASE_FILE` 一旦被设置，两条数据路径就会指向两个不同的文件，而**测试与探针正是天天设置它的人**。
+**P4.3b.9 修掉了那条悬了五轮的配置陷阱**：Prisma 与 `ctx.db` 现在**保证**打开同一个库（见 §9 的 P4.3b.9 记录）。
 
-**`api/modules/` 现在只剩 3 个**：`admin`、`engagement`、`insights` —— 三个都还没迁，且都是真域（不再是基础设施）。
+**`api/modules/` 现在只剩 2 个**：`admin`、`insights`。
 **`api/services/` 只剩 1 个死文件**（`UserService.ts`，无人引用，P7 删）。
 
-**SDK 在 P4.3b.8 新增第三种 tier**：`'foundation' | 'feature' | 'infrastructure'`。这是 §8.9 悬了三轮的决定的落地方式 —— 支付既不能进内核（G5 会破），也不能当 `feature`（它拥有真实订单，不能被随手关掉）。
+**SDK 在 P4.3b.8 新增第三种 tier**：`'foundation' | 'feature' | 'infrastructure'`。
 
 **下一步（见 §8.4 与 §8.9）**：
-- **`admin` 的 HTTP 面**：14 文件、`admin.repository.ts` 940 行，是 §8.3.1 那笔「用 Prisma `$transaction` 跨域删表」债的主体 —— 现在几乎每个域都有端口了，可以开始逐个改调。它是 **Prisma 在运行时的唯一消费者**，所以迁完它就等于把双数据路径彻底消灭（`api/db.ts` 那条 `better-sqlite3` 连接同理，见 §9）。
-- **`engagement`**：`api/modules/engagement`（785 行、14 张表）。两个所有权问题要先定：① 它**写 `pets`**（已是 pet 插件的表，需要一个"赞美给宠物加经验"的端口）；② 与 marketplace **双写 `redemption_tickets`**（G10 的 `SHARED_WRITE_TABLES` 已登记）。
+- **`admin` 的 HTTP 面**：14 文件、`admin.repository.ts` 940 行，是 §8.3.1 那笔「用 Prisma `$transaction` 跨域删表」债的主体 —— 现在几乎每个域都有端口了，可以开始逐个改调。它同时是 **Prisma 在运行时的唯一消费者**，所以迁完它就等于把双数据路径彻底消灭（`api/db.ts` 那条 `better-sqlite3` 连接同理，见 §9 的 P4.3b.9）。
 - **`insights`**：跨全域读模型（12 张表），需要 classroom 与 assignments 各自发布报表端口。
 - 之后是 P4.3c.3（按域拆 migration）、P5 收尾、P6、P7。
 
@@ -142,7 +141,8 @@ npm run api:surface -- --check     # 297 条端点必须零漂移（含 plugins/
 | **P4.3b.6b** | **`classroom` 的整个 HTTP 面（47 条）+ `learning` 剩余部分（24 条）迁成插件**；删 `api/modules/classroom` 与 `api/modules/learning`，`routeCollisions` 保持 0，端点数不变 | `e6c8e24` | ✅ |
 | **P4.3b.7** | **`auth` 迁成 `plugins/identity`**：4 条路由 + `users`/`activation_codes`/`activation_events` 三张表 + 发布 `identity.public.activateUser`；删 `api/modules/auth/**` 与 `api/services/activationService.ts`，`legacyAuthProvider` 由 `ctx.auth.registerProvider` 取代 | `1e1d159` | ✅ |
 | **P4.3b.8** | **支付基础设施迁成 `plugins/payment`**（`tier: "infrastructure"`，SDK 新增第三种 tier）：3 条路由 + `payment_orders`/`payment_transactions` + provider 层；删 `api/modules/platform/**`、`api/services/paymentService.ts`、`paymentProviders/**` | 见 `git log` | ✅ |
-| **P4.3b.9** | **两条数据路径保证指向同一个库**：`api/prismaClient.ts` 用与 `loadConfig` 相同的规则解析库文件并把 datasource 显式传给 `PrismaClient`（覆盖 `.env` 的 `DATABASE_URL`）；新增 `tests/kernel/database-path-alignment.test.ts`（含真 Prisma 子进程断言 + 第四个读取者的围栏） | 见 `git log` | ✅ |
+| **P4.3b.9** | **两条数据路径保证指向同一个库**：`api/prismaClient.ts` 用与 `loadConfig` 相同的规则解析库文件并把 datasource 显式传给 `PrismaClient`（覆盖 `.env` 的 `DATABASE_URL`）；新增 `tests/kernel/database-path-alignment.test.ts`（含真 Prisma 子进程断言 + 第四个读取者的围栏） | `4b311eb` | ✅ |
+| **P4.3b.10** | **`engagement` 迁成 `plugins/engagement`**（17 条路由 / 9 控制器 / 10 张表）；`pets` 直写改成 `pet.public.grantPetExperience`，积分+流水改成 `classroom.public.spendStudentCredits`；删 `api/modules/engagement/**` | 见 `git log` | ✅ |
 | P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity`（`settings`/`system` 已完成） | — | ✅ 全部完成（`pet` P4.3b.6；`classroom` P4.3b.6b；`auth`→`identity` P4.3b.7） |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
@@ -255,10 +255,10 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | 键 | 当前 | 目标 | 含义 |
 |---|---|---|---|
 | `shimPages` | **0** ✅（62 → 0）| 0 | 插件树里的一行转发 shim（"假插件化"） |
-| `deadCode` | **58**（70 → 69 → 66 → 65 → 64 → 58 → 58）| 0 | 应用不可达文件（P4.3b.6 删 `api/modules/pet` 降 1；工作区清理删掉 6 个孤儿 hook/组件再降 6）。**P4.3b.6b 没有把它降下来**：删掉两个域后，原先因被引用而不算死的替代文件变成了新的不可达文件，总数回到同一个天花板（`api/services/featureService.ts` 与两个旧模块的 8 个文件被新的 58 名单换掉）。迁移一个域**不保证**这个数字下降，只能保证它不上升 |
+| `deadCode` | **59**（70 → 69 → 66 → 65 → 64 → 58 → 58 → 59）| 0 | 应用不可达文件（P4.3b.6 删 `api/modules/pet` 降 1；工作区清理删掉 6 个孤儿 hook/组件再降 6）。**P4.3b.6b 没有把它降下来**：删掉两个域后，原先因被引用而不算死的替代文件变成了新的不可达文件，总数回到同一个天花板。**P4.3b.10 把它升了 1**：迁走 engagement 之后 `src/features/engagement/api/praisesApi.ts` 失去了最后一个引用者（它的消费方是一个在更早的工作区清理里删掉的 hook）。**两轮实测的结论：这个棘轮在迁移期间不是单调的**，一个域搬走可能把某个文件留在原地没人引用 —— 这类文件属于 P7 的清理清单，本轮记录而不是顺手删 |
 | `staticPluginRoutes` | **0** ✅（76 → 0）| 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
-| `adoptedTables` | **55**（26 → 28 → 32 → 33 → 34 → **50** → **53** → **55**）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入）。P4.3b.6 的 +1 是 pet 的 `pets` —— 这是唯一一次"没有给系统新增表"的增量：`pets` 本来就是该域的存储，被替换掉的 `p_pet_pets` 是虚构的。**P4.3b.6b 的 +16 是 `learning`**（papers 及其子女、题库、知识图谱、错题、学习计划），清单在 `allowances.json` 里逐表列明，且是**量出来的**而非猜的：`learning` 的 5 张同簇表（`rubric_point_scores`/`knowledge_products`/`notes`/`note_assets`/`note_products`）**故意没有声明**，因为该插件没有任何路由碰它们。**P4.3b.7 的 +3 是 `identity`**（`users`/`activation_codes`/`activation_events`）—— 这三张是**此前无主的既有表**，所以它们是这个棘轮里第一批"给已有表找到主人"而不是"新域带来新表"的条目。**P4.3b.8 的 +2 是 `payment`**（`payment_orders`/`payment_transactions`）—— 这两张是**此前连表都没有**的（只在 Prisma schema 里），P4.3b.5c 才补上迁移；至此支付路由碰到的每张表都有主人 |
+| `adoptedTables` | **65**（26 → 28 → 32 → 33 → 34 → **50** → **53** → **55** → **65**）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入）。**P4.3b.6b 的 +16 是 `learning`**；**P4.3b.7 的 +3 是 `identity`**（`users`/`activation_codes`/`activation_events`，第一批"给已有表找到主人"的条目）；**P4.3b.8 的 +2 是 `payment`**（此前连表都没有）；**P4.3b.10 的 +10 是 `engagement`**，清单在 `allowances.json` 里逐表列明 |
 | `routeCollisions` | **0** ✅（33 → 1 → 0）| 0 | 同一 METHOD+PATH 被两个控制器文件声明。P4.3b.6 之后**必须保持 0**：出现一条就意味着某个域又同时注册在两处 |
 
 注意 `adoptedTables` 的"只降不升"有一条**明示例外**：迁移一个新域会让它上升，因此每次上升都必须在 `allowances.json` 的注释里逐条写清是哪张表、来自哪个域（`routeCollisions` 与 `deadCode` 没有例外，只能降）。
@@ -304,14 +304,14 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        118 文件 / 825 用例全绿
+npm test        118 文件 / 835 用例全绿
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
 guardrails      12 文件 / 53 用例
 ```
 
-**已迁成插件的域（19 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments, parent-buff, pet, classroom（P4.3b.6b 补上 HTTP 面）, learning（P4.3b.6b）, identity（P4.3b.7，原 `auth`）, **payment**（P4.3b.8，`tier: "infrastructure"`，原 `platform` 的支付半边）
-**仍在 `api/modules/` 的域（3 个）**：admin, engagement, insights。
+**已迁成插件的域（20 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system, assignments, parent-buff, pet, classroom（P4.3b.6b 补上 HTTP 面）, learning（P4.3b.6b）, identity（P4.3b.7，原 `auth`）, payment（P4.3b.8，`tier: "infrastructure"`，原 `platform` 的支付半边）, **engagement**（P4.3b.10）
+**仍在 `api/modules/` 的域（2 个）**：admin, insights。
 另外 **`platform` 现在只剩支付三条路由**（业务半边 `parent-buff` 已迁走），它已经不是一个功能域，而是一块基础设施 —— 见 §8.9。
 （`settings` 已在 P5.3c 并入内核 —— 它本来就只有一句 `SELECT key, value FROM settings`，而 `settings` 是内核自有存储。）
 
@@ -320,10 +320,10 @@ guardrails      12 文件 / 53 用例
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
 | `api:surface` 端点数 | **297** | 迁移期间**不应变化**。变小 → 扫描漏了插件或内核；变大 → 多出端点 |
-| `deadCode` | **58** | 2026 实测：迁移一个域**不保证**它下降（P4.3b.6b 删了两个域仍在 58）。它**上升**才是回归 |
+| `deadCode` | **59** | 2026 实测：迁移一个域**不保证**它下降（P4.3b.6b 删了两个域仍在 58），而且**可能上升**（P4.3b.10 因 `praisesApi.ts` 失去引用者升到 59）。上升时必须像本轮一样在 `allowances.json` 里写清是哪个文件、为什么它现在不可达 —— 棘轮的价值在于"每一次移动都要被解释"，不在于数字单调 |
 | `shimPages` | **0** | P5.2a 已达成 |
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
-| `adoptedTables` | **55** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。最新一次是 P4.3b.8 的 payment 2 张（`payment_orders`/`payment_transactions`） |
+| `adoptedTables` | **65** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。最新一次是 P4.3b.10 的 engagement 10 张（含 `redemption_tickets` 这个共享写例外与无人认领的 `user_achievements`）。**这大概是最后一次由"迁域"带来的增量**：admin 与 insights 都没有一张可被新名字 adopt 的自有表 |
 | `routeCollisions` | **0** ✅ | P4.3b.6 达成了目标，P4.3b.6b 在两个域上重复了同一套动作并保持 0。**再出现一条就是回归**：某个域同时注册在旧模块与插件里 |
 | 两套组装的 schema | **一致** | 实测（P4.3c.3a）：fresh kernel 组装与 fresh legacy 组装都是 **86 表 / 89 索引**，`parent_activity.last_active_date` 与 19 个兼容索引都在。P4.3c.3a 之前 kernel 侧是 **83 表 / 65 索引且没有那一列**，而没有任何测试会失败 |
 
@@ -997,6 +997,49 @@ datasource URL **显式**传给 `PrismaClient` —— 显式 datasource 优先�
 
 ---
 
+### P4.3b.10 · `engagement` 迁成 `plugins/engagement`（§8.9 的两个阻塞点各自了结）—— ✅ 已完成
+
+`api/modules/engagement/**`（785 行、17 条路由、9 个控制器、10 张表）变成一个 feature 插件。
+METHOD+PATH 不变，端点数仍是 297。**`api/modules/` 因此只剩 `admin` 与 `insights`。**
+
+§8.9 给这个域列了两个阻塞点，这轮分别处理：
+
+| 阻塞点 | 处理 |
+|---|---|
+| ① 它**直接写 `pets`**（`UPDATE pets SET experience, level, attack_power, mood`）——那是 pet 插件的表，而 `data.reads` **连描述都描述不了写** | ✅ 新增 **`pet.public.grantPetExperience({studentId, expGain, mood})`**。成长公式（等级只升不降、上限 6、`Math.floor(exp*0.1) ‖ 10`）留在 pet 里 —— 消费方若自己重算就成了同一规则的第二个实现 |
+| ② 与 marketplace **双写 `redemption_tickets`** | ⚠️ **本轮不解决，改为写明**：它是 G10 的 `SHARED_WRITE_TABLES` 明示例外。真正修好需要给 marketplace 设计端口**并同时迁移那个域**，那会把两轮的工作压成一轮。manifest 里 `_known_debt` 第 1 条记的就是这件事 |
+
+另外两处结构性改动：
+
+- **积分 + 流水合并成一个端口方法**：幸运抽奖原来在一个事务里 `UPDATE students.available_points` 再 `INSERT records`。拆成 `transferStudentCredits` + `recordStudentLedgerEntry` 会让进程死在两者之间时留下"扣了分但没有流水"的账 —— 所以新增
+  **`classroom.public.spendStudentCredits({studentId, delta, entry})`**，一次调用两个写。
+- **三个 JOIN 换成端口**：`praises` / `certificates` / `messages` 原来 JOIN `students`（还要解密姓名）、`users`（非学生发送者的用户名）和 `classes`（`enable_achievements` 开关），`messages` 还有一个取"最新成就"的相关子查询。这些都是**穿着查询外衣的跨插件读表**。现在改成 `listStudentNamesByIds`（批量、解密在 classroom 侧）、`identity.public.getUserById` 与 `getClassFeatureSnapshot`，由调用方按原来的顺序拼回响应。`user_achievements` 由本插件自己读。
+
+#### 这一轮最值得记的事：**我"顺手修好"了三个状态码，被探针抓回来**
+
+新写的控制器里，我把 legacy 的 `legacyError()` 实现成了内核的 `ApiError`，并把 catch 里的
+`if (error instanceof HttpException) throw error` 改成了 `if (error instanceof ApiError) throw error`
+—— 看起来是同一件事、还更一致。**实际上它悄悄改掉了三个状态码**：
+
+- `legacyError` 是 Nest 的 `HttpException`，而内核的 `ApiError` 是**另一个类**。legacy 的 catch 只重抛 `HttpException`，所以控制器自己抛的 400/404 能通过，而**特性开关和 `getStudentById` 抛的 `ApiError` 会被吞成 500**。
+- 改成 `instanceof ApiError` 之后：`GET /api/family-tasks`（无参数）从 legacy 的 **400** 变成 500；`?studentId=999` 从 legacy 的 **500** 变成 404；`/api/danmaku` 的开关从 **500** 变成 403。
+- **三个都是"更好"的状态码，但都不是本轮该做的决定**。发现方式是真启动 + 真 HTTP 的探针（`.tmp/engagement-smoke.mjs`，11 条请求），不是任何单测 —— 单测里只断言 service 层，看不到 catch 分支。
+
+**已全部改回 legacy 行为**，并把这条既有缺陷写进 manifest 的 `_known_debt` 第 4 条
+（修法是每个 handler 加一个 `|| error instanceof ApiError`，但它改的是产品路由的应答，
+该由拥有那个决定的一轮来做）。**`legacyError` 因此刻意保持返回 `HttpException`**，
+注释里写明了原因 —— 这是一个"看起来该统一、但不能统一"的地方。
+
+**教训**：迁移中最危险的改动不是搬代码，而是搬的过程中"顺手把明显的 bug 修掉"。
+它不会让任何测试变红，只会让线上多出三个没人要求的状态码变化。
+
+**实测**：`npm test` 118 文件 / 835 用例全绿；`check` exit 0；`api:surface` **297 不变**；
+`guard` 12 文件 / 53 用例（`adoptedTables` 55 → **65**、`deadCode` 58 → **59** —— 后者是
+`src/features/engagement/api/praisesApi.ts` 因失去最后一个引用者而不可达，属 P7 的清理清单，
+本轮**记录并解释**而不是顺手删除）；真启动探针 11/11（含 500-vs-403 这类只在真实响应里才看得见的行为）。
+
+---
+
 ### ⚠️ P4.3b.5c 的三个实测发现（都很容易再踩）
 
 #### 1. `.env` 把 Prisma 与 `api/db.ts` 指向了**两个不同的库**
@@ -1284,6 +1327,10 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | `plugins/payment/src/payment.repository.ts` | `payment_orders`/`payment_transactions` 的全部 SQL，含 `expires_at` 两种格式的说明 |
 | `tests/plugins/payment-service.test.ts` | 真迁移链建库 + 真 `DbApi(strict)` + 真 MockProvider；含"死在两次写之间后重试收敛"的用例 |
 | `tests/plugins/parent-buff-port.test.ts` | `parent_buff.public.touchParentLogin` 与祝福行共存；并钉住既有 bug「当天登录会吃掉当天祝福」 |
+| `plugins/engagement/src/engagement.service.ts` | 17 条路由的业务逻辑；三个 JOIN 换成端口，积分+流水合并成 `spendStudentCredits` 一次调用 |
+| `plugins/engagement/src/engagement.controllers.ts` | 9 个控制器；**`legacyError` 刻意返回 Nest 的 `HttpException` 而非内核 `ApiError`**，注释解释了为什么不能统一 |
+| `tests/plugins/engagement-service.test.ts` | 真迁移链 + 真 `DbApi(strict)`；含"写不到别的域的表"的证明与每个 gate 的 404/403 映射 |
+| `.tmp/engagement-smoke.mjs` | 真启动 HTTP 探针（11 条），抓到三个被"顺手修好"的状态码 |
 | `api/prismaClient.ts` | Prisma 客户端被钉在与内核相同的库文件上（显式 datasource 覆盖 `.env`），以及 `applicationDatabaseFile/Url` 两个函数 |
 | `tests/kernel/database-path-alignment.test.ts` | 两条数据路径必须同一库：规则一致性 + 真子进程验证 Prisma 实际打开的文件 + 「第四个 `DATABASE_FILE` 读取者」围栏 |
 | `tests/kernel/fixtures/database-path-probe.mts` | 上面那条子进程断言用的探针。**放在 `tests/` 而不是 `.tmp/`**：`.tmp/` 已 gitignore，第一版把它放在那里 —— 本机通过、新克隆必然失败。只在本机能跑的测试夹具不算测试 |

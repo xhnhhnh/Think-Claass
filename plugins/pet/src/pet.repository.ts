@@ -144,6 +144,26 @@ export function createPetRepository(db: DbApi): PetRepository {
       ]);
     },
 
+    /**
+     * Growth from outside the domain (a teacher's praise), **without** touching `last_fed_at`.
+     *
+     * `updatePetProgress` above sets `last_fed_at = CURRENT_TIMESTAMP` because it serves the pet's
+     * own actions, where the pet is being fed or played with. A praise is not that: the
+     * pre-migration engagement code updated exactly `experience, level, attack_power, mood` and left
+     * the feeding timestamp alone. Reusing the other method would have quietly reset the three-day
+     * death clock every time a teacher praised a pet - a behaviour change with no symptom until a
+     * pet failed to die.
+     */
+    updatePetGrowth(petId, experience, level, attackPower, mood) {
+      db.run(`UPDATE pets SET experience = ?, level = ?, attack_power = ?, mood = ? WHERE id = ?`, [
+        experience,
+        level,
+        attackPower,
+        mood,
+        petId,
+      ]);
+    },
+
     addPetExperience(petId, expGain) {
       db.run(`UPDATE pets SET experience = experience + ? WHERE id = ?`, [expGain, petId]);
     },

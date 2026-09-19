@@ -1,0 +1,67 @@
+{
+  "id": "engagement",
+  "name": "互动与激励",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "The engagement domain: announcements, class announcements, praises, certificates, redemption tickets, the message feed, family tasks, the lucky draw and danmaku - 17 routes over nine controllers, relocated from api/modules/engagement (P4.3b.10). Two of HANDOFF section 8.9's blockers are settled here: the direct `UPDATE pets ...` became pet.public.grantPetExperience, and the point/ledger pair became classroom.public.spendStudentCredits. The third - `redemption_tickets` written by two plugins - is declared rather than claimed, and named in _known_debt.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/announcements", "handler": "AnnouncementsController.getActiveAnnouncement", "auth": "actor" },
+      { "method": "GET", "base": "/api/class-announcements", "handler": "ClassAnnouncementsController.getClassAnnouncements", "auth": "actor" },
+      { "method": "POST", "base": "/api/class-announcements", "handler": "ClassAnnouncementsController.createClassAnnouncement", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/class-announcements", "handler": "ClassAnnouncementsController.deleteClassAnnouncement", "auth": "actor" },
+      { "method": "GET", "base": "/api/praises", "handler": "PraisesController.getPraises / PraisesController.getStudentPraises", "auth": "actor" },
+      { "method": "POST", "base": "/api/praises", "handler": "PraisesController.createPraise", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/praises", "handler": "PraisesController.deletePraise", "auth": "actor" },
+      { "method": "GET", "base": "/api/certificates", "handler": "CertificatesController.getCertificates", "auth": "actor" },
+      { "method": "POST", "base": "/api/certificates", "handler": "CertificatesController.createCertificate", "auth": "actor" },
+      { "method": "GET", "base": "/api/redemption", "handler": "RedemptionController.getMyTickets", "auth": "actor" },
+      { "method": "POST", "base": "/api/redemption", "handler": "RedemptionController.verify", "auth": "actor" },
+      { "method": "GET", "base": "/api/messages", "handler": "MessagesController.getMessages", "auth": "actor" },
+      { "method": "POST", "base": "/api/messages", "handler": "MessagesController.createMessage", "auth": "actor" },
+      { "method": "GET", "base": "/api/family-tasks", "handler": "FamilyTasksController.getTasks", "auth": "actor" },
+      { "method": "POST", "base": "/api/family-tasks", "handler": "FamilyTasksController.createTask", "auth": "actor" },
+      { "method": "PUT", "base": "/api/family-tasks", "handler": "FamilyTasksController.updateTask", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/family-tasks", "handler": "FamilyTasksController.deleteTask", "auth": "actor" },
+      { "method": "GET", "base": "/api/lucky-draw", "handler": "LuckyDrawController.getConfig", "auth": "actor" },
+      { "method": "POST", "base": "/api/lucky-draw", "handler": "LuckyDrawController.saveConfig / LuckyDrawController.draw", "auth": "actor" },
+      { "method": "GET", "base": "/api/danmaku", "handler": "DanmakuController.getMessages", "auth": "actor" },
+      { "method": "POST", "base": "/api/danmaku", "handler": "DanmakuController.createMessage", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/danmaku", "handler": "DanmakuController.cleanup", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": [
+      "announcements",
+      "certificates",
+      "class_announcements",
+      "danmaku_messages",
+      "family_tasks",
+      "lucky_draw_config",
+      "messages",
+      "praises",
+      "redemption_tickets",
+      "user_achievements"
+    ],
+    "_adopted_note": "Ten tables, enumerated from the migrated statements rather than guessed. `user_achievements` is here because the message feed reads each sender's latest achievement name - it is not a domain this plugin serves routes for, but it is the store behind the `sender_title` field, and no other plugin claims it. Tables deliberately NOT here: `shop_items` (marketplace's; declared in `data.reads`), `students`/`classes`/`records` (classroom's, reached through the port), `pets` (pet's, reached through the port), `users` (identity's).",
+    "reads": [
+      "shop_items"
+    ],
+    "_reads_note": "`shop_items` is read to put a prize or ticket name next to a redemption row: `getRedemptionTickets` and `verifyRedemption` both JOIN it for `i.name` (and `i.teacher_id`). That is a genuine read of marketplace's table, so it is declared rather than routed through a port - a port whose only method would be `getItemName` would be a interface in name only. When marketplace migrates, this read should become one.",
+    "_known_debt": "1. `redemption_tickets` is written by two plugins: marketplace issues tickets for shop purchases, this domain issues them as lucky-draw prizes (`drawLuckyPrize`) and marks them used (`verifyRedemption`). It is the guardrail's documented SHARED_WRITE_TABLES exception, and this manifest declares it rather than pretending one owner exists - but the model's rule is one writer per table, so the real fix is a marketplace port for issue/verify and a decision about who owns the lifecycle. Deliberately not resolved in this direction, because resolving it here would mean designing and migrating another domain in the same round. 2. The pre-migration `createPraise`, `drawLuckyPrize` and `updateLuckyDrawConfig` each wrapped several writes in one SQLite transaction on the shared connection. Across a plugin boundary that is unavailable, so: the praise is written before the pet grows (a crash loses experience, never the praise); the lucky draw debits before granting (a crash loses the prize, never the payment); the config replacement still uses one local `ctx.db.tx`, because all of its writes are this plugin's own. 3. `/api/danmaku` cleanup keeps the newest 1000 rows globally rather than per class - the pre-migration SQL is `NOT IN (SELECT id ... ORDER BY id DESC LIMIT 1000)` with no class filter, preserved verbatim even though a per-class reading is what the route name suggests. 4. PRE-EXISTING DEFECT, preserved on purpose: the class-feature gate's own `ApiError` is swallowed by the legacy catch clauses (`if (error instanceof HttpException) throw error`, and the application's ApiError is a different class), so a gated engagement route answers **500 该功能当前已关闭** instead of 403, a missing student in `/api/family-tasks` answers **500 学生未找到** instead of 404, and `PUT|DELETE /api/family-tasks/:id` on a missing task answers 500 instead of 404. `GET /api/danmaku?classId=1` and `GET /api/family-tasks?studentId=999` are the two measured examples. The fix is one clause per handler (`|| error instanceof ApiError`), but it changes what product routes answer, so it belongs in a round that owns that decision. `legacyError` therefore still returns Nest's `HttpException`, not the kernel's `ApiError` - that class difference is what makes the controller's own 400s and 404s survive while the gate's do not, and using the kernel class here silently changed three statuses during this migration (caught by the live probe, see the controller comment)."
+  }
+}

@@ -210,7 +210,10 @@ describe('G10 adopted legacy tables ratchet', () => {
     // `payment_transactions`. Those two are the tables that had *no* table at all until
     // P4.3b.5c created them from the Prisma schema, so this increment closes the loop on the
     // finding that started G13's reverse check.
-    expect(allowances.adoptedTables).toBeLessThanOrEqual(55);
+    // 55 -> 65 in P4.3b.10, when engagement adopted its ten tables - including
+    // `redemption_tickets` (the documented shared-write exception) and `user_achievements`
+    // (the store behind the message feed's sender title, claimed by nobody else).
+    expect(allowances.adoptedTables).toBeLessThanOrEqual(65);
   });
 
   it('never declares a table as both owned and adopted', () => {

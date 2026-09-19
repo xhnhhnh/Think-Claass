@@ -65,6 +65,9 @@ export default definePlugin({
       async getUserById(userId) {
         return instance.getUserById(userId);
       },
+      async getFirstUserIdByRole(role) {
+        return instance.getFirstUserIdByRole(role);
+      },
       async activateUser(input) {
         return instance.activateUser(input);
       },

@@ -98,6 +98,20 @@ export interface IdentityPort {
   getUserById(userId: number): Promise<UserSnapshot | null>;
 
   /**
+   * The lowest-numbered user id for a role, or `null`.
+   *
+   * Engagement's lucky-draw config is keyed by `teacher_id`, and its routes accept an optional
+   * `teacherId`; when it is omitted the pre-migration code ran
+   * `SELECT id FROM users WHERE role = 'teacher' LIMIT 1` - choosing an arbitrary teacher. `users`
+   * is identity's table, so the lookup belongs here.
+   *
+   * `ORDER BY id` makes it deterministic, which the original `LIMIT 1` without an ORDER BY was not:
+   * for a single-teacher deployment that is invisible, and for a multi-teacher one it turns a
+   * query-planner detail into a stated rule.
+   */
+  getFirstUserIdByRole(role: string): Promise<number | null>;
+
+  /**
    * Activate a user, idempotently.
    *
    * Returns the existing event row when one with the same `(userId, source, activationCode,

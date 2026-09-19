@@ -160,6 +160,45 @@ export function createClassroomPort({ ctx, repository, features, cipher }: Class
       return db.listStudentsByParent(parentId).map((row) => toStudentSnapshot(row, cipher));
     },
 
+    /**
+     * Names for a set of ids, decrypted.
+     *
+     * The decryption is the reason this method exists at all: a caller that asked for the raw rows
+     * would either render ciphertext or need the key.
+     */
+    async listStudentNamesByIds(studentIds) {
+      const names: Record<number, string> = {};
+      for (const row of db.listStudentNamesByIds(studentIds)) {
+        names[row.id] = cipher.decrypt(row.name);
+      }
+      return names;
+    },
+
+    /**
+     * Debit the spendable balance and append the ledger entry in **one** transaction.
+     *
+     * Two writes that the pre-migration callers wrapped together (lucky draw, pet action); keeping
+     * them apart would let a crash leave a debit with no ledger row. The refusal codes are the
+     * existing ones, so a caller's `if (result.refusal)` keeps working.
+     */
+    async spendStudentCredits({ studentId, delta, entry }) {
+      const before = db.findStudentRow(studentId);
+      if (!before) {
+        return { refusal: { code: 'student-not-found', message: '学生未找到' } };
+      }
+      if (delta < 0 && (before.available_points ?? 0) + delta < 0) {
+        return { refusal: { code: 'insufficient-credits', message: '积分不足' } };
+      }
+
+      const updated = db.tx(() => {
+        db.addStudentAvailable(studentId, delta);
+        db.insertRecord(entry.studentId, entry.type, entry.amount, entry.description);
+        return db.findStudentRow(studentId) as StudentRow;
+      });
+
+      return { value: { availablePoints: updated.available_points ?? 0 } };
+    },
+
     async linkParentToStudent(parentId, studentId) {
       db.linkParentToStudent(parentId, studentId);
     },

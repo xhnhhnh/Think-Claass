@@ -307,6 +307,33 @@ export class PetService {
         if (!row) return null;
         return { attackPower: row.attack_power, level: row.level, isDead: this.petIsDead(row) };
       },
+      /**
+       * Experience from outside the domain - engagement's praise route.
+       *
+       * Deliberately does **not** consult the death clock: a praise is recorded against a student
+       * by a teacher, and the pre-migration code applied the growth whenever a `pets` row existed,
+       * dead or not. Refusing here would silently stop granting experience to a student whose pet
+       * starved, which is a behaviour change nobody asked for.
+       */
+      grantPetExperience: async ({ studentId, expGain, mood }) => {
+        const before = this.repository.getPet(studentId);
+        if (!before) return null;
+
+        const next = getNextPetStats(before.experience, before.level, expGain);
+        this.repository.updatePetGrowth(before.id, next.experience, next.level, next.attackPower, mood);
+
+        const row = this.repository.getPet(studentId);
+        if (!row) return null;
+        return {
+          id: row.id,
+          studentId: row.student_id,
+          elementType: row.element_type,
+          level: row.level,
+          experience: row.experience,
+          attackPower: row.attack_power,
+          isDead: this.petIsDead(row),
+        };
+      },
     };
   }
 

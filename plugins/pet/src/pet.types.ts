@@ -51,6 +51,8 @@ export interface PetRepository {
   createPet(studentId: number, input: AdoptPetInput): number;
   upsertPet(studentId: number, input: UpdatePetInput): void;
   updatePetProgress(petId: number, experience: number, level: number, attackPower: number): void;
+  /** Growth from outside the domain; unlike `updatePetProgress` it leaves `last_fed_at` alone. */
+  updatePetGrowth(petId: number, experience: number, level: number, attackPower: number, mood: string): void;
   addPetExperience(petId: number, expGain: number): void;
   /** Praises for a student, newest first. */
   listPraises(studentId: number): PraiseRow[];

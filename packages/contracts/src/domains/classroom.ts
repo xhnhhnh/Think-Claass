@@ -374,6 +374,40 @@ export interface ClassroomPort {
   listStudentLedger(studentId: number, limit?: number): Promise<PointLedgerRow[]>;
 
   /**
+   * Display names for a batch of students, decrypted, as `id -> name`.
+   *
+   * Added in P4.3b.10 because two engagement routes need a student name next to a row that lives
+   * in engagement's own table (`praises`, `certificates`, `messages`). The alternative they had
+   * before was a SQL JOIN from the engagement repository - which is a cross-plugin table read
+   * wearing a query's clothes - and the alternative *after* those tables move is 20 calls to
+   * `getStudentById`. One batch read is both cheaper and honest about what crosses the boundary.
+   *
+   * Ids with no student row are simply absent from the map; callers decide what that means. The
+   * names are decrypted here for the same reason `bindStudentToUser` encrypts them: the cipher is
+   * this domain's concern, and a consumer that received ciphertext would either display it or
+   * reach for the key.
+   */
+  listStudentNamesByIds(studentIds: number[]): Promise<Record<number, string>>;
+
+  /**
+   * Debit a student's spendable balance **and** append the ledger entry, atomically.
+   *
+   * This is one operation rather than `transferStudentCredits` + `recordStudentLedgerEntry`
+   * because the pre-migration callers did both inside one transaction (the lucky draw, the pet
+   * action) and splitting it would make a crash between the two leave a debit with no ledger row -
+   * a points audit that does not add up.
+   *
+   * Refuses with `insufficient-credits` when the balance would go below zero, so the caller cannot
+   * overdraft by ignoring a prior read. `entry.amount` is expected to be the signed amount and must
+   * match `delta`; it is passed whole so the description and type travel with the debit.
+   */
+  spendStudentCredits(input: {
+    studentId: number;
+    delta: number;
+    entry: PointLedgerEntry;
+  }): Promise<ClassroomResult<{ availablePoints: number }>>;
+
+  /**
    * Sum the points a class *earned* (`type = 'ADD_POINTS'`) at or after `since`.
    *
    * Exists because a reader sometimes needs the aggregate rather than the rows, and the

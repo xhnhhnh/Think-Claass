@@ -380,6 +380,16 @@ export class IdentityService {
   }
 
   /**
+   * The lowest-numbered user id for a role, or `null`.
+   *
+   * `ORDER BY id` where the pre-migration code had a bare `LIMIT 1`: identical when there is one
+   * candidate, and a stated rule instead of a planner detail when there are several.
+   */
+  async getFirstUserIdByRole(role: string) {
+    return this.repository.findFirstUserIdByRole(role)?.id ?? null;
+  }
+
+  /**
    * Mint a session for a successful login.
    *
    * The TTL and the recorder fields are the ones the legacy controller passed
@@ -415,6 +425,7 @@ function toPortEvent(row: ActivationEventRow): PortActivationEvent {
 export function assertIdentityPort(service: IdentityService): IdentityPort {
   return {
     getUserById: (userId) => service.getUserById(userId),
+    getFirstUserIdByRole: (role) => service.getFirstUserIdByRole(role),
     activateUser: (input) => service.activateUser(input),
   };
 }
