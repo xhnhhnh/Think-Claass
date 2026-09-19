@@ -5,7 +5,8 @@
     "Allowances may only be lowered, never raised. Target for every key is 0.",
     "Numbers recorded at P0 (baseline-1.7.0) unless noted. See docs/migration/."
   ],
-  "shimPages": 62,
+  "_shimPages_note": "One-line forwarding shims in a plugin-owned tree ('fake pluginization'). P5.2 reached the target: all 61 page shims became the real implementations, and 1 misfiled duplicate shim was deleted because no route imported it. src/pages/Student is now empty and src/pages/Teacher holds only the 5 pages that never had a shim.",
+  "shimPages": 0,
   "deadCode": 66,
   "staticPluginRoutes": 76,
   "_legacyFeatureKeySurfaces_note": "Files that hardcode a list of the legacy class feature keys. P4 removed the backend copy by deriving the names from the class row and moving the catalogue into the classroom plugin manifest. P5 removed the frontend copy the same way: src/lib/classFeatures.generated.ts is generated from plugins/classroom/plugin.json by `npm run class-features`, and G13 verifies it is up to date. Target reached - this must stay 0.",

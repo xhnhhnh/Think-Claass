@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import TeacherTaskTree from './TaskTree';
+import TeacherTaskTree from '@/features/collaboration/pages/TeacherTaskTreePage';
 
 const mocks = vi.hoisted(() => ({
   useClasses: vi.fn(),

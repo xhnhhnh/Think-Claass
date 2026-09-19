@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import TeacherSettings from './Settings';
+import TeacherSettings from '@/features/classroom/pages/TeacherSettingsPage';
 
 const mocks = vi.hoisted(() => ({
   updateProfile: vi.fn(),

@@ -41,7 +41,8 @@ describe('G3 no surface-only pluginization', () => {
 
   it('lowering the allowance is the only allowed change', () => {
     // Guard against someone "fixing" a regression by editing allowances.json upward.
-    expect(allowances.shimPages).toBeLessThanOrEqual(62);
+    // Target reached in P5.2; a shim reappearing is a regression, not headroom.
+    expect(allowances.shimPages).toBeLessThanOrEqual(0);
     expect(allowances.deadCode).toBeLessThanOrEqual(66);
     expect(allowances.staticPluginRoutes).toBeLessThanOrEqual(76);
     expect(allowances.legacyFeatureKeySurfaces).toBeLessThanOrEqual(2);

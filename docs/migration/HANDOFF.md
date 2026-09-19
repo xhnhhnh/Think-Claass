@@ -120,7 +120,8 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3c.3 | 按域拆分 migration（让 kernel-only 部署不再建业务表） | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | 🔶 |
 | P5.1 | **19 个 `enable_*` 前端硬编码表 → 从插件 manifest 生成** | 见 `git log` | ✅ |
-| P5.2 | 62 个转发 shim → 真实 UI 移入插件；`AppRoutes` 的 80 条 Route → 注册表驱动 | — | ⬜ |
+| P5.2 | ~~62 个转发 shim~~ ✅ **P5.2a**：61 个 shim 变成真实实现，1 个错位重复 shim 删除 | 见 `git log` | ✅ |
+| P5.2b | `AppRoutes` 的 66 条 lazy import → 注册表驱动 + `import.meta.glob` | — | ⬜ |
 | P5.3 | 4 个布局的硬编码菜单 → `MenuRegistry`；`window.__TC_CONFIG__` 取代部署期 `sed` | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
@@ -199,7 +200,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 | 键 | 当前 | 目标 | 含义 |
 |---|---|---|---|
-| `shimPages` | 62 | 0 | 插件树里的一行转发 shim（"假插件化"） |
+| `shimPages` | **0** ✅（62 → 0）| 0 | 插件树里的一行转发 shim（"假插件化"） |
 | `deadCode` | 70 | 0 | 应用不可达文件 |
 | `staticPluginRoutes` | 76 | 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
@@ -239,7 +240,7 @@ guardrails      11 文件 / 43 用例
 |---|---|---|
 | `api:surface` 端点数 | **292** | 迁移期间**不应变化**。变小 → 扫描漏了插件；变大 → 多出端点 |
 | `deadCode` | **66** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
-| `shimPages` | 62 | P5 之前不应变化 |
+| `shimPages` | **0** | P5.2a 已达成 |
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
 | `adoptedTables` | **26** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
 | `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 |

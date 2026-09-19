@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import TeacherDashboard from './Dashboard';
+import TeacherDashboard from '@/features/classroom/pages/TeacherDashboardPage';
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -70,43 +70,43 @@ vi.mock('@/features/classroom/api/analyticsApi', () => ({
   },
 }));
 
-vi.mock('./components/DroppableGroup', () => ({
+vi.mock('@/pages/Teacher/components/DroppableGroup', () => ({
   DroppableGroup: ({ children }: any) => <div>{children}</div>,
 }));
 
-vi.mock('./components/DraggableStudent', () => ({
+vi.mock('@/pages/Teacher/components/DraggableStudent', () => ({
   DraggableStudent: () => <div>student card</div>,
 }));
 
-vi.mock('./components/ClassroomTools', () => ({
+vi.mock('@/pages/Teacher/components/ClassroomTools', () => ({
   ClassroomTools: () => <div>classroom tools</div>,
 }));
 
-vi.mock('./components/PointsModal', () => ({
+vi.mock('@/pages/Teacher/components/PointsModal', () => ({
   PointsModal: () => null,
 }));
 
-vi.mock('./components/CreateClassModal', () => ({
+vi.mock('@/pages/Teacher/components/CreateClassModal', () => ({
   CreateClassModal: () => null,
 }));
 
-vi.mock('./components/CreateGroupModal', () => ({
+vi.mock('@/pages/Teacher/components/CreateGroupModal', () => ({
   CreateGroupModal: () => null,
 }));
 
-vi.mock('./components/PraiseModal', () => ({
+vi.mock('@/pages/Teacher/components/PraiseModal', () => ({
   PraiseModal: () => null,
 }));
 
-vi.mock('./components/EditStudentsModal', () => ({
+vi.mock('@/pages/Teacher/components/EditStudentsModal', () => ({
   EditStudentsModal: () => null,
 }));
 
-vi.mock('./components/AIRadarModal', () => ({
+vi.mock('@/pages/Teacher/components/AIRadarModal', () => ({
   AIRadarModal: () => null,
 }));
 
-vi.mock('./components/ClassFeaturePanel', () => ({
+vi.mock('@/pages/Teacher/components/ClassFeaturePanel', () => ({
   default: ({ classId, compact }: { classId: number | null; compact?: boolean }) => (
     <div>{`feature-panel-${classId}-${compact ? 'compact' : 'full'}`}</div>
   ),

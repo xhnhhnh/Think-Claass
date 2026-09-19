@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import TeacherExams from './Exams';
+import TeacherExams from '@/features/learning/pages/TeacherExamsPage';
 
 const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),

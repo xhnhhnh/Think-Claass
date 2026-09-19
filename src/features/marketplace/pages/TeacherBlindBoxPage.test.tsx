@@ -19,7 +19,7 @@ vi.mock('@/hooks/queries/useTeacherShop', () => ({
   useTeacherBlindBoxes: mocks.useTeacherBlindBoxes,
 }));
 
-import TeacherBlindBox from './BlindBox';
+import TeacherBlindBox from '@/features/marketplace/pages/TeacherBlindBoxPage';
 
 describe('TeacherBlindBox', () => {
   beforeEach(() => {

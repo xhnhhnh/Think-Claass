@@ -19,7 +19,7 @@ vi.mock('@/hooks/queries/useTeacherShop', () => ({
   useTeacherAuctions: mocks.useTeacherAuctions,
 }));
 
-import TeacherAuction from './Auction';
+import TeacherAuction from '@/features/marketplace/pages/TeacherAuctionPage';
 
 describe('TeacherAuction', () => {
   beforeEach(() => {

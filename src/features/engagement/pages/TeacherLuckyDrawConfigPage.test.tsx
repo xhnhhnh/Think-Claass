@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import TeacherLuckyDrawConfig from './LuckyDrawConfig';
+import TeacherLuckyDrawConfig from '@/features/engagement/pages/TeacherLuckyDrawConfigPage';
 
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
