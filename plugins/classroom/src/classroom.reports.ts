@@ -43,6 +43,15 @@ export interface ReportQueries {
     /** The parent link ids for this student, for the report access check. */
     parentIds: number[];
   } | null;
+  countLeaveRequests(studentIds: number[]): number;
+  recentLeaves(studentId: number, limit: number): Array<{
+    start_date: string;
+    end_date: string;
+    reason: string;
+    status: string;
+    review_comment: string | null;
+    created_at: string;
+  }>;
 }
 
 export function createReportQueries(db: DbApi): ReportQueries {
@@ -350,6 +359,39 @@ export function createReportQueries(db: DbApi): ReportQueries {
         teacherId: row.teacher_id ?? null,
         parentIds,
       };
+    },
+
+    /**
+     * Leave-request count for a roster.
+     *
+     * The legacy class overview was `COUNT(*) FROM leave_requests lr JOIN students s ON s.id =
+     * lr.student_id WHERE s.class_id = ?`. The join is gone - `students` is this plugin's own, so the
+     * caller may pass the roster it already resolved - and the ids go in as bound parameters.
+     */
+    countLeaveRequests(studentIds) {
+      if (studentIds.length === 0) return 0;
+      const placeholders = studentIds.map(() => '?').join(',');
+      const row = db.get<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM leave_requests WHERE student_id IN (${placeholders})`,
+        studentIds,
+      );
+      return row?.n ?? 0;
+    },
+
+    /** The newest leave rows for one student, projected to the columns the report carries. */
+    recentLeaves(studentId, limit) {
+      return db.query<{
+        start_date: string;
+        end_date: string;
+        reason: string;
+        status: string;
+        review_comment: string | null;
+        created_at: string;
+      }>(
+        `SELECT start_date, end_date, reason, status, review_comment, created_at
+           FROM leave_requests WHERE student_id = ? ORDER BY created_at DESC LIMIT ?`,
+        [studentId, limit],
+      );
     },
   };
 }

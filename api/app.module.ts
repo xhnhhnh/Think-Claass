@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AdminModule } from './modules/admin/admin.module.js';
-import { InsightsModule } from './modules/insights/insights.module.js';
 
 /**
  * The legacy composition's module list.
@@ -33,12 +32,18 @@ import { InsightsModule } from './modules/insights/insights.module.js';
  *                          api/services/paymentService.ts and paymentProviders/** with it
  *   EngagementModule    -> plugins/engagement    (P4.3b.10) - announcements, praises, certificates,
  *                          redemption, messages, family tasks, lucky draw, danmaku (17 routes)
+ *   InsightsModule      -> plugins/insights      (P4.3b.13) - the three /api/analytics report
+ *                          routes, which own no tables and read everything through ports
  *
- * After P4.3b.10 this list is down to two modules: admin and insights. Everything else that used to
- * live here is a plugin. `api/modules/platform` went in P4.3b.8 - it stopped being a domain in
- * P4.3b.5d (parent-buff left) and its payment half became an `infrastructure`-tier plugin rather
- * than moving into the kernel, which would have made the kernel know what a payment order is
- * (guardrail G5).
+ * After P4.3b.13 this list holds **one** module, and it is the last un-migrated domain: admin. The
+ * legacy composition still serves every plugin domain - it imports the plugin modules into this root
+ * via `createLegacyRootModule()` in api/app.ts - so this list shrinking to a single entry is a
+ * statement about the remaining work, not about the assembly.
+ *
+ * `admin` is not simply "the next one": HANDOFF section 8.3.1 records that its delete cascade removes
+ * rows from 58 tables in one Prisma transaction (measured in P4.3b.11), and that making it use port
+ * calls would give up the atomicity that keeps a half-deleted account impossible. That is a
+ * deliberate ruling, not a refactor.
  *
  * `SettingsModule` is the one entry that did not become a plugin: its entire body
  * was `SELECT key, value FROM settings`, and `settings` is kernel-owned storage, so
@@ -62,7 +67,6 @@ import { InsightsModule } from './modules/insights/insights.module.js';
 @Module({
   imports: [
     AdminModule,
-    InsightsModule,
   ],
 })
 export class AppModule {}

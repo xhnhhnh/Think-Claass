@@ -182,6 +182,14 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
       return reports.studentAccessView(studentId);
     },
 
+    async countLeaveRequestsForStudents(studentIds) {
+      return reports.countLeaveRequests(studentIds);
+    },
+
+    async listRecentLeaves(studentId, limit) {
+      return reports.recentLeaves(studentId, limit);
+    },
+
     async listStudentsByParent(parentId) {
       return db.listStudentsByParent(parentId).map((row) => toStudentSnapshot(row, cipher));
     },

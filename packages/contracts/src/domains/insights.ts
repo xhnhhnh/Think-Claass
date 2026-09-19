@@ -163,6 +163,15 @@ export interface StudentAccessView {
   userId: number | null;
   classId: number;
   teacherId: number | null;
+  /**
+   * The parents linked to this student.
+   *
+   * `parent_students` is classroom's table, and the report's parent branch needs to know whether the
+   * asking parent is one of them. Publishing the ids rather than an `isParentOf(studentId, parentId)`
+   * verdict keeps the *decision* in the consumer (which also weighs the actor's role) and the *data*
+   * with the owner.
+   */
+  parentIds: number[];
 }
 
 export type InsightsRefusalCode = 'student-not-found' | 'class-not-found' | 'forbidden';

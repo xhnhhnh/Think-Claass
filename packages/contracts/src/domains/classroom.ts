@@ -11,6 +11,21 @@ import type {
   StudentReportInputs,
 } from './insights.js';
 
+/**
+ * One leave request as a report shows it.
+ *
+ * Declared here, beside the port, because it is classroom's own row projected for a consumer - the
+ * same shape `PointLedgerRow` takes for the ledger.
+ */
+export interface StudentLeaveRow {
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: string;
+  review_comment: string | null;
+  created_at: string;
+}
+
 export interface StudentDto {
   id: number;
   user_id?: number | null;
@@ -320,6 +335,21 @@ export interface ClassroomPort {
    * actor's role, neither of which is classroom's business.
    */
   getStudentAccessView(studentId: number): Promise<StudentAccessView | null>;
+
+  /**
+   * How many leave requests a set of students filed.
+   *
+   * `leave_requests` is classroom's, and the class overview shows one number for it. It is a separate
+   * method rather than a field on `getClassReportInputs` because that would widen the class report for
+   * a single integer, and because the answer needs the roster - which this plugin already has.
+   */
+  countLeaveRequestsForStudents(studentIds: number[]): Promise<number>;
+
+  /**
+   * The newest leave requests for one student, newest first, projected to the five columns the
+   * student report displays (`ClassroomPort` does not publish raw rows).
+   */
+  listRecentLeaves(studentId: number, limit: number): Promise<StudentLeaveRow[]>;
 
   // -- the parent <-> student relation --------------------------------------
   //

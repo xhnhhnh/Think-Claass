@@ -132,6 +132,7 @@ describe('legacy composition serves plugin routes', () => {
       'engagement',
       'gacha',
       'identity',
+      'insights',
       'learning',
       'marketplace',
       'parent-buff',
@@ -268,6 +269,68 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
     expect(JSON.parse(response.body)).toEqual({ success: true, data: [] });
+  });
+
+  it('serves the migrated insights domain from its plugin, through the report ports', async () => {
+    // `api/modules/insights` is gone (P4.3b.13) and the three `/api/analytics` routes are
+    // plugins/insights'. This is the round whose whole point is that the domain owns **no tables**: it
+    // answers by calling `classroom.public` and `engagement.public`.
+    //
+    // A missing class is the case that proves the port path ran: the service asks
+    // `getClassReportInputs`, gets `class: null`, and answers the legacy 404. A route that was not
+    // mounted answers Nest's catch-all instead - same status, different body - so both are asserted.
+    const missing = await probe('/api/analytics/classes/999/overview');
+    expect(missing.status).toBe(404);
+    expect(missing.body).toContain('Class not found');
+    expect(missing.body).not.toContain('Cannot GET');
+
+    // The boot-seeded class exists, so this one goes all the way through the port: aggregates from
+    // classroom, praise count from engagement, and the derived rates computed here.
+    const overview = await probe('/api/analytics/classes/1/overview');
+    expect(overview.status, `overview body: ${overview.body}`).toBe(200);
+    expect(overview.body).not.toContain('Cannot GET');
+
+    const payload = JSON.parse(overview.body) as {
+      success: boolean;
+      class: { id: number; name: string };
+      summary: Record<string, number>;
+      distributions: unknown[];
+      top_students: unknown[];
+    };
+    expect(payload.success).toBe(true);
+    expect(payload.class.id).toBe(1);
+    // Every key the summary contract names, present and numeric - the shape the dashboard reads.
+    for (const key of [
+      'total_students',
+      'average_points',
+      'max_points',
+      'min_points',
+      'average_exam_score',
+      'assignment_completion_rate',
+      'attendance_rate',
+      'praise_count',
+      'leave_count',
+    ]) {
+      expect(typeof payload.summary[key], `summary.${key}`).toBe('number');
+    }
+    expect(Array.isArray(payload.distributions)).toBe(true);
+    expect(Array.isArray(payload.top_students)).toBe(true);
+  });
+
+  it('answers the insights access check on a real request', async () => {
+    // An anonymous caller is refused by the access check *before* any port call, so this also shows
+    // the 403/404 split: a bogus student id is a 403 for an anonymous caller, not a 404.
+    const anonymous = await probe('/api/analytics/students/1/radar');
+    expect(anonymous.status).toBe(403);
+    expect(anonymous.body).not.toContain('Cannot GET');
+
+    // With the legacy header bridge, a teacher asking about a class they do not own gets the
+    // class-overview refusal - the other hand-written gate in this domain.
+    const teacher = await probe('/api/analytics/classes/999/overview', {
+      headers: { 'x-user-role': 'teacher', 'x-user-id': '1' },
+    });
+    expect(teacher.status).toBe(403);
+    expect(teacher.body).toContain('无权限查看该班级分析');
   });
 
   it('runs the migrated identity domain through a real login', async () => {

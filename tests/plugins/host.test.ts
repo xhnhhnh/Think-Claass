@@ -121,6 +121,7 @@ describe('plugin discovery and activation', () => {
       'engagement',
       'gacha',
       'identity',
+      'insights',
       'learning',
       'marketplace',
       'parent-buff',
@@ -170,6 +171,7 @@ describe('plugin discovery and activation', () => {
       'engagement:active',
       'gacha:active',
       'identity:active',
+      'insights:active',
       'learning:active',
       'marketplace:active',
       'parent-buff:active',
@@ -218,15 +220,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(18);
-    expect(body.kernel.plugins.active).toBe(18);
+    expect(body.kernel.plugins.total).toBe(19);
+    expect(body.kernel.plugins.active).toBe(19);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'identity', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
   });
 });
 
