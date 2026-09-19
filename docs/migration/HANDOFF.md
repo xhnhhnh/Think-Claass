@@ -112,7 +112,9 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3b.4 | **`portal` 迁成插件** + 修 dbApi 正则误判 | 见 `git log` | ✅ |
 | **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`（见下方"platform 不是干净域"）/`learning` | — | ⬜ **下一步** |
 | P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `settings`/`system` | — | ⬜ |
-| P4.3c | `api/db.ts` 78 条启动期 DDL → 编号迁移 | — | ⬜ |
+| P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
+| P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | 见 `git log` | ✅ |
+| P4.3c.2 | 把 `bootSchemaMigration` 也接入 kernel 组装，并删掉 `ensureAdoptedSchema` 的重复 DDL | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
@@ -451,10 +453,33 @@ PLUGINS_ENABLED=1 npx tsx api/server.ts
 
 ## 9. 后续阶段要点（提前知道，避免走错）
 
-### P4.3c · `api/db.ts` 启动期 DDL
-- 78 条 `CREATE TABLE` + `addColumnIfNotExists` + 表重建（`messages_new`）需收编为编号迁移
-- `db.ts` 最终只保留连接与 PRAGMA
-- 注意 `payment_orders`/`payment_transactions` 只存在于 Prisma，`messages_new` 只存在于原始 SQL
+### P4.3c · `api/db.ts` 启动期 DDL —— 🔶 进行中
+
+**P4.3c.1 已完成**：`initDb()` 里那 787 行 DDL（79 张表 + 60 个索引）收编为编号迁移：
+
+```ts
+export const BOOT_SCHEMA_MIGRATION_ID = '0000_legacy_boot_schema';
+export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `...787 行 SQL...` };
+```
+
+- `initDb()` 现在先 `ensureAdoptedSchema(db)`，再 `runMigrations(db, [bootSchemaMigration])`，然后**照旧**每次启动执行 seed 段
+  （首页内容、14 条 settings、`addColumnIfNotExists` 兼容列）—— 行为逐字不变。
+- **`up` 故意用字符串而不是函数**：字符串迁移的 checksum 取自 SQL 文本，因此代码搬到哪都不会变；
+  函数迁移的 checksum 取自 `up.toString()`，一搬家就会让 `runMigrations` **拒绝启动**已迁移的库
+  （`migration "x" was modified after it was applied`）。这也是 DDL 仍留在 `api/db.ts` 而不是搬去 `api/schema/` 的原因。
+- id 选 `0000_` 是因为排序在 `0001_kernel_settings` 之前 —— 内核表依赖不了业务表，业务表要先进去。
+- **实测验证**（不是推断）：
+  - 全新库首启：79 张表、ledger 写入 1 行、`pets.mood`/`pets.last_fed_at` 存在；再次启动跳过、不重复执行。
+  - **已存在的真实库（13MB 的 `database.sqlite`）**：84 张表（无重复建表）、11 个 users / 3 个 students 行全部保留，
+    ledger 补记为 7 条（`0000_legacy_boot_schema` + 5 条 kernel + `p_pet_0001_init`）。
+  - legacy 组装真实启动：`/api/website/home`、`/api/shop/items`、`/api/peer-reviews`、`/api/economy/...` 全部正常。
+
+**P4.3c.2 待做**：现在 kernel 组装仍靠 `api/schema/adoptedTables.ts` 的 `ensureAdoptedSchema()` 建表，
+而 legacy 组装靠这条迁移 —— **同一张表仍有两处 DDL**。下一步应把 `bootSchemaMigration` 接入
+`createKernel` 的 `migrations` 列表（或把 DDL 抽到 kernel 可导入的模块），然后删掉 `adoptedTables.ts` 里的重复定义。
+**这一步会彻底消灭 P4.3b 期间反复出现的"列漂移"类 bug**（§8.8 第 2 条）。
+
+- 注意 `payment_orders`/`payment_transactions` **只存在于 Prisma**（不在 `initDb` 的 DDL 里），`messages_new` 只存在于原始 SQL、不在 Prisma。
 
 ### P5 · 前端插件化
 - 删掉 62 个一行 shim（`src/features/*/pages/*`），把真实 UI 从 `src/pages/<Role>/` 移入插件

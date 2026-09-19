@@ -2,6 +2,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
 
+import { createLogger, runMigrations, type Migration } from '@thinkclass/kernel';
+
 import { ensureAdoptedSchema } from './schema/adoptedTables.js';
 
 /**
@@ -124,15 +126,28 @@ export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: str
   `);
 }
 
-export function initDb() {
-  db.pragma('foreign_keys = ON');
+/**
+ * The legacy boot schema, recorded in the migration ledger.
+ *
+ * This is the whole `initDb()` DDL block, unchanged, wrapped as a migration so it
+ * runs exactly once and the ledger says so. Before this it re-ran on every boot with
+ * `CREATE TABLE IF NOT EXISTS`, which made a failed upgrade indistinguishable from a
+ * fresh install - the exact problem `runMigrations` exists to solve.
+ *
+ * `up` is a STRING on purpose. A string checksum is derived from the SQL text, so the
+ * migration keeps its identity no matter where this file moves; a function migration
+ * checksums its own source, so relocating one would make `runMigrations` refuse to
+ * start against an already-migrated database.
+ *
+ * Id `0000_...` sorts before every kernel migration, which is correct: the legacy
+ * schema is a prerequisite for the tables the kernel and plugins build on.
+ */
+export const BOOT_SCHEMA_MIGRATION_ID = '0000_legacy_boot_schema';
 
-  // Tables adopted by plugins (students, classes, records, bank_accounts, stocks,
-  // student_stocks) are defined in exactly one place and created first, because the
-  // rest of this DDL and the plugin repositories reference them.
-  ensureAdoptedSchema(db);
-
-  db.exec(`
+export const bootSchemaMigration: Migration = {
+  id: BOOT_SCHEMA_MIGRATION_ID,
+  owner: 'legacy',
+  up: `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       role TEXT NOT NULL,
@@ -920,7 +935,21 @@ export function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_knowledge_products_node_id ON knowledge_products(knowledge_node_id);
-  `);
+  `,
+};
+
+export function initDb() {
+  db.pragma('foreign_keys = ON');
+
+  // Tables adopted by plugins (students, classes, records, bank_accounts, stocks,
+  // student_stocks) are defined in exactly one place and created first, because the
+  // rest of this DDL and the plugin repositories reference them.
+  ensureAdoptedSchema(db);
+
+  // The boot schema is now a versioned migration. Already-applied databases skip it
+  // and the ledger records that fact, instead of re-running 787 lines of DDL silently.
+  runMigrations(db, [bootSchemaMigration], { logger: createLogger('legacy-schema', { level: 'warn' }) });
+
 
   // 初始化首页内容默认数据
   const heroExists = db.prepare("SELECT section_key FROM homepage_content WHERE section_key = 'hero'").get();
