@@ -85,7 +85,7 @@ npm test                      # 核对我声称的 114 文件 / 437 用例
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 9 组防伪护栏（棘轮，30 用例）
+npm run guard         # 11 组防伪护栏（棘轮，39 用例）
 npm run check         # tsc --noEmit
 npm run measure       # 基线度量（死代码/重复/schema 漂移）
 npm run api:surface -- --check     # 292 条端点必须零漂移（含 plugins/**）
@@ -222,7 +222,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 npm test        113 文件 / 567 用例全绿
 npm run check   exit 0
 api:surface     unchanged (292 endpoints)
-guardrails      8 文件 / 34 用例
+guardrails      10 文件 / 39 用例
 ```
 
 **已迁成插件的域（11 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal（+ 原有 classroom, pet）
@@ -571,5 +571,5 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
 | `docs/migration/03-plugin-runtime.md` | 插件运行时全貌、10 个缺陷 |
 | `docs/migration/04-capabilities-and-domains.md` | 能力系统、审计下沉、`game` 拆分 |
 | `scripts/migration/lib/analysis.mjs` | 所有度量的单一实现 |
-| `tests/guardrails/` | 8 条护栏 + 棘轮额度 |
+| `tests/guardrails/` | 11 条护栏（G1–G13）+ 棘轮额度 |
 | `scripts/migration/spikes/nest-dynamic-controllers.mjs` | R10 证据（判断 Nest 能否动态装配时先跑它） |
