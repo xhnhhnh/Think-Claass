@@ -20,6 +20,9 @@
 按照 docs/migration/ 下的方案，把 ThinkClass 重构为「最小 Core 内核 + 无限 Plugins」架构，
 每轮交付一个可验证的完整片段。
 
+「下一步」在当前版本里是 §1.1（含目标、必须先做的裁决、交付物、写范围、验收判据、不在范围内的事）。
+先读 §1.1 再动手；§1 是状态、§1.1 是目标，两者冲突时以工作区为准。
+
 开工前先跑 git log --oneline -3 / git status --short / npm test 核对真实状态，
 不要相信文档的叙述；文档与事实冲突时以事实为准，并顺手把文档改对。
 每轮提交前必须跑通 check + test + api:surface --check + guard。
@@ -29,6 +32,9 @@
 > 和「端点必须是 288」，结果另一个对话在同一工作区把 P4.3b 与 P5 大半做完后，
 > 这段提示词当场变成误导 —— **提示词只写不变的规则，状态一律由本文档承载。**
 > 更完整的版本见同目录 `BOOTSTRAP_PROMPT.md`。
+>
+> **§1.1 是这条例子的延伸**：它承载"下一步目标"，但写法是**判据式**的（验收命令 + 硬性数字 +
+> 明确不在范围内的事），不是散文式的进度叙述 —— 上一版把下一步写成散文，两轮就过期了。
 
 ---
 
@@ -70,20 +76,112 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ## 1. 一句话现状
 
-**P0–P4.3b.10 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
-**P4.3b 已迁走 21 个域**：P4.3b.6b 迁走 `classroom` 的整个 HTTP 面（47 条）与 `learning` 剩余部分（24 条）；P4.3b.7 把 `auth` 迁成 `plugins/identity`；P4.3b.8 把支付基础设施迁成 `plugins/payment`；**P4.3b.10 把 `engagement` 迁成 `plugins/engagement`**（17 条路由、9 个控制器、10 张表），并顺手把 §8.9 的两个所有权问题各自了结或写明。`routeCollisions` 保持 **0**，端点数保持 **297**。
+**P0–P4.3b.13 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
+**P4.3b 已迁走 21 个域**，其中最近几轮是：P4.3b.6b（`classroom` 的 47 条 HTTP 面 + `learning` 剩余 24 条）、
+P4.3b.7（`auth` → `plugins/identity`）、P4.3b.8（支付 → `plugins/payment`，`tier: "infrastructure"`）、
+P4.3b.10（`engagement`，17 路由 / 10 表）、**P4.3b.13（`insights`，3 路由、自有表 0 张）**。
+`routeCollisions` 保持 **0**，端点数保持 **297**（未变）。
 **P4.3c 已把两套组装的 schema 合成同一份迁移链**（含 1 列 + 19 索引的补全）。
-**P4.3b.9 修掉了那条悬了五轮的配置陷阱**：Prisma 与 `ctx.db` 现在**保证**打开同一个库（见 §9 的 P4.3b.9 记录）。
 
-**`api/modules/` 现在只剩 1 个**：`admin` —— 而且它不是"下一个"，它需要先裁决 §8.3.1 那个"原子性 vs 所有权"的分叉（P4.3b.11 已把 58 表 / 65 语句 / 1 个事务量清楚）。**其余 20 个域全部是插件**，legacy 组装通过 `createLegacyRootModule()` 把插件模块并进同一个 Nest 根模块。
+**P4.3b.9 修掉了那条悬了五轮的配置陷阱**：Prisma 与 `ctx.db` 现在**保证**打开同一个库（见 §9 的 P4.3b.9 记录）。
+**P4.3b.11 把 admin 迁移的前置未知数量清楚了**，并补上 G13 的第二个方向（SQLite 有而 Prisma 没有的列）。
+**P4.3b.12 先发布了 insights 需要的报表端口**，所以 P4.3b.13 才可能是一个"自有表 0 张"的读模型。
+
+**`api/modules/` 现在只剩 1 个**：`admin`。**其余 20 个域全部是插件**，legacy 组装通过
+`createLegacyRootModule()` 把插件模块并进同一个 Nest 根模块。
 **`api/services/` 只剩 1 个死文件**（`UserService.ts`，无人引用，P7 删）。
 
 **SDK 在 P4.3b.8 新增第三种 tier**：`'foundation' | 'feature' | 'infrastructure'`。
 
-**下一步（见 §8.4 与 §8.9）**：
-- **`admin` 的 HTTP 面**：14 文件、`admin.repository.ts` 940 行，是 §8.3.1 那笔「用 Prisma `$transaction` 跨域删表」债的主体 —— 现在几乎每个域都有端口了，可以开始逐个改调。它同时是 **Prisma 在运行时的唯一消费者**，所以迁完它就等于把双数据路径彻底消灭（`api/db.ts` 那条 `better-sqlite3` 连接同理，见 §9 的 P4.3b.9）。
-- **`insights`**：跨全域读模型（12 张表），需要 classroom 与 assignments 各自发布报表端口。
-- 之后是 P4.3c.3（按域拆 migration）、P5 收尾、P6、P7。
+**下一步 = §1.1 的那个目标**（`admin`）。它有**一个必须先做的裁决**，不裁决就动手会毁掉一个今天不可能出现的性质 —— 见 §1.1 与 §8.3.1。
+
+---
+
+## 1.1 下一步目标（可直接复制给新会话）
+
+> 这一节是**目标**，不是状态叙述：状态在 §1 与 §7，事实以工作区为准（§0 第一条规矩）。
+> 上一轮把「下一步」放在这里时用的是散文，结果它自己过期了两轮；所以这一节写清楚**判据**，
+> 判据不会随进度漂移。
+
+### 目标一句话
+
+**把 `admin` 域迁成 `plugins/admin`，并在此过程中为"跨域级联删除"确定一个能长期成立的机制。**
+
+### 为什么它不是"最后一个域，照抄前 20 个"
+
+`admin` 有 14 个文件、`admin.repository.ts` 940 行，而真正的难点是
+`DELETE /api/admin/users/:id` → `deleteTeacherCascade`：
+
+| 实测事实 | 出处 |
+|---|---|
+| 它删 **58 张表 / 65 条语句**（2 读 63 写） | `scripts/migration/probes/admin-cascade-inventory.mjs` |
+| 全部包在**一个** `prisma.$transaction` 里 —— 所以"删干净"是**原子**的 | 同上 |
+| 它绕开 `DbApi`，因此**所有权检查对它完全无效** —— 这是唯一一条这样的写路径 | §8.3.1 |
+| 61 张表持有指向 `users`/`classes`/`students` 的外键，其中只有 `blind_boxes` 没被它清理 | `scripts/migration/probes/admin-cascade-fk-coverage.mjs` |
+| 它是 **Prisma 在运行时的唯一消费者**（`api/services/UserService.ts` 是死文件） | 全仓 grep |
+
+**这四条合起来意味着：`admin` 不能靠"照抄端口化"来迁。** 65 个端口调用 = 65 个独立事务，
+进程死在中间会留下**半删的账号** —— 一个今天不可能出现的状态。
+
+### 必须先做的裁决（本轮的第一个交付物，不要跳过）
+
+在**同一份文档**（建议 `docs/migration/admin-cascade-decision.md`）里对下面三条给出**结论 + 理由 + 代价**，
+并采取其中一个。这三条是 P4.3b.11 量出来的真实选项，不是开放式的头脑风暴：
+
+| 方案 | 得到什么 | 付出什么 |
+|---|---|---|
+| A. 各域发布级联删除端口 | 所有权模型 100% 成立 | **失去原子性**；要给约 15 个域各设计一个删除方法；半删状态成为可能 |
+| B. 插件按脚本注册自己的清理规则，内核按序执行 | 保留原子性；58 张表的表名集中在一处 | 内核要**按名字执行业务表的删除**，与 **G5（内核零业务知识）** 的张力需要一个正式的说法 |
+| C. 暂不迁，只把债务收窄 | 不动现状 | `admin` 继续是唯一绕过所有权模型的写者；**P7 的表改名被它堵死** |
+
+**裁决的判据不是"哪个更好看"，而是：`half-deleted account` 这个状态能不能接受。**
+如果选 A，必须在文档里写明"接受它"，并说明补偿措施（例如幂等重试、或先写 tombstone 再删）。
+如果选 B，必须给出 G5 的具体边界（"内核执行删除"不等于"内核知道什么是班主任"），
+并接受一条新的护栏来钉住它。
+
+### 交付物与写范围
+
+| # | 交付物 | 写范围（独占） |
+|---|---|---|
+| 1 | 裁决文档（上表三选一 + 理由 + 护栏设计） | `docs/migration/admin-cascade-decision.md` |
+| 2 | 若选 B：注册表机制 + 护栏；若选 A：各域删除端口 | `packages/kernel/**`、`packages/contracts/**`（选 B）或各 `plugins/<slug>/**`（选 A） |
+| 3 | `plugins/admin/`（14 个文件的迁移；**不是照抄**，见上） | `plugins/admin/**` |
+| 4 | 删除 `api/modules/admin/**` —— 之后 `api/modules/` **为空** | `api/app.module.ts`、`api/modules/admin/**` |
+| 5 | 测试：级联的真库测试（`tests/plugins/admin-cascade.test.ts` 已存在，扩到覆盖裁决后的机制） | `tests/plugins/admin-*.test.ts` |
+| 6 | **顺手清掉 Prisma 运行时依赖**：`admin` 是最后一个消费者，迁完 `api/prismaClient.ts` 与 `api/db.ts` 的第二条连接就该收敛（见 §9 P4.3b.9 的第三处路径规则） | `api/prismaClient.ts`、`api/db.ts` |
+
+### 验收判据（硬性的，与 §0 的三条命令一致）
+
+```bash
+npm run check                 # exit 0
+npm test                      # 全绿；用例数只增不减
+npm run api:surface -- --check # 必须仍是 297 endpoints，不许多也不许少
+npm run guard                 # 12+ 文件全绿；棘轮只降不升。注意 adoptedTables 已是 65——
+                              # admin 迁完**不一定**让它动（它的表都已被各域 adopt 或被 admin 直删），
+                              # 所以别把"数字必须下降"写进验收；把"说明为什么动/不动"写进提交信息
+```
+
+外加：
+
+- `routeCollisions` 必须保持 **0**（删旧模块与建插件必须在**同一次提交**里，§8.2）；
+- `DELETE /api/admin/users/:id` 在**真库**上端到端验证一次（现有 `tests/plugins/admin-cascade.test.ts`
+  已经这样做了 —— 它用临时库，且因为 P4.3b.9 才安全，见该文件头注释）；
+- 两套组装（legacy + kernel）都要真启动一次，且 `/api/admin/*` 在两边都可达；
+- **裁决若选 A 或 B，必须有一条能变红的护栏**：机制失效时测试要报错，而不是静默退化成逐条删除。
+  这条用变异验证（把机制改坏 → 断言必须红），P4.3b.9 / P4.3b.11 两轮都是这么做的。
+
+### 明确不在本目标内
+
+- **P4.3c.3**（按域拆 migration，让 kernel-only 部署不建业务表）；
+- **P5 前端收尾**、**P6 运行期安装**、**P7 清理**（含 `blind_boxes.teacher_id` 那处 schema 漂移、
+  `api/services/UserService.ts`、19 个 `enable_*` 列、`src/api/*` 31 个死文件、`deadCode` 59）。
+
+它们各自是一轮或几轮，不要在 `admin` 这一轮里顺手做 —— §9 的 P4.3b.10 记录了一次"顺手修"的代价。
+
+### 环境约束（不变，见 §2）
+
+网络完全不可用（不能 `npm install` 或加依赖）；文件策略 full-access，测试直接跑。
+团队名额上限 8（含 Lead），名字不可复用。
 
 ---
 
