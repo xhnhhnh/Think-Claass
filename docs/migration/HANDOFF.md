@@ -70,19 +70,20 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ## 1. 一句话现状
 
-**P0–P4.3b.8 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
-**P4.3b 已迁走 19 个域**：P4.3b.6b 迁走 `classroom` 的整个 HTTP 面（47 条）与 `learning` 剩余部分（24 条）；P4.3b.7 把 `auth` 迁成 `plugins/identity`；**P4.3b.8 把支付基础设施迁成 `plugins/payment`（`tier: "infrastructure"`）**，`api/modules/platform` 与 `api/services/paymentService.ts` / `activationService.ts` / `paymentProviders/**` 全部消失。`routeCollisions` 保持 **0**，端点数保持 **297**。
+**P0–P4.3b.9 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分都已落地。
+**P4.3b 已迁走 19 个域**：P4.3b.6b 迁走 `classroom` 的整个 HTTP 面（47 条）与 `learning` 剩余部分（24 条）；P4.3b.7 把 `auth` 迁成 `plugins/identity`；P4.3b.8 把支付基础设施迁成 `plugins/payment`（`tier: "infrastructure"`）。`routeCollisions` 保持 **0**，端点数保持 **297**。
 **P4.3c 已把两套组装的 schema 合成同一份迁移链**（含 1 列 + 19 索引的补全）。
+**P4.3b.9 修掉了那条悬了五轮的配置陷阱**：Prisma 与 `ctx.db` 现在**保证**打开同一个库（见 §9 的 P4.3b.9 记录）——此前 `DATABASE_FILE` 一旦被设置，两条数据路径就会指向两个不同的文件，而**测试与探针正是天天设置它的人**。
 
 **`api/modules/` 现在只剩 3 个**：`admin`、`engagement`、`insights` —— 三个都还没迁，且都是真域（不再是基础设施）。
 **`api/services/` 只剩 1 个死文件**（`UserService.ts`，无人引用，P7 删）。
 
-**SDK 本轮新增第三种 tier**：`'foundation' | 'feature' | 'infrastructure'`。这是 §8.9 悬了三轮的决定的落地方式 —— 支付既不能进内核（G5 会破），也不能当 `feature`（它拥有真实订单，不能被随手关掉）。
+**SDK 在 P4.3b.8 新增第三种 tier**：`'foundation' | 'feature' | 'infrastructure'`。这是 §8.9 悬了三轮的决定的落地方式 —— 支付既不能进内核（G5 会破），也不能当 `feature`（它拥有真实订单，不能被随手关掉）。
 
 **下一步（见 §8.4 与 §8.9）**：
-- **`admin` 的 HTTP 面**：14 文件、`admin.repository.ts` 940 行，是 §8.3.1 那笔「用 Prisma `$transaction` 跨域删表」债的主体 —— 现在几乎每个域都有端口了，可以开始逐个改调。
+- **`admin` 的 HTTP 面**：14 文件、`admin.repository.ts` 940 行，是 §8.3.1 那笔「用 Prisma `$transaction` 跨域删表」债的主体 —— 现在几乎每个域都有端口了，可以开始逐个改调。它是 **Prisma 在运行时的唯一消费者**，所以迁完它就等于把双数据路径彻底消灭（`api/db.ts` 那条 `better-sqlite3` 连接同理，见 §9）。
+- **`engagement`**：`api/modules/engagement`（785 行、14 张表）。两个所有权问题要先定：① 它**写 `pets`**（已是 pet 插件的表，需要一个"赞美给宠物加经验"的端口）；② 与 marketplace **双写 `redemption_tickets`**（G10 的 `SHARED_WRITE_TABLES` 已登记）。
 - **`insights`**：跨全域读模型（12 张表），需要 classroom 与 assignments 各自发布报表端口。
-- **`engagement`**：卡在 `pets`/`redemption_tickets` 的所有权决定（`pets` 已是 pet 插件的表）。
 - 之后是 P4.3c.3（按域拆 migration）、P5 收尾、P6、P7。
 
 ---
@@ -141,6 +142,7 @@ npm run api:surface -- --check     # 297 条端点必须零漂移（含 plugins/
 | **P4.3b.6b** | **`classroom` 的整个 HTTP 面（47 条）+ `learning` 剩余部分（24 条）迁成插件**；删 `api/modules/classroom` 与 `api/modules/learning`，`routeCollisions` 保持 0，端点数不变 | `e6c8e24` | ✅ |
 | **P4.3b.7** | **`auth` 迁成 `plugins/identity`**：4 条路由 + `users`/`activation_codes`/`activation_events` 三张表 + 发布 `identity.public.activateUser`；删 `api/modules/auth/**` 与 `api/services/activationService.ts`，`legacyAuthProvider` 由 `ctx.auth.registerProvider` 取代 | `1e1d159` | ✅ |
 | **P4.3b.8** | **支付基础设施迁成 `plugins/payment`**（`tier: "infrastructure"`，SDK 新增第三种 tier）：3 条路由 + `payment_orders`/`payment_transactions` + provider 层；删 `api/modules/platform/**`、`api/services/paymentService.ts`、`paymentProviders/**` | 见 `git log` | ✅ |
+| **P4.3b.9** | **两条数据路径保证指向同一个库**：`api/prismaClient.ts` 用与 `loadConfig` 相同的规则解析库文件并把 datasource 显式传给 `PrismaClient`（覆盖 `.env` 的 `DATABASE_URL`）；新增 `tests/kernel/database-path-alignment.test.ts`（含真 Prisma 子进程断言 + 第四个读取者的围栏） | 见 `git log` | ✅ |
 | P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity`（`settings`/`system` 已完成） | — | ✅ 全部完成（`pet` P4.3b.6；`classroom` P4.3b.6b；`auth`→`identity` P4.3b.7） |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
@@ -302,7 +304,7 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        117 文件 / 821 用例全绿
+npm test        118 文件 / 825 用例全绿
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
 guardrails      12 文件 / 53 用例
@@ -953,6 +955,48 @@ identity 不 adopt `payment_orders`（所有权检查会在开发环境直接拒
 
 ---
 
+### P4.3b.9 · 两条数据路径保证指向同一个库（P4.3b.5c 发现 #1 的收尾）—— ✅ 已完成
+
+**这不是新问题**：§9 的 P4.3b.5c 发现 #1 五轮前就记下了 —— `.env` 的 `DATABASE_URL` 与
+`DATABASE_FILE` 是两个独立设置，一旦只设置后者，Prisma 与 `api/db.ts` 就指向两个不同的文件。
+当时判断是"归 P4.3c.3 一起收尾"。这一轮**重新实测后决定提前修**，因为它不是配置整洁度问题：
+
+```
+as shipped（只有 .env）      app -> <root>/database.sqlite    prisma -> <root>/database.sqlite    一致
+DATABASE_FILE 被覆盖         app -> <tmp>/app-only.sqlite     prisma -> <root>/database.sqlite    分歧
+```
+
+**分歧的后果是静默的错误答案**：Prisma 把 `users` 行插进真实库，而请求经 `better-sqlite3`
+从临时副本把它读出来 —— 行存在，答案是"没找到"。而**谁在设置 `DATABASE_FILE`？测试与探针**，
+也就是最谨慎的那批人。`plugins/payment` 从另一侧记录了同一个陷阱（它坚持两个访问路径都用 `ctx.db`）。
+
+**修法**：`api/prismaClient.ts` 用**与 `loadConfig` 完全相同的规则**解析库文件，并把该路径作为
+datasource URL **显式**传给 `PrismaClient` —— 显式 datasource 优先于 `.env`，所以
+`DATABASE_URL` 在运行时不再决定任何东西。部署脚本往 `.env` 写 `DATABASE_URL` 的那几行因此变得无害。
+
+**新增 `tests/kernel/database-path-alignment.test.ts`（4 例）**，覆盖三种会静默回归的方式：
+
+1. 解析规则漂移 —— 两条路径在 `DATABASE_FILE` 被设置时都解析到**同一个**值；
+2. 覆盖不再抵达引擎 —— **真起一个子进程**（`DATABASE_FILE=<tmp>` 且 `DATABASE_URL` 故意指向别处）
+   导入 `api/prismaClient.ts`，用 `PRAGMA database_list` 读出 Prisma **实际打开**的文件，
+   断言它是那个临时文件。子进程是必需的：`PrismaClient` 在模块加载时构造，
+   进程内测试要么复用先前导入的客户端（等于什么都没测），要么无法二次导入；
+3. 出现**第四个**读取者 —— 扫描全仓（先剥注释）确认只有三个已知所有者。
+
+**变异验证过非空转**：把 `api/prismaClient.ts` 改回 `new PrismaClient()` → 4 条全部失败。
+
+**过程中自己踩的一个坑，值得记**：第一版探针**自己 `new PrismaClient()`**，所以它测的是
+"Prisma 读 `.env` 的行为"，而不是被测代码 —— 修好之后它仍然报 `DIVERGENT`，一度让人以为修法无效。
+**探针必须走生产路径，否则测的是探针本身。**
+
+**顺带查出的第三处路径规则**：`api/db.ts` 直接 `new Database(dbPath)`，自己复制了一份
+`path.resolve(process.cwd(), process.env.DATABASE_FILE)`。它是 legacy 组装的 `db` 句柄，
+目前**解析到同一个文件**（所以没有活跃 bug），但它是一条**独立的 better-sqlite3 连接**，
+也是第三个路径规则的副本 —— 已作为已知债务写进那条测试的枚举列表。admin 迁移完
+（Prisma 在运行时的唯一消费者）之后，这两条重复路径应该合并。
+
+---
+
 ### ⚠️ P4.3b.5c 的三个实测发现（都很容易再踩）
 
 #### 1. `.env` 把 Prisma 与 `api/db.ts` 指向了**两个不同的库**
@@ -1146,8 +1190,9 @@ G13 报 `read by name but is not created`、G17 报列数 52 < 53。
 
 **P4.3c.3 剩余待做**：schema 仍是**一整块**，kernel-only 部署会建出全部业务表。
 按域拆分 migration 之后，kernel 才能只建自己需要的表。
-**收尾时一并解决**：`.env` 的 `DATABASE_URL` 与 `DATABASE_FILE` 两个独立设置指向同一个库这件事（见上文 P4.3b.5c 发现 #1），
-应该收敛成一个来源，否则"内核单独部署"永远无法配出一个 Prisma 与应用都对的库。
+~~**收尾时一并解决**：`.env` 的 `DATABASE_URL` 与 `DATABASE_FILE` 两个独立设置指向同一个库这件事（见上文 P4.3b.5c 发现 #1），
+应该收敛成一个来源，否则"内核单独部署"永远无法配出一个 Prisma 与应用都对的库。~~
+→ ✅ **P4.3b.9 已解决**（比原计划提前，因为它是个会静默给出错误答案的陷阱，见 §9 的 P4.3b.9 记录）。
 **另外还欠一笔**：`api/db.ts` 里 `messages` 表的重建（去掉 `sender_id` 外键）仍是只在 legacy 组装里跑的 DDL ——
 kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就意味着把 G17 的允许清单降到空。
 
@@ -1239,6 +1284,9 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | `plugins/payment/src/payment.repository.ts` | `payment_orders`/`payment_transactions` 的全部 SQL，含 `expires_at` 两种格式的说明 |
 | `tests/plugins/payment-service.test.ts` | 真迁移链建库 + 真 `DbApi(strict)` + 真 MockProvider；含"死在两次写之间后重试收敛"的用例 |
 | `tests/plugins/parent-buff-port.test.ts` | `parent_buff.public.touchParentLogin` 与祝福行共存；并钉住既有 bug「当天登录会吃掉当天祝福」 |
+| `api/prismaClient.ts` | Prisma 客户端被钉在与内核相同的库文件上（显式 datasource 覆盖 `.env`），以及 `applicationDatabaseFile/Url` 两个函数 |
+| `tests/kernel/database-path-alignment.test.ts` | 两条数据路径必须同一库：规则一致性 + 真子进程验证 Prisma 实际打开的文件 + 「第四个 `DATABASE_FILE` 读取者」围栏 |
+| `tests/kernel/fixtures/database-path-probe.mts` | 上面那条子进程断言用的探针。**放在 `tests/` 而不是 `.tmp/`**：`.tmp/` 已 gitignore，第一版把它放在那里 —— 本机通过、新克隆必然失败。只在本机能跑的测试夹具不算测试 |
 | `tests/plugins/identity-service.test.ts` | 真迁移链建库 + 真 `DbApi(strict)`；两家端口都是 fake 并记录调用，证明"只走端口" |
 | `tests/plugins/identity-controllers.test.ts` | 4 条路由的动词/路径/`@HttpCode`、信封、以及 `ApiError` 与 500 兜底的翻译 |
 | `tests/plugins/legacy-boot-probe.test.ts` | 唯一一条**真启动 + 真 HTTP** 的登录链路断言：登录拿 token → 用 token 打 profile → 200；以及 `/api/kernel/auth/login` 200（holder 接对了才算过） |
