@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { studentsApi } from '../api/studentsApi';
-import type { StudentDto } from '@/shared/classroom/contracts';
+import type { StudentDto } from '@thinkclass/contracts/domains/classroom';
 
 export type Student = StudentDto;
 

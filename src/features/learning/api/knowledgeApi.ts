@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { KnowledgeEdge, KnowledgeNode, Subject } from '@/shared/learning/contracts';
+import type { KnowledgeEdge, KnowledgeNode, Subject } from '@thinkclass/contracts/domains/learning';
 
 export const knowledgeApi = {
   getSubjects: () => apiGet<{ success: true; data: Subject[] }>('/api/knowledge/subjects'),

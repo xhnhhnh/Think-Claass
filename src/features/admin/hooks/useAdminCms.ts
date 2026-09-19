@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { adminClient } from '../api/adminClient';
-import type { AuditLogQuery, UpsertAdminAnnouncementInput, UpsertTeacherInput } from '@/shared/admin/contracts';
+import type { AuditLogQuery, UpsertAdminAnnouncementInput, UpsertTeacherInput } from '@thinkclass/contracts/domains/admin';
 
 export const adminCmsKeys = {
   teachers: ['admin', 'teachers'] as const,

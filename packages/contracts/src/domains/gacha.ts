@@ -1,4 +1,11 @@
-import type { ApiSuccess } from '../core/contracts';
+/**
+ * gacha domain contracts.
+ *
+ * Moved from `src/shared/gacha/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
+import type { ApiSuccess } from '@thinkclass/contracts';
 
 export type GachaRarity = 'SSR' | 'SR' | 'R' | 'N';
 

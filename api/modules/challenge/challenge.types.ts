@@ -6,7 +6,7 @@ import type {
   ChallengeSubmissionDto,
   WorldBossDto,
   WorldBossPayload,
-} from '../../../src/shared/challenge/contracts.js';
+} from '@thinkclass/contracts/domains/challenge';
 
 export interface ChallengeQuestionRow {
   id: number;

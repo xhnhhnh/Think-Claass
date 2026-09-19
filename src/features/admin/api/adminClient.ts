@@ -17,7 +17,7 @@ import type {
   UpsertAdminAnnouncementInput,
   UpsertOpenSchoolInput,
   UpsertTeacherInput,
-} from '@/shared/admin/contracts';
+} from '@thinkclass/contracts/domains/admin';
 
 export interface AdminCredentials {
   username: string;

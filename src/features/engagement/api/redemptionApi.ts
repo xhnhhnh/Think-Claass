@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { RedemptionTicketDto } from '@/shared/engagement/contracts';
+import type { RedemptionTicketDto } from '@thinkclass/contracts/domains/engagement';
 
 export const redemptionApi = {
   verify: (payload: { code: string; teacherId?: number }) =>

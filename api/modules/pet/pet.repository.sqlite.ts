@@ -1,6 +1,6 @@
 import db, { decrypt } from '../../db.js';
 import { ApiError } from '../../utils/apiError.js';
-import type { AdoptPetInput, PetDto, PetPraiseDto, PetRecordDto, UpdatePetInput } from '../../../src/shared/pet/contracts.js';
+import type { AdoptPetInput, PetDto, PetPraiseDto, PetRecordDto, UpdatePetInput } from '@thinkclass/contracts/domains/pet';
 import { mapClassPetRow, mapPetRow } from './pet.mappers.js';
 import type { ClassPetRow, PetRepository, PetRow, StudentPointsRow } from './pet.types.js';
 

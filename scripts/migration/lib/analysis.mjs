@@ -224,9 +224,11 @@ export function findDeadCode(root, entryRelPaths) {
 /**
  * Entry points for application reachability.
  *
- * The host applications plus every workspace package's public entry. A package
- * entry is an entry point in its own right: `packages/kernel/src/index.ts` is not
- * imported by `src/main.tsx`, but it is very much live.
+ * The host applications, plus everything every workspace package declares in its
+ * `exports` map. Deriving package entries from `exports` rather than globbing
+ * `src/**\/index.ts` is deliberate: a file is an entry point precisely when the
+ * package publishes it, so internal barrels are not mistaken for public surface
+ * and publicly importable modules are not mistaken for dead code.
  *
  * @param {string} root
  * @returns {string[]} repo-relative paths
@@ -234,17 +236,56 @@ export function findDeadCode(root, entryRelPaths) {
 export function defaultEntryPoints(root) {
   /** @type {string[]} */
   const entries = ['src/main.tsx', 'api/server.ts', 'api/index.ts'];
+
   const packagesDir = path.join(root, 'packages');
-  if (fs.existsSync(packagesDir)) {
-    for (const entry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      for (const candidate of ['src/index.ts', 'src/index.tsx']) {
-        const rel = `packages/${entry.name}/${candidate}`;
+  if (!fs.existsSync(packagesDir)) return entries;
+
+  for (const entry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const pkgDir = path.join(packagesDir, entry.name);
+    const manifestPath = path.join(pkgDir, 'package.json');
+    if (!fs.existsSync(manifestPath)) continue;
+
+    let manifest;
+    try {
+      manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    } catch {
+      continue;
+    }
+
+    const targets = [];
+    const exported = manifest.exports;
+    if (typeof exported === 'string') {
+      targets.push(exported);
+    } else if (exported && typeof exported === 'object') {
+      for (const value of Object.values(exported)) {
+        if (typeof value === 'string') targets.push(value);
+        else if (value && typeof value === 'object') {
+          for (const nested of Object.values(value)) if (typeof nested === 'string') targets.push(nested);
+        }
+      }
+    }
+    if (targets.length === 0 && typeof manifest.main === 'string') targets.push(manifest.main);
+
+    for (const target of targets) {
+      const relative = target.replace(/^\.\//, '');
+      if (!relative.includes('*')) {
+        const rel = `packages/${entry.name}/${relative}`;
         if (fs.existsSync(path.join(root, rel))) entries.push(rel);
+        continue;
+      }
+      // Wildcard export, e.g. './domains/*': every file it can resolve to is public.
+      const [prefix, suffix] = relative.split('*');
+      const scanRoot = path.join(pkgDir, prefix);
+      if (!fs.existsSync(scanRoot)) continue;
+      for (const file of collectFiles(scanRoot, ['.ts', '.tsx'])) {
+        const rel = toRel(root, file);
+        if (rel.endsWith(suffix)) entries.push(rel);
       }
     }
   }
-  return entries;
+
+  return [...new Set(entries)];
 }
 
 /**

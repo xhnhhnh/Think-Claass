@@ -12,7 +12,7 @@ export type {
   PetStageImages,
   StudentPetDashboardDto,
   UpdatePetInput,
-} from '@/shared/pet/contracts';
+} from '@thinkclass/contracts/domains/pet';
 
 export interface AdoptPetMutationInput {
   type: 'adopt';

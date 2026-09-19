@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { Question, WrongQuestion } from '@/shared/learning/contracts';
+import type { Question, WrongQuestion } from '@thinkclass/contracts/domains/learning';
 
 export const wrongQuestionsApi = {
   my: () => apiGet<{ success: true; data: WrongQuestion[] }>('/api/wrong-questions/my'),

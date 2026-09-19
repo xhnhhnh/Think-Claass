@@ -1,4 +1,11 @@
-import type { ApiSuccess } from '../core/contracts';
+/**
+ * pet domain contracts.
+ *
+ * Moved from `src/shared/pet/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
+import type { ApiSuccess } from '@thinkclass/contracts';
 
 export type PetElementType = 'fire' | 'water' | 'grass' | 'electric' | 'ice' | 'dragon' | 'normal';
 

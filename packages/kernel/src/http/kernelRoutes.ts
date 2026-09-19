@@ -21,7 +21,8 @@ import { KERNEL_API_VERSION, type KernelConfig } from '../config/loadConfig.js';
 import type { EventBus } from '../events/eventBus.js';
 import type { PermissionEngine } from '../permissions/permissionEngine.js';
 import type { SessionService } from '../auth/session.js';
-import { asyncHandler, unauthorized } from './errorEnvelope.js';
+import type { AuthProvider } from '../auth/authProvider.js';
+import { ApiError, asyncHandler, badRequest, unauthorized } from './errorEnvelope.js';
 import { getRequestContext } from './requestContext.js';
 
 export interface PluginHostView {
@@ -45,6 +46,8 @@ export interface KernelRoutesOptions {
   events: EventBus;
   permissions: PermissionEngine;
   sessions: SessionService;
+  /** Absent until an identity owner is wired; login then reports 503. */
+  authProvider?: AuthProvider;
 }
 
 function bearerToken(req: Request): string | null {
@@ -56,6 +59,51 @@ function bearerToken(req: Request): string | null {
 
 export function createKernelRouter(options: KernelRoutesOptions): Router {
   const router = Router();
+
+  /**
+   * Issue a real session.
+   *
+   * The response carries the opaque token; only its SHA-256 digest is stored. This
+   * replaces the baseline model where the client asserted its own identity with
+   * `x-user-role` / `x-user-id` headers that the server trusted verbatim.
+   */
+  router.post(
+    '/api/kernel/auth/login',
+    asyncHandler(async (req: Request, res: Response) => {
+      const { username, password, role } = (req.body ?? {}) as Record<string, unknown>;
+      if (!username || !password) throw badRequest('用户名和密码不能为空');
+
+      const provider = options.authProvider;
+      if (!provider) {
+        throw new ApiError(503, '认证提供者尚未配置', { code: 'AUTH_PROVIDER_MISSING' });
+      }
+
+      const identity = await provider.authenticate({
+        username: String(username),
+        password: String(password),
+        role: role === undefined ? undefined : String(role),
+      });
+      if (!identity) throw unauthorized('账号或密码错误，请重试');
+
+      const session = options.sessions.issue({
+        userId: identity.actor.userId,
+        role: identity.actor.role,
+        ttlMs: options.config.sessionTtlMs,
+        userAgent: req.header('user-agent') ?? null,
+        ip: req.ip ?? null,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          token: session.token,
+          expiresAt: session.expiresAt,
+          actor: identity.actor,
+          profile: identity.profile ?? null,
+        },
+      });
+    }),
+  );
 
   router.get('/api/health', (_req: Request, res: Response) => {
     const body: HealthStatus = {

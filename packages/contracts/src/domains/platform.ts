@@ -1,3 +1,10 @@
+/**
+ * platform domain contracts.
+ *
+ * Moved from `src/shared/platform/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
 export type {
   ActivationCodeListItem as ActivationCodeDto,
   AdminAnnouncementListItem as AdminAnnouncementDto,
@@ -10,7 +17,7 @@ export type {
   UpsertAdminAnnouncementInput,
   UpsertOpenSchoolInput,
   UpsertTeacherInput,
-} from '@/shared/admin/contracts';
+} from './admin.js';
 
 export type PaymentMethod = 'wechat' | 'alipay';
 

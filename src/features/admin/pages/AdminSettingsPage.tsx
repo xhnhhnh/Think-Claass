@@ -9,7 +9,8 @@ import {
   useStartReleaseUpdateMutation,
   useUpdateAdminSystemSettingsMutation,
 } from '@/features/admin/hooks/useAdminSystem';
-import { DEFAULT_SYSTEM_SETTINGS, type SystemSettings } from '@/shared/admin/contracts';
+import { DEFAULT_SYSTEM_SETTINGS } from '../../../lib/systemSettings.js';
+import type { SystemSettings } from '@thinkclass/contracts/domains/admin';
 
 function normalizeSettings(settings?: Partial<SystemSettings>): SystemSettings {
   const next = {

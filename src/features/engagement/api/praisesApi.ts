@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { PraiseDto } from '@/shared/engagement/contracts';
+import type { PraiseDto } from '@thinkclass/contracts/domains/engagement';
 
 export type Praise = PraiseDto;
 

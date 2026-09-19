@@ -4,4 +4,4 @@ export type {
   StudentRadarResponse,
   StudentReportResponse,
 } from '@/features/classroom/api/analyticsApi';
-export type { ClassAnalyticsSummaryDto as ClassAnalyticsSummary } from '@/shared/classroom/contracts';
+export type { ClassAnalyticsSummaryDto as ClassAnalyticsSummary } from '@thinkclass/contracts/domains/classroom';

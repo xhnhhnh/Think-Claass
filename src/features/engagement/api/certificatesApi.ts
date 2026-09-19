@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { CertificateDto, IssueCertificatePayload } from '@/shared/engagement/contracts';
+import type { CertificateDto, IssueCertificatePayload } from '@thinkclass/contracts/domains/engagement';
 
 export const certificatesApi = {
   getCertificates: () => apiGet<{ success: true; certificates: CertificateDto[] }>('/api/certificates'),

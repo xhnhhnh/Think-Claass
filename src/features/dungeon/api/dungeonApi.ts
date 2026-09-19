@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { DungeonChoicePayload, DungeonChoiceResponse, DungeonStateResponse } from '@/shared/dungeon/contracts';
+import type { DungeonChoicePayload, DungeonChoiceResponse, DungeonStateResponse } from '@thinkclass/contracts/domains/dungeon';
 
 export const dungeonApi = {
   getRun: (studentId: number) => apiGet<DungeonStateResponse>(`/api/dungeon/students/${studentId}/run`),
@@ -9,4 +9,4 @@ export const dungeonApi = {
   abandon: (studentId: number) => apiPost<{ success: true; data: { abandoned: boolean } }>(`/api/dungeon/students/${studentId}/abandon`),
 };
 
-export type { DungeonChoicePayload, DungeonRun, DungeonState, FloorChoice } from '@/shared/dungeon/contracts';
+export type { DungeonChoicePayload, DungeonRun, DungeonState, FloorChoice } from '@thinkclass/contracts/domains/dungeon';

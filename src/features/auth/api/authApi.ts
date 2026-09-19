@@ -6,7 +6,7 @@ import type {
   LoginPayload,
   RegisterPayload,
   UpdateProfilePayload,
-} from '@/shared/auth/contracts';
+} from '@thinkclass/contracts/domains/auth';
 
 export const authApi = {
   login: (data: LoginPayload) => apiPost<AuthResponse>('/api/auth/login', data),
@@ -38,4 +38,4 @@ export type {
   LoginPayload,
   RegisterPayload,
   UpdateProfilePayload,
-} from '@/shared/auth/contracts';
+} from '@thinkclass/contracts/domains/auth';

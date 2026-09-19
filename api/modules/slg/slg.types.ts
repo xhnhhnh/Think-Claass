@@ -1,4 +1,4 @@
-import type { ClassResources, CreateTerritoryPayload, Territory, TerritoryContributionPayload } from '../../../src/shared/slg/contracts.js';
+import type { ClassResources, CreateTerritoryPayload, Territory, TerritoryContributionPayload } from '@thinkclass/contracts/domains/slg';
 
 export interface SlgStudentRow {
   available_points: number;

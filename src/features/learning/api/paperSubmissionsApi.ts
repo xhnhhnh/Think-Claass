@@ -1,5 +1,5 @@
 import { apiPost, apiPut } from '@/lib/api';
-import type { PaperItem, PaperSubmission } from '@/shared/learning/contracts';
+import type { PaperItem, PaperSubmission } from '@thinkclass/contracts/domains/learning';
 
 export const paperSubmissionsApi = {
   start: (paperId: number) =>

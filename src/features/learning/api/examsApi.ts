@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { Exam, ExamGrade, ExamPayload, SaveExamGradePayload } from '@/shared/learning/contracts';
+import type { Exam, ExamGrade, ExamPayload, SaveExamGradePayload } from '@thinkclass/contracts/domains/learning';
 
 export const examsApi = {
   getExams: (classId?: number) => {

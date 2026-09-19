@@ -1,5 +1,5 @@
 import { apiGet } from '@/lib/api';
-import type { PublicAnnouncementDto } from '@/shared/engagement/contracts';
+import type { PublicAnnouncementDto } from '@thinkclass/contracts/domains/engagement';
 
 export interface ClassAnnouncement {
   id: number;

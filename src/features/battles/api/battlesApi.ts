@@ -5,7 +5,7 @@ import type {
   ClassBattlesResponse,
   EndBattlePayload,
   InitiateBattlePayload,
-} from '@/shared/battles/contracts';
+} from '@thinkclass/contracts/domains/battles';
 
 export const battlesApi = {
   getTeacherBattles: (classId: number) =>
@@ -23,4 +23,4 @@ export const battlesApi = {
   getBattleStats: (battleId: number) => apiGet<BattleStatsResponse & BattleStatsResponse['data']>(`/api/battles/${battleId}/stats`),
 };
 
-export type { BattleClassSummary as BattleClassLite, BattleStats, ClassBattle as Battle } from '@/shared/battles/contracts';
+export type { BattleClassSummary as BattleClassLite, BattleStats, ClassBattle as Battle } from '@thinkclass/contracts/domains/battles';

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@/store/useStore';
 import { defaultClassFeatures } from '@/lib/classFeatures';
 import { classroomApi } from '../api/classesApi';
-import type { ClassDto, GroupDto, PresetDto } from '@/shared/classroom/contracts';
+import type { ClassDto, GroupDto, PresetDto } from '@thinkclass/contracts/domains/classroom';
 
 export type ClassItem = ClassDto;
 export type Group = GroupDto;

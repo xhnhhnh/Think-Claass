@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { MessageDto, SendMessagePayload } from '@/shared/engagement/contracts';
+import type { MessageDto, SendMessagePayload } from '@thinkclass/contracts/domains/engagement';
 
 export const messagesApi = {
   getMessages: (classId: number, type: string, params?: { role?: string; involvedId?: number }) => {

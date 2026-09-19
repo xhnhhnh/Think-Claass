@@ -19,7 +19,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import os from 'os';
 
-import type { ApiSuccessResponse } from '../../../src/shared/admin/contracts.js';
+import type { ApiSuccessResponse } from '@thinkclass/contracts/domains/admin';
+import { getActiveKernel } from '@thinkclass/kernel';
 import { ApiError } from '../../utils/apiError.js';
 import { getRequestActor, requireActorRole } from '../../utils/requestAuth.js';
 import { AdminService } from './admin.service.js';
@@ -41,12 +42,30 @@ const errorMessage = (error: unknown) => (error instanceof Error ? error.message
 export class AdminController {
   constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
 
+  /**
+   * Admin console login. Also issues a session token, mirroring `/api/auth/login`,
+   * so the console stops relying on client-asserted role headers.
+   */
   @Post('session')
   @HttpCode(HttpStatus.OK)
-  async createSession(@Body() body: Record<string, any>) {
+  async createSession(@Body() body: Record<string, any>, @Req() req: Request) {
     try {
       const { username = '', password = '' } = body ?? {};
-      return ok(await this.adminService.createSession(String(username), String(password)));
+      const result = await this.adminService.createSession(String(username), String(password));
+
+      const kernel = getActiveKernel();
+      const user = (result as { user?: { id?: number; role?: string } }).user;
+      if (!kernel || !user?.id || !user.role) return ok(result);
+
+      const session = kernel.sessions.issue({
+        userId: user.id,
+        role: user.role as never,
+        ttlMs: kernel.config.sessionTtlMs,
+        userAgent: req.header('user-agent') ?? null,
+        ip: req.ip ?? null,
+      });
+
+      return ok({ ...result, token: session.token, expiresAt: session.expiresAt });
     } catch (error) {
       throwAdminError(error);
     }

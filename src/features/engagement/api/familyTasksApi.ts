@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { FamilyTaskDto, FamilyTaskPayload } from '@/shared/engagement/contracts';
+import type { FamilyTaskDto, FamilyTaskPayload } from '@thinkclass/contracts/domains/engagement';
 
 export const familyTasksApi = {
   getTasks: (studentId: number) => apiGet<{ success: true; tasks: FamilyTaskDto[] }>(`/api/family-tasks?studentId=${studentId}`),

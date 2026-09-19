@@ -1,4 +1,4 @@
-import type { StockPayload } from '@/shared/economy/contracts';
+import type { StockPayload } from '@thinkclass/contracts/domains/economy';
 
 export type {
   BankAccountDto,
@@ -9,7 +9,7 @@ export type {
   StockPayload,
   StockPricePayload,
   StockTradeInput,
-} from '@/shared/economy/contracts';
+} from '@thinkclass/contracts/domains/economy';
 
 export type BankMutationInput =
   | { action: 'deposit'; amount: number }

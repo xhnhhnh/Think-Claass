@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { LuckyDrawConfigPayload, LuckyDrawPrizeDto } from '@/shared/engagement/contracts';
+import type { LuckyDrawConfigPayload, LuckyDrawPrizeDto } from '@thinkclass/contracts/domains/engagement';
 
 export const luckyDrawApi = {
   getConfig: (teacherId: number) =>

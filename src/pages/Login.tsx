@@ -27,6 +27,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const setUser = useStore((state) => state.setUser);
+  const setToken = useStore((state) => state.setToken);
 
   const theme = ROLE_THEME[role];
 
@@ -85,6 +86,9 @@ export default function Login() {
 
       if (data.success) {
         if (isLogin) {
+          // The server issues a session token alongside the user payload; storing it
+          // is what moves this session off the header-assertion bridge.
+          if (data.token) setToken(data.token);
           setUser({
             ...data.user,
             classFeatures: data.classFeatures ?? undefined,

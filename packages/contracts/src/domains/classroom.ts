@@ -1,3 +1,10 @@
+/**
+ * classroom domain contracts.
+ *
+ * Moved from `src/shared/classroom/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
 export interface StudentDto {
   id: number;
   user_id?: number | null;

@@ -14,7 +14,7 @@ import type {
   TeacherListItem,
   UpsertAdminAnnouncementInput,
   UpsertTeacherInput,
-} from '../../../src/shared/admin/contracts.js';
+} from '@thinkclass/contracts/domains/admin';
 import { ApiError } from '../../utils/apiError.js';
 import type { RequestActor } from '../../utils/requestAuth.js';
 import type { AdminMaintenanceService, AdminRepository, AdminRuntime } from './admin.types.js';

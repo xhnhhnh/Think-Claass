@@ -59,13 +59,22 @@ const axiosInstance = axios.create({
 // 请求拦截器
 axiosInstance.interceptors.request.use(
   (config) => {
-    const user = useStore.getState().user;
-    if (user) {
-      const headers = new AxiosHeaders(config.headers);
+    const { user, token } = useStore.getState();
+    const headers = new AxiosHeaders(config.headers);
+
+    // Verified session first: the server resolves the actor from the token and
+    // ignores any identity headers when the migration bridge is off.
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    } else if (user) {
+      // Migration bridge only. Sessions persisted before tokens existed keep working
+      // until the next login; the server honours these headers only while
+      // ALLOW_LEGACY_HEADER_AUTH is on, and logs every use.
       headers.set('x-user-role', user.role);
       headers.set('x-user-id', String(user.id));
-      config.headers = headers;
     }
+
+    config.headers = headers;
     return config;
   },
   (error) => {

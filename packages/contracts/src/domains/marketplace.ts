@@ -1,4 +1,11 @@
-import type { ApiSuccess } from '../core/contracts';
+/**
+ * marketplace domain contracts.
+ *
+ * Moved from `src/shared/marketplace/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
+import type { ApiSuccess } from '@thinkclass/contracts';
 
 export interface ShopItem {
   id: number;

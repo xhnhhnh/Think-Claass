@@ -1,5 +1,5 @@
 import { apiGet } from '@/lib/api';
-import type { ClassAnalyticsDto, StudentRadarDto, StudentReportDto } from '@/shared/classroom/contracts';
+import type { ClassAnalyticsDto, StudentRadarDto, StudentReportDto } from '@thinkclass/contracts/domains/classroom';
 
 export type ClassAnalyticsResponse = { success: true } & ClassAnalyticsDto;
 export type StudentReportResponse = { success: true } & StudentReportDto;

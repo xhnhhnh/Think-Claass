@@ -1,4 +1,4 @@
-import type { Assignment, AssignmentPayload, StudentAssignment, StudentAssignmentUpdatePayload } from '../../../src/shared/learning/contracts.js';
+import type { Assignment, AssignmentPayload, StudentAssignment, StudentAssignmentUpdatePayload } from '@thinkclass/contracts/domains/learning';
 
 export interface AssignmentsRepository {
   listAssignments(classId?: number): Assignment[];

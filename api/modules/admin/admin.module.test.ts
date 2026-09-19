@@ -33,7 +33,10 @@ describe('Admin Nest controllers', () => {
     };
     const controller = new AdminController(service as any);
 
-    await expect(controller.createSession({ username: 'root', password: 'secret' })).resolves.toEqual({
+    // createSession now takes the request too, so it can attach a session token.
+    await expect(
+      controller.createSession({ username: 'root', password: 'secret' }, mockAdminReq()),
+    ).resolves.toEqual({
       success: true,
       data: { user: { id: 1, role: 'superadmin', username: 'root' } },
     });
@@ -75,7 +78,21 @@ describe('Admin Nest controllers', () => {
     const noRoleReq = {
       header: () => undefined,
     } as unknown as Request;
+    // P2 split the two cases: no identity at all is 401 (we do not know who you
+    // are), a known identity without the required role is 403.
     await expect(admin.getSystemStats(noRoleReq)).rejects.toMatchObject({
+      response: { success: false, message: '未登录或登录已过期' },
+      status: 401,
+    });
+
+    const studentReq = {
+      header(name: string) {
+        if (name === 'x-user-role') return 'student';
+        if (name === 'x-user-id') return '5';
+        return undefined;
+      },
+    } as unknown as Request;
+    await expect(admin.getSystemStats(studentReq)).rejects.toMatchObject({
       response: { success: false, message: '无权限执行该操作' },
       status: 403,
     });

@@ -58,11 +58,13 @@ export function createRequestContextMiddleware(options: RequestContextOptions) {
 
     const token = parseBearer(req.header('authorization'));
     if (token) {
+      // A credential was presented. If it does not verify, the request is
+      // anonymous - it must NOT fall through to the weaker header bridge, or
+      // presenting a revoked token alongside forged headers would still
+      // authenticate. Falling back is only allowed when no token was sent at all.
       actor = sessions.verify(token);
       if (actor) authSource = 'bearer';
-    }
-
-    if (!actor && config.allowLegacyHeaderAuth) {
+    } else if (config.allowLegacyHeaderAuth) {
       const role = req.header('x-user-role');
       const idHeader = req.header('x-user-id');
       const userId = idHeader ? Number(idHeader) : Number.NaN;

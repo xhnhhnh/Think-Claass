@@ -1,4 +1,4 @@
-import type { DungeonChoicePayload, DungeonChoiceResult, DungeonRun, DungeonState, FloorChoice } from '../../../src/shared/dungeon/contracts.js';
+import type { DungeonChoicePayload, DungeonChoiceResult, DungeonRun, DungeonState, FloorChoice } from '@thinkclass/contracts/domains/dungeon';
 
 export interface DungeonRunRow extends Omit<DungeonRun, 'active_buffs'> {
   active_buffs: string | string[] | null;

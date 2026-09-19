@@ -17,6 +17,7 @@ import { createLogger, type Logger } from '../logging/logger.js';
 import { createEventBus, type EventBus } from '../events/eventBus.js';
 import { createPermissionEngine, type PermissionEngine } from '../permissions/permissionEngine.js';
 import { createSessionService, sessionsMigration, type SessionService } from '../auth/session.js';
+import type { AuthProvider } from '../auth/authProvider.js';
 import { openDatabase, type Database } from '../storage/connection.js';
 import { runMigrations, type Migration, type MigrationResult } from '../storage/migrations.js';
 import { createErrorMiddleware } from '../http/errorEnvelope.js';
@@ -54,6 +55,26 @@ export interface CreateKernelOptions {
   pluginHost?: PluginHostView;
   /** Use an in-memory database; used by tests. */
   inMemoryDatabase?: boolean;
+  /**
+   * Credential verification. Until the identity plugin exists (P3) the legacy
+   * application supplies an adapter, which is what lets real sessions be issued
+   * during the migration instead of after it.
+   */
+  authProvider?: AuthProvider;
+}
+
+/**
+ * The most recently created kernel.
+ *
+ * A migration bridge, not a design goal: `api/modules/auth/auth.service.ts` is a
+ * Nest provider instantiated by a static factory, so it has no constructor seam
+ * through which to receive the session service. P3 removes this by making the
+ * identity plugin a real context consumer.
+ */
+let activeKernel: Kernel | null = null;
+
+export function getActiveKernel(): Kernel | null {
+  return activeKernel;
 }
 
 export async function createKernel(options: CreateKernelOptions = {}): Promise<Kernel> {
@@ -101,7 +122,7 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
     app.use(express.static(config.staticDir));
   }
 
-  app.use(createKernelRouter({ config, startedAt, plugins, events, permissions, sessions }));
+  app.use(createKernelRouter({ config, startedAt, plugins, events, permissions, sessions, authProvider: options.authProvider }));
 
   // SPA fallback for anything that is not an API route and not a real file.
   if (fs.existsSync(config.staticDir)) {
@@ -150,5 +171,19 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
     bootMs: Date.now() - startedAt,
   });
 
-  return { app, config, logger, db, events, permissions, sessions, plugins, migrations, startedAt, shutdown };
+  const kernel: Kernel = {
+    app,
+    config,
+    logger,
+    db,
+    events,
+    permissions,
+    sessions,
+    plugins,
+    migrations,
+    startedAt,
+    shutdown,
+  };
+  activeKernel = kernel;
+  return kernel;
 }

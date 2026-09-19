@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut } from '@/lib/api';
-import type { StudyPlan, StudyPlanItem } from '@/shared/learning/contracts';
+import type { StudyPlan, StudyPlanItem } from '@thinkclass/contracts/domains/learning';
 
 export const studyPlansApi = {
   my: () => apiGet<{ success: true; data: StudyPlan | null }>('/api/study-plans/my'),

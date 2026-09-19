@@ -1,4 +1,4 @@
-import type { WorldBossPayload } from '@/shared/challenge/contracts';
+import type { WorldBossPayload } from '@thinkclass/contracts/domains/challenge';
 
 export type {
   BossAttackInput,
@@ -12,7 +12,7 @@ export type {
   ChallengeSubmitInput,
   WorldBossDto,
   WorldBossPayload,
-} from '@/shared/challenge/contracts';
+} from '@thinkclass/contracts/domains/challenge';
 
 export type WorldBossMutationInput =
   | { type: 'create'; data: WorldBossPayload }

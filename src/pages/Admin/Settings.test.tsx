@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AdminSettings from './Settings';
-import { DEFAULT_SYSTEM_SETTINGS } from '@/shared/admin/contracts';
+import { DEFAULT_SYSTEM_SETTINGS } from '../../lib/systemSettings.js';
 
 const mocks = vi.hoisted(() => ({
   useAdminSystemSettingsQuery: vi.fn(),

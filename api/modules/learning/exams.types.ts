@@ -1,4 +1,4 @@
-import type { Exam, ExamGrade, ExamPayload, SaveExamGradePayload } from '../../../src/shared/learning/contracts.js';
+import type { Exam, ExamGrade, ExamPayload, SaveExamGradePayload } from '@thinkclass/contracts/domains/learning';
 
 export interface ExamsRepository {
   transaction<T>(fn: () => T): T;

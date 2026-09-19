@@ -7,7 +7,7 @@ import type {
   PetPraiseDto,
   PetRecordDto,
   UpdatePetInput,
-} from '../../../src/shared/pet/contracts.js';
+} from '@thinkclass/contracts/domains/pet';
 
 export type PetRow = Omit<PetDto, 'is_dead' | 'has_parent_buff'>;
 

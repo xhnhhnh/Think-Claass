@@ -8,7 +8,7 @@ import type {
   ReleaseUpdateStatus,
   SystemSettings,
   SystemStatsResponse,
-} from '@/shared/admin/contracts';
+} from '@thinkclass/contracts/domains/admin';
 
 export const adminQueryKeys = {
   stats: ['admin', 'system', 'stats'] as const,

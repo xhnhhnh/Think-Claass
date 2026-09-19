@@ -7,7 +7,7 @@
  */
 
 // --- bootstrap -------------------------------------------------------------
-export { createKernel, kernelMigrations } from './bootstrap/createKernel.js';
+export { createKernel, getActiveKernel, kernelMigrations } from './bootstrap/createKernel.js';
 export type { CreateKernelOptions, Kernel } from './bootstrap/createKernel.js';
 
 // --- config ----------------------------------------------------------------
@@ -38,6 +38,11 @@ export {
   sessionsMigration,
 } from './auth/session.js';
 export type { IssueSessionInput, IssuedSession, SessionRow, SessionService } from './auth/session.js';
+export type {
+  AuthCredentials,
+  AuthProvider,
+  AuthenticatedIdentity,
+} from './auth/authProvider.js';
 
 // --- storage ---------------------------------------------------------------
 export {

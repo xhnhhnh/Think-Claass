@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
-import type { DanmakuMessageDto, SendDanmakuPayload } from '@/shared/engagement/contracts';
+import type { DanmakuMessageDto, SendDanmakuPayload } from '@thinkclass/contracts/domains/engagement';
 
 export const danmakuApi = {
   getMessages: (classId: number, since?: number) =>

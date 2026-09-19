@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { ClassDto, GroupDto, PresetDto } from '@/shared/classroom/contracts';
+import type { ClassDto, GroupDto, PresetDto } from '@thinkclass/contracts/domains/classroom';
 import type { ClassFeatures } from '@/lib/classFeatures';
 
 export const classroomApi = {

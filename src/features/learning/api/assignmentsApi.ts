@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { Assignment, AssignmentPayload, StudentAssignment, StudentAssignmentUpdatePayload } from '@/shared/learning/contracts';
+import type { Assignment, AssignmentPayload, StudentAssignment, StudentAssignmentUpdatePayload } from '@thinkclass/contracts/domains/learning';
 
 export const assignmentsApi = {
   list: (classId?: number) => {

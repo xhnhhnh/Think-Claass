@@ -23,10 +23,13 @@ export default defineConfig({
     // fetch calls those suites rely on.
     include: ['src/**/*.test.{ts,tsx}', 'api/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/qa-full-site.spec.ts', '**/*.pw.spec.ts', '**/*.e2e.ts'],
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@thinkclass/contracts': path.resolve(__dirname, './packages/contracts/src/index.ts'),
-      '@thinkclass/kernel': path.resolve(__dirname, './packages/kernel/src/index.ts'),
-    },
+    // Array form and ordering matter: the `domains` subpath must be matched before
+    // the bare package specifier.
+    alias: [
+      { find: '@thinkclass/contracts/domains', replacement: path.resolve(__dirname, 'packages/contracts/src/domains') },
+      { find: '@thinkclass/contracts', replacement: path.resolve(__dirname, 'packages/contracts/src/index.ts') },
+      { find: '@thinkclass/kernel', replacement: path.resolve(__dirname, 'packages/kernel/src/index.ts') },
+      { find: '@', replacement: path.resolve(__dirname, 'src') },
+    ],
   },
 });

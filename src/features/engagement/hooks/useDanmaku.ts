@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { danmakuApi } from '../api/danmakuApi';
-import type { DanmakuMessageDto } from '@/shared/engagement/contracts';
+import type { DanmakuMessageDto } from '@thinkclass/contracts/domains/engagement';
 
 export interface ActiveDanmaku extends DanmakuMessageDto {
   top: number;

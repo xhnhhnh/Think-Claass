@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { CreateTerritoryPayload, TerritoryContributionPayload, TerritoryMapResponse } from '@/shared/slg/contracts';
+import type { CreateTerritoryPayload, TerritoryContributionPayload, TerritoryMapResponse } from '@thinkclass/contracts/domains/slg';
 
 export const slgApi = {
   getMap: (classId: number) => apiGet<TerritoryMapResponse & TerritoryMapResponse['data']>(`/api/slg/classes/${classId}/map`),
@@ -10,4 +10,4 @@ export const slgApi = {
   triggerYield: (classId: number) => apiPost<{ success: true }>(`/api/slg/classes/${classId}/yield`),
 };
 
-export type { ClassResources, CreateTerritoryPayload, Territory, TerritoryContributionPayload, TerritoryType } from '@/shared/slg/contracts';
+export type { ClassResources, CreateTerritoryPayload, Territory, TerritoryContributionPayload, TerritoryType } from '@thinkclass/contracts/domains/slg';

@@ -1,7 +1,7 @@
 import { apiGet, apiPost } from '@/lib/api';
-import type { PaymentMethod, PaymentOrderDto } from '@/shared/platform/contracts';
+import type { PaymentMethod, PaymentOrderDto } from '@thinkclass/contracts/domains/platform';
 
-export type { PaymentMethod } from '@/shared/platform/contracts';
+export type { PaymentMethod } from '@thinkclass/contracts/domains/platform';
 export type PaymentOrder = PaymentOrderDto;
 
 export const paymentApi = {

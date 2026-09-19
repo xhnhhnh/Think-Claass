@@ -1,5 +1,5 @@
 import { decrypt } from '../../db.js';
-import type { ClassPetStudentDto, PetDto } from '../../../src/shared/pet/contracts.js';
+import type { ClassPetStudentDto, PetDto } from '@thinkclass/contracts/domains/pet';
 import type { ClassPetRow, PetRow } from './pet.types.js';
 
 export function isPetDead(pet: Pick<PetDto, 'last_fed_at'> | null, now = Date.now()) {

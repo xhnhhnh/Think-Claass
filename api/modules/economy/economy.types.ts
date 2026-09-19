@@ -7,7 +7,7 @@ import type {
   StockPayload,
   StockPricePayload,
   StockTradeInput,
-} from '../../../src/shared/economy/contracts.js';
+} from '@thinkclass/contracts/domains/economy';
 
 export interface EconomyStudentRow {
   id: number;

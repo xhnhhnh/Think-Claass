@@ -1,4 +1,11 @@
-import type { ApiSuccess } from '../core/contracts';
+/**
+ * auth domain contracts.
+ *
+ * Moved from `src/shared/auth/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
+import type { ApiSuccess } from '@thinkclass/contracts';
 
 export type AuthRole = 'student' | 'parent' | 'teacher' | 'admin' | 'superadmin' | string;
 
@@ -51,6 +58,9 @@ export type AuthResponse = ApiSuccess<AuthResponseData> & {
   user?: AuthUser;
   classFeatures?: ClassFeatureFlags;
   message?: string;
+  /** Opaque session token issued by the kernel at login (added in P2). */
+  token?: string;
+  expiresAt?: string;
 };
 
 export interface InviteCodeResponse {

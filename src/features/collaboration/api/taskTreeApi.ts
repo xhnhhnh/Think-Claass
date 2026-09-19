@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { StudentTaskNode, TaskNode, TaskNodePayload } from '@/shared/collaboration/contracts';
+import type { StudentTaskNode, TaskNode, TaskNodePayload } from '@thinkclass/contracts/domains/collaboration';
 
 export const taskTreeApi = {
   getTeacherNodes: (classId: number) => apiGet<{ success: true; nodes: TaskNode[]; data?: { nodes: TaskNode[] } }>(`/api/task-tree/teacher/${classId}`),

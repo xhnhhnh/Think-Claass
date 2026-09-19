@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { ArticleDto, ArticleListQuery, ArticlePayload, ContactMessagePayload, HomeContentDto } from '@/shared/portal/contracts';
+import type { ArticleDto, ArticleListQuery, ArticlePayload, ContactMessagePayload, HomeContentDto } from '@thinkclass/contracts/domains/portal';
 
 function articleQuery(query: ArticleListQuery = {}) {
   const params = new URLSearchParams();

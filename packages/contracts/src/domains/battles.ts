@@ -1,4 +1,11 @@
-import type { ApiSuccess } from '../core/contracts';
+/**
+ * battles domain contracts.
+ *
+ * Moved from `src/shared/battles/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
+import type { ApiSuccess } from '@thinkclass/contracts';
 
 export type ClassBattleStatus = 'pending' | 'active' | 'rejected' | 'ended';
 

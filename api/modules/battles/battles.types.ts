@@ -1,4 +1,4 @@
-import type { BattleClassSummary, BattleStats, ClassBattle, EndBattlePayload, InitiateBattlePayload } from '../../../src/shared/battles/contracts.js';
+import type { BattleClassSummary, BattleStats, ClassBattle, EndBattlePayload, InitiateBattlePayload } from '@thinkclass/contracts/domains/battles';
 
 export interface BattlesRepository {
   listBattles(classId: number): ClassBattle[];

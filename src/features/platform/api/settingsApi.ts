@@ -1,5 +1,5 @@
 import { apiGet, apiPut } from '@/lib/api';
-import type { PublicSettingsDto } from '@/shared/platform/contracts';
+import type { PublicSettingsDto } from '@thinkclass/contracts/domains/platform';
 
 export type PublicSettings = Partial<PublicSettingsDto>;
 

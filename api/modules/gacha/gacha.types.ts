@@ -5,7 +5,7 @@ import type {
   GachaRarity,
   PetCollectionItem,
   PetDictionaryEntry,
-} from '../../../src/shared/gacha/contracts.js';
+} from '@thinkclass/contracts/domains/gacha';
 
 export interface GachaStudentRow {
   available_points: number;

@@ -1,3 +1,10 @@
+/**
+ * admin domain contracts.
+ *
+ * Moved from `src/shared/admin/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
 export type AdminRole = 'admin' | 'superadmin';
 
 export interface AdminActor {
@@ -8,6 +15,12 @@ export interface AdminActor {
 
 export interface AdminSession {
   user: AdminActor;
+  /**
+   * Opaque session token issued by the kernel. Optional because the field is
+   * additive: an older server, or the admin service used directly, may not set it.
+   */
+  token?: string;
+  expiresAt?: string;
 }
 
 export interface SystemServerStats {
@@ -64,31 +77,6 @@ export interface SystemSettings {
   payment_alipay_gateway: string;
 }
 
-export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
-  site_title: '',
-  site_favicon: '',
-  allow_teacher_registration: '0',
-  revenue_enabled: '0',
-  revenue_mode: 'activation_code',
-  enable_teacher_analytics: '1',
-  enable_parent_report: '1',
-  payment_price: '99.00',
-  payment_currency: 'CNY',
-  payment_description: 'Think-Class 平台激活',
-  payment_environment: 'mock',
-  payment_enable_wechat: '0',
-  payment_enable_alipay: '0',
-  payment_notify_url: '',
-  payment_wechat_appid: '',
-  payment_wechat_mchid: '',
-  payment_wechat_serial_no: '',
-  payment_wechat_private_key: '',
-  payment_wechat_api_v3_key: '',
-  payment_alipay_app_id: '',
-  payment_alipay_private_key: '',
-  payment_alipay_public_key: '',
-  payment_alipay_gateway: 'https://openapi.alipay.com/gateway.do',
-};
 
 export interface DatabaseImportResult {
   message: string;

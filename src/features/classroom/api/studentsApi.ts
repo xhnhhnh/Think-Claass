@@ -5,7 +5,7 @@ import type {
   CreateStudentPayload,
   PointRecordDto,
   StudentDto,
-} from '@/shared/classroom/contracts';
+} from '@thinkclass/contracts/domains/classroom';
 
 export interface StudentsResponse {
   success: true;

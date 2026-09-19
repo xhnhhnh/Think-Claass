@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { portalApi } from '../api/portalApi';
-import type { ArticleListQuery, ArticlePayload, HomeContentDto } from '@/shared/portal/contracts';
+import type { ArticleListQuery, ArticlePayload, HomeContentDto } from '@thinkclass/contracts/domains/portal';
 
 export const portalKeys = {
   home: ['portal', 'home'] as const,

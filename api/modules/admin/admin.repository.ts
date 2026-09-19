@@ -5,20 +5,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../prismaClient.js';
 import { ApiError } from '../../utils/apiError.js';
 import { hashPassword, isPasswordHash, verifyPassword } from '../../utils/password.js';
-import {
-  DEFAULT_SYSTEM_SETTINGS,
-  type ActivationCodeListItem,
-  type AdminActor,
-  type AdminAnnouncementListItem,
-  type GenerateActivationCodesInput,
-  type GenerateActivationCodesResult,
-  type SystemSettings,
-  type TeacherDeleteResult,
-  type TeacherDetail,
-  type TeacherListItem,
-  type UpsertAdminAnnouncementInput,
-  type UpsertTeacherInput,
-} from '../../../src/shared/admin/contracts.js';
+import { DEFAULT_SYSTEM_SETTINGS } from './admin.defaults.js';
+import type { ActivationCodeListItem, AdminActor, AdminAnnouncementListItem, GenerateActivationCodesInput, GenerateActivationCodesResult, SystemSettings, TeacherDeleteResult, TeacherDetail, TeacherListItem, UpsertAdminAnnouncementInput, UpsertTeacherInput } from '@thinkclass/contracts/domains/admin';
 import type { AdminRepository, PreservedSuperadmin } from './admin.types.js';
 
 const SYSTEM_SETTING_KEYS = Object.keys(DEFAULT_SYSTEM_SETTINGS) as Array<keyof SystemSettings>;

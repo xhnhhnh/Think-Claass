@@ -5,7 +5,7 @@ import type {
   TeamQuest,
   TeamQuestGroupProgress,
   TeamQuestPayload,
-} from '@/shared/collaboration/contracts';
+} from '@thinkclass/contracts/domains/collaboration';
 
 export type StudentCurrentTeamQuestResponse = { success: true } & StudentCurrentTeamQuest;
 

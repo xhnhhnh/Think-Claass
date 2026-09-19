@@ -1,3 +1,10 @@
+/**
+ * engagement domain contracts.
+ *
+ * Moved from `src/shared/engagement/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
 export interface MessageDto {
   id: number;
   class_id: number;

@@ -1,3 +1,10 @@
+/**
+ * portal domain contracts.
+ *
+ * Moved from `src/shared/portal/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
 export interface HomeContentDto {
   hero?: {
     title?: string;

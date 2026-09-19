@@ -8,7 +8,7 @@ import type {
   TeacherDetail,
   TeacherListItem,
   WebsiteSettingsDto,
-} from '@/shared/admin/contracts';
+} from '@thinkclass/contracts/domains/admin';
 
 function toStringValue(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback;

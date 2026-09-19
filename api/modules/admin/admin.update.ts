@@ -8,7 +8,7 @@ import type {
   ApiSuccessResponse,
   ReleaseUpdateStatus,
   ReleaseUpdateState,
-} from '../../../src/shared/admin/contracts.js';
+} from '@thinkclass/contracts/domains/admin';
 import { ApiError } from '../../utils/apiError.js';
 import { requireActorRole } from '../../utils/requestAuth.js';
 import { throwAdminError } from './admin.errors.js';

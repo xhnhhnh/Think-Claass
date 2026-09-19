@@ -25,6 +25,7 @@ function getErrorMessage(error: unknown) {
 export default function AdminLoginPage() {
   const navigate = useNavigate();
   const setUser = useStore((state) => state.setUser);
+  const setToken = useStore((state) => state.setToken);
   const sessionMutation = useAdminSessionMutation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +36,7 @@ export default function AdminLoginPage() {
     setError("");
     try {
       const session = await sessionMutation.mutateAsync({ username, password });
+      if (session.token) setToken(session.token);
       setUser(session.user);
       navigate(ADMIN_PATH);
     } catch (requestError) {

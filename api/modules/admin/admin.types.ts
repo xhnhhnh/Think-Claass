@@ -13,7 +13,7 @@ import type {
   TeacherListItem,
   UpsertAdminAnnouncementInput,
   UpsertTeacherInput,
-} from '../../../src/shared/admin/contracts.js';
+} from '@thinkclass/contracts/domains/admin';
 
 export interface PreservedSuperadmin {
   id: number;

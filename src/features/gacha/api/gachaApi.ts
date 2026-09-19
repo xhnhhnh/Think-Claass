@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut } from '@/lib/api';
-import type { GachaCollectionResponse, GachaDrawPayload, GachaDrawResponse, GachaPoolsResponse } from '@/shared/gacha/contracts';
+import type { GachaCollectionResponse, GachaDrawPayload, GachaDrawResponse, GachaPoolsResponse } from '@thinkclass/contracts/domains/gacha';
 
 export const gachaApi = {
   getPools: (classId: number) => apiGet<GachaPoolsResponse & { pools?: GachaPoolsResponse['data']['pools'] }>(`/api/gacha/classes/${classId}/pools`),
@@ -11,4 +11,4 @@ export const gachaApi = {
     apiPut<{ success: true; data: { activePetId: number } }>(`/api/gacha/students/${studentId}/active-pet/${instanceId}`),
 };
 
-export type { GachaDrawPayload, GachaPool, PetCollectionItem as StudentPetCollectionItem, PetDictionaryEntry as GachaPetResult } from '@/shared/gacha/contracts';
+export type { GachaDrawPayload, GachaPool, PetCollectionItem as StudentPetCollectionItem, PetDictionaryEntry as GachaPetResult } from '@thinkclass/contracts/domains/gacha';

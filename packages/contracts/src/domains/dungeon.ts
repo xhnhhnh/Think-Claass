@@ -1,4 +1,11 @@
-import type { ApiSuccess } from '../core/contracts';
+/**
+ * dungeon domain contracts.
+ *
+ * Moved from `src/shared/dungeon/contracts.ts` in P2 so the backend no longer imports
+ * from the frontend source tree. Type-only: see guardrail G6.
+ */
+
+import type { ApiSuccess } from '@thinkclass/contracts';
 
 export type DungeonRunStatus = 'active' | 'died' | 'completed';
 export type DungeonChoiceType = 'combat' | 'event' | 'treasure' | 'rest';

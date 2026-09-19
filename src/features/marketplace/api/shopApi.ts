@@ -13,7 +13,7 @@ import type {
   PurchaseResponse,
   ShopItemPayload,
   ShopItemsResponse,
-} from '@/shared/marketplace/contracts';
+} from '@thinkclass/contracts/domains/marketplace';
 
 export const shopApi = {
   getAllItems: () => apiGet<ShopItemsResponse>('/api/shop/all'),
@@ -61,4 +61,4 @@ export const shopApi = {
   deleteBlindBox: (boxId: number) => apiDelete<PurchaseResponse>(`/api/shop/blind_boxes/${boxId}`),
 };
 
-export type { Auction, AuctionPayload, BlindBox, BlindBoxPayload, ShopItem, ShopItemPayload } from '@/shared/marketplace/contracts';
+export type { Auction, AuctionPayload, BlindBox, BlindBoxPayload, ShopItem, ShopItemPayload } from '@thinkclass/contracts/domains/marketplace';
