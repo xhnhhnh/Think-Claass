@@ -17,10 +17,19 @@
 ```
 请阅读 D:\think-class\docs\migration\HANDOFF.md 并严格按其中的「下一步」继续执行。
 工作区是 D:\think-class，分支 refactor/plugin-kernel。
-这是一个跨多轮的长期重构目标，请创建长期目标并持续推进：
+这是一个跨多轮的长期重构目标，请创建长期目标并持续推进，不要每轮停下等我确认：
 按照 docs/migration/ 下的方案，把 ThinkClass 重构为「最小 Core 内核 + 无限 Plugins」架构，
-完成 P4.3b 之后的所有剩余阶段（P4.3b/P4.3c/P5/P6/P7），每轮交付一个可验证的完整片段。
+每轮交付一个可验证的完整片段。
+
+开工前先跑 git log --oneline -3 / git status --short / npm test 核对真实状态，
+不要相信文档的叙述；文档与事实冲突时以事实为准，并顺手把文档改对。
+每轮提交前必须跑通 check + test + api:surface --check + guard。
 ```
+
+> **上面这段刻意不写任何阶段名和数字。** 早先的版本写死了「完成 P4.3b/P4.3c/P5/P6/P7」
+> 和「端点必须是 288」，结果另一个对话在同一工作区把 P4.3b 与 P5 大半做完后，
+> 这段提示词当场变成误导 —— **提示词只写不变的规则，状态一律由本文档承载。**
+> 更完整的版本见同目录 `BOOTSTRAP_PROMPT.md`。
 
 ---
 
@@ -35,7 +44,7 @@
 cd D:\think-class
 git log --oneline -3          # 核对提交历史与 HEAD
 git status --short            # 核对有无未提交的半成品
-npm test                      # 核对我声称的 114 文件 / 437 用例
+npm test                      # 核对 §7 声称的用例数（那个数字每轮都在变）
 ```
 
 **如果 `git status` 不是干净的，很可能上一轮被中断在半途 —— 优先判断那是「已完成但未提交」还是「改坏了」，再决定继续还是回退。**
