@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createKernel, type Kernel } from '@thinkclass/kernel';
 import { createPluginHost, type PluginHost } from '@thinkclass/plugin-runtime';
 
-import { ensureAdoptedSchema } from '../../api/schema/adoptedTables.js';
+import { bootSchemaMigration } from '../../api/schema/legacyBootSchema.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -35,17 +35,20 @@ beforeAll(async () => {
       pluginDirs: [],
       env: 'test',
     },
+    // The application's schema, exactly as `api/app.ts` supplies it. Injecting it rather
+    // than calling a schema helper is what makes this test exercise the real boot path:
+    // the kernel composition applies the one authoritative definition through the ledger.
+    migrations: [bootSchemaMigration],
     mountPlugins: async (hooks) => {
       host = await createPluginHost({ ...hooks, pluginDirs: [path.join(ROOT, 'plugins')] });
       return host;
     },
   });
 
-  // Tables that plugins adopt rather than create (students, classes, records,
-  // bank_accounts, stocks, student_stocks) are created by the host, not by a plugin
-  // migration - a plugin may only create `p_<slug>_` tables. Same call the real
-  // application makes, so this test exercises the same boot path.
-  ensureAdoptedSchema(kernel.db);
+  // No schema setup needed beyond that: `classes`, `students`, `records` and the rest
+  // already exist on this in-memory database. This test used to call
+  // `ensureAdoptedSchema()` explicitly, which was a path the application no longer took
+  // once the boot schema became a migration (P4.3c.2).
 
   // Seeded after boot because plugin setup does not query these tables.
   kernel.db.exec(`

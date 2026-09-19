@@ -113,8 +113,9 @@ npm run spike:nest    # R10 技术验证（8/8）
 | **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`（见下方"platform 不是干净域"）/`learning` | — | ⬜ **下一步** |
 | P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `settings`/`system` | — | ⬜ |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
-| P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | 见 `git log` | ✅ |
-| P4.3c.2 | 把 `bootSchemaMigration` 也接入 kernel 组装，并删掉 `ensureAdoptedSchema` 的重复 DDL | — | ⬜ |
+| P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
+| P4.3c.2 | **两套组装共用同一份 DDL**（删掉 `adoptedTables.ts` 的重复定义） | 见 `git log` | ✅ |
+| P4.3c.3 | 按域拆分 migration（让 kernel-only 部署不再建业务表） | — | ⬜ |
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
@@ -474,10 +475,41 @@ export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `.
     ledger 补记为 7 条（`0000_legacy_boot_schema` + 5 条 kernel + `p_pet_0001_init`）。
   - legacy 组装真实启动：`/api/website/home`、`/api/shop/items`、`/api/peer-reviews`、`/api/economy/...` 全部正常。
 
-**P4.3c.2 待做**：现在 kernel 组装仍靠 `api/schema/adoptedTables.ts` 的 `ensureAdoptedSchema()` 建表，
-而 legacy 组装靠这条迁移 —— **同一张表仍有两处 DDL**。下一步应把 `bootSchemaMigration` 接入
-`createKernel` 的 `migrations` 列表（或把 DDL 抽到 kernel 可导入的模块），然后删掉 `adoptedTables.ts` 里的重复定义。
-**这一步会彻底消灭 P4.3b 期间反复出现的"列漂移"类 bug**（§8.8 第 2 条）。
+**P4.3c.2 已完成**：两套组装现在共用**同一份** DDL，`api/schema/adoptedTables.ts` **已删除**。
+
+- DDL 移到 `api/schema/legacyBootSchema.ts`（**应用侧**，不是 kernel 包）。
+- legacy 组装：`initDb()` 通过 ledger 跑它。
+- kernel 组装：`api/app.ts` 用 **`createKernel({ migrations: [bootSchemaMigration] })`** 注入它
+  —— 这个注入点在 `CreateKernelOptions` 里本来就有，专为"应用提供自己的迁移"而设。
+- `createKernel` 的 `ensureSchema?` 钩子**已删除**（它存在的唯一理由是补 `adoptedTables.ts` 的重复 DDL）。
+- 插件唯一能建的表仍是 `p_<slug>_`，插件 manifest 的 `data.adopted` 语义不变。
+
+**关键教训（两次被护栏纠正）**：
+
+1. **G5 是对的**：我先把 DDL 放进了 `packages/kernel/src/storage/`，G5 立刻报 19 个
+   `enable_*` 特征键 —— `enable_economy`/`pets`/`dungeon_runs` 是**域知识**，不属于 kernel。
+   正确做法是**注入**（应用提供 migration），而不是让 kernel 认识业务表。
+   **kernel 零业务知识这条底线，在这次重构里第一次被真正压到，护栏挡住了。**
+2. **我引入过一个真实回归**：把 DDL 从 `initDb` 移走后，`classes`/`students`/`records`/`bank_accounts`/
+   `stocks`/`student_stocks` 这 6 张表**消失了** —— 因为它们的定义在 P4.3b 时被搬进了 `adoptedTables.ts`
+   并由 `ensureAdoptedSchema()` 创建，而 boot DDL 里没有。测试当时**全绿**，因为测试 helper 仍在直接调那个函数。
+   现在这 6 张表已并入 `legacyBootSchema.ts`，且**移除了所有直接调用**，所以这类"测试辅助路径掩盖真实缺口"的
+   情况不会再发生。
+3. **单文件校验不足**：`addColumnIfNotExists` 补的列（`pets.mood`/`pets.last_fed_at`/`peer_reviews.team_quest_id`）
+   也必须写进 CREATE —— kernel 组装不跑那段 ALTER。现已补齐，并有检查脚本（见下）。
+
+**验证方式**（含一次性的核对脚本思路，值得保留成测试）：
+- `bootSchemaMigration` 单独执行后建出 **78 张表**；所有插件 manifest 声明的
+  `adopted`/`reads` 表（31 张）**全部存在**；`classes.enable_*`、`students.group_id`、`pets.mood`、
+  `peer_reviews.team_quest_id`、`world_bosses.status` 等列**全部存在**。
+- 迁移**搬家的安全性用 ledger 实测**：拿一份"迁移还在 `api/db.ts` 时"产生的真实库，
+  比对 checksum —— 搬家前后**完全一致**（`f1888d677c54a07f8d1744bcd4e423a4`），
+  这正是字符串迁移（checksum 取自 SQL 文本）而非函数迁移（checksum 取自函数源码）的原因。
+- kernel 组装真实启动：**84 张表**、11 个插件全活、零 rejection，
+  `/api/website/home`、`/api/peer-reviews`、`/api/challenge/questions` 正常。
+
+**P4.3c.3 待做**：schema 仍是**一整块**，kernel-only 部署会建出全部 78 张业务表。
+按域拆分 migration 之后，kernel 才能只建自己需要的表；那也是删除 §8.8 那类漂移风险的最后一步。
 
 - 注意 `payment_orders`/`payment_transactions` **只存在于 Prisma**（不在 `initDb` 的 DDL 里），`messages_new` 只存在于原始 SQL、不在 Prisma。
 

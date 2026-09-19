@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { ROOT } from './lib/paths.mjs';
 
 /** Files whose DDL lives in template literals. */
-const DDL_FILES = ['api/schema/adoptedTables.ts'];
+const DDL_FILES = ['packages/kernel/src/storage/legacyBootSchema.ts'];
 
 describe('G12 DDL template literals are well formed', () => {
   it('no SQL comment inside a DDL template contains a backtick', () => {

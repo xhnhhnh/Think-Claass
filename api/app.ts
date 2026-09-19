@@ -44,7 +44,7 @@ import {
 } from '@thinkclass/kernel';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb, decrypt } from './db.js'
-import { ensureAdoptedSchema, ensureReadOnlyLegacyTables } from './schema/adoptedTables.js'
+import { bootSchemaMigration } from './schema/legacyBootSchema.js'
 import { operationLogger } from './utils/logMiddleware.js'
 import { AppModule } from './app.module.js';
 import { createLegacyAuthProvider } from './modules/auth/legacyAuthProvider.js';
@@ -248,17 +248,12 @@ export async function createApp(): Promise<Express> {
   bootedKernel = await createKernel({
     authProvider: createLegacyAuthProvider(),
     mountPlugins,
-    // Tables that plugins adopt instead of creating. A plugin may only create
-    // `p_<slug>_` tables, so the host has to bring these into existence - and it has
-    // to do so in BOTH compositions, because otherwise a plugin activates happily in
-    // the kernel composition and fails on its first request.
-    ensureSchema: (db) => {
-      ensureAdoptedSchema(db);
-      // Plus the legacy tables plugins only read: `data.reads` grants no creation
-      // right, so without this a read-only dependency would be missing on a fresh
-      // kernel database and fail per request instead of at boot.
-      ensureReadOnlyLegacyTables(db);
-    },
+    // The application's schema, supplied as a migration. Both compositions apply the same
+    // definition: the legacy one through `initDb()` and this one through the ledger. It is
+    // injected rather than registered inside the kernel because the kernel must stay
+    // domain-free (guardrail G5) - `enable_economy`, `pets` and `dungeon_runs` are not
+    // kernel concepts. See api/schema/legacyBootSchema.ts.
+    migrations: [bootSchemaMigration],
     // Student names are AES-encrypted at rest and the key belongs to the application,
     // not the kernel. Handing the decryptor over lets `classroom.public` publish
     // readable names without any plugin importing `api/**`.
