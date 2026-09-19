@@ -133,6 +133,7 @@ describe('legacy composition serves plugin routes', () => {
       'pet',
       'portal',
       'slg',
+      'system',
     ]);
   });
 
@@ -153,16 +154,30 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.body).toContain('该功能当前已关闭');
   });
 
-  it('serves a route owned by a not-yet-migrated module', async () => {
-    // dungeon is still an api/modules Nest module, so this asserts the legacy modules
-    // did not regress when plugin modules joined the root. The route answers 404 for a
-    // student that does not exist, so status alone proves nothing - the *body* is what
+  it('serves a migrated route from its plugin, not from api/modules', async () => {
+    // This said "dungeon is still an api/modules Nest module" - it is not, and has not
+    // been since P4.3b.2. `plugins/dungeon/src/dungeon.service.ts:91` is the source of
+    // this message, which is what makes it evidence for the right thing: the legacy
+    // composition is serving a *plugin* controller's real error path. The route answers
+    // 404 for a student that does not exist, so status alone proves nothing - the *body*
     // distinguishes "controller ran" ("学生未找到") from "route not mounted"
     // (Nest's catch-all "Cannot GET ...").
     const response = await probe('/api/dungeon/students/1/run');
 
     expect(response.body).toContain('学生未找到');
     expect(response.body).not.toContain('Cannot GET');
+  });
+
+  it('serves the migrated system domain from its plugin', async () => {
+    // `api/modules/system` is gone (P4.3b.5) and these routes have no legacy module
+    // left. The empty-id list comes from the plugin's own repository, so a 200 with the
+    // `{success, questions}` envelope proves the plugin served it: a route that was not
+    // mounted would answer Nest's catch-all instead.
+    const response = await probe('/api/system/questions?teacherId=7');
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toContain('Cannot GET');
+    expect(JSON.parse(response.body)).toEqual({ success: true, questions: [] });
   });
 
   it('distinguishes a missing resource from a missing route', async () => {

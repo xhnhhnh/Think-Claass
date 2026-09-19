@@ -7,7 +7,6 @@ import { InsightsModule } from './modules/insights/insights.module.js';
 import { LearningModule } from './modules/learning/learning.module.js';
 import { PetModule } from './modules/pet/pet.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
-import { SystemModule } from './modules/system/system.module.js';
 
 /**
  * The legacy composition's module list.
@@ -25,6 +24,7 @@ import { SystemModule } from './modules/system/system.module.js';
  *   MarketplaceModule   -> plugins/marketplace   (P4.3b.3)
  *   PortalModule        -> plugins/portal        (P4.3b.4)
  *   SettingsModule      -> kernel               (P5.3c)
+ *   SystemModule        -> plugins/system        (P4.3b.5)
  *
  * `SettingsModule` is the one entry that did not become a plugin: its entire body
  * was `SELECT key, value FROM settings`, and `settings` is kernel-owned storage, so
@@ -55,7 +55,6 @@ import { SystemModule } from './modules/system/system.module.js';
     LearningModule,
     PetModule,
     PlatformModule,
-    SystemModule,
   ],
 })
 export class AppModule {}

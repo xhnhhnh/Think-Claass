@@ -113,7 +113,8 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P4.3b.3 | **`collaboration`/`marketplace` 迁成插件** | `4279ea7` | ✅ |
 | P4.3b.4 | **`portal` 迁成插件** + 修 dbApi 正则误判 | 见 `git log` | ✅ |
 | **P4.3b.5** | **剩余域**：`insights`/`engagement`/`platform`（见下方"platform 不是干净域"）/`learning` | — | ⬜ **下一步** |
-| P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity` + `system`（`settings` 已完成，见 P5.3c） | — | ⬜ |
+| P4.3b.5a | **`system` 迁成插件**（8 条路由；`operation_logs` 只读，内核审计 sink 拥有） | 见 `git log` | ✅ |
+| P4.3b.6 | `classroom` 的 HTTP 面 + `pet` HTTP 面补全 + `auth`→`identity`（`settings`/`system` 已完成） | — | ⬜ |
 | P4.3c | `api/db.ts` 启动期 DDL → 编号迁移 | **进行中**（见下） | 🔶 |
 | P4.3c.1 | **787 行启动 DDL 收编为 `0000_legacy_boot_schema` 迁移** | `b63c74d` | ✅ |
 | P4.3c.2 | **两套组装共用同一份 DDL**（删掉 `adoptedTables.ts` 的重复定义） | 见 `git log` | ✅ |
@@ -229,18 +230,18 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.4 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面是 P4.3b.5a 完成时（HEAD 见 `git log -1`）跑出来的数字。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        118 文件 / 608 用例全绿
+npm test        118 文件 / 619 用例全绿
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)
 guardrails      11 文件 / 45 用例
 ```
 
-**已迁成插件的域（11 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal（+ 原有 classroom, pet）
-**仍在 `api/modules/` 的域（9 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform, system
+**已迁成插件的域（12 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal, system（+ 原有 classroom, pet）
+**仍在 `api/modules/` 的域（8 个）**：admin, auth, classroom, engagement, insights, learning, pet, platform
 （`settings` 已在 P5.3c 并入内核 —— 它本来就只有一句 `SELECT key, value FROM settings`，而 `settings` 是内核自有存储。）
 
 **验收基线**：
@@ -251,7 +252,7 @@ guardrails      11 文件 / 45 用例
 | `deadCode` | **65** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | **0** | P5.2a 已达成 |
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
-| `adoptedTables` | **26** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
+| `adoptedTables` | **28** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享）。P4.3b.5a 加了 system 的 2 张 |
 | `routeCollisions` | **1** | 只剩 `plugins/pet` 与 `api/modules/pet` 的碰撞（见 §8.3.1）。每迁完一个域必须回落 |
 
 ### ⚠️ `platform` 不是一个干净的功能域（迁移前必读）
@@ -383,7 +384,7 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 5. `learning`（28 张表，最大）
 6. `classroom` 的 HTTP 面（目前只有端口，端点仍在 `api/modules/classroom`）
 7. `pet` 的 HTTP 面补全 → 删 `api/modules/pet`（解决 G11 那 1 条碰撞；注意**不是**等价替换，见 8.3.1）
-8. `auth` → `identity` 基础插件；`system` → 待定（`settings` ✅ P5.3c 已并入内核）
+8. `auth` → `identity` 基础插件（`settings` ✅ P5.3c 并入内核；`system` ✅ P4.3b.5a 迁成插件）
 
 **共享文件只有 Lead 改**：`api/app.module.ts`、`allowances.json`、`api/schema/adoptedTables.ts`、`packages/**`。
 `plugins/<slug>/**` 与 `tests/plugins/<slug>-*.test.ts` 是每域独占的，可以并行。
@@ -500,7 +501,7 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 | `engagement` | ① **写 `pets` 表**（:96 `UPDATE pets SET ... mood = ?`）——`pets` 属 pet 域；② 写 `redemption_tickets`（与 marketplace **双写**，已被 G10 的 `SHARED_WRITE_TABLES` 显式记录）；③ 读 `shop_items` | pet 需发布一个"宠物经验/等级"端口；`redemption_tickets` 需要一个真正的端口（marketplace 拥有？engagement 拥有？）——**这是必须先决定的所有权问题** |
 | `platform` | 4 条路由里 3 条是支付基础设施（依赖 `api/services/paymentService.ts`、`paymentProviders/**`、`prisma.settings`），只有 `POST /api/parent-buff` 是业务 | 拆开：`parent-buff` → feature 插件；`payment/*` → 内核/平台侧（`payment_orders`/`payment_transactions` 只存在于 Prisma） |
 | `learning` | 10 文件 / 1433 行 / 28 张表，最大 | 单独一轮，不要和别的域混 |
-| `admin`/`auth`/`classroom`/`pet`/`system` | 见 §8.4 与 §8.3.1 | `auth`→`identity`；`system` 待定（`question_bank`+`system_settings`+`logs`+`backup`，不如 `settings` 干净）；`pet`/`classroom` 的 HTTP 面（`settings` 已完成） |
+| `admin`/`auth`/`classroom`/`pet` | 见 §8.4 与 §8.3.1 | `auth`→`identity`；`pet`/`classroom` 的 HTTP 面。（`settings` ✅ P5.3c 并入内核；`system` ✅ P4.3b.5a 迁成插件，见下） |
 
 **`redemption_tickets` 的双写是当前最该先解决的结构问题**：它决定 engagement 能不能迁。
 现状是 marketplace 与 engagement 都 `data.adopted` 它（`SHARED_WRITE_TABLES` 例外），
@@ -556,7 +557,21 @@ PLUGINS_ENABLED=1 npx tsx api/server.ts
 
 **实测（`.tmp/settings-route-probe.mts`，两种组装各跑一次）**：legacy 组装 200，14 个键（`site_title=Think-Class`、`payment_environment=mock` …），与旧 Nest 模块完全一致；内核组装也是 200，但数据为 `{}` —— 因为 `initDb()`（负责 seed 默认值）在纯内核组装里不跑，**原来那里是 404，现在是 200 + 空表**，仍是改进。
 
-**注意 `settings` 与 `system_settings` 是两张不同的表**（前者 `key,value` 24 行，后者 `id,key,value,description,updated_at` 0 行）。`GET /api/settings` 只投影前者；探针专门断言了不会泄漏后者的列。`api/modules/system`（`question_bank` + `system_settings` + `logs` + `backup/export`）**没有**这么干净的内核归属，不要顺手一起搬。
+**注意 `settings` 与 `system_settings` 是两张不同的表**（前者 `key,value` 24 行，后者 `id,key,value,description,updated_at` 0 行）。`GET /api/settings` 只投影前者；探针专门断言了不会泄漏后者的列。
+
+### P4.3b.5a · `api/modules/system` 迁成 `plugins/system` —— ✅ 已完成
+
+8 条路由、3 个生产文件、纯 SQLite，是剩余域里唯一不碰 Prisma、也不碰班级/学生的。迁法照抄 §8.2 清单，值得记下来的只有三点：
+
+1. **`operation_logs` 是内核的，不是这个域的**。P4.2 的审计 sink 拥有它（`packages/kernel/src/logging/auditLog.ts`，迁移 `0005_kernel_operation_logs`），所以 `GET /api/system/logs` 是**只读**，绝不能写进 `data.adopted` —— 那会宣称一个它没有的写所有权。
+2. **`backup/export` 是"跨域读"的诚实登记**：它 dump 17 张表，其中 15 张属于别的域。全部写进 `data.reads`（所有权检查在非生产环境是**强制**的，`dbApi.ts:104`），于是这张表要么全对、要么启动就报错，不会静默漂移。`data.reads` 有 16 项，这不是设计味道，而是"备份导出天生是平台级关注点"的事实；P6/P7 应把它改成**内核侧的 dump 表注册表**，而不是各域自己列。
+3. **`system_settings` 的所有权是已知欠债**：这个插件服务 `GET|POST /api/system/settings`，但真正在用的管理端点 `GET|PUT /api/admin/system/settings` 通过 Prisma 写同一张表（`api/modules/admin/admin.repository.ts:669-691`，键表在 `admin.defaults.ts`）。前端**没有任何地方**调用 `/api/system/settings`，所以正确解是 admin 拥有该表、这两条路由随 admin 迁移一起消失（删路由是端点变更，不能顺手做）。已写进 `plugin.json` 的 `_adopted_note`。
+
+#### 迁移途中挖出来的两个"本来就是坏的"行为（不是本轮引入）
+
+- **`POST /api/system/questions` 对合法输入也会 500**：body 缺 `answer` 时 SQL 把 `undefined` 绑成 NULL，撞上 `answer TEXT NOT NULL`。**已用 git 历史里那版 service 原文实测**：旧实现抛出一模一样的 `NOT NULL constraint failed: question_bank.answer`。所以这是**既有 bug**，本轮只是原样保留。
+- **`teacher_id INTEGER REFERENCES users(id)`**：`users` 是空的引导表，所以不带用户的探针里插入会 `FOREIGN KEY constraint failed`。这**不是**插件 bug —— 探针漏了 seed 一个 user。踩过一次，记在这里省下一次。
+- **POST 返回 201 不是回归**：Nest 的 `RouterResponseController.getStatusByMethod()` 对 POST 默认 `HttpStatus.CREATED`，而旧 `SystemController` 没有任何 `@HttpCode`。这条结论来自 `node_modules/@nestjs/core/router/router-response-controller.js` 的**源码**，不是猜测（先在 `.tmp/` 里跑 Nest 探针会因为 tsconfig 不覆盖 `.tmp/` 而报 "Parameter decorators only work when experimental decorators are enabled"）。
 
 ### P4.3c · `api/db.ts` 启动期 DDL —— 🔶 进行中
 
@@ -567,8 +582,10 @@ export const BOOT_SCHEMA_MIGRATION_ID = '0000_legacy_boot_schema';
 export const bootSchemaMigration: Migration = { id: ..., owner: 'legacy', up: `...787 行 SQL...` };
 ```
 
-- `initDb()` 现在先 `ensureAdoptedSchema(db)`，再 `runMigrations(db, [bootSchemaMigration])`，然后**照旧**每次启动执行 seed 段
+- `initDb()` 现在直接 `runMigrations(db, [bootSchemaMigration])`，然后**照旧**每次启动执行 seed 段
   （首页内容、14 条 settings、`addColumnIfNotExists` 兼容列）—— 行为逐字不变。
+  （原文这里写的是"先 `ensureAdoptedSchema(db)`"，那个函数连同 `api/schema/adoptedTables.ts` 已在 **P4.3c.2** 删除：它曾与 boot DDL 重复定义 6 张表，且 P4.3c.2 移走 DDL 时正是这 6 张表静默消失、测试却全绿的原因。）
+- **注意**：`ensureAdoptedSchema` / `ensureReadOnlyLegacyTables` 这两个名字在旧笔记、旧探针（如 `.tmp/collaboration-probe.mts`）和 `plugins/challenge/plugin.json` 的 `_reads_note` 里都出现过，**它们现在都不存在**。看到就当过时信息处理。
 - **`up` 故意用字符串而不是函数**：字符串迁移的 checksum 取自 SQL 文本，因此代码搬到哪都不会变；
   函数迁移的 checksum 取自 `up.toString()`，一搬家就会让 `runMigrations` **拒绝启动**已迁移的库
   （`migration "x" was modified after it was applied`）。这也是 DDL 仍留在 `api/db.ts` 而不是搬去 `api/schema/` 的原因。

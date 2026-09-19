@@ -1,0 +1,36 @@
+{
+  "id": "system",
+  "name": "系统工具",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "The api/system surface: question-bank CRUD, system_settings, the operation-log reader and the whole-database backup export. Adopts question_bank and system_settings; everything else it touches is declared read access. Migrated out of api/modules/system (P4.3b.5).",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/system", "handler": "SystemController.getQuestions", "auth": "actor" },
+      { "method": "POST", "base": "/api/system", "handler": "SystemController.createQuestion", "auth": "actor" },
+      { "method": "PUT", "base": "/api/system", "handler": "SystemController.updateQuestion", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/system", "handler": "SystemController.deleteQuestion", "auth": "actor" },
+      { "method": "GET", "base": "/api/system", "handler": "SystemController.getSettings", "auth": "actor" },
+      { "method": "POST", "base": "/api/system", "handler": "SystemController.upsertSetting", "auth": "actor" },
+      { "method": "GET", "base": "/api/system", "handler": "SystemController.getLogs", "auth": "actor" },
+      { "method": "GET", "base": "/api/system", "handler": "SystemController.exportBackup", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["question_bank", "system_settings"],
+    "_adopted_note": "question_bank is this domain's own resource (challenge reads it, admin deletes it during a class purge - both are declared readers/writers elsewhere, not co-owners). system_settings is a KNOWN ownership debt: this plugin serves GET/POST /api/system/settings, but the *live* admin endpoint `GET|PUT /api/admin/system/settings` writes the same table through Prisma (api/modules/admin/admin.repository.ts:669-691) with its own canonical key list in admin.defaults.ts. Nothing on the frontend calls /api/system/settings, so the honest resolution is for admin to own this table and for these two routes to disappear with it - deleting a route is a surface change, so it is deliberately left for the round that migrates admin. Recorded here rather than silently left implicit.",
+    "reads": ["users", "classes", "students", "pets", "shop_items", "records", "point_presets", "student_groups", "praises", "announcements", "settings", "certificates", "messages", "family_tasks", "class_announcements", "operation_logs"],
+    "_reads_note": "Sixteen tables, all read-only, and all of them exist in api/schema/legacyBootSchema.ts (checked against the boot DDL). Fifteen are there for GET /api/system/backup/export, which dumps whole tables that belong to other domains - see BACKUP_TABLES in src/system.repository.ts; `settings` is dumped there too. operation_logs is the sixteenth: the kernel's audit sink owns that table (migration 0005_kernel_operation_logs), so GET /api/system/logs reads it and can never write it. A backup export that spans domains is inherently a platform concern; when the remaining domains migrate this should become a kernel-side registry of dumpable tables rather than a static list here."
+  }
+}

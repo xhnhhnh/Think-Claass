@@ -110,6 +110,7 @@ describe('plugin discovery and activation', () => {
       'pet',
       'portal',
       'slg',
+      'system',
     ]);
   });
 
@@ -146,6 +147,7 @@ describe('plugin discovery and activation', () => {
       'pet:active',
       'portal:active',
       'slg:active',
+      'system:active',
     ]);
   });
 
@@ -172,15 +174,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(11);
-    expect(body.kernel.plugins.active).toBe(11);
+    expect(body.kernel.plugins.total).toBe(12);
+    expect(body.kernel.plugins.active).toBe(12);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'pet', 'portal', 'slg']);
+    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'pet', 'portal', 'slg', 'system']);
   });
 });
 
