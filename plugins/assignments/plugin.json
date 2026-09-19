@@ -1,0 +1,43 @@
+{
+  "id": "assignments",
+  "name": "作业与考试",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "Assignments and exams: the api/assignments + api/exams surface (14 routes), lifted out of api/modules/learning as its first slice (P4.3b.5b). These two services were the only Prisma-free part of that domain - plain SQLite over four tables - so they could move on their own. Adopts the two parents and their two child tables; reads students only to expand a class into one grade row per pupil and to label the grade sheet.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "provides": {
+    "routes": [
+      { "method": "GET", "base": "/api/assignments", "handler": "AssignmentsController.listAssignments", "auth": "actor" },
+      { "method": "POST", "base": "/api/assignments", "handler": "AssignmentsController.createAssignment", "auth": "actor" },
+      { "method": "GET", "base": "/api/assignments", "handler": "AssignmentsController.listStudentAssignments", "auth": "actor" },
+      { "method": "PUT", "base": "/api/assignments", "handler": "AssignmentsController.updateStudentAssignment", "auth": "actor" },
+      { "method": "PUT", "base": "/api/assignments", "handler": "AssignmentsController.updateAssignment", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/assignments", "handler": "AssignmentsController.deleteAssignment", "auth": "actor" },
+      { "method": "GET", "base": "/api/exams", "handler": "ExamsController.listExams", "auth": "actor" },
+      { "method": "POST", "base": "/api/exams", "handler": "ExamsController.createExam", "auth": "actor" },
+      { "method": "GET", "base": "/api/exams", "handler": "ExamsController.listStudentExams", "auth": "actor" },
+      { "method": "PUT", "base": "/api/exams", "handler": "ExamsController.updateStudentExam", "auth": "actor" },
+      { "method": "GET", "base": "/api/exams", "handler": "ExamsController.getGrades", "auth": "actor" },
+      { "method": "PUT", "base": "/api/exams", "handler": "ExamsController.saveGrades", "auth": "actor" },
+      { "method": "PUT", "base": "/api/exams", "handler": "ExamsController.updateExam", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/exams", "handler": "ExamsController.deleteExam", "auth": "actor" }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    }
+  },
+  "data": {
+    "tables": [],
+    "adopted": ["assignments", "student_assignments", "exams", "student_exams"],
+    "_adopted_note": "All four keep their legacy names because `SELECT *` rows are the HTTP contract: `reward_points`, `due_date` and `submitted_at` (assignments) and `total_score`, `exam_date` and `feedback` (exams) go straight to the frontend. Renaming them is the coordinated P7 namespace migration tracked by guardrail G10. The two child tables ship with their parents rather than becoming separate plugins because neither has meaning without its parent, and `deleteAssignment`/`deleteExam` delete children-then-parent by hand (there is no ON DELETE CASCADE).",
+    "reads": ["students"],
+    "_reads_note": "Two uses, both read-only. `createExam` runs `SELECT id FROM students WHERE class_id = ?` to seed one empty `student_exams` row per pupil, inside the same transaction as the exam insert; `listGrades` joins `students` for `s.name` and the repository decrypts it with the host-supplied `config.decryptName`. No `dependsOn: classroom`: the classroom port exposes `listClassStudents` (which returns far more than the ids this needs) and `getStudentById`, and using either would create a startup dependency on a plugin whose absence changes nothing about these routes.",
+    "_known_debt": "api/modules/insights reads all four of these tables directly (class averages, assignment completion, per-student grade sheets) and api/modules/admin cascade-deletes from them. The admin path goes through Prisma `$transaction` rather than `DbApi`, so the ownership check cannot see it - see HANDOFF 8.3.1. When insights migrates it should consume a reporting port published here instead of declaring cross-domain reads; after this move that is the ONLY remaining reader."
+  }
+}

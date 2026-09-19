@@ -3,8 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../utils/apiError';
 import {
-  AssignmentsController,
-  ExamsController,
   KnowledgeController,
   PaperSubmissionsController,
   PapersController,
@@ -20,66 +18,11 @@ function expectHttpError(error: unknown, status: number, message: string) {
 }
 
 describe('Learning Nest controllers', () => {
-  it('keeps assignment legacy list and create payload shapes', () => {
-    const service = {
-      listAssignments: vi.fn().mockReturnValue([{ id: 1, title: '阅读' }]),
-      createAssignment: vi.fn().mockReturnValue({ id: 2, title: '数学' }),
-    };
-    const controller = new AssignmentsController(service as any);
-
-    expect(controller.listAssignments('10')).toEqual({
-      success: true,
-      data: [{ id: 1, title: '阅读' }],
-    });
-    expect(service.listAssignments).toHaveBeenCalledWith('10');
-    expect(controller.createAssignment({ title: '数学' })).toEqual({
-      success: true,
-      data: { id: 2, title: '数学' },
-      id: 2,
-      title: '数学',
-    });
-  });
-
-  it('keeps exam legacy create and grades payload shapes', () => {
-    const service = {
-      createExam: vi.fn().mockReturnValue({ id: 3, title: '期中' }),
-      getGrades: vi.fn().mockReturnValue({ grades: [{ student_id: 1, score: 98 }] }),
-      saveGrades: vi.fn().mockReturnValue({ updated: 1 }),
-    };
-    const controller = new ExamsController(service as any);
-
-    expect(controller.createExam({ title: '期中' })).toEqual({
-      success: true,
-      data: { id: 3, title: '期中' },
-      id: 3,
-      title: '期中',
-    });
-    expect(controller.getGrades('3')).toEqual({
-      success: true,
-      data: { grades: [{ student_id: 1, score: 98 }] },
-      grades: [{ student_id: 1, score: 98 }],
-    });
-    expect(controller.saveGrades('3', { grades: [{ student_id: 1, score: 98 }] })).toEqual({
-      success: true,
-      data: { updated: 1 },
-    });
-  });
-
-  it('maps assignment ApiError without changing status or message', () => {
-    const controller = new AssignmentsController({
-      createAssignment: vi.fn(() => {
-        throw new ApiError(400, 'Missing title');
-      }),
-    } as any);
-
-    try {
-      controller.createAssignment({});
-      throw new Error('Expected controller to throw');
-    } catch (error) {
-      expectHttpError(error, 400, 'Missing title');
-    }
-  });
-
+  // The assignment/exam cases that used to live here moved to
+  // `tests/plugins/assignments-service.test.ts` with their controllers in P4.3b.5b. They
+  // asserted the same envelopes, so nothing was dropped - but the *envelope* assertions
+  // there include the top-level spread (`{ success, data: { id }, id }`), which the
+  // `toEqual` subsets here never actually pinned.
   it('delegates knowledge subjects, nodes, edges, and delete responses', async () => {
     const service = {
       listSubjects: vi.fn().mockResolvedValue([{ id: 1, name: '数学' }]),

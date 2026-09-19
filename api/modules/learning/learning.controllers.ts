@@ -15,152 +15,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import os from 'os';
-import { AssignmentsService } from './assignments.service.js';
-import { ExamsService } from './exams.service.js';
 import { LearningService } from './learning.service.js';
 import { throwLearningError } from './learning.errors.js';
 
 function ok<T>(data: T, legacyPayload: Record<string, unknown> = {}) {
   return { success: true, data, ...legacyPayload };
-}
-
-@Controller('api/assignments')
-export class AssignmentsController {
-  constructor(@Inject(AssignmentsService) private readonly assignmentsService: AssignmentsService) {}
-
-  @Get()
-  listAssignments(@Query('class_id') classId?: string) {
-    try {
-      return ok(this.assignmentsService.listAssignments(classId));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Post()
-  createAssignment(@Body() body: Record<string, any>) {
-    try {
-      const data = this.assignmentsService.createAssignment(body as any);
-      return ok(data, data);
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Get('student-assignments')
-  listStudentAssignments(@Query() query: Record<string, any>) {
-    try {
-      return ok(this.assignmentsService.listStudentAssignments(query));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Put('student-assignments/:id')
-  updateStudentAssignment(@Param('id') id: string, @Body() body: Record<string, any>) {
-    try {
-      return ok(this.assignmentsService.updateStudentAssignment(id, body as any));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Put(':id')
-  updateAssignment(@Param('id') id: string, @Body() body: Record<string, any>) {
-    try {
-      return ok(this.assignmentsService.updateAssignment(id, body as any));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Delete(':id')
-  deleteAssignment(@Param('id') id: string) {
-    try {
-      return ok(this.assignmentsService.deleteAssignment(id));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-}
-
-@Controller('api/exams')
-export class ExamsController {
-  constructor(@Inject(ExamsService) private readonly examsService: ExamsService) {}
-
-  @Get()
-  listExams(@Query('class_id') classId?: string) {
-    try {
-      return ok(this.examsService.listExams(classId));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Post()
-  createExam(@Body() body: Record<string, any>) {
-    try {
-      const data = this.examsService.createExam(body as any);
-      return ok(data, data);
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Get('student-exams')
-  listStudentExams(@Query() query: Record<string, any>) {
-    try {
-      return ok(this.examsService.listStudentExams(query));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Put('student-exams/:id')
-  updateStudentExam(@Param('id') id: string, @Body() body: Record<string, any>) {
-    try {
-      return ok(this.examsService.updateStudentExam(id, body as any));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Get(':id/grades')
-  getGrades(@Param('id') id: string) {
-    try {
-      const data = this.examsService.getGrades(id);
-      return ok(data, data);
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Put(':id/grades')
-  saveGrades(@Param('id') id: string, @Body() body: Record<string, any>) {
-    try {
-      return ok(this.examsService.saveGrades(id, body?.grades));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Put(':id')
-  updateExam(@Param('id') id: string, @Body() body: Record<string, any>) {
-    try {
-      return ok(this.examsService.updateExam(id, body as any));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
-
-  @Delete(':id')
-  deleteExam(@Param('id') id: string) {
-    try {
-      return ok(this.examsService.deleteExam(id));
-    } catch (error) {
-      throwLearningError(error);
-    }
-  }
 }
 
 @Controller('api/papers')
@@ -412,4 +271,3 @@ export class StudyPlansController {
     }
   }
 }
-

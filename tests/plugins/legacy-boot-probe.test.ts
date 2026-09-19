@@ -122,6 +122,7 @@ describe('legacy composition serves plugin routes', () => {
     const payload = JSON.parse(response.body) as { data: Array<{ id: string }> };
     const ids = payload.data.map((plugin) => plugin.id).sort();
     expect(ids).toEqual([
+      'assignments',
       'battles',
       'challenge',
       'classroom',
@@ -178,6 +179,18 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
     expect(JSON.parse(response.body)).toEqual({ success: true, questions: [] });
+  });
+
+  it('serves the migrated assignments/exams domain from its plugin', async () => {
+    // `api/modules/learning` no longer declares these two controllers (P4.3b.5b); the
+    // routes come from `plugins/assignments` through the legacy root module. The envelope
+    // carries the class list straight from the plugin's repository, and the `data`/`exams`
+    // keys are the ones the deleted controller produced.
+    const response = await probe('/api/exams?class_id=1');
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toContain('Cannot GET');
+    expect(JSON.parse(response.body)).toEqual({ success: true, data: [] });
   });
 
   it('distinguishes a missing resource from a missing route', async () => {

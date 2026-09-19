@@ -99,6 +99,7 @@ describe('plugin discovery and activation', () => {
     // (covered by resolver.test.ts) and pinning it here would make every new plugin
     // break this test for the wrong reason.
     expect(host!.active.map((entry) => entry.manifest.id).sort()).toEqual([
+      'assignments',
       'battles',
       'challenge',
       'classroom',
@@ -136,6 +137,7 @@ describe('plugin discovery and activation', () => {
   it('records every activated plugin in the state store', () => {
     const rows = host!.stateStore.list();
     expect(rows.map((r) => `${r.id}:${r.state}`).sort()).toEqual([
+      'assignments:active',
       'battles:active',
       'challenge:active',
       'classroom:active',
@@ -174,15 +176,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(12);
-    expect(body.kernel.plugins.active).toBe(12);
+    expect(body.kernel.plugins.total).toBe(13);
+    expect(body.kernel.plugins.active).toBe(13);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'gacha', 'marketplace', 'pet', 'portal', 'slg', 'system']);
   });
 });
 
