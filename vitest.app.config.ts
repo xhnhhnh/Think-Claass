@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 /**
@@ -9,10 +10,15 @@ import path from 'path';
  * The `@thinkclass/*` aliases mirror the root tsconfig `paths` so application code
  * can import workspace packages exactly as it does at runtime.
  *
+ * `tsconfigPaths()` matches the production build: without it the `@/` alias is unknown to
+ * Vite's static analysis, so `import.meta.glob('@/features/...')` in the route registry
+ * resolves to nothing under test while working in the build - the registry would look
+ * correct in production and empty in CI.
+ *
  * Run standalone with `npm run test:app`.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tsconfigPaths()],
   test: {
     name: 'app',
     globals: true,

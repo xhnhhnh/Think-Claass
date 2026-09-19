@@ -84,3 +84,42 @@ describe('G14 class-feature catalogue stays derived', () => {
     expect(text).toContain('plugins/classroom/plugin.json');
   });
 });
+
+/**
+ * The route page-module map is generated from the route table for the same reason: two hand-kept
+ * lists drift. A stale map is worse than a missing one - the route exists, the page exists, and
+ * the lookup returns undefined at render time.
+ *
+ * This replaced an `import.meta.glob` version that failed in three separate ways: the build
+ * rejects alias globs that vitest accepts, the key format differs between the two, and a glob
+ * bundles every matched file before any filter runs (it shipped a 458 kB chunk of
+ * react-dom-test-utils). The generator's header records that history.
+ */
+describe('G15 the route module map stays derived', () => {
+  const GENERATOR = path.join(ROOT, 'scripts', 'migration', 'route-modules.mjs');
+  const MAP = path.join(ROOT, 'src', 'app', 'routing', 'pageModules.generated.ts');
+
+  it('the generated map matches the route table', () => {
+    let output = '';
+    let failed = false;
+    try {
+      output = execFileSync(process.execPath, [GENERATOR, '--check'], { cwd: ROOT, encoding: 'utf8' });
+    } catch (error) {
+      failed = true;
+      output = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(failed, `generated route module map is stale:\n${output}`).toBe(false);
+    expect(output).toContain('matches the route table');
+  });
+
+  it('the map is not empty and names no test module', () => {
+    const text = fs.readFileSync(MAP, 'utf8');
+    const entries = [...text.matchAll(/^\s+'(@\/[^']+)':/gm)].map((m) => m[1]);
+
+    // Both directions matter: an empty map makes the check above vacuous, and a test module
+    // pulled into a route chunk is what made the glob approach unusable.
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.filter((entry) => entry.includes('.test'))).toEqual([]);
+  });
+});

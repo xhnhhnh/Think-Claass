@@ -85,7 +85,7 @@ npm test                      # 核对我声称的 114 文件 / 437 用例
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 13 组防伪护栏（棘轮，43 用例）
+npm run guard         # 15 组防伪护栏（棘轮，45 用例）
 
 npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
@@ -121,7 +121,7 @@ npm run spike:nest    # R10 技术验证（8/8）
 | P5 | 前端插件化（注册表驱动路由/菜单/插槽） | — | 🔶 |
 | P5.1 | **19 个 `enable_*` 前端硬编码表 → 从插件 manifest 生成** | 见 `git log` | ✅ |
 | P5.2 | ~~62 个转发 shim~~ ✅ **P5.2a**：61 个 shim 变成真实实现，1 个错位重复 shim 删除 | 见 `git log` | ✅ |
-| P5.2b | `AppRoutes` 的 66 条 lazy import → 注册表驱动 + `import.meta.glob` | — | ⬜ |
+| P5.2b | ~~`AppRoutes` 的 80 条 static import~~ ✅ 路由表 + 生成式模块映射（`import.meta.glob` 被否决，见 §9 说明） | 见 `git log` | ✅ |
 | P5.3 | 4 个布局的硬编码菜单 → `MenuRegistry`；`window.__TC_CONFIG__` 取代部署期 `sed` | — | ⬜ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
 | P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
@@ -201,8 +201,8 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 | 键 | 当前 | 目标 | 含义 |
 |---|---|---|---|
 | `shimPages` | **0** ✅（62 → 0）| 0 | 插件树里的一行转发 shim（"假插件化"） |
-| `deadCode` | 70 | 0 | 应用不可达文件 |
-| `staticPluginRoutes` | 76 | 0 | 路由表里静态 import 的插件页面 |
+| `deadCode` | **65**（70 → 69 → 66 → 65）| 0 | 应用不可达文件 |
+| `staticPluginRoutes` | **0** ✅（76 → 0）| 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
 | `adoptedTables` | 2 | 0 | 仍带旧名的插件自有表 |
 | `routeCollisions` | **1 → 0**（P4.3b R1 新增）| 0 | 同一 METHOD+PATH 被两个控制器文件声明 |
@@ -228,7 +228,7 @@ plugins/economy         P4.3b.1 首个迁出的真实域，20 个端点，是后
 npm test        113 文件 / 567 用例全绿
 npm run check   exit 0
 api:surface     unchanged (292 endpoints)
-guardrails      11 文件 / 43 用例
+guardrails      11 文件 / 45 用例
 ```
 
 **已迁成插件的域（11 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace, portal（+ 原有 classroom, pet）
@@ -239,7 +239,7 @@ guardrails      11 文件 / 43 用例
 | 指标 | 期望 | 变了说明什么 |
 |---|---|---|
 | `api:surface` 端点数 | **292** | 迁移期间**不应变化**。变小 → 扫描漏了插件；变大 → 多出端点 |
-| `deadCode` | **66** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
+| `deadCode` | **65** | 每迁完一个域应继续下降：删掉旧模块（含死的 `*.repository.prisma.ts`）就该降 |
 | `shimPages` | **0** | P5.2a 已达成 |
 | `legacyFeatureKeySurfaces` | **0** | P5.1 已达成；G14 保证它不会回升 |
 | `adoptedTables` | **26** | 每迁一个域会上升，P7 改名后归零。**`records` 不计入**（永久共享） |
@@ -383,6 +383,28 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 批次并行时记住这条：R4 就是因为 6 个旧 teammate 占位，后 4 个域只能串行。
 
 ### 8.7 `dbApi` 的 SQL 表名提取器：假阳性会打断合法查询
+
+### 8.10 `import.meta.glob` 为什么被否决（P5.2b 实证）
+
+任务书写的是「`AppRoutes` → 注册表驱动 + `import.meta.glob`」。**实测后改成生成式映射**，
+原因是 glob 在三个方面同时踩坑：
+
+1. **构建与测试的别名行为不同**：`import.meta.glob('@/features/*/pages/*.tsx')`
+   在 vitest 下可用，但 `vite build` 直接报错
+   `[vite:import-glob] Invalid glob ... It must start with '/' or './'`。
+   → 同一份代码「测试绿、构建红」。
+2. **key 格式两边不同**：vitest 归一化成 `/src/features/...`，构建期保留原 specifier。
+   按任一种写查找都会让另一种全挂 —— 而且失败形态是 `undefined`，不是报错。
+3. **glob 会打包所有匹配文件**：`*.tsx` 会匹配 `*.test.tsx`，而 Vite **在运行期过滤之前**就为每个匹配文件生成 dynamic import。
+   结果：干净构建里出现一个 **458 kB 的 `test.*` chunk，内含 `react-dom-test-utils`**。
+   试过 `[A-Z]*.tsx` 收窄模式，无效。
+
+**改用 `scripts/migration/route-modules.mjs` 从 `routeTable.ts` 生成显式映射**
+（`npm run route-modules` / `route-modules:check`），路由表是唯一事实源，
+`--check` 在护栏里跑（**G15**）。生成物只含 `import('literal')`，任何打包器都懂。
+
+**代价**：新增路由要重新生成一次 —— 这正是想要的：`--check` 让「忘记生成」变成测试失败，
+而不是线上某个路由白屏。
 
 `packages/plugin-runtime/src/dbApi.ts` 的 `referencedTables()` 用正则从 SQL 里猜表名，猜错有两个方向：
 

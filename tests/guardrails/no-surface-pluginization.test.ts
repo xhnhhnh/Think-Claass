@@ -43,8 +43,9 @@ describe('G3 no surface-only pluginization', () => {
     // Guard against someone "fixing" a regression by editing allowances.json upward.
     // Target reached in P5.2; a shim reappearing is a regression, not headroom.
     expect(allowances.shimPages).toBeLessThanOrEqual(0);
-    expect(allowances.deadCode).toBeLessThanOrEqual(66);
-    expect(allowances.staticPluginRoutes).toBeLessThanOrEqual(76);
+    expect(allowances.deadCode).toBeLessThanOrEqual(65);
+    // Target reached in P5.2b; a static plugin route reappearing is a regression.
+    expect(allowances.staticPluginRoutes).toBeLessThanOrEqual(0);
     expect(allowances.legacyFeatureKeySurfaces).toBeLessThanOrEqual(2);
   });
 });
