@@ -2,13 +2,16 @@ import type { CSSProperties } from 'react';
 
 import {
   BRAND_GREEN,
+  BRAND_INK,
   BRAND_PHONE_PATH,
-  BRAND_PLATE,
+  BRAND_SLOT_STROKE_WIDTH,
+  BRAND_SLOTS_PATH,
   BRAND_SPROUT_PATH,
+  BRAND_STROKE_WIDTH,
 } from '@/lib/brandIcon';
 
 /**
- * The Think-Class brand mark: a phone with a sprout on its screen.
+ * The Think-Class brand mark: a monoline phone with a sprout branching off the stem.
  *
  * Drawn inline so it scales without a raster step and can be recoloured by the surrounding text
  * colour - the mark is used at 16px in the footer, 28px in the sidebar and 64px on the login card,
@@ -21,7 +24,7 @@ export type BrandMarkVariant = 'badge' | 'glyph';
 
 export interface BrandMarkProps {
   /**
-   * `badge` - the dark plate plus the green mark, for light surfaces (cards, headers, login).
+   * `badge` - the green tile with the mark in ink, for light surfaces (cards, headers, login).
    * `glyph` - the mark alone in `currentColor`, for dark or coloured surfaces.
    */
   variant?: BrandMarkVariant;
@@ -42,6 +45,9 @@ export default function BrandMark({
   title,
 }: BrandMarkProps) {
   const labelled = Boolean(title);
+  // The tile is what carries the colour, so the mark on it is ink; a glyph on someone else's
+  // surface has to inherit that surface's text colour instead.
+  const stroke = variant === 'badge' ? BRAND_INK : 'currentColor';
 
   return (
     <svg
@@ -57,15 +63,13 @@ export default function BrandMark({
       focusable="false"
     >
       {title ? <title>{title}</title> : null}
-      {variant === 'badge' ? <rect width="32" height="32" fill={BRAND_PLATE} /> : null}
-      <g fill={variant === 'badge' ? BRAND_GREEN : 'currentColor'}>
-        {/*
-          `evenodd` is what cuts the screen, the earpiece and the home indicator out of the body, so
-          the plate (badge) or the surface behind (glyph) shows through them. The sprout is a second
-          path because it is painted *inside* that hole.
-        */}
-        <path fillRule="evenodd" d={BRAND_PHONE_PATH} />
-        <path d={BRAND_SPROUT_PATH} />
+      {variant === 'badge' ? <rect width="32" height="32" fill={BRAND_GREEN} /> : null}
+      {/* Round caps and joins are the style: one weight for the phone and the sprout, a thinner
+          one for the two slots, so the mark keeps the same texture at every size. */}
+      <g fill="none" stroke={stroke} strokeLinecap="round" strokeLinejoin="round">
+        <path strokeWidth={BRAND_STROKE_WIDTH} d={BRAND_PHONE_PATH} />
+        <path strokeWidth={BRAND_SLOT_STROKE_WIDTH} d={BRAND_SLOTS_PATH} />
+        <path strokeWidth={BRAND_STROKE_WIDTH} d={BRAND_SPROUT_PATH} />
       </g>
     </svg>
   );

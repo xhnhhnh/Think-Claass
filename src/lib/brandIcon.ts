@@ -9,57 +9,56 @@
  *   - `brandIconDataUrl()` is what the browser tab falls back to before a superadmin uploads a
  *     `site_favicon` in platform settings.
  *
- * The mark is a **phone with a sprout growing on its screen**: the product is a classroom that
- * children carry in their pocket, and the sprout is the growth the app is about. The phone is a
- * filled silhouette rather than an outline because the mark has to survive 16px in a browser tab,
- * where an outline turns to mush and a solid shape still reads.
+ * **Style: a bright green app tile with the phone drawn in one ink colour, monoline.** The previous
+ * mark was the inverse - a near-black plate with a solid green silhouette - which read as a developer
+ * tool. This one is an app icon: a green tile, a rounded monoline phone, round caps and joins, and a
+ * sprout branching off the stem inside it. Everything is a stroke of one width (with the two slots
+ * thinner), so it stays crisp when it is scaled and it inherits a colour instead of baking one in.
  *
  * Geometry, on a 32-unit grid (the viewBox both consumers use):
- *   plate    0 .. 32              full bleed; consumers round it with CSS
- *   body     8.5 .. 23.5 x 2.5 .. 29.5, 3.6r  - the silhouette, and the only thing at 16px
- *   screen   11 .. 21 x 6.2 .. 25.8, 1.9r      - a hole, so the plate (or the page) shows through
- *   earpiece 14.3 .. 17.7 x 3.6 .. 4.65       - a hole in the top bezel
- *   home     13.4 .. 18.6 x 27.1 .. 28.2      - a hole in the bottom bezel
- *   sprout   stem 15.35 .. 16.65 x 14.4 .. 22, two leaves meeting it at y 17
+ *   plate    0 .. 32                    full bleed and green; consumers round it with CSS
+ *   body     9.6 .. 22.4 x 4 .. 28, 3.4r, stroked 2.4 -> outer edge 8.4 .. 23.6 x 2.8 .. 29.2
+ *   earpiece 14.6 .. 17.4 at y 6.6      stroked 1.6, so it reads as a slot rather than a bar
+ *   home     14.3 .. 17.7 at y 25.4     stroked 1.6
+ *   sprout   stem 16 x 20.4 .. 13.4, leaves from (16, 15.4) to (13.2, 12.6) and (18.8, 12.6)
  *
- * The earpiece and the home indicator matter more than they look: without them a rounded rectangle
- * with a hole is a card, and those two slots are what make it a phone at a glance.
+ * The earpiece and the home slots matter more than they look: without them a rounded rectangle with
+ * a plant in it is a card, and those two slots are what make it a phone at a glance.
  *
  * Both colours are artwork, not tokens - `HEX_COLOR_EXEMPT` in the design-system audit names this
- * file, because a brand mark that resolved through `--primary` would change colour with the role
- * theme (the parent area's primary is orange) and stop being a mark.
+ * file, because a mark that resolved through `--primary` would change colour with the role theme
+ * (the parent area's primary is orange) and stop being a mark.
  */
 
-export const BRAND_PLATE = '#0A0B0D';
+/** The tile the mark sits on. */
 export const BRAND_GREEN = '#32F08C';
 
-/**
- * The phone, as body-plus-holes; `evenodd` is what cuts the screen, the earpiece and the home
- * indicator out of the silhouette, so the plate shows through them.
- */
+/** The phone, the slots and the sprout, all in this one colour. */
+export const BRAND_INK = '#0A0B0D';
+
+/** One weight for the phone and the sprout; the two slots use a thinner one below. */
+export const BRAND_STROKE_WIDTH = 2.4;
+
+/** The slots are thinner than the body on purpose: they are details, not structure. */
+export const BRAND_SLOT_STROKE_WIDTH = 1.6;
+
+/** The phone body: a rounded rectangle, stroked. One subpath. */
 export const BRAND_PHONE_PATH = [
-  // body
-  'M12.1 2.5H19.9A3.6 3.6 0 0 1 23.5 6.1V25.9A3.6 3.6 0 0 1 19.9 29.5H12.1A3.6 3.6 0 0 1 8.5 25.9V6.1A3.6 3.6 0 0 1 12.1 2.5Z',
-  // earpiece slot
-  'M14.825 3.6H17.175A0.525 0.525 0 0 1 17.7 4.125A0.525 0.525 0 0 1 17.175 4.65H14.825A0.525 0.525 0 0 1 14.3 4.125A0.525 0.525 0 0 1 14.825 3.6Z',
-  // screen
-  'M12.9 6.2H19.1A1.9 1.9 0 0 1 21 8.1V23.9A1.9 1.9 0 0 1 19.1 25.8H12.9A1.9 1.9 0 0 1 11 23.9V8.1A1.9 1.9 0 0 1 12.9 6.2Z',
-  // home indicator
-  'M13.95 27.1H18.05A0.55 0.55 0 0 1 18.6 27.65A0.55 0.55 0 0 1 18.05 28.2H13.95A0.55 0.55 0 0 1 13.4 27.65A0.55 0.55 0 0 1 13.95 27.1Z',
+  'M13 4H19A3.4 3.4 0 0 1 22.4 7.4V24.6A3.4 3.4 0 0 1 19 28H13A3.4 3.4 0 0 1 9.6 24.6V7.4A3.4 3.4 0 0 1 13 4Z',
 ].join('');
 
+/** Earpiece and home indicator: two open strokes, drawn thinner. */
+export const BRAND_SLOTS_PATH = ['M14.6 6.6H17.4', 'M14.3 25.4H17.7'].join('');
+
 /**
- * The sprout on the screen: a stem and two leaves, drawn inside the screen's box (x 11 .. 21,
- * y 6.2 .. 25.8) so it needs no clip path. Leaves are quadratics through the stem, which is what
- * gives them a point at the tip and a belly at the base.
+ * The sprout: a stem with two leaves branching from its top. Strokes rather than filled leaves -
+ * a filled leaf shape is the first thing to turn to mud when the mark is drawn at 16px, and a
+ * round-capped stroke stays the same weight all the way down.
  */
 export const BRAND_SPROUT_PATH = [
-  // stem
-  'M15.25 14.15A0.75 0.75 0 0 1 16.75 14.15V19.65A0.75 0.75 0 0 1 15.25 19.65Z',
-  // left leaf: a lens from the stem out to a point, so the two leaves stay separate shapes
-  'M15.4 15.9C13.2 15.4 11.9 13.7 11.8 11.6C14 11.9 15.6 13.4 15.4 15.9Z',
-  // right leaf
-  'M16.6 15.9C18.8 15.4 20.1 13.7 20.2 11.6C18 11.9 16.4 13.4 16.6 15.9Z',
+  'M16 20.4V13.4',
+  'M16 15.4L13.2 12.6',
+  'M16 15.4L18.8 12.6',
 ].join('');
 
 /**
@@ -67,11 +66,13 @@ export const BRAND_SPROUT_PATH = [
  * is the bridge; keep it in step with `<BrandMark>` by deriving both from the constants above.
  */
 export function brandIconSvg(): string {
+  const stroke = `fill="none" stroke="${BRAND_INK}" stroke-linecap="round" stroke-linejoin="round"`;
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">',
-    `<rect width="32" height="32" fill="${BRAND_PLATE}"/>`,
-    `<path fill="${BRAND_GREEN}" fill-rule="evenodd" d="${BRAND_PHONE_PATH}"/>`,
-    `<path fill="${BRAND_GREEN}" d="${BRAND_SPROUT_PATH}"/>`,
+    `<rect width="32" height="32" fill="${BRAND_GREEN}"/>`,
+    `<path ${stroke} stroke-width="${BRAND_STROKE_WIDTH}" d="${BRAND_PHONE_PATH}"/>`,
+    `<path ${stroke} stroke-width="${BRAND_SLOT_STROKE_WIDTH}" d="${BRAND_SLOTS_PATH}"/>`,
+    `<path ${stroke} stroke-width="${BRAND_STROKE_WIDTH}" d="${BRAND_SPROUT_PATH}"/>`,
     '</svg>',
   ].join('');
 }
