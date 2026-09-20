@@ -124,7 +124,7 @@ export default function TeacherAuction() {
       addLabel="发布拍品"
       emptyTitle="拍卖行空空如也"
       emptyDescription="快去发布一件拍品吧"
-      icon={<Gavel className="size-8 text-amber-500" />}
+      icon={Gavel}
       items={auctions}
       isLoading={isLoading}
       fields={auctionFields}

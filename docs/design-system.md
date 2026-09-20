@@ -144,8 +144,37 @@ and only the portal's copy is repainted by the `.public-campus-page` block.
 
 ## 6. Component contract
 
-*(Filled in by P2: one row per exported component — import path, purpose, props, and the state
-variants it owns — so that a new page is composed rather than styled.)*
+Everything a page renders comes from `@/components/ui/**`. **A kit component lands with its first
+consumer**, because the `deadCode` ratchet counts an unreferenced file: adding a component "for
+later" is adding debt with a nicer name.
+
+| Component | Import | Purpose | Notes |
+| --- | --- | --- | --- |
+| `Button` | `@/components/ui/button` | every action | `variant`: default/outline/secondary/ghost/destructive/link; `size`: xs…icon-lg |
+| `Input`, `Textarea`, `Select` | `@/components/ui/{input,textarea,select}` | form controls | `Select` is a styled native `<select>` on purpose - see below |
+| `Checkbox` | `@/components/ui/checkbox` | tick boxes | Base UI; `checked` / `onCheckedChange` |
+| `FormField` | `@/components/ui/form-field` | label + control + hint + error | wrapping `<label>`, so `getByLabelText` keeps working; the required marker is a CSS pseudo-element |
+| `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`, `CardAction` | `@/components/ui/card` | surfaces | |
+| `Dialog`, `DialogTrigger`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose` | `@/components/ui/dialog` | forms in a modal | Base UI Dialog |
+| `ConfirmDialog` | `@/components/ui/alert-dialog` | confirmations | replaces `window.confirm`; Base UI AlertDialog, so focus lands on the least destructive action |
+| `Badge` | `@/components/ui/badge` | status chips | `variant` adds success/warning/info to the stock set |
+| `Table` family | `@/components/ui/table` | tabular data | *unadopted*: P4's `DataTable` is the intended consumer |
+| `DropdownMenu` family | `@/components/ui/dropdown-menu` | menus | *unadopted*: adopt for a user menu or row actions by P8, or delete |
+| `PageHeader` | `@/components/ui/page-header` | page title + description + actions | renders an `<h2>`; the shell owns the `h1` |
+| `EmptyState` | `@/components/ui/empty-state` | "nothing here" | copy stays with the caller |
+| `Spinner`, `Skeleton`, `SkeletonList` | `@/components/ui/{spinner,skeleton}` | loading | `Skeleton` where the incoming shape is known, `Spinner` inside a button |
+| `Label` | `@/components/ui/label` | standalone label | |
+
+Two decisions worth stating, because they look like omissions:
+
+- **`Select` is a native `<select>`.** The 27 selects in the app are written as
+  `<select value onChange><option>`. A composite listbox would rewrite every call site and change
+  keyboard/touch behaviour - a behaviour change this refactor does not get to make. The kit owns the
+  *look*; the element stays the browser's.
+- **`FormField` uses a wrapping `<label>` and draws `*` with `after:content-['*']`.** The three page
+  tests that exercise `CrudPage` reach their controls with `getByLabelText('股票名称')`, which matches
+  the label's text content. Nesting the control keeps that working, and a pseudo-element keeps the
+  required marker out of the accessible name.
 
 ## 7. Phase log
 
@@ -193,4 +222,37 @@ what it counts is worse than no metric:
 2. Comments were being counted. `!important` in a CSS comment, and `ring-3` in a TypeScript comment
    explaining that `ring-3` is inert, both scored as debt. Both scans now blank comments while
    preserving line numbers.
+
+### P2 — the kit, with its first consumer
+
+Eight components land, all in `src/components/ui/`: `Select`, `Textarea`, `FormField`, `Spinner`,
+`Skeleton`/`SkeletonList`, `EmptyState`, `PageHeader`, `ConfirmDialog` (on Base UI's AlertDialog).
+`Badge` gains `success`/`warning`/`info`.
+
+They land together with their consumer, `CrudPage` - the app's one generic CRUD page, used by
+股票管理, 拍卖行管理 and 盲盒管理 - which now composes all of them instead of carrying its own copy of
+every primitive. Its three page tests are the contract: `getByLabelText('股票名称')`, the buttons
+named `保存`/`删除`/`取消`, and the delete confirmation all still work, which the 18 new tests in
+`kit-primitives.test.tsx` / `kit-states.test.tsx` pin directly.
+
+Also in this phase: `FeatureDisabledState` moved onto `EmptyState` + `Button`; the dead
+`src/components/Empty.tsx` was deleted; `CrudPage`'s consumers stopped passing colour to their icons
+(`text-indigo-500`, `text-purple-500`), which is how the kit takes over the palette.
+
+| Metric | P1 | P2 |
+| --- | --- | --- |
+| `rawButtons` | 263 | 262 |
+| `rawInputs` | 96 | 95 |
+| `rawSelects` | 27 | 26 |
+| `rawTables` | 13 | 12 |
+| `offBrandAccents` | 790 | 788 |
+| `deadCode` (backend ratchet) | 55 | **54** |
+| app test files / tests | 65 / 157 | 67 / 175 |
+| guard files / tests | 15 / 85 | 15 / 85 |
+
+The third metric correction came from this phase: the raw-element counts were including
+`src/components/ui/**`, so `select.tsx`'s own `<select>` was scored as the debt the kit exists to
+remove. The counts now exclude the kit - a page writing `<select>` is the debt, the kit wrapping one
+is the fix - which is also why `rawSelects`/`rawTables` moved down without a page changing.
+
 

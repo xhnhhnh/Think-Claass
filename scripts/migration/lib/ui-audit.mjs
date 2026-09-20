@@ -43,6 +43,9 @@ import { collectFiles, isTestFile, normalize, toRel } from './analysis.mjs';
 /** Source extensions that can carry UI markup or class names. */
 const SRC_EXTS = ['.ts', '.tsx'];
 
+/** True for every source file that is not the component layer itself. */
+const isOutsideKit = (rel) => !rel.startsWith(RAW_ELEMENT_EXEMPT_PREFIX);
+
 /** The stylesheet the refactor is shrinking. */
 export const STYLESHEET = 'src/index.css';
 
@@ -62,6 +65,12 @@ export const HEX_COLOR_EXEMPT = ['src/lib/brandIcon.ts', 'src/lib/celebrationPal
  *
  * The lookahead keeps `<buttonGroup>`-style custom elements out of the count
  * while still matching `<button\n` and `<button>`.
+ *
+ * `src/components/ui/**` is excluded from these counts, not from the audit: the kit
+ * is the one layer whose job is to render the element (`select.tsx` contains a real
+ * `<select>`), so counting it would make the kit's own implementation look like the
+ * debt the kit exists to remove. A page writing `<select>` is the debt; the kit
+ * wrapping one is the fix.
  */
 const RAW_ELEMENTS = /** @type {const} */ ({
   rawButtons: /<button(?=[\s/>])/g,
@@ -69,6 +78,9 @@ const RAW_ELEMENTS = /** @type {const} */ ({
   rawSelects: /<select(?=[\s/>])/g,
   rawTables: /<table(?=[\s/>])/g,
 });
+
+/** Files allowed to contain the raw elements above. */
+export const RAW_ELEMENT_EXEMPT_PREFIX = 'src/components/ui/';
 
 /** A CSS colour literal: 3, 4, 6 or 8 hex digits, and nothing longer. */
 const HEX_COLOR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/g;
@@ -566,7 +578,7 @@ export async function auditUi(root) {
   const offenders = {};
 
   for (const [key, pattern] of Object.entries(RAW_ELEMENTS)) {
-    const found = findOccurrences(root, files, pattern);
+    const found = findOccurrences(root, files, pattern, isOutsideKit);
     counts[key] = found.count;
     offenders[key] = found.offenders;
   }
@@ -635,10 +647,13 @@ export async function auditUi(root) {
     row.lines = Number(row.lines) + text.split(/\r?\n/).length;
     for (const key of areaKeys) {
       const pattern = RAW_ELEMENTS[key] ?? (key === 'hexColors' ? HEX_COLOR : key === 'inlineStyles' ? INLINE_STYLE : NATIVE_DIALOGS);
-      const include = key === 'hexColors' ? (rel2) => !HEX_COLOR_EXEMPT.includes(rel2) : undefined;
-      if (include && !include(rel)) continue;
+      // Same exclusions as the totals above, or the table and the ratchet would
+      // disagree about the same file.
+      if (RAW_ELEMENTS[key] && !isOutsideKit(rel)) continue;
+      if (key === 'hexColors' && HEX_COLOR_EXEMPT.includes(rel)) continue;
       const perFile = new RegExp(pattern.source, pattern.flags);
-      row[key] = Number(row[key]) + [...text.matchAll(perFile)].length;
+      const source = blankComments(text);
+      row[key] = Number(row[key]) + [...source.matchAll(perFile)].length;
     }
   }
 

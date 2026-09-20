@@ -157,6 +157,21 @@ const CONTRACT_UTILITIES = [
   '[&>img:first-child]:rounded-t-lg',
   '[&_a]:underline-offset-[3px]',
   '[&>svg]:!size-3',
+  // P2: the kit components the page families now compose from
+  "after:content-['*']",
+  'bg-primary/5',
+  'bg-success/10',
+  'text-success',
+  'bg-warning/10',
+  'text-warning',
+  'bg-info/10',
+  'text-info',
+  'border-dashed',
+  'bg-white/70',
+  'text-ink-1',
+  'rounded-md',
+  'animate-pulse',
+  'animate-spin',
 ];
 
 /**

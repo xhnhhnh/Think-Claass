@@ -106,7 +106,7 @@ export default function TeacherBlindBox() {
       addLabel="上架新盲盒"
       emptyTitle="暂无盲盒"
       emptyDescription="快去上架一个吧"
-      icon={<Package className="size-8 text-purple-500" />}
+      icon={Package}
       items={boxes}
       isLoading={isLoading}
       fields={blindBoxFields}

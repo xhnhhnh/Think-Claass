@@ -80,7 +80,7 @@ export default function TeacherEconomyPage() {
         addLabel="新增股票"
         emptyTitle="暂无挂牌股票"
         emptyDescription="添加第一支股票后，学生可在银行股市里交易"
-        icon={<LineChart className="h-6 w-6 text-indigo-500" />}
+        icon={LineChart}
         items={stocks}
         isLoading={isLoading}
         fields={fields}

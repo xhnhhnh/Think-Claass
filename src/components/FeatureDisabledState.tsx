@@ -1,5 +1,15 @@
-import { Ban, ArrowRight } from 'lucide-react';
+import { ArrowRight, Ban } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+
+/**
+ * Shown when a class feature is switched off but the route was still reachable.
+ *
+ * Composed from the kit (`EmptyState` + `Button`) rather than a hand-styled card
+ * with its own `border-[var(--campus-border)]`, its own amber colour pair and its
+ * own raw `<button>`.
+ */
 export default function FeatureDisabledState({
   title,
   description,
@@ -13,21 +23,20 @@ export default function FeatureDisabledState({
 }) {
   return (
     <div className="flex min-h-[320px] items-center justify-center">
-      <div className="max-w-md rounded-lg border border-[var(--campus-border)] bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-          <Ban className="h-7 w-7" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-500">{description}</p>
-        {actionLabel && onAction ? (
-          <button
-            onClick={onAction}
-            className="mt-6 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            {actionLabel}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </button>
-        ) : null}
+      <div className="w-full max-w-md">
+        <EmptyState
+          icon={Ban}
+          title={<span className="text-base font-bold text-ink-1">{title}</span>}
+          description={<span className="leading-6">{description}</span>}
+          action={
+            actionLabel && onAction ? (
+              <Button type="button" className="mt-1" onClick={onAction}>
+                {actionLabel}
+                <ArrowRight data-icon="inline-end" />
+              </Button>
+            ) : undefined
+          }
+        />
       </div>
     </div>
   );
