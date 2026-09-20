@@ -29,7 +29,10 @@
     "class-features:check": "node scripts/migration/class-features.mjs --check",
     "release": "node scripts/release.mjs",
     "route-modules": "node scripts/migration/route-modules.mjs --update",
-    "route-modules:check": "node scripts/migration/route-modules.mjs --check"
+    "route-modules:check": "node scripts/migration/route-modules.mjs --check",
+    "ui:audit": "node scripts/migration/ui-audit.mjs",
+    "ui:audit:json": "node scripts/migration/ui-audit.mjs --json",
+    "ui:audit:check": "node scripts/migration/ui-audit.mjs --check"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
