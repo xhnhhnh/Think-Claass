@@ -223,7 +223,7 @@ export function CrudPage<TItem, TForm extends Record<string, unknown>>({
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingItem ? `编辑${getItemTitle(editingItem)}` : addLabel}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>

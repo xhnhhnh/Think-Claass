@@ -239,7 +239,26 @@
  * ---------------------------------------------------------------------------
  */
 
-/* Radius flattening. The scale in tailwind.config.js now carries these values. */
+/*
+ * The admin repaint block used to live here: three rules that turned the console's
+ * dark "editorial" panels white, and repainted `text-slate-100/200/300/400/500` inside
+ * `.theme-admin .campus-content`. The dashboard was the last page written in that
+ * language - `glass-dark` panels, `bg-slate-800/50` wells, neon icon colours - and P4
+ * moved it onto the tokens, so the block has nothing left to correct.
+ *
+ * It was also quietly harmful: the rule that darkened `text-slate-400` applied to the
+ * update log panel as well, a `bg-slate-950` terminal where a mid grey is nearly
+ * invisible. Deleting it improved the page it was meant to be fixing.
+ *
+ * The portal's force-recolour block lived below it, and P3 deleted the same way.
+ */
+
+/*
+ * What remains: the radius and shadow flattening. Every page family that relies on it
+ * still has the arbitrary values it compensates for, and each phase deletes the subset
+ * its own pages made redundant (see docs/design-system.md).
+ */
+
 .campus-shell .rounded-3xl,
 .campus-shell .rounded-\[2rem\] {
   border-radius: 0.75rem !important;
@@ -272,35 +291,6 @@
 .campus-shell .campus-content select {
   border-radius: 0.5rem;
 }
-
-.theme-admin .campus-content .glass-dark,
-.theme-admin .campus-content .bg-black\/20,
-.theme-admin .campus-content .bg-slate-800\/50 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border-color: var(--campus-border) !important;
-}
-
-.theme-admin .campus-content .text-slate-100,
-.theme-admin .campus-content .text-slate-200 {
-  color: rgb(15 23 42) !important;
-}
-
-.theme-admin .campus-content .text-slate-300,
-.theme-admin .campus-content .text-slate-400,
-.theme-admin .campus-content .text-slate-500 {
-  color: rgb(71 85 105) !important;
-}
-
-/*
- * The portal's force-recolour block used to live here: nine rules that repainted
- * every `indigo-*`/`violet-*` class green inside `.public-campus-page`, because the
- * public pages were written in a design language the product does not use and CSS was
- * the only thing making them look like the same product.
- *
- * P3 migrated those pages onto the tokens, so the block has nothing left to correct
- * and is gone. It is the template for the remaining overrides above: a page that says
- * what it means needs no correcting from outside.
- */
 
 :root {
   font-family: "Geist Variable", system-ui, sans-serif;

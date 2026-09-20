@@ -1,8 +1,26 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, FileText } from 'lucide-react';
+import { Edit, FileText, Plus, Trash2 } from 'lucide-react';
 
 import { portalApi } from '@/features/portal/api/portalApi';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DataTable } from '@/components/ui/data-table';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Article {
   id: number;
@@ -16,12 +34,26 @@ interface Article {
   created_at: string;
 }
 
+/**
+ * 文章管理.
+ *
+ * `AdminTeachersPage`'s shape again: `PageHeader` + `DataTable` (loading and empty live
+ * in the table) + `Dialog` for the form + `ConfirmDialog` for the delete. The page used
+ * to write its own `<table>` (six `<th>`, a hand-styled chip per row), its own spinner,
+ * its own "暂无文章" block, a fixed-overlay modal and a blocking `confirm()`.
+ *
+ * The category `<select>` stays a native select through the kit's `Select`, which is a
+ * styled native element on purpose - the form's contract does not change.
+ */
 export default function AdminArticles() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  
+  // The delete target and its in-flight flag, replacing the inline `confirm()`.
+  const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     summary: '',
@@ -110,230 +142,209 @@ export default function AdminArticles() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这篇文章吗？')) return;
-
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const data = await portalApi.deleteArticle(id);
+      const data = await portalApi.deleteArticle(deleteTarget.id);
 
       if (data.success) {
         toast.success('文章已删除');
+        // Closed on success only: a failed delete leaves the dialog up for a retry,
+        // which is where the old `confirm()` flow left the user too.
+        setDeleteTarget(null);
         fetchArticles();
       } else {
         toast.error(data.message || '删除失败');
       }
     } catch (error) {
       toast.error('网络错误，删除失败');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">文章管理</h2>
-          <p className="text-slate-500 mt-1">管理前台网站展示的文章内容</p>
-        </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          发布新文章
-        </button>
-      </div>
+      <PageHeader
+        title="文章管理"
+        description="管理前台网站展示的文章内容"
+        icon={FileText}
+        actions={
+          <Button onClick={() => handleOpenModal()}>
+            <Plus data-icon="inline-start" />
+            发布新文章
+          </Button>
+        }
+      />
 
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : articles.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-              <FileText className="w-8 h-8 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-medium text-slate-800 mb-1">暂无文章</h3>
-            <p className="text-slate-500">点击上方按钮发布第一篇文章</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
-                  <th className="px-6 py-4 font-medium">标题</th>
-                  <th className="px-6 py-4 font-medium">分类</th>
-                  <th className="px-6 py-4 font-medium">状态</th>
-                  <th className="px-6 py-4 font-medium">阅读量</th>
-                  <th className="px-6 py-4 font-medium">创建时间</th>
-                  <th className="px-6 py-4 font-medium text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {articles.map((article) => (
-                  <tr key={article.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-slate-800 font-medium">
-                      {article.title}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-xs">{article.category || '未分类'}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs ${article.is_published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {article.is_published ? '已发布' : '草稿'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 text-sm">
-                      {article.view_count || 0}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 text-sm">
-                      {new Date(article.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-3">
-                        <button
-                          onClick={() => handleOpenModal(article)}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                          title="编辑"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(article.id)}
-                          className="text-red-600 hover:text-red-800 p-1"
-                          title="删除"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <DataTable<Article>
+        columns={[
+          { key: 'title', header: '标题', className: 'font-medium text-ink-1' },
+          {
+            key: 'category',
+            header: '分类',
+            // The API's category is free text, so the fallback chip stays.
+            render: (article) => <Badge variant="secondary">{article.category || '未分类'}</Badge>,
+          },
+          {
+            key: 'is_published',
+            header: '状态',
+            // The green/amber pair the page drew by hand are the `success` and `warning`
+            // badges; `is_published` is the API's 1/0 flag.
+            render: (article) => (
+              <Badge variant={article.is_published ? 'success' : 'warning'}>
+                {article.is_published ? '已发布' : '草稿'}
+              </Badge>
+            ),
+          },
+          {
+            key: 'view_count',
+            header: '阅读量',
+            className: 'text-ink-2',
+            render: (article) => article.view_count || 0,
+          },
+          {
+            key: 'created_at',
+            header: '创建时间',
+            className: 'text-ink-3',
+            render: (article) => new Date(article.created_at).toLocaleString(),
+          },
+          {
+            key: 'actions',
+            header: <span className="sr-only">操作</span>,
+            align: 'right',
+            render: (article) => (
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`编辑${article.title}`}
+                  title="编辑"
+                  onClick={() => handleOpenModal(article)}
+                >
+                  <Edit />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`删除${article.title}`}
+                  title="删除"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteTarget(article)}
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            ),
+          },
+        ]}
+        rows={articles}
+        getRowKey={(article) => article.id}
+        isLoading={loading}
+        empty={
+          <EmptyState
+            icon={FileText}
+            title="暂无文章"
+            description="点击上方按钮发布第一篇文章"
+            className="bg-card"
+          />
+        }
+      />
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">
-                {editingId ? '编辑文章' : '发布新文章'}
-              </h3>
-              <button 
-                onClick={handleCloseModal}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  文章标题
-                </label>
-                <input
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && handleCloseModal()}>
+        {/* `sm:` rather than a bare `max-w-2xl`: the kit's popup carries `sm:max-w-sm`,
+            which would otherwise win from 640px up and crush the two-column row. */}
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingId ? '编辑文章' : '发布新文章'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <FormField label="文章标题">
+              <Input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="请输入文章标题"
+                required
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="文章分类">
+                <Select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                >
+                  <option value="新闻">新闻</option>
+                  <option value="公告">公告</option>
+                  <option value="活动">活动</option>
+                  <option value="其他">其他</option>
+                </Select>
+              </FormField>
+              <FormField label="封面图 URL">
+                <Input
                   type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="请输入文章标题"
-                  required
+                  value={formData.cover_image}
+                  onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })}
+                  placeholder="https://..."
                 />
-              </div>
+              </FormField>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    文章分类
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
-                  >
-                    <option value="新闻">新闻</option>
-                    <option value="公告">公告</option>
-                    <option value="活动">活动</option>
-                    <option value="其他">其他</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    封面图 URL
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.cover_image}
-                    onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
+            <FormField label="文章摘要 (选填)">
+              <Textarea
+                value={formData.summary}
+                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                className="resize-none"
+                rows={2}
+                placeholder="简短的介绍，将展示在首页..."
+              />
+            </FormField>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  文章摘要 (选填)
-                </label>
-                <textarea
-                  value={formData.summary}
-                  onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
-                  rows={2}
-                  placeholder="简短的介绍，将展示在首页..."
-                />
-              </div>
+            <FormField label="文章内容">
+              <Textarea
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                className="resize-none"
+                rows={8}
+                placeholder="请输入文章内容支持较长文本..."
+                required
+              />
+            </FormField>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  文章内容
-                </label>
-                <textarea
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
-                  rows={8}
-                  placeholder="请输入文章内容支持较长文本..."
-                  required
-                />
-              </div>
+            {/* `inline`, because this label belongs to the tick box beside it; the copy is
+                the checkbox's own label verbatim, so `getByLabelText` still reaches it. */}
+            <FormField label="立即发布 (在前台显示)" inline>
+              <Checkbox
+                id="is_published"
+                checked={formData.is_published}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_published: checked })}
+              />
+            </FormField>
 
-              <div className="flex items-center">
-                <input
-                  id="is_published"
-                  type="checkbox"
-                  checked={formData.is_published}
-                  onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="is_published" className="ml-2 block text-sm text-slate-700">
-                  立即发布 (在前台显示)
-                </label>
-              </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCloseModal}>
+                取消
+              </Button>
+              <Button type="submit">{editingId ? '保存更改' : '发布'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-              <div className="pt-4 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 text-slate-600 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
-                >
-                  {editingId ? '保存更改' : '发布'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="确认删除文章"
+        // The sentence the old `confirm()` showed, kept word for word.
+        description="确定要删除这篇文章吗？"
+        confirmLabel="删除"
+        pendingLabel="删除中..."
+        destructive
+        isPending={isDeleting}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

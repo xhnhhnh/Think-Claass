@@ -38,29 +38,33 @@ export function FormField({
   className,
 }: FormFieldProps) {
   return (
-    <label
+    <div
       data-slot="form-field"
-      className={cn(
-        'flex flex-col gap-1.5 text-sm',
-        inline && 'flex-row items-center gap-2',
-        className,
-      )}
+      className={cn('flex flex-col gap-1.5 text-sm', className)}
     >
-      <span
-        className={cn(
-          'font-medium text-ink-2',
-          required && "after:ml-0.5 after:text-destructive after:content-['*']",
-        )}
-      >
-        {label}
-      </span>
-      {children}
+      {/*
+        The hint and the error are siblings of the `<label>`, not children of it. A
+        label's text content is what `getByLabelText('网站标题')` matches, so a hint
+        inside it would turn every exact lookup into a miss - and a screen reader
+        would read the help text as part of the field's name.
+      */}
+      <label className={cn('flex flex-col gap-1.5', inline && 'flex-row items-center gap-2')}>
+        <span
+          className={cn(
+            'font-medium text-ink-2',
+            required && "after:ml-0.5 after:text-destructive after:content-['*']",
+          )}
+        >
+          {label}
+        </span>
+        {children}
+      </label>
       {hint && !error ? <span className="text-xs text-ink-3">{hint}</span> : null}
       {error ? (
         <span role="alert" className="text-xs font-medium text-destructive">
           {error}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 }

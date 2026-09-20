@@ -158,7 +158,13 @@ later" is adding debt with a nicer name.
 | `Dialog`, `DialogTrigger`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose` | `@/components/ui/dialog` | forms in a modal | Base UI Dialog |
 | `ConfirmDialog` | `@/components/ui/alert-dialog` | confirmations | replaces `window.confirm`; Base UI AlertDialog, so focus lands on the least destructive action |
 | `Badge` | `@/components/ui/badge` | status chips | `variant` adds success/warning/info to the stock set |
-| `Table` family | `@/components/ui/table` | tabular data | *unadopted*: P4's `DataTable` is the intended consumer |
+| `Table` family | `@/components/ui/table` | tabular data | consumed by `DataTable` |
+| `DataTable` | `@/components/ui/data-table` | list pages | columns + rows; **owns loading and empty** so pages stop inventing both |
+| `Toolbar` | `@/components/ui/toolbar` | search + filters + actions above a list | the search input gets its accessible name from `searchLabel`, not the placeholder |
+| `StatCard` | `@/components/ui/stat-card` | dashboard figures | `tone` is an enum, so a caller cannot introduce a ninth palette |
+| `SectionCard` | `@/components/ui/section-card` | titled block with actions | what the settings/website pages are stacks of |
+| `Progress` | `@/components/ui/progress` | usage bars | Base UI's indicator owns the dynamic width, so no page needs an inline style; `toneForUsage` carries the threshold rule |
+| `FileInput` | `@/components/ui/file-input` | hidden file picker | `label` is required: a hidden input has no visible label to borrow a name from |
 | `DropdownMenu` family | `@/components/ui/dropdown-menu` | menus | *unadopted*: adopt for a user menu or row actions by P8, or delete |
 | `PageHeader` | `@/components/ui/page-header` | page title + description + actions | renders an `<h2>`; the shell owns the `h1` |
 | `EmptyState` | `@/components/ui/empty-state` | "nothing here" | copy stays with the caller |
@@ -254,5 +260,92 @@ The third metric correction came from this phase: the raw-element counts were in
 `src/components/ui/**`, so `select.tsx`'s own `<select>` was scored as the debt the kit exists to
 remove. The counts now exclude the kit - a page writing `<select>` is the debt, the kit wrapping one
 is the fix - which is also why `rawSelects`/`rawTables` moved down without a page changing.
+
+### P3 — the public surface
+
+Home, About, Services, News, Contact, the login page (all three roles, registration and invite-code
+binding), activation, the payment landing page, and the admin console's login.
+
+The phase exists to delete a block. `.public-campus-page` in `index.css` repainted nine families of
+`indigo-*`/`violet-*` classes green, because the public pages were written in a design language the
+product does not use. Migrating them onto tokens made the block redundant, and it is gone -
+`recolorRules` 9 → 0, `importantOverrides` 14 → 7.
+
+| Metric | P2 | P3 |
+| --- | --- | --- |
+| `rawButtons` | 262 | 253 |
+| `rawInputs` | 95 | 89 |
+| `rawSelects` | 26 | 25 |
+| `hexColors` | 67 | 51 |
+| `offBrandAccents` | 788 | 667 |
+| `inlineStyles` | 18 | 16 |
+| `importantOverrides` | 14 | 7 |
+| `recolorRules` | 9 | **0** |
+
+Two structural wins worth naming: `loginStyles.ts` (eleven hex colours, a second copy of the three
+role palettes, and a `ROLE_THEME` map read by four components) is **deleted** - login is a token
+scope now, so choosing a role sets `theme-*` on the page wrapper and `bg-primary` follows. And
+`PortalShell` collapses four copies of the same sticky header + back button + footer into one.
+
+**Deferred to P8, deliberately:** `HomePage.tsx` is still a single ~700-line file with its sections
+inline. Splitting it is maintainability work rather than design-system work, and it was not worth
+holding the phase's exit criterion (the block's deletion) hostage to it. It is listed in §8.
+
+### P4 — the admin console
+
+Twelve pages, ten of them rewritten this phase: the dashboard, settings, website, system reset,
+open-api, codes, teachers, announcements, articles, audit logs.
+
+Two blocks died here. `.theme-admin .campus-content` (four `!important`s) repainted the console's
+dark panels white; it existed only because the dashboard was still written in an abandoned
+"editorial dark" spec - `glass-dark` panels, `bg-slate-800/50` wells, eight neon icon colours. P4
+moved the dashboard onto the tokens, so the block went with it. It was also quietly harmful: the
+rule that darkened `text-slate-400` applied to the **update log panel** too, a `bg-slate-950`
+terminal where a mid grey is nearly invisible. Deleting it improved the page it was meant to fix.
+
+Six hand-written `<table>` blocks became `DataTable`, and with them went six hand-written loading
+rows, six empty blocks and six "加载中..." cells. Nine `confirm()`/`window.confirm()` calls became
+`ConfirmDialog`, including the two on the dashboard that guard a database export and an import.
+
+| Metric | P3 | P4 |
+| --- | --- | --- |
+| `rawButtons` | 253 | **209** |
+| `rawInputs` | 89 | **62** |
+| `rawSelects` | 25 | **22** |
+| `rawTables` | 12 | **5** |
+| `offBrandAccents` | 667 | **608** |
+| `inlineStyles` | 16 | **15** |
+| `nativeDialogs` | 14 (19 after the metric fix) | **10** |
+| `importantOverrides` | 7 | **3** |
+| `deadCode` | 54 | **52** |
+| built CSS | 181,422 bytes | 174,539 bytes |
+
+Three test contracts were updated on purpose, and each is an improvement rather than a workaround:
+
+- `Admin/SystemReset.test.tsx` clicked through the new dialog instead of stubbing `window.confirm`.
+  The test's name - "calls the real reset contract after confirmation" - now asserts the
+  confirmation, plus a second test that the confirm button stays disabled until the word is exact.
+- `Admin/Settings.test.tsx` reaches its checkbox with `getByRole('checkbox', { name })` instead of
+  `getByLabelText`. Base UI renders the visible control as a `role="checkbox"` span with the real
+  input `aria-hidden`, so a label query can never find it - and role queries are what
+  testing-library recommends for custom controls anyway.
+- The metric was widened, and its value went **up**: `window.confirm(` was excluded by the
+  lookbehind that keeps `dialog.confirm(` (a method) out, so five real dialogs had been invisible.
+  Widening a metric mid-refactor is only acceptable because the phase then took nine of them out.
+
+Two kit components landed with the pages that needed them rather than "for later": `Progress`
+(the dashboard's hand-built bar, whose dynamic width is why `inlineStyles` could not reach 0) and
+`FileInput` (the two hidden pickers, which had no accessible name).
+
+## 8. Deferred / open
+
+| Item | Phase | Why it is not done |
+| --- | --- | --- |
+| Split `HomePage.tsx` into local section components | P8 | ~700 lines, sections are data-driven maps; a maintainability chore, not a palette or kit issue |
+| Adopt or delete `DropdownMenu` and `Table` | P4/P8 | Both are kit primitives with no consumer yet; the `deadCode` ratchet counts an unreferenced file, so each must arrive with a user |
+| `bigscreen` page | P6 | Projection-stage surface: tokenised, deliberately not card-ified |
+| Page-title duplication | P6 | The shell renders the route title as `h1` and several pages repeat it as their `h2`; decide per page whether the page or the shell owns it |
+| Browser-based visual regression | - | No automation is installed and the project does not add dependencies; visual acceptance is the maintainer's pass over the URL lists in each phase |
+
 
 

@@ -52,7 +52,6 @@ describe('SystemReset', () => {
       message: '所有数据已重置，并已恢复超级管理员账户',
       preservedSuperadmins: 1,
     });
-    vi.stubGlobal('confirm', vi.fn(() => true));
   });
 
   it('calls the real reset contract after confirmation', async () => {
@@ -67,11 +66,33 @@ describe('SystemReset', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '确认并立即重置系统' }));
 
+    // The confirmation is a dialog now, not `window.confirm`: the page used to stub a
+    // global to be testable at all, and this asserts the step it stands for.
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '确认重置' }));
+
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledTimes(1);
     });
 
     expect(mocks.logout).toHaveBeenCalledTimes(1);
     expect(mocks.toastSuccess).toHaveBeenCalledWith('所有数据已重置，并已恢复超级管理员账户');
+  });
+
+  it('refuses to open the confirmation without the typed word', async () => {
+    render(
+      <MemoryRouter>
+        <SystemReset />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('输入 CONFIRM'), {
+      target: { value: 'confirm' },
+    });
+
+    // The button is disabled until the word is exact, so the toast is the only path
+    // left to a user who typed it in the wrong case.
+    expect(screen.getByRole('button', { name: '确认并立即重置系统' })).toBeDisabled();
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
 });

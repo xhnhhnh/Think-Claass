@@ -101,7 +101,7 @@ describe('AdminSettings', () => {
 
     render(<AdminSettings />);
 
-    const reportToggle = await screen.findByLabelText('开启家长成长报告');
+    const reportToggle = await screen.findByRole('checkbox', { name: '开启家长成长报告' });
     fireEvent.click(reportToggle);
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
 

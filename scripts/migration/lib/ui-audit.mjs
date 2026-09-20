@@ -88,8 +88,17 @@ const HEX_COLOR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{
 /** React inline styles: the escape hatch that bypasses every token. */
 const INLINE_STYLE = /style=\{\{/g;
 
-/** Blocking browser dialogs, which cannot be styled and cannot be tested. */
-const NATIVE_DIALOGS = /(?<![A-Za-z0-9_$.])(?:confirm|prompt)\(|window\.alert\(/g;
+/**
+ * Blocking browser dialogs, which cannot be styled and cannot be tested.
+ *
+ * `window.confirm(` is spelled out because the lookbehind below deliberately excludes
+ * a preceding `.` - that is what keeps `dialog.confirm(` (a method on some component)
+ * out of the count, and it also hid every `window.confirm(` in the app. Five of them
+ * were invisible to this metric until the admin console's settings page turned out to
+ * have one the phase had not planned for.
+ */
+const NATIVE_DIALOGS =
+  /window\.(?:alert|confirm|prompt)\(|(?<![A-Za-z0-9_$.])(?:confirm|prompt)\(/g;
 
 /**
  * Utilities that Tailwind 3.4 cannot compile, so they are inert wherever they are

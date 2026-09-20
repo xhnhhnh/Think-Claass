@@ -6,21 +6,34 @@ import { toast } from 'sonner';
 import { ADMIN_PATH } from '@/constants';
 import { useDatabaseResetMutation } from '@/features/admin/hooks/useAdminSystem';
 import { useStore } from '@/store/useStore';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Spinner } from '@/components/ui/spinner';
 
+/**
+ * System reset.
+ *
+ * The last step of this page used to be `window.confirm`, the browser's own modal in
+ * the middle of a Chinese-language console - unstyled, untranslatable, and impossible
+ * to assert without stubbing a global. It is the kit's `ConfirmDialog` now, which
+ * means the confirmation is a real element with a real confirm button that a test can
+ * click, and the destructive action is marked as such.
+ *
+ * `输入 CONFIRM` and `确认并立即重置系统` are unchanged: `Admin/SystemReset.test.tsx`
+ * drives the page by both.
+ */
 export default function AdminSystemResetPage() {
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
   const resetDatabaseMutation = useDatabaseResetMutation();
   const [confirmText, setConfirmText] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const handleReset = async () => {
-    if (confirmText !== 'CONFIRM') {
-      toast.error('请输入大写的 CONFIRM 以确认操作');
-      return;
-    }
-
-    if (!confirm('您确定要重置数据库吗？此操作不可逆！')) return;
-
+  const runReset = async () => {
+    setConfirmOpen(false);
     try {
       const result = await resetDatabaseMutation.mutateAsync();
       toast.success(result.message || '数据库已成功重置，服务器即将重启');
@@ -33,51 +46,96 @@ export default function AdminSystemResetPage() {
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8 shadow-sm">
-        <div className="flex items-center space-x-4 mb-6">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-red-700">高危操作：系统重置</h2>
-            <p className="text-red-600/80 mt-1">此操作将清空除超级管理员外的所有数据！</p>
-          </div>
-        </div>
+  const handleReset = () => {
+    if (confirmText !== 'CONFIRM') {
+      toast.error('请输入大写的 CONFIRM 以确认操作');
+      return;
+    }
+    setConfirmOpen(true);
+  };
 
-        <div className="bg-white rounded-xl p-6 border border-red-100 space-y-4">
-          <h3 className="font-semibold text-slate-800">重置操作将执行以下步骤：</h3>
-          <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
-            <li><strong className="text-red-600">删除</strong>所有学生、教师、家长账户。</li>
-            <li><strong className="text-red-600">清空</strong>所有班级、作业、考试记录。</li>
-            <li><strong className="text-red-600">清空</strong>所有游戏化数据（宠物、金币、大乱斗等）。</li>
-            <li><strong className="text-emerald-600">保留</strong>当前的超级管理员账户。</li>
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="高危操作：系统重置"
+        description="此操作将清空除超级管理员外的所有数据！"
+        icon={AlertTriangle}
+      />
+
+      <div className="rounded-panel border-2 border-destructive/30 bg-destructive/5 p-6 shadow-card">
+        <div className="space-y-4 rounded-card border border-destructive/20 bg-card p-6">
+          <h3 className="font-semibold text-ink-1">重置操作将执行以下步骤：</h3>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-ink-2">
+            <li>
+              <strong className="text-destructive">删除</strong>所有学生、教师、家长账户。
+            </li>
+            <li>
+              <strong className="text-destructive">清空</strong>所有班级、作业、考试记录。
+            </li>
+            <li>
+              <strong className="text-destructive">清空</strong>所有游戏化数据（宠物、金币、大乱斗等）。
+            </li>
+            <li>
+              <strong className="text-success">保留</strong>当前的超级管理员账户。
+            </li>
             <li>重置后服务器将自动重启。</li>
           </ul>
 
-          <div className="pt-6 mt-6 border-t border-slate-100">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              为确认您的操作，请在下方输入大写的 <span className="font-mono text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">CONFIRM</span>
-            </label>
-            <input type="text" value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder="输入 CONFIRM" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all mb-4" />
+          <div className="mt-6 space-y-4 border-t border-border pt-6">
+            <FormField
+              label={
+                <>
+                  为确认您的操作，请在下方输入大写的{' '}
+                  <span className="rounded bg-destructive/10 px-2 py-0.5 font-mono font-bold text-destructive">
+                    CONFIRM
+                  </span>
+                </>
+              }
+            >
+              <Input
+                type="text"
+                value={confirmText}
+                onChange={(event) => setConfirmText(event.target.value)}
+                placeholder="输入 CONFIRM"
+              />
+            </FormField>
 
-            <button onClick={handleReset} disabled={resetDatabaseMutation.isPending || confirmText !== 'CONFIRM'} className="w-full flex items-center justify-center px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            <Button
+              type="button"
+              variant="destructive"
+              size="lg"
+              onClick={handleReset}
+              disabled={resetDatabaseMutation.isPending || confirmText !== 'CONFIRM'}
+              className="w-full"
+            >
               {resetDatabaseMutation.isPending ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  <Spinner label="正在执行重置" />
                   正在执行重置...
                 </>
               ) : (
                 <>
-                  <Trash2 className="w-5 h-5 mr-2" />
+                  <Trash2 data-icon="inline-start" />
                   确认并立即重置系统
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="确认重置系统？"
+        description="此操作不可逆：除超级管理员外的所有数据都会被清空。"
+        confirmLabel="确认重置"
+        pendingLabel="正在重置..."
+        cancelLabel="取消"
+        destructive
+        isPending={resetDatabaseMutation.isPending}
+        onConfirm={runReset}
+      />
     </div>
   );
 }

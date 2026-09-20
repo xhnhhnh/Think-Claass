@@ -1,9 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Key, Building2, Plus, Trash2, Copy, CheckCircle, Search, Server } from 'lucide-react';
+import { Building2, CheckCircle, Copy, Key, Plus, Server, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { DataTable } from '@/components/ui/data-table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { SectionCard } from '@/components/ui/section-card';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ApiKey {
   id: number;
@@ -20,20 +37,29 @@ interface School {
   created_at: string;
 }
 
+/**
+ * 开发者与校园.
+ *
+ * Two tabs over two tables, two hand-rolled modals, two `window.confirm` calls and a
+ * segmented control built from template-literal class strings. All of it is the kit
+ * now: `DataTable` for both lists (with their loading and empty states), `Dialog` for
+ * the two forms, `ConfirmDialog` for both deletions, and the tab control is a pair of
+ * `Button`s so its active state resolves through the theme rather than a ternary of
+ * indigo classes.
+ */
 export default function AdminOpenApi() {
   const [activeTab, setActiveTab] = useState<'API_KEYS' | 'SCHOOLS'>('API_KEYS');
-  
-  // Data state
+
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal state
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [keyToDelete, setKeyToDelete] = useState<ApiKey | null>(null);
+  const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
 
-  // Form state
   const [keyName, setKeyName] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [schoolDesc, setSchoolDesc] = useState('');
@@ -48,20 +74,24 @@ export default function AdminOpenApi() {
     setLoading(true);
     try {
       if (activeTab === 'API_KEYS') {
-        setApiKeys((await adminClient.getOpenApiKeys()).map((key) => ({
-          id: key.id,
-          name: key.name,
-          api_key: key.apiKey,
-          created_at: key.createdAt ?? '',
-        })));
+        setApiKeys(
+          (await adminClient.getOpenApiKeys()).map((key) => ({
+            id: key.id,
+            name: key.name,
+            api_key: key.apiKey,
+            created_at: key.createdAt ?? '',
+          })),
+        );
       } else {
-        setSchools((await adminClient.getSchools()).map((school) => ({
-          id: school.id,
-          name: school.name,
-          description: school.description,
-          contact_info: school.contactInfo,
-          created_at: school.createdAt ?? '',
-        })));
+        setSchools(
+          (await adminClient.getSchools()).map((school) => ({
+            id: school.id,
+            name: school.name,
+            description: school.description,
+            contact_info: school.contactInfo,
+            created_at: school.createdAt ?? '',
+          })),
+        );
       }
     } catch (error) {
       toast.error('数据加载失败');
@@ -92,8 +122,10 @@ export default function AdminOpenApi() {
     }
   };
 
-  const handleDeleteKey = async (id: number) => {
-    if (!confirm('确定要删除该 API 密钥吗？删除后相关接口调用将失效！')) return;
+  const handleDeleteKey = async () => {
+    if (!keyToDelete) return;
+    const id = keyToDelete.id;
+    setKeyToDelete(null);
     try {
       const data = await adminClient.deleteOpenApiKey(id);
       if (data.success) {
@@ -111,10 +143,10 @@ export default function AdminOpenApi() {
 
     setSubmitting(true);
     try {
-      const data = await adminClient.createSchool({ 
+      const data = await adminClient.createSchool({
         name: schoolName.trim(),
         description: schoolDesc.trim(),
-        contactInfo: schoolContact.trim()
+        contactInfo: schoolContact.trim(),
       });
 
       if (data.success) {
@@ -134,8 +166,10 @@ export default function AdminOpenApi() {
     }
   };
 
-  const handleDeleteSchool = async (id: number) => {
-    if (!confirm('确定要删除该学校信息吗？')) return;
+  const handleDeleteSchool = async () => {
+    if (!schoolToDelete) return;
+    const id = schoolToDelete.id;
+    setSchoolToDelete(null);
     try {
       const data = await adminClient.deleteSchool(id);
       if (data.success) {
@@ -155,228 +189,284 @@ export default function AdminOpenApi() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header & Tabs */}
-      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-indigo-100/50 rounded-2xl flex items-center justify-center mr-4">
-            <Server className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">开发者与校园</h1>
-            <p className="text-sm text-slate-500 mt-1">管理系统开放 API 密钥与合作入驻的校园信息</p>
-          </div>
-        </div>
-        
-        <div className="flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/50 w-full sm:w-auto">
-          <button
-            onClick={() => setActiveTab('API_KEYS')}
-            className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'API_KEYS'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-            }`}
-          >
-            <div className="flex items-center justify-center">
-              <Key className="w-4 h-4 mr-2" />
+    <div className="mx-auto max-w-7xl space-y-6">
+      <PageHeader
+        title="开发者与校园"
+        description="管理系统开放 API 密钥与合作入驻的校园信息"
+        icon={Server}
+        actions={
+          <div className="flex rounded-lg border border-border bg-muted/50 p-1">
+            <Button
+              type="button"
+              variant={activeTab === 'API_KEYS' ? 'default' : 'ghost'}
+              size="sm"
+              aria-pressed={activeTab === 'API_KEYS'}
+              onClick={() => setActiveTab('API_KEYS')}
+            >
+              <Key data-icon="inline-start" />
               API 密钥
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('SCHOOLS')}
-            className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'SCHOOLS'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-            }`}
-          >
-            <div className="flex items-center justify-center">
-              <Building2 className="w-4 h-4 mr-2" />
+            </Button>
+            <Button
+              type="button"
+              variant={activeTab === 'SCHOOLS' ? 'default' : 'ghost'}
+              size="sm"
+              aria-pressed={activeTab === 'SCHOOLS'}
+              onClick={() => setActiveTab('SCHOOLS')}
+            >
+              <Building2 data-icon="inline-start" />
               合作校园
-            </div>
-          </button>
-        </div>
-      </div>
-      {/* Main Content */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden">
-        
-        {/* Content Header */}
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-          <h2 className="text-lg font-bold text-slate-800">
-            {activeTab === 'API_KEYS' ? '密钥列表' : '校园列表'}
-          </h2>
-          <button
-            onClick={() => activeTab === 'API_KEYS' ? setIsKeyModalOpen(true) : setIsSchoolModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center"
+            </Button>
+          </div>
+        }
+      />
+
+      <SectionCard
+        title={activeTab === 'API_KEYS' ? '密钥列表' : '校园列表'}
+        contentClassName="p-0"
+        actions={
+          <Button
+            type="button"
+            onClick={() => (activeTab === 'API_KEYS' ? setIsKeyModalOpen(true) : setIsSchoolModalOpen(true))}
           >
-            <Plus className="w-4 h-4 mr-1.5" />
+            <Plus data-icon="inline-start" />
             {activeTab === 'API_KEYS' ? '生成新密钥' : '添加校园'}
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className="p-0">
-          {loading ? (
-            <div className="py-20 text-center text-slate-400">加载中...</div>
-          ) : activeTab === 'API_KEYS' ? (
-            /* API Keys Table */
-            (<div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-sm">
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">应用名称</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">API 密钥 (sk_...)</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">生成时间</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {apiKeys.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-slate-400">暂无生成的 API 密钥</td>
-                    </tr>
-                  ) : (
-                    apiKeys.map((key) => (
-                      <tr key={key.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-4 font-medium text-slate-800">{key.name}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <code className="bg-slate-100 text-slate-700 px-3 py-1 rounded text-sm font-mono border border-slate-200">
-                              {key.api_key.substring(0, 10)}...{key.api_key.substring(key.api_key.length - 4)}
-                            </code>
-                            <button
-                              onClick={() => copyToClipboard(key.api_key)}
-                              className="ml-3 text-slate-400 hover:text-indigo-600 transition-colors"
-                              title="复制完整密钥"
-                            >
-                              {copiedKey === key.api_key ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 text-sm">
-                          {new Date(key.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleDeleteKey(key.id)}
-                            className="text-red-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>)
-          ) : (
-            /* Schools Table */
-            (<div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-sm">
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">学校名称</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">简介</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">联系方式</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100">入驻时间</th>
-                    <th className="px-6 py-4 font-medium border-b border-slate-100 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {schools.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400">暂无入驻的合作校园</td>
-                    </tr>
-                  ) : (
-                    schools.map((school) => (
-                      <tr key={school.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-4 font-bold text-slate-800 flex items-center">
-                          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-3 text-xs font-black">
-                            {school.name.substring(0, 1)}
-                          </div>
-                          {school.name}
-                        </td>
-                        <td className="px-6 py-4 text-slate-600 text-sm max-w-xs truncate" title={school.description}>
-                          {school.description || '-'}
-                        </td>
-                        <td className="px-6 py-4 text-slate-600 text-sm">
-                          {school.contact_info || '-'}
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 text-sm">
-                          {new Date(school.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleDeleteSchool(school.id)}
-                            className="text-red-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>)
-          )}
-        </div>
-      </div>
-      {/* Modals */}
-      <AnimatePresence>
-        {isKeyModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsKeyModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h2 className="text-lg font-bold text-slate-800">生成新 API 密钥</h2>
-                <button onClick={() => setIsKeyModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
-              </div>
-              <form onSubmit={handleCreateKey} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">应用名称标识</label>
-                  <input type="text" value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="例如：外部教务系统对接" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all" required />
-                </div>
-                <div className="pt-2 flex space-x-3">
-                  <button type="button" onClick={() => setIsKeyModalOpen(false)} className="flex-1 py-2.5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">取消</button>
-                  <button type="submit" disabled={submitting} className="flex-1 py-2.5 rounded-xl font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all disabled:opacity-50">确认生成</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+          </Button>
+        }
+      >
+        {activeTab === 'API_KEYS' ? (
+          <DataTable<ApiKey>
+            className="rounded-none border-0"
+            columns={[
+              { key: 'name', header: '应用名称', className: 'font-medium text-ink-1' },
+              {
+                key: 'api_key',
+                header: 'API 密钥 (sk_...)',
+                render: (key) => (
+                  <div className="flex items-center">
+                    <code className="rounded border border-border bg-muted px-3 py-1 font-mono text-sm text-ink-2">
+                      {key.api_key.substring(0, 10)}...{key.api_key.substring(key.api_key.length - 4)}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`复制密钥 ${key.name}`}
+                      title="复制完整密钥"
+                      className="ml-3 text-ink-3 hover:text-primary"
+                      onClick={() => copyToClipboard(key.api_key)}
+                    >
+                      {copiedKey === key.api_key ? (
+                        <CheckCircle className="text-success" />
+                      ) : (
+                        <Copy />
+                      )}
+                    </Button>
+                  </div>
+                ),
+              },
+              {
+                key: 'created_at',
+                header: '生成时间',
+                className: 'text-sm text-ink-3',
+                render: (key) => new Date(key.created_at).toLocaleString(),
+              },
+              {
+                key: 'actions',
+                header: <span className="sr-only">操作</span>,
+                align: 'right',
+                render: (key) => (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`删除密钥 ${key.name}`}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setKeyToDelete(key)}
+                  >
+                    <Trash2 />
+                  </Button>
+                ),
+              },
+            ]}
+            rows={apiKeys}
+            getRowKey={(key) => key.id}
+            isLoading={loading}
+            empty={<EmptyState icon={Key} title="暂无生成的 API 密钥" className="rounded-none border-0" />}
+          />
+        ) : (
+          <DataTable<School>
+            className="rounded-none border-0"
+            columns={[
+              {
+                key: 'name',
+                header: '学校名称',
+                className: 'font-bold text-ink-1',
+                render: (school) => (
+                  <div className="flex items-center">
+                    <span className="mr-3 flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-black text-primary">
+                      {school.name.substring(0, 1)}
+                    </span>
+                    {school.name}
+                  </div>
+                ),
+              },
+              {
+                key: 'description',
+                header: '简介',
+                className: 'max-w-xs truncate text-sm text-ink-2',
+                render: (school) => (
+                  <span title={school.description}>{school.description || '-'}</span>
+                ),
+              },
+              {
+                key: 'contact_info',
+                header: '联系方式',
+                className: 'text-sm text-ink-2',
+                render: (school) => school.contact_info || '-',
+              },
+              {
+                key: 'created_at',
+                header: '入驻时间',
+                className: 'text-sm text-ink-3',
+                render: (school) => new Date(school.created_at).toLocaleDateString(),
+              },
+              {
+                key: 'actions',
+                header: <span className="sr-only">操作</span>,
+                align: 'right',
+                render: (school) => (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`删除校园 ${school.name}`}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setSchoolToDelete(school)}
+                  >
+                    <Trash2 />
+                  </Button>
+                ),
+              },
+            ]}
+            rows={schools}
+            getRowKey={(school) => school.id}
+            isLoading={loading}
+            empty={
+              <EmptyState icon={Building2} title="暂无入驻的合作校园" className="rounded-none border-0" />
+            }
+          />
         )}
+      </SectionCard>
 
-        {isSchoolModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsSchoolModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h2 className="text-lg font-bold text-slate-800">添加合作校园</h2>
-                <button onClick={() => setIsSchoolModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
-              </div>
-              <form onSubmit={handleCreateSchool} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">学校名称 <span className="text-red-500">*</span></label>
-                  <input type="text" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} placeholder="例如：第一实验小学" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">学校简介</label>
-                  <textarea value={schoolDesc} onChange={(e) => setSchoolDesc(e.target.value)} placeholder="选填..." rows={2} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">联系方式</label>
-                  <input type="text" value={schoolContact} onChange={(e) => setSchoolContact(e.target.value)} placeholder="负责人姓名/电话等（选填）" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all" />
-                </div>
-                <div className="pt-2 flex space-x-3">
-                  <button type="button" onClick={() => setIsSchoolModalOpen(false)} className="flex-1 py-2.5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">取消</button>
-                  <button type="submit" disabled={submitting} className="flex-1 py-2.5 rounded-xl font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all disabled:opacity-50">确认添加</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <Dialog open={isKeyModalOpen} onOpenChange={setIsKeyModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>生成新 API 密钥</DialogTitle>
+            <DialogDescription>密钥只在生成后可复制，请妥善保管</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateKey} className="space-y-4">
+            <FormField label="应用名称" required>
+              <Input
+                type="text"
+                value={keyName}
+                onChange={(e) => setKeyName(e.target.value)}
+                placeholder="例如：校园数据看板"
+                required
+              />
+            </FormField>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsKeyModalOpen(false)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Spinner label="正在生成" className="text-primary-foreground" />
+                    生成中...
+                  </>
+                ) : (
+                  '生成密钥'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSchoolModalOpen} onOpenChange={setIsSchoolModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>添加合作校园</DialogTitle>
+            <DialogDescription>入驻校园会展示在官网的合作列表中</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateSchool} className="space-y-4">
+            <FormField label="学校名称" required>
+              <Input
+                type="text"
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                placeholder="请输入学校名称"
+                required
+              />
+            </FormField>
+            <FormField label="简介">
+              <Textarea
+                value={schoolDesc}
+                onChange={(e) => setSchoolDesc(e.target.value)}
+                rows={3}
+                placeholder="一句话介绍这所学校"
+                className="resize-none"
+              />
+            </FormField>
+            <FormField label="联系方式">
+              <Input
+                type="text"
+                value={schoolContact}
+                onChange={(e) => setSchoolContact(e.target.value)}
+                placeholder="联系人或联系电话"
+              />
+            </FormField>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsSchoolModalOpen(false)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Spinner label="正在添加" className="text-primary-foreground" />
+                    添加中...
+                  </>
+                ) : (
+                  '添加校园'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(keyToDelete)}
+        onOpenChange={(open) => !open && setKeyToDelete(null)}
+        title="确认删除密钥"
+        description={
+          keyToDelete
+            ? `确定要删除“${keyToDelete.name}”的 API 密钥吗？删除后相关接口调用将失效！`
+            : undefined
+        }
+        confirmLabel="删除"
+        destructive
+        onConfirm={handleDeleteKey}
+      />
+
+      <ConfirmDialog
+        open={Boolean(schoolToDelete)}
+        onOpenChange={(open) => !open && setSchoolToDelete(null)}
+        title="确认删除校园信息"
+        description={
+          schoolToDelete ? `确定要删除“${schoolToDelete.name}”吗？` : '确定要删除该学校信息吗？'
+        }
+        confirmLabel="删除"
+        destructive
+        onConfirm={handleDeleteSchool}
+      />
     </div>
   );
 }

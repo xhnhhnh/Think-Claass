@@ -172,6 +172,18 @@ const CONTRACT_UTILITIES = [
   'rounded-md',
   'animate-pulse',
   'animate-spin',
+  // P4: the console's list/dashboard kit
+  'bg-muted/40',
+  'bg-muted/60',
+  'bg-destructive/5',
+  'bg-destructive/10',
+  'border-destructive/20',
+  'border-destructive/30',
+  'border-warning/30',
+  'border-info/30',
+  'text-primary/80',
+  'tracking-tight',
+  'truncate',
 ];
 
 /**

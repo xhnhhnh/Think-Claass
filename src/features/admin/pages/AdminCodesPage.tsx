@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Key, Plus, Download, Copy, CheckCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { CheckCircle2, Copy, Download, Key, Plus } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Spinner } from '@/components/ui/spinner';
+import { Toolbar } from '@/components/ui/toolbar';
 
 type ActivationCodeRow = Record<string, any>;
 
@@ -17,6 +24,16 @@ function formatCodeDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
 }
 
+/**
+ * 激活码管理.
+ *
+ * The table keeps the contract `AdminCodesPage.test.tsx` asserts on: the code, the
+ * user it was used by, the activation source and its remark all render as text in
+ * their cells. What changed is everything around them - `DataTable` owns the loading
+ * and empty states (the page used to render "加载中..." and an empty row *inside*
+ * `<tbody>`), the generate control is a `Toolbar`, and the status chip is a `Badge`
+ * rather than a template-literal class string.
+ */
 export default function AdminCodes() {
   const [codes, setCodes] = useState<ActivationCodeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,17 +90,17 @@ export default function AdminCodes() {
       toast.error('没有激活码可导出');
       return;
     }
-    
+
     const headers = ['激活码', '状态', '使用人', '生成时间', '使用时间'];
-    const rows = codes.map(c => [
+    const rows = codes.map((c) => [
       c.code,
       c.status === 'used' ? '已使用' : '未使用',
       getCodeField(c, 'usedByUsername', 'used_by_username', ''),
       formatCodeDate(getCodeField<string | null>(c, 'createdAt', 'created_at', null)),
       formatCodeDate(getCodeField<string | null>(c, 'usedAt', 'used_at', null)),
     ]);
-    
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -96,135 +113,114 @@ export default function AdminCodes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">激活码管理</h2>
-          <p className="text-slate-500 mt-1">生成和管理系统访问激活码</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={downloadCSV}
-            className="flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            导出 CSV
-          </button>
-          
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-            <input 
-              type="number" 
-              min="1" 
-              max="1000" 
-              value={generateCount}
-              onChange={(e) => setGenerateCount(Number(e.target.value))}
-              className="w-16 px-2 py-1 text-center outline-none text-slate-700 bg-transparent"
-            />
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              {generating ? '生成中...' : '生成'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="激活码管理" description="生成和管理系统访问激活码" icon={Key} />
 
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 text-slate-500 text-sm border-b border-slate-100">
-                <th className="p-4 font-medium">激活码</th>
-                <th className="p-4 font-medium">状态</th>
-                <th className="p-4 font-medium">使用者</th>
-                <th className="p-4 font-medium">生成时间</th>
-                <th className="p-4 font-medium">使用时间</th>
-                <th className="p-4 font-medium">开通来源</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    加载中...
-                  </td>
-                </tr>
-              ) : codes.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400 flex flex-col items-center">
-                    <Key className="w-8 h-8 mb-2 opacity-20" />
-                    暂无激活码记录
-                  </td>
-                </tr>
-              ) : (
-                codes.map((code) => {
-                  const usedByUsername = getCodeField<string | null>(code, 'usedByUsername', 'used_by_username', null);
-                  const createdAt = getCodeField<string | null>(code, 'createdAt', 'created_at', null);
-                  const usedAt = getCodeField<string | null>(code, 'usedAt', 'used_at', null);
-                  const activationSource = getCodeField<string | null>(code, 'activationSource', 'activation_source', null);
-                  const activationRemark = getCodeField<string | null>(code, 'activationRemark', 'activation_remark', null);
+      <Toolbar
+        actions={
+          <>
+            <Button variant="outline" onClick={downloadCSV}>
+              <Download data-icon="inline-start" />
+              导出 CSV
+            </Button>
+            <div className="flex items-center gap-1 rounded-lg border border-input bg-paper p-1 shadow-sm">
+              <Input
+                type="number"
+                min={1}
+                max={1000}
+                aria-label="生成数量"
+                value={generateCount}
+                onChange={(e) => setGenerateCount(Number(e.target.value))}
+                className="h-8 w-16 border-0 bg-transparent px-2 text-center shadow-none focus-visible:ring-0"
+              />
+              <Button onClick={handleGenerate} disabled={generating} size="sm">
+                {generating ? (
+                  <Spinner size="sm" label="正在生成" className="text-primary-foreground" />
+                ) : (
+                  <Plus data-icon="inline-start" />
+                )}
+                {generating ? '生成中...' : '生成'}
+              </Button>
+            </div>
+          </>
+        }
+      />
 
-                  return (
-                  <motion.tr 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    key={code.id} 
-                    className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded">
-                          {code.code}
-                        </span>
-                        <button 
-                          onClick={() => copyToClipboard(code.code, code.id)}
-                          className="text-slate-400 hover:text-blue-600 transition-colors"
-                          title="复制"
-                        >
-                          {copiedId === code.id ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        code.status === 'used' 
-                          ? 'bg-slate-100 text-slate-500' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        {code.status === 'used' ? '已使用' : '未使用'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-600 font-medium">
-                      {usedByUsername || '-'}
-                    </td>
-                    <td className="p-4 text-slate-500">
-                      {formatCodeDate(createdAt)}
-                    </td>
-                    <td className="p-4 text-slate-500">
-                      {formatCodeDate(usedAt)}
-                    </td>
-                    <td className="p-4 text-slate-500">
-                      {activationSource ? (
-                        <div className="space-y-1">
-                          <div>{activationSource}</div>
-                          {activationRemark && <div className="text-xs text-slate-400">{activationRemark}</div>}
-                        </div>
-                      ) : '-'}
-                    </td>
-                  </motion.tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable<ActivationCodeRow>
+        columns={[
+          {
+            key: 'code',
+            header: '激活码',
+            render: (code) => (
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-muted px-2 py-1 font-mono font-medium text-ink-2">
+                  {code.code}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`复制激活码 ${code.code}`}
+                  title="复制"
+                  className="text-ink-3 hover:text-primary"
+                  onClick={() => copyToClipboard(code.code, code.id)}
+                >
+                  {copiedId === code.id ? (
+                    <CheckCircle2 className="text-success" />
+                  ) : (
+                    <Copy />
+                  )}
+                </Button>
+              </div>
+            ),
+          },
+          {
+            key: 'status',
+            header: '状态',
+            render: (code) => (
+              <Badge variant={code.status === 'used' ? 'secondary' : 'success'}>
+                {code.status === 'used' ? '已使用' : '未使用'}
+              </Badge>
+            ),
+          },
+          {
+            key: 'usedByUsername',
+            header: '使用者',
+            className: 'font-medium text-ink-2',
+            render: (code) => getCodeField<string | null>(code, 'usedByUsername', 'used_by_username', null) || '-',
+          },
+          {
+            key: 'createdAt',
+            header: '生成时间',
+            className: 'text-ink-3',
+            render: (code) => formatCodeDate(getCodeField<string | null>(code, 'createdAt', 'created_at', null)),
+          },
+          {
+            key: 'usedAt',
+            header: '使用时间',
+            className: 'text-ink-3',
+            render: (code) => formatCodeDate(getCodeField<string | null>(code, 'usedAt', 'used_at', null)),
+          },
+          {
+            key: 'activationSource',
+            header: '开通来源',
+            className: 'text-ink-3',
+            render: (code) => {
+              const activationSource = getCodeField<string | null>(code, 'activationSource', 'activation_source', null);
+              const activationRemark = getCodeField<string | null>(code, 'activationRemark', 'activation_remark', null);
+              if (!activationSource) return '-';
+              return (
+                <div className="space-y-1">
+                  <div>{activationSource}</div>
+                  {activationRemark ? <div className="text-xs text-ink-3/80">{activationRemark}</div> : null}
+                </div>
+              );
+            },
+          },
+        ]}
+        rows={codes}
+        getRowKey={(code) => code.id}
+        isLoading={loading}
+        empty={<EmptyState icon={Key} title="暂无激活码记录" className="bg-card" />}
+      />
     </div>
   );
 }

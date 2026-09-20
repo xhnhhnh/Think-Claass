@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Shield, Search, RefreshCw, Calendar, User, Tag } from 'lucide-react';
+import { Calendar, RefreshCw, Search, Shield } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Toolbar } from '@/components/ui/toolbar';
 
 interface AuditLog {
   id: number;
@@ -14,16 +22,31 @@ interface AuditLog {
   created_at: string;
 }
 
+/**
+ * 系统审计日志.
+ *
+ * The list was a hand-written `<table>` that carried its own "加载中..." row and its own
+ * empty row; `DataTable` owns both states now, and the hand-built filter card above it
+ * became a `Toolbar`. The filters still only fill state - the query is issued by 查询
+ * and by a page change, so typing never hits the API, exactly as before.
+ *
+ * The action filter is the toolbar's search slot because it is the page's one
+ * search-shaped control; `searchLabel` keeps 操作类型 (Action) as its accessible name
+ * now that the visible label is the toolbar's own layout. The two id filters keep a
+ * visible label through `FormField`, which *wraps* its control rather than pointing at
+ * it, so `getByLabelText('教师 ID')` resolves against the kit's markup the same way it
+ * did against the raw one.
+ */
 export default function AdminAuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  
+
   // Filters
   const [teacherId, setTeacherId] = useState('');
   const [userId, setUserId] = useState('');
   const [actionFilter, setActionFilter] = useState('');
-  
+
   const [page, setPage] = useState(1);
   const limit = 20;
 
@@ -62,12 +85,26 @@ export default function AdminAuditLogs() {
     fetchLogs();
   }, [page]);
 
+  /**
+   * 查询 refetches through this render's `fetchLogs`, which reads the filters this
+   * render holds - and, on a page other than the first, `setPage(1)` also triggers the
+   * effect above, so the request is issued twice and the effect's offset-0 one wins.
+   * That is one request more than the button needs, but *which* requests a control
+   * makes is behaviour, and this migration only moves markup onto the kit.
+   */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     fetchLogs();
   };
 
+  /**
+   * 重置 keeps the `setTimeout` it had before the refactor, and with it the wart: the
+   * timer calls this render's `fetchLogs`, so it still sends the *old* filter values -
+   * the cleared ones reach the API only through the effect above, and only when `page`
+   * actually changed. Fixing that would change what the button requests; see
+   * `handleSearch` for why that is out of scope here.
+   */
   const handleReset = () => {
     setTeacherId('');
     setUserId('');
@@ -80,172 +117,161 @@ export default function AdminAuditLogs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-indigo-500" />
-            系统审计日志
-          </h2>
-          <p className="text-slate-500 mt-1">查看系统的所有关键操作记录，用于安全审计和追踪溯源</p>
-        </div>
-        <button 
-          onClick={fetchLogs}
-          disabled={loading}
-          className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          刷新数据
-        </button>
-      </div>
+      <PageHeader
+        title="系统审计日志"
+        description="查看系统的所有关键操作记录，用于安全审计和追踪溯源"
+        icon={Shield}
+        actions={
+          <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+            <RefreshCw data-icon="inline-start" className={loading ? 'animate-spin' : undefined} />
+            刷新数据
+          </Button>
+        }
+      />
 
-      <div className="bg-white/80 backdrop-blur-xl p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-100 mb-6">
-        <form onSubmit={handleSearch} className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-slate-700 mb-1">教师 ID</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="number"
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-                placeholder="输入教师 ID"
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
+      {/*
+        The form wraps the whole toolbar so Enter still submits from any filter, which
+        is what the hand-written `<form>` around the old filter panel did.
+      */}
+      <form onSubmit={handleSearch}>
+        <Toolbar
+          search={{
+            value: actionFilter,
+            onChange: setActionFilter,
+            placeholder: '例如: LOGIN, UPDATE_USER',
+          }}
+          searchLabel="操作类型 (Action)"
+          filters={
+            <>
+              <FormField label="教师 ID" className="w-full sm:w-40">
+                <Input
+                  type="number"
+                  value={teacherId}
+                  onChange={(e) => setTeacherId(e.target.value)}
+                  placeholder="输入教师 ID"
+                />
+              </FormField>
+              <FormField label="用户 ID" className="w-full sm:w-40">
+                <Input
+                  type="number"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  placeholder="输入用户 ID"
+                />
+              </FormField>
+            </>
+          }
+          actions={
+            <>
+              <Button type="submit">
+                <Search data-icon="inline-start" />
+                查询
+              </Button>
+              <Button type="button" variant="outline" onClick={handleReset}>
+                重置
+              </Button>
+            </>
+          }
+        />
+      </form>
+
+      <DataTable<AuditLog>
+        columns={[
+          {
+            key: 'id',
+            header: 'ID',
+            className: 'text-ink-3',
+            render: (log) => `#${log.id}`,
+          },
+          {
+            key: 'created_at',
+            header: '时间',
+            className: 'text-ink-2',
+            render: (log) => (
+              <span className="flex items-center gap-1">
+                <Calendar aria-hidden="true" className="size-3 text-ink-3" />
+                {new Date(log.created_at).toLocaleString()}
+              </span>
+            ),
+          },
+          {
+            key: 'action',
+            header: '操作类型',
+            // The chip used to be an indigo pill; §5 of docs/design-system.md maps that
+            // family onto the brand's own primary, at chip strength: a /10 background
+            // with primary text.
+            render: (log) => <Badge className="bg-primary/10 text-primary">{log.action}</Badge>,
+          },
+          {
+            key: 'teacher_id',
+            header: '操作人',
+            className: 'text-ink-2',
+            render: (log) => (log.teacher_id ? `Teacher ID: ${log.teacher_id}` : '-'),
+          },
+          {
+            key: 'user_id',
+            header: '目标用户',
+            className: 'text-ink-2',
+            render: (log) => (log.user_id ? `User ID: ${log.user_id}` : '-'),
+          },
+          {
+            key: 'details',
+            header: '详情',
+            className: 'text-ink-3',
+            // A block with a max width is what makes `truncate` bite inside a table
+            // cell; the full value stays reachable through the title.
+            render: (log) => (
+              <span className="block max-w-md truncate" title={log.details}>
+                {log.details || '-'}
+              </span>
+            ),
+          },
+          {
+            key: 'ip_address',
+            header: 'IP 地址',
+            className: 'font-mono text-xs text-ink-3',
+            render: (log) => log.ip_address || '-',
+          },
+        ]}
+        rows={logs}
+        getRowKey={(log) => log.id}
+        isLoading={loading}
+        empty={
+          <EmptyState
+            icon={Shield}
+            title="没有找到符合条件的审计日志"
+            className="bg-card"
+          />
+        }
+      />
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-paper px-4 py-3">
+          <div className="text-sm text-ink-3">
+            共 <span className="font-medium text-ink-1">{total}</span> 条记录，
+            第 <span className="font-medium text-ink-1">{page}</span> / {totalPages} 页
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-slate-700 mb-1">用户 ID</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="number"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="输入用户 ID"
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-slate-700 mb-1">操作类型 (Action)</label>
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
-                placeholder="例如: LOGIN, UPDATE_USER"
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="px-6 py-2 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors flex items-center"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
             >
-              <Search className="w-4 h-4 mr-2" />
-              查询
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="px-6 py-2 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-colors"
+              上一页
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
             >
-              重置
-            </button>
+              下一页
+            </Button>
           </div>
-        </form>
-      </div>
-
-      <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">ID</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">时间</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">操作类型</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">操作人</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">目标用户</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">详情</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">IP 地址</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                    <div className="flex justify-center items-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-2"></div>
-                      加载中...
-                    </div>
-                  </td>
-                </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                    没有找到符合条件的审计日志
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-slate-500">#{log.id}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap flex items-center">
-                      <Calendar className="w-3 h-3 mr-1 text-slate-400" />
-                      {new Date(log.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {log.teacher_id ? `Teacher ID: ${log.teacher_id}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {log.user_id ? `User ID: ${log.user_id}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-500 max-w-md truncate" title={log.details}>
-                      {log.details || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-400 font-mono text-xs">
-                      {log.ip_address || '-'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-            <div className="text-sm text-slate-500">
-              共 <span className="font-medium text-slate-800">{total}</span> 条记录，
-              第 <span className="font-medium text-slate-800">{page}</span> / {totalPages} 页
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                上一页
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                下一页
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

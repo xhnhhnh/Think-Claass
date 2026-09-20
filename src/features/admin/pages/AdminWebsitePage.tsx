@@ -1,16 +1,30 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Save, Globe } from 'lucide-react';
+import { Globe, Save } from 'lucide-react';
 
 import { portalApi } from '@/features/portal/api/portalApi';
+import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { SectionCard } from '@/components/ui/section-card';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 
+/**
+ * 网站设置.
+ *
+ * Six hand-styled fields with a blue focus ring, a `max-w-4xl` card with its own
+ * arbitrary shadow, and a save button wearing a blue-to-indigo gradient - all replaced
+ * by the kit, so the console's one accent colour is the console's accent colour.
+ */
 export default function AdminWebsite() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState<Record<string, any>>({
     hero: { title: '', subtitle: '', buttonText: '' },
     features: [],
-    about: { title: '', content: '' }
+    about: { title: '', content: '' },
   });
 
   const fetchWebsiteData = async () => {
@@ -21,7 +35,7 @@ export default function AdminWebsite() {
         setSections({
           hero: data.data.hero || { title: '', subtitle: '', buttonText: '' },
           features: data.data.features || [],
-          about: data.data.about || { title: '', content: '' }
+          about: data.data.about || { title: '', content: '' },
         });
       } else {
         toast.error('获取网站内容失败');
@@ -38,16 +52,16 @@ export default function AdminWebsite() {
   }, []);
 
   const handleHeroChange = (key: string, value: string) => {
-    setSections(prev => ({
+    setSections((prev) => ({
       ...prev,
-      hero: { ...prev.hero, [key]: value }
+      hero: { ...prev.hero, [key]: value },
     }));
   };
 
   const handleAboutChange = (key: string, value: string) => {
-    setSections(prev => ({
+    setSections((prev) => ({
       ...prev,
-      about: { ...prev.about, [key]: value }
+      about: { ...prev.about, [key]: value },
     }));
   };
 
@@ -70,107 +84,84 @@ export default function AdminWebsite() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">网站设置</h2>
-          <p className="text-slate-500 mt-1">管理前台展示页面的主要内容</p>
-        </div>
-      </div>
+      <PageHeader title="网站设置" description="管理前台展示页面的主要内容" icon={Globe} />
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex h-64 items-center justify-center">
+          <Spinner size="lg" label="正在加载网站内容" className="text-primary" />
         </div>
       ) : (
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-200 overflow-hidden max-w-4xl">
-          <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center">
-            <Globe className="w-5 h-5 text-slate-500 mr-2" />
-            <h3 className="font-medium text-slate-700">首页内容编辑</h3>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="p-6 space-y-8">
-            {/* Hero Section */}
+        <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
+          <SectionCard title="首页内容编辑" description="这些内容展示在官网首页与关于我们页面">
             <div className="space-y-4">
-              <h4 className="text-lg font-medium text-slate-800 border-b pb-2">Hero 横幅区域</h4>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  主标题
-                </label>
-                <input
+              <h4 className="border-b border-border pb-2 text-base font-medium text-ink-1">
+                Hero 横幅区域
+              </h4>
+              <FormField label="主标题">
+                <Input
                   type="text"
                   value={sections.hero?.title || ''}
                   onChange={(e) => handleHeroChange('title', e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="例如：欢迎来到班级管理系统"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  副标题
-                </label>
-                <textarea
+              </FormField>
+              <FormField label="副标题">
+                <Textarea
                   value={sections.hero?.subtitle || ''}
                   onChange={(e) => handleHeroChange('subtitle', e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                   rows={3}
                   placeholder="一两句话介绍系统的特色"
+                  className="resize-none"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  按钮文字
-                </label>
-                <input
+              </FormField>
+              <FormField label="按钮文字">
+                <Input
                   type="text"
                   value={sections.hero?.buttonText || ''}
                   onChange={(e) => handleHeroChange('buttonText', e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="例如：立即开始"
                 />
-              </div>
+              </FormField>
             </div>
 
-            {/* About Section */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-medium text-slate-800 border-b pb-2">关于我们</h4>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  标题
-                </label>
-                <input
+            <div className="mt-8 space-y-4">
+              <h4 className="border-b border-border pb-2 text-base font-medium text-ink-1">关于我们</h4>
+              <FormField label="标题">
+                <Input
                   type="text"
                   value={sections.about?.title || ''}
                   onChange={(e) => handleAboutChange('title', e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="关于我们标题"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  详细介绍
-                </label>
-                <textarea
+              </FormField>
+              <FormField label="详细介绍">
+                <Textarea
                   value={sections.about?.content || ''}
                   onChange={(e) => handleAboutChange('content', e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                   rows={6}
                   placeholder="详细的图文或文本介绍"
+                  className="resize-none"
                 />
-              </div>
+              </FormField>
             </div>
+          </SectionCard>
 
-            <div className="pt-4 flex justify-end">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.03)] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? '保存中...' : '保存内容'}
-              </button>
-            </div>
-          </form>
-        </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <>
+                  <Spinner label="正在保存" className="text-primary-foreground" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <Save data-icon="inline-start" />
+                  保存内容
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
       )}
     </div>
   );
