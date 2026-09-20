@@ -63,13 +63,49 @@ const dbProxy = new Proxy({} as DatabaseInstance, {
 // =======================
 // 加密/解密工具 (模拟或真实)
 // =======================
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '12345678901234567890123456789012'; // 32 chars
 const IV_LENGTH = 16;
+
+/**
+ * The at-rest encryption key for `students.name`.
+ *
+ * **Deliberately has no default.** Until P4.3b.15 this fell back to a 32-character literal made of
+ * consecutive digits, which lived in the source - so every deployment that never set
+ * `ENCRYPTION_KEY` was encrypting children's names with a key published in the repository. A privacy
+ * audit of the public clone found exactly that: the live database's three student names decrypted
+ * with it.
+ *
+ * A default that is public is worse than no encryption, because it looks like encryption. So the
+ * key is now required, and its absence is an error at the first name that needs it rather than a
+ * silent fallback. Guardrail G18 (`tests/guardrails/no-default-encryption-key.test.ts`) keeps the
+ * literal - and any future one - out of the source; this comment deliberately does not quote it.
+ *
+ * Read **lazily** on purpose: this module is imported by the whole legacy composition (`initDb`,
+ * the maintenance code, the boot probes), and demanding the key at import time would make the
+ * application unbootable for a deployment that never stores an encrypted name. Only actually
+ * encrypting or decrypting requires it.
+ */
+export function encryptionKey(): Buffer {
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) {
+    throw new Error(
+      'ENCRYPTION_KEY is not set: refusing to encrypt or decrypt at-rest values with a default key. ' +
+        'Set it to the same 32-byte value every instance of this deployment uses (scripts/rotate-encryption-key.mjs ' +
+        'can re-encrypt existing rows).',
+    );
+  }
+
+  const key = Buffer.from(raw);
+  if (key.length !== 32) {
+    throw new Error(`ENCRYPTION_KEY must be 32 bytes for aes-256-cbc; got ${key.length}`);
+  }
+
+  return key;
+}
 
 export function encrypt(text: string): string {
   if (!text) return text;
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  const cipher = crypto.createCipheriv('aes-256-cbc', encryptionKey(), iv);
   let encrypted = cipher.update(text);
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   return iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -77,11 +113,14 @@ export function encrypt(text: string): string {
 
 export function decrypt(text: string): string {
   if (!text) return text;
+  // Resolved before the try/catch: a missing key must fail loudly, not be swallowed by the
+  // legacy-plaintext fallback below and silently return the ciphertext as if it were a name.
+  const key = encryptionKey();
   try {
     const textParts = text.split(':');
     const iv = Buffer.from(textParts.shift()!, 'hex');
     const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString();

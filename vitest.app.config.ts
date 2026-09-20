@@ -29,6 +29,15 @@ export default defineConfig({
     // fetch calls those suites rely on.
     include: ['src/**/*.test.{ts,tsx}', 'api/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/qa-full-site.spec.ts', '**/*.pw.spec.ts', '**/*.e2e.ts'],
+    /**
+     * The at-rest key `api/db.ts` encrypts student names with.
+     *
+     * P4.3b.15 removed the hard-coded default from the source (it was published in the repository,
+     * which is the same as not encrypting), so the key is now required. Tests that never touch an
+     * encrypted name do not need it, and the ones that do get this one - deliberately a test value,
+     * never a deployment key.
+     */
+    env: { ENCRYPTION_KEY: 'vitest-only-encryption-key-00000' },
     // Array form and ordering matter: the `domains` subpath must be matched before
     // the bare package specifier.
     alias: [

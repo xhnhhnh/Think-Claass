@@ -30,6 +30,14 @@ export default defineConfig({
     globals: false,
     testTimeout: 30_000,
     /**
+     * The at-rest key the classroom plugin encrypts student names with.
+     *
+     * P4.3b.15 removed the published default from the source, so the key is required wherever a name
+     * is encrypted or decrypted. This value is a test one; the boot probes spawn `api/server.ts`
+     * with `...process.env`, so they inherit it and keep exercising the real code path.
+     */
+    env: { ENCRYPTION_KEY: 'vitest-only-encryption-key-00000' },
+    /**
      * Booting a plugin host is the most expensive hook in the suite: discovery reads every
      * `plugin.json`, validation runs, ~20 plugin modules are imported through the esbuild transform,
      * migrations run and Nest assembles the module graph. Under `npm test` that happens while the app

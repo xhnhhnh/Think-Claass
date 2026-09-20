@@ -1,7 +1,7 @@
 # 交接文档 · ThinkClass「最小 Core + 无限 Plugins」重构
 
 > **用途**：在**新对话**中接续本重构。本文档是唯一权威入口。
-> **生成时间**：第 9 轮结束时（P4.3b.14 完成：`admin` 迁成 `plugins/admin`，`api/modules/` 为空，跨域级联有了正式裁决与机制）
+> **生成时间**：第 10 轮结束时（P4.3b.15：一次公开仓库的隐私审计与修复 —— 删掉源码里的公开默认密钥、轮换线上密钥、加护栏 G18）
 > **工作区**：`D:\think-class`
 > **分支**：`refactor/plugin-kernel`
 > **HEAD**：以 `git log --oneline -1` 为准。本轮开工时核实到 HEAD 是 `3c88a41`。
@@ -371,7 +371,7 @@ api/maintenance.ts      P4.3b.14 新增：导出/导入/重置的**宿主实现*
 
 注意 `adoptedTables` 的"只降不升"有一条**明示例外**：迁移一个新域会让它上升，因此每次上升都必须在 `allowances.json` 的注释里逐条写清是哪张表、来自哪个域（`routeCollisions` 与 `deadCode` 没有例外，只能降）。
 
-其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；反向：每个 Prisma 模型都要有表；**P4.3b.11 新增：SQLite 有、Prisma 模型没有的列**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）。
+其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；反向：每个 Prisma 模型都要有表；**P4.3b.11 新增：SQLite 有、Prisma 模型没有的列**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）、**G18 静态加密密钥不得有默认值**（P4.3b.15：源码里出现那把公开默认密钥、或任何 `ENCRYPTION_KEY || '…'` / `get('ENCRYPTION_KEY', '…')` 形状的兜底就报错。**它当场抓到了本轮的作者**：`api/db.ts` 的说明注释里引用了那个字面量，只好改成描述而不引用）。
 
 ### ⚠️ schema 的第四个盲区（P4.3c.3a 发现，G13/G17 之前都看不见）
 
@@ -412,10 +412,10 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        121 文件 / 939 用例全绿（P4.3b.13 是 120 / 881）
+npm test        121 文件 / 941 用例全绿（P4.3b.13 是 120 / 881）
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
-guardrails      12 文件 / 54 用例
+guardrails      13 文件 / 57 用例（P4.3b.15 新增 G18）
 ```
 
 **已迁成插件的域（21 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace,
@@ -1401,6 +1401,58 @@ admin 的跨域**读**保留为 `data.reads`（统计面板跨六域计数，与
 
 **实测**：`npm test` **121 文件 / 939 用例**全绿；`check` exit 0；`api:surface` **297 不变**；
 `guard` 12 文件 / 54 用例（`adoptedTables` 65 → 74、`deadCode` 59 → 55，两处都在 `allowances.json` 里逐条写明）。
+
+---
+
+### P4.3b.15 · 公开仓库隐私审计与修复（默认密钥、密钥轮换、G18）—— ✅ 已完成
+
+这一轮不是重构，是一次**审计加修复**：对公开仓库（`github.com/xhnhhnh/Think-Claass`，public）做
+隐私/凭据扫描，然后关掉真正找到的问题。结论与证据分开写，因为"扫过没发现"和"确实没有"不是一回事。
+
+#### 1. 扫描结论（工作区 + 全部历史 + 所有远端 ref）
+
+**没有泄露的**：`.env` **从未被跟踪**（`git log -- .env` 无记录）；无 API key / token / 私钥
+（`ghp_` / `github_pat_` / `AKIA` / `sk_live` / `xoxb-` / `AIza` / JWT / PEM 全历史 pickaxe 均为 0 条真实命中，
+唯一的 `-----BEGIN`、`ghp_` 命中来自 `ce91872` 里被误提交的 **GitHub CLI 发行包**自带文档与 GPG 公钥示例）；
+无手机号、身份证号、公网 IP、`C:\Users\<用户名>` 路径；没有 `.npmrc` / `.pem` / `.github/` 之类的凭据文件。
+
+**真正的暴露（推送之前就存在，与 P4.3b.14 的推送无关）**：
+- **两个开发数据库被提交过**：`database.sqlite`（61 KB / 307 KB）连同 `-wal`/`-shm` 边车（最大 1.7 MB）。
+  它们**不在 `main` 的历史里**，但可以通过旧 tag `v0.0.1`、`v1.0.0`–`v1.0.5` 与 `refs/pull/{1,2,3}/head` 取到，
+  实测匿名 `GET /repos/…/git/blobs/<sha>` 返回 200。内容：3–4 个用户、**明文口令**（多数是文档默认值），
+  以及 1 条 10 字符明文学生姓名；其中**一条超管口令 13 位、不是任何默认值**。
+- `gh.tar.gz`（12.9 MB）+ 解包目录（含 49 MB 二进制）在 `e4d4a68` 加入、`22c697a` 删除 ——
+  进了 `main` 的历史，仓库因此有 112 MB。里面没有 token，纯膨胀。
+
+#### 2. 修的东西
+
+- **删掉源码里的公开默认密钥**（这才是真问题）：`api/db.ts` 与 `plugins/classroom/src/classroom.support.ts`
+  过去都用 `ENCRYPTION_KEY || '<32 位连续数字>'` 兜底 —— 于是**没设这个变量的部署，就是在用一把公开密钥
+  加密学生姓名**。实测线上库 3/3 个姓名正是用那把钥匙加密的。现在两处都**没有兜底**：缺键或长度不是 32 字节
+  就抛错，且 `decrypt()` 在 try/catch **之前**解析密钥（否则"没配密钥"会被 legacy 明文回落吞掉，
+  把密文当姓名返回）。
+- **轮换线上密钥**：新增 `scripts/rotate-encryption-key.mjs`（旧密钥只作为参数传入，**不写回仓库**；
+  单事务、可 `--dry-run`、写完用新密钥自校验）。本地库已轮换：`rotated=3 / undecryptable=0`，
+  再用 `.env` 里的新密钥复验 `readable=3`。`.env` 已写入新 `ENCRYPTION_KEY`（`.env` 未跟踪）。
+- **新增护栏 G18**（`tests/guardrails/no-default-encryption-key.test.ts`）：源码里出现那把公开密钥、
+  或出现 `ENCRYPTION_KEY || '…'` / `get('ENCRYPTION_KEY', '…')` 这类兜底就报错。
+  运行时行为由 `tests/kernel/encryption-key-required.test.ts` 钉住（缺键抛错、长度校验、往返、明文回落）。
+- 测试环境注入一把**测试专用**密钥（`vitest.app.config.ts` / `vitest.backend.config.ts` 的 `test.env`），
+  所以 941 个用例在"没有默认密钥"的世界里照样全绿 —— 包括会 spawn `api/server.ts` 启动探针。
+
+#### 3. 远端处置（与代码修复同样重要）
+
+- 已备份全部 refs（`git bundle`，110.7 MB，见 §2 的备份目录），并删除远端 7 个暴露的旧 tag
+  （`v0.0.1`、`v1.0.0`–`v1.0.5`；`v1.5.0+` 保留，安装/更新链路不受影响）。
+- **但删 tag 不能取消暴露**：blob 仍可按 SHA 取，`refs/pull/*` 是 GitHub 托管的、git 删不掉。
+  公开仓库里推过的对象只有三条路能真正清掉 —— **转私有 / 删库重建 / 找 GitHub Support**。
+  本轮按用户裁决执行「删库重建 + 推送干净历史」，并顺带滤掉 `database.sqlite*`、`gh*.tar.gz`、
+  `gh_2.54.0_linux_amd64/**`、`.tmp/**`（旧 vendor 副本）。
+- **仍然要人做的一件事**：那条 13 位明文超管口令（如果还在别处使用）必须轮换；
+  部署机上也要设同一把新 `ENCRYPTION_KEY` 并跑一次迁移脚本，否则新构建会按设计直接报错。
+
+**实测**：`npm test` **121 文件 / 941 用例**全绿；`check` exit 0；`api:surface` **297 不变**；
+`guard` **13 文件 / 57 用例**（G18 新增）。
 
 ---
 

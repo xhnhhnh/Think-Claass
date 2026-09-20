@@ -15,9 +15,29 @@ import type { KernelContext } from '@thinkclass/plugin-sdk';
 
 import type { RequestActor } from './classroom.types.js';
 
-/** The key `api/db.ts` falls back to when `ENCRYPTION_KEY` is unset. */
-const DEFAULT_ENCRYPTION_KEY = '12345678901234567890123456789012';
 const IV_LENGTH = 16;
+
+/**
+ * The at-rest key this plugin encrypts `students.name` with, read from the host configuration.
+ *
+ * It has **no fallback**. Until P4.3b.15 this mirrored `api/db.ts`'s 32-character default, which is
+ * published in the repository - so a deployment that never set `ENCRYPTION_KEY` silently encrypted
+ * names with a known key. Missing or wrong-length keys now throw at the first write instead.
+ */
+function encryptionKeyFrom(ctx: KernelContext): Buffer {
+  const raw = ctx.config.get<string>('ENCRYPTION_KEY');
+  if (!raw) {
+    throw new Error(
+      'ENCRYPTION_KEY is not set: refusing to store student names under a default key. ' +
+        'Set the 32-byte key this deployment already uses (scripts/rotate-encryption-key.mjs can migrate rows).',
+    );
+  }
+  const key = Buffer.from(String(raw));
+  if (key.length !== 32) {
+    throw new Error(`ENCRYPTION_KEY must be 32 bytes for aes-256-cbc; got ${key.length}`);
+  }
+  return key;
+}
 
 export interface NameCipher {
   decrypt(value: string): string;
@@ -54,7 +74,7 @@ export function createNameCipher(ctx: KernelContext): NameCipher {
     return { decrypt, encrypt: injected };
   }
 
-  const key = Buffer.from(String(ctx.config.get('ENCRYPTION_KEY', DEFAULT_ENCRYPTION_KEY)));
+  const key = encryptionKeyFrom(ctx);
   return {
     decrypt,
     encrypt(text: string) {
