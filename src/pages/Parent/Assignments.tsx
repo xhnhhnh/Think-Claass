@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { BookOpen, CheckCircle, FileText, Award, AlertCircle, BarChart3, Clock, TrendingUp, Star, Heart } from 'lucide-react';
+import { AlertCircle, Award, BarChart3, BookOpen, CheckCircle, Clock, FileText, Star, TrendingUp } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { StatCard } from '@/components/ui/stat-card';
+import { cn } from '@/lib/utils';
 
 interface Assignment {
   id: number;
@@ -20,9 +27,38 @@ interface Exam {
   classAverage: number;
 }
 
+/**
+ * Subject chips, as complete class strings.
+ *
+ * The four subjects used to pick indigo/coral/amber/green by `switch`, and `coral` is not
+ * a family `tailwind.config.js` registers - two of the four chips had no background at
+ * all. The map keeps one hue per subject out of the token set (the parent theme's orange
+ * is `primary`), and it is spelled out rather than composed because Tailwind cannot
+ * compile a class name it cannot see.
+ */
+const SUBJECT_TONES: Record<string, string> = {
+  数学: 'border-info/20 bg-info/10 text-info',
+  语文: 'border-primary/20 bg-primary/5 text-primary',
+  英语: 'border-warning/20 bg-warning/10 text-warning',
+};
+
+const DEFAULT_SUBJECT_TONE = 'border-success/20 bg-success/10 text-success';
+
+const getSubjectTone = (subject: string) => SUBJECT_TONES[subject] ?? DEFAULT_SUBJECT_TONE;
+
+/**
+ * 学习采撷.
+ *
+ * The three header tiles were gradients in the coral, green and indigo/purple families -
+ * coral is not registered in `tailwind.config.js` at all and the other two are off-brand -
+ * so they are `StatCard`s now, whose `tone` is an enum. The completion bar was a hard-coded
+ * `style={{ width: '75%' }}` that did not even agree with the figure printed above it, and
+ * it is the kit's `Progress` fed by the same computation. There is no `PageHeader` here:
+ * the shell already prints this route's title, and duplicating it is P6's open question.
+ */
 export default function ParentAssignments() {
   const [activeTab, setActiveTab] = useState<'assignments' | 'exams'>('assignments');
-  
+
   const assignments: Assignment[] = [
     { id: 1, title: '数学课后练习', subject: '数学', dueDate: '2023-11-15', status: 'pending' },
     { id: 2, title: '语文阅读分享', subject: '语文', dueDate: '2023-11-14', status: 'submitted' },
@@ -36,207 +72,202 @@ export default function ParentAssignments() {
     { id: 3, title: '英语单元小测', subject: '英语', date: '2023-10-20', score: 95, totalScore: 100, classAverage: 90 },
   ];
 
-  const getSubjectColor = (subject: string) => {
-    switch(subject) {
-      case '数学': return 'bg-indigo-50 text-indigo-500 border-indigo-100/50';
-      case '语文': return 'bg-coral-50 text-coral-500 border-coral-100/50';
-      case '英语': return 'bg-amber-50 text-amber-500 border-amber-100/50';
-      default: return 'bg-green-50 text-green-500 border-green-100/50';
-    }
-  };
+  const pendingCount = assignments.filter(a => a.status === 'pending').length;
+  const averageScore = Math.round(exams.reduce((acc, curr) => acc + curr.score, 0) / (exams.length || 1));
+  const completionRate = Math.round(
+    (assignments.filter(a => a.status !== 'pending').length / assignments.length) * 100,
+  );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-coral-400 to-amber-300 rounded-[2rem] p-7 text-white shadow-lg shadow-coral-500/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-            <Star className="w-48 h-48" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold tracking-wide">待完成学习</h2>
-              <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner border border-white/20">
-                <Clock className="w-6 h-6" />
-              </div>
-            </div>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black tracking-tight">
-                {assignments.filter(a => a.status === 'pending').length}
-              </span>
-              <span className="text-amber-50 font-medium">项</span>
-            </div>
-            <p className="text-sm text-amber-50 mt-3 font-medium tracking-wide">陪伴宝贝一起完成吧</p>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-400 to-emerald-300 rounded-[2rem] p-7 text-white shadow-lg shadow-green-500/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-            <BarChart3 className="w-48 h-48" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold tracking-wide">平均成绩</h2>
-              <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner border border-white/20">
-                <Heart className="w-6 h-6" />
-              </div>
-            </div>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black tracking-tight">
-                {Math.round(exams.reduce((acc, curr) => acc + curr.score, 0) / (exams.length || 1))}
-              </span>
-              <span className="text-green-50 font-medium">分</span>
-            </div>
-            <p className="text-sm text-green-50 mt-3 flex items-center font-medium tracking-wide">
-              <TrendingUp className="w-4 h-4 mr-1.5" />
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <StatCard
+          label="待完成学习"
+          value={
+            <>
+              {pendingCount}
+              <span className="ml-1 text-sm font-medium text-ink-3">项</span>
+            </>
+          }
+          icon={Clock}
+          tone="warning"
+          hint="陪伴宝贝一起完成吧"
+        />
+        <StatCard
+          label="平均成绩"
+          value={
+            <>
+              {averageScore}
+              <span className="ml-1 text-sm font-medium text-ink-3">分</span>
+            </>
+          }
+          icon={BarChart3}
+          tone="success"
+          hint={
+            <span className="flex items-center gap-1.5">
+              <TrendingUp aria-hidden="true" className="size-4" />
               表现很棒哦
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-indigo-400 to-purple-300 rounded-[2rem] p-7 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-            <CheckCircle className="w-48 h-48" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold tracking-wide">学习完成率</h2>
-              <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner border border-white/20">
-                <CheckCircle className="w-6 h-6" />
-              </div>
-            </div>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black tracking-tight">
-                {Math.round((assignments.filter(a => a.status !== 'pending').length / assignments.length) * 100)}
-              </span>
-              <span className="text-indigo-50 font-medium">%</span>
-            </div>
-            <div className="w-full bg-white/20 rounded-full h-2 mt-4 shadow-inner overflow-hidden">
-              <div className="bg-white h-full rounded-full transition-all duration-1000 ease-out" style={{ width: '75%' }}></div>
-            </div>
-          </div>
-        </div>
+            </span>
+          }
+        />
+        <StatCard
+          label="学习完成率"
+          value={
+            <>
+              {completionRate}
+              <span className="ml-1 text-sm font-medium text-ink-3">%</span>
+            </>
+          }
+          icon={CheckCircle}
+          tone="info"
+          hint={
+            <Progress
+              value={completionRate}
+              label={`学习完成率 ${completionRate}%`}
+              tone="info"
+              className="mt-2"
+            />
+          }
+        />
       </div>
 
-      {/* Main Content */}
-      <div className="bg-[#fffdfa] rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-amber-50 overflow-hidden">
-        {/* Tabs */}
-        <div className="flex border-b border-amber-50 bg-white/50 backdrop-blur-sm">
-          <button
-            onClick={() => setActiveTab('assignments')}
-            className={`flex-1 flex items-center justify-center py-5 text-[15px] font-bold transition-all duration-300 ${
-              activeTab === 'assignments'
-                ? 'text-coral-500 border-b-2 border-coral-400 bg-coral-50/30'
-                : 'text-stone-400 hover:text-coral-400 hover:bg-coral-50/10'
-            }`}
-          >
-            <BookOpen className="w-5 h-5 mr-2.5" />
-            学习记录
-          </button>
-          <button
-            onClick={() => setActiveTab('exams')}
-            className={`flex-1 flex items-center justify-center py-5 text-[15px] font-bold transition-all duration-300 ${
-              activeTab === 'exams'
-                ? 'text-coral-500 border-b-2 border-coral-400 bg-coral-50/30'
-                : 'text-stone-400 hover:text-coral-400 hover:bg-coral-50/10'
-            }`}
-          >
-            <Award className="w-5 h-5 mr-2.5" />
-            闪光成绩
-          </button>
+      <Card className="gap-0 py-0">
+        {/*
+          The two raw buttons were an underline tab strip. A two-way switch is the kit's
+          segmented control instead - `Button` owns its own border and radius, so an
+          underline would have to be fought through them - and it is also where
+          `aria-pressed` comes from.
+        */}
+        <div className="border-b border-border p-4">
+          <div className="flex w-fit rounded-lg border border-border bg-muted/50 p-1">
+            <Button
+              type="button"
+              variant={activeTab === 'assignments' ? 'default' : 'ghost'}
+              size="sm"
+              aria-pressed={activeTab === 'assignments'}
+              onClick={() => setActiveTab('assignments')}
+            >
+              <BookOpen data-icon="inline-start" />
+              学习记录
+            </Button>
+            <Button
+              type="button"
+              variant={activeTab === 'exams' ? 'default' : 'ghost'}
+              size="sm"
+              aria-pressed={activeTab === 'exams'}
+              onClick={() => setActiveTab('exams')}
+            >
+              <Award data-icon="inline-start" />
+              闪光成绩
+            </Button>
+          </div>
         </div>
 
-        <div className="p-8 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] relative min-h-[400px]">
-          <div className="absolute inset-0 bg-gradient-to-b from-[#fffdfa]/80 to-[#fffdfa]/40 pointer-events-none"></div>
-          
-          <div className="relative z-10">
-            {activeTab === 'assignments' ? (
-              <div className="space-y-4">
-                {assignments.map((assignment) => (
-                  <div key={assignment.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl border border-amber-50 hover:border-coral-100/50 hover:shadow-md transition-all duration-300 bg-white/80 backdrop-blur-sm hover:-translate-y-0.5 group">
-                    <div className="flex items-start space-x-5">
-                      <div className={`px-4 py-2 rounded-xl text-sm font-bold border shadow-sm ${getSubjectColor(assignment.subject)}`}>
-                        {assignment.subject}
+        <CardContent className="p-5">
+          {activeTab === 'assignments' ? (
+            <div className="space-y-3">
+              {assignments.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="flex flex-col justify-between gap-4 rounded-panel border border-border bg-muted/50 p-5 md:flex-row md:items-center"
+                >
+                  <div className="flex items-start gap-4">
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-card border px-3 py-1.5 text-sm font-bold',
+                        getSubjectTone(assignment.subject),
+                      )}
+                    >
+                      {assignment.subject}
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold tracking-wide text-ink-1">{assignment.title}</h3>
+                      <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-3">
+                        <Clock aria-hidden="true" className="size-4" />
+                        截止: {assignment.dueDate}
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-stone-800 mb-1.5 group-hover:text-coral-500 transition-colors tracking-wide">
-                          {assignment.title}
-                        </h3>
-                        <div className="flex items-center text-sm text-stone-400 font-medium tracking-wider">
-                          <Clock className="w-4 h-4 mr-1.5 opacity-70" />
-                          截止: {assignment.dueDate}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-5 md:mt-0 flex items-center justify-between md:justify-end md:w-48">
-                      {assignment.status === 'pending' && (
-                        <span className="inline-flex items-center px-3.5 py-1.5 rounded-xl text-sm font-bold bg-amber-50 text-amber-600 border border-amber-100/50 shadow-sm">
-                          <AlertCircle className="w-4 h-4 mr-1.5" />待完成
-                        </span>
-                      )}
-                      {assignment.status === 'submitted' && (
-                        <span className="inline-flex items-center px-3.5 py-1.5 rounded-xl text-sm font-bold bg-indigo-50 text-indigo-500 border border-indigo-100/50 shadow-sm">
-                          <FileText className="w-4 h-4 mr-1.5" />老师查看中
-                        </span>
-                      )}
-                      {assignment.status === 'graded' && (
-                        <div className="text-right">
-                          <span className="block text-xs text-stone-400 mb-0.5 font-bold tracking-widest uppercase">得分</span>
-                          <span className="text-3xl font-black text-green-500 tracking-tight">{assignment.score}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {exams.map((exam) => (
-                  <div key={exam.id} className="p-7 rounded-2xl border border-amber-50 bg-white/60 backdrop-blur-sm hover:bg-white hover:shadow-lg hover:border-coral-100/50 transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-6 relative z-10">
-                      <div className="flex items-center space-x-4">
-                        <div className={`px-4 py-2 rounded-xl text-sm font-bold border shadow-sm ${getSubjectColor(exam.subject)}`}>
-                          {exam.subject}
-                        </div>
-                        <span className="text-sm text-stone-400 font-medium tracking-wider">
-                          {exam.date}
-                        </span>
-                      </div>
-                      {exam.score >= 90 && (
-                        <span className="px-3.5 py-1.5 bg-amber-50 text-amber-600 text-xs font-bold rounded-xl flex items-center border border-amber-100/50 shadow-sm">
-                          <Star className="w-3.5 h-3.5 mr-1.5 fill-current" />
-                          太棒啦
-                        </span>
-                      )}
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-stone-800 mb-8 group-hover:text-coral-500 transition-colors tracking-wide relative z-10">
-                      {exam.title}
-                    </h3>
-                    
-                    <div className="flex items-end justify-between bg-stone-50/50 p-5 rounded-2xl border border-stone-100/50 relative z-10">
-                      <div>
-                        <span className="text-xs text-stone-400 block mb-1 font-bold tracking-widest uppercase">班级平均分</span>
-                        <span className="text-xl font-bold text-stone-500">{exam.classAverage}</span>
-                      </div>
+
+                  <div className="flex items-center justify-between gap-3 md:w-48 md:justify-end">
+                    {assignment.status === 'pending' && (
+                      <Badge variant="warning">
+                        <AlertCircle data-icon="inline-start" />
+                        待完成
+                      </Badge>
+                    )}
+                    {assignment.status === 'submitted' && (
+                      <Badge variant="info">
+                        <FileText data-icon="inline-start" />
+                        老师查看中
+                      </Badge>
+                    )}
+                    {assignment.status === 'graded' && (
                       <div className="text-right">
-                        <span className="text-xs text-stone-400 block mb-1 font-bold tracking-widest uppercase">宝贝得分</span>
-                        <div className="flex items-baseline justify-end">
-                          <span className={`text-4xl font-black tracking-tight ${exam.score >= exam.classAverage ? 'text-green-500' : 'text-coral-500'}`}>
-                            {exam.score}
-                          </span>
-                          <span className="text-sm text-stone-400 ml-1.5 font-medium">/ {exam.totalScore}</span>
-                        </div>
+                        <span className="block text-xs font-bold uppercase tracking-widest text-ink-3">得分</span>
+                        <span className="text-2xl font-bold text-success">{assignment.score}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {exams.map((exam) => (
+                <div key={exam.id} className="rounded-panel border border-border bg-muted/50 p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          'rounded-card border px-3 py-1.5 text-sm font-bold',
+                          getSubjectTone(exam.subject),
+                        )}
+                      >
+                        {exam.subject}
+                      </span>
+                      <span className="text-sm font-medium tracking-wider text-ink-3">{exam.date}</span>
+                    </div>
+                    {exam.score >= 90 && (
+                      <Badge variant="warning">
+                        <Star data-icon="inline-start" className="fill-current" />
+                        太棒啦
+                      </Badge>
+                    )}
+                  </div>
+
+                  <h3 className="mt-4 text-lg font-bold tracking-wide text-ink-1">{exam.title}</h3>
+
+                  <div className="mt-5 flex items-end justify-between rounded-panel border border-border bg-paper p-5">
+                    <div>
+                      <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                        班级平均分
+                      </span>
+                      <span className="text-xl font-bold text-ink-2">{exam.classAverage}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                        宝贝得分
+                      </span>
+                      <div className="flex items-baseline justify-end">
+                        <span
+                          className={cn(
+                            'text-3xl font-bold tracking-tight',
+                            exam.score >= exam.classAverage ? 'text-success' : 'text-warning',
+                          )}
+                        >
+                          {exam.score}
+                        </span>
+                        <span className="ml-1.5 text-sm font-medium text-ink-3">/ {exam.totalScore}</span>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

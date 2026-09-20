@@ -213,6 +213,8 @@ const INERT_CONSTRUCTS = [
   'group-has-disabled/field:opacity-50',
   'rounded-4xl',
   'size-3!',
+  // P5: what a bulk colour swap produces when the replacement carries its own opacity
+  'bg-muted/50/70',
 ];
 
 /** Compile class names through the project's own Tailwind config. */

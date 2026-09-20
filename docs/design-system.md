@@ -337,12 +337,62 @@ Two kit components landed with the pages that needed them rather than "for later
 (the dashboard's hand-built bar, whose dynamic width is why `inlineStyles` could not reach 0) and
 `FileInput` (the two hidden pickers, which had no accessible name).
 
+### P5 — the parent area
+
+Six pages: 温馨家园, 成长足迹, 家庭时光, 请假假条, 学习采撷 and 家校信箱.
+
+The interesting find was a **palette that never existed**. The parent area was written against
+`coral-*` - `bg-coral-400` on its primary buttons, `text-coral-500` on its accents, `border-coral-100`
+on its cards - and `coral` is not a Tailwind family and was never registered in
+`tailwind.config.js`. All 74 occurrences compiled to nothing, so the area's filled buttons had **no
+background at all** and its "coral" cards had no border. The audit did not catch it either, because
+`unresolvedTokenUtilities` only knew about *project tokens* whose palette entry was missing. It now
+knows both shapes - a token with no entry, and a family/shade no palette resolves - which is why that
+metric moved from 0 to 79 and back to 0.
+
+| Metric | P4 | P5 |
+| --- | --- | --- |
+| `rawButtons` | 209 | **191** |
+| `rawInputs` | 62 | **58** |
+| `hexColors` | 51 | **28** |
+| `offBrandAccents` | 608 | **557** |
+| `inlineStyles` | 15 | **14** |
+| `nativeDialogs` | 10 | **9** |
+| `unresolvedTokenUtilities` | 0 | **0** (was 79 mid-phase) |
+| built CSS | 174,539 bytes | 170,381 bytes |
+
+`#fffdfa` was a warm paper the parent pages used 30 times - it is `bg-paper-warm`. The orange hero
+gradients written as three hexes are the role theme's own `primary`. The inline confetti arrays moved
+into `src/lib/celebrationPalette.ts`, which is exempt by name like the brand mark, because a confetti
+palette is artwork rather than a surface.
+
+**A regression this phase caused, and what now prevents it.** The colour migration was done with
+literal swap maps, and a swap whose replacement carried its own opacity produced classes like
+`bg-muted/50/70` (from `bg-slate-50/70`): not Tailwind classes at all, and therefore invisible rather
+than merely wrong. Thirty of them were checked in across ten files, three of them from P3's portal
+work. They are repaired, and `inertTokens` gained a `doubled opacity modifier (x/a/b)` entry so the
+tooling is held to the same standard as the pages. The lesson is in the shape of the fix: a bulk
+rename needs a metric that can see its output, or it moves debt instead of removing it.
+
+**A collision worth recording.** The parent pages' kit migration ran in parallel with the colour pass
+above, and the two writers briefly fought over the same files - one of them reverted the other's work
+with a `git checkout`, and a PowerShell array-flattening bug mangled two files (every `h` replaced by
+an `o`) before it was caught by the typechecker. Both were recovered by restoring from git and
+re-applying the edits with node scripts, and the final state is the one this log describes. The
+process rule that came out of it: **one writer per file, and no `git checkout` on a path another
+writer owns** - the same rule the migration's own handoff states for its phases.
+
+**Deliberately left for P6/P8:** `Report.tsx` and `ParentCommunicationPage.tsx` are colour-migrated
+and on the kit's `Button`, but still write their own page header and loading states. They are listed
+in §8.
+
 ## 8. Deferred / open
 
 | Item | Phase | Why it is not done |
 | --- | --- | --- |
 | Split `HomePage.tsx` into local section components | P8 | ~700 lines, sections are data-driven maps; a maintainability chore, not a palette or kit issue |
-| Adopt or delete `DropdownMenu` and `Table` | P4/P8 | Both are kit primitives with no consumer yet; the `deadCode` ratchet counts an unreferenced file, so each must arrive with a user |
+| `Report.tsx` / `ParentCommunicationPage.tsx` page headers and loading states | P8 | P5 migrated their colour and their buttons; the header block and the spinner are still hand-written |
+| Adopt or delete `DropdownMenu` | P6/P8 | The last unadopted kit primitive, and the last component file the `deadCode` ratchet counts |
 | `bigscreen` page | P6 | Projection-stage surface: tokenised, deliberately not card-ified |
 | Page-title duplication | P6 | The shell renders the route title as `h1` and several pages repeat it as their `h2`; decide per page whether the page or the shell owns it |
 | Browser-based visual regression | - | No automation is installed and the project does not add dependencies; visual acceptance is the maintainer's pass over the URL lists in each phase |

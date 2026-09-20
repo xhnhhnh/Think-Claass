@@ -110,7 +110,7 @@ export default function TeacherAttendance() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {students.map(student => (
-              <div key={student.id} className="p-4 border border-white/60 rounded-2xl hover:shadow-md transition-shadow bg-slate-50/50/30">
+              <div key={student.id} className="p-4 border border-white/60 rounded-2xl hover:shadow-md transition-shadow bg-slate-50">
                 <h3 className="font-bold text-slate-800 text-lg mb-3">{student.name}</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <button

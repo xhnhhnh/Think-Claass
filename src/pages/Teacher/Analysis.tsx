@@ -44,12 +44,12 @@ export default function TeacherAnalysis() {
 
   const metrics: MetricCardItem[] = overview
     ? [
-        { label: '班级总人数', value: `${overview.summary.total_students} 人`, icon: Users, tone: 'blue' },
-        { label: '平均积分', value: `${overview.summary.average_points} 分`, icon: TrendingUp, tone: 'indigo' },
-        { label: '考试均分', value: `${overview.summary.average_exam_score} 分`, icon: Medal, tone: 'purple' },
-        { label: '作业完成率', value: `${overview.summary.assignment_completion_rate}%`, icon: ClipboardCheck, tone: 'emerald' },
-        { label: '出勤率', value: `${overview.summary.attendance_rate}%`, icon: UserCheck, tone: 'orange' },
-        { label: '表扬次数', value: `${overview.summary.praise_count} 次`, icon: BarChart2, tone: 'pink' },
+        { label: '班级总人数', value: `${overview.summary.total_students} 人`, icon: Users, tone: 'info' },
+        { label: '平均积分', value: `${overview.summary.average_points} 分`, icon: TrendingUp, tone: 'primary' },
+        { label: '考试均分', value: `${overview.summary.average_exam_score} 分`, icon: Medal, tone: 'info' },
+        { label: '作业完成率', value: `${overview.summary.assignment_completion_rate}%`, icon: ClipboardCheck, tone: 'success' },
+        { label: '出勤率', value: `${overview.summary.attendance_rate}%`, icon: UserCheck, tone: 'warning' },
+        { label: '表扬次数', value: `${overview.summary.praise_count} 次`, icon: BarChart2, tone: 'destructive' },
       ]
     : [];
 
@@ -98,7 +98,7 @@ export default function TeacherAnalysis() {
               isEmpty={overview.distributions.length === 0}
               emptyText="暂无积分分布数据"
             >
-              <HorizontalBarList items={overview.distributions} unit="人" tone="green" />
+              <HorizontalBarList items={overview.distributions} unit="人" tone="primary" />
             </DataPanel>
 
             <DataPanel

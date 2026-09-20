@@ -382,7 +382,7 @@ export default function Home() {
           </div>
           <div className="w-full md:w-[44%] space-y-3">
             {learningHighlights.map((item) => (
-              <div key={item.title} className="flex items-center gap-4 rounded-2xl border border-border bg-muted/50/70 px-4 py-3.5">
+              <div key={item.title} className="flex items-center gap-4 rounded-2xl border border-border bg-muted px-4 py-3.5">
                 <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.bg}`}>
                   <item.icon className={`h-5 w-5 ${item.color}`} />
                 </div>
@@ -456,7 +456,7 @@ export default function Home() {
           viewport={{ once: true }}
           className="relative overflow-hidden rounded-panel border border-border bg-paper p-6 shadow-sm md:p-10"
         >
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/10/60 blur-3xl" />
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary blur-3xl" />
           <div className="absolute -bottom-32 left-10 h-72 w-72 rounded-full bg-emerald-100/50 blur-3xl" />
 
           <div className="relative grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
@@ -473,7 +473,7 @@ export default function Home() {
               </p>
               <div className="mt-7 grid grid-cols-3 gap-3">
                 {["有目标", "有反馈", "有沉淀"].map((item) => (
-                  <div key={item} className="rounded-2xl border border-border bg-muted/50/70 px-3 py-4 text-center">
+                  <div key={item} className="rounded-2xl border border-border bg-muted px-3 py-4 text-center">
                     <div className="mx-auto mb-2 h-2 w-2 rounded-full bg-primary/60" />
                     <div className="text-xs font-bold text-ink-2">{item}</div>
                   </div>
@@ -599,7 +599,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-paper via-paper to-primary/5 px-8 py-10 shadow-sm md:px-12">
-            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary/10/60 blur-3xl" />
+            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary blur-3xl" />
             <div className="relative flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
               <div className="max-w-md">
                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/5">
@@ -649,7 +649,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative min-h-[300px] overflow-hidden rounded-panel border border-primary/10 bg-primary/5/80 shadow-sm"
+          className="relative min-h-[300px] overflow-hidden rounded-panel border border-primary/10 bg-primary shadow-sm"
         >
           <img
             src={journeyLaunch}

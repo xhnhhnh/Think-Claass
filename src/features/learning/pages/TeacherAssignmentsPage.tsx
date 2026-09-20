@@ -111,7 +111,7 @@ export default function TeacherAssignments() {
           <h3 className="text-md font-bold text-slate-800 mb-4">已发布的作业</h3>
           <div className="space-y-4">
             {assignments.map(assignment => (
-              <div key={assignment.id} className="p-4 border border-white/60 rounded-xl hover:shadow-md transition-shadow bg-slate-50/50/50">
+              <div key={assignment.id} className="p-4 border border-white/60 rounded-xl hover:shadow-md transition-shadow bg-slate-50">
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="font-bold text-slate-800">{assignment.title}</h4>
                   <span className="px-2 py-1 bg-indigo-100/50 text-indigo-700 text-xs rounded-full font-medium">

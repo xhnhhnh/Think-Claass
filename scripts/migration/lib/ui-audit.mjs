@@ -125,6 +125,14 @@ const INERT_TOKENS = /** @type {const} */ ({
   'has-data-': /\bhas-data-/g,
   'in-data-': /\bin-data-/g,
   'named-container (@container/x)': /@container\/[a-z]/g,
+  /*
+   * A doubled opacity modifier (`bg-muted/50/70`). Not a Tailwind class at all, and it
+   * is what a bulk colour swap produces when the replacement carries its own `/50` and
+   * the original's `/70` survives: `bg-slate-50/70` -> `bg-muted/50/70`. P5 checked 30
+   * of these in by accident, across the portal as well as the parent area, so the
+   * metric exists to keep the *tooling* honest, not only the pages.
+   */
+  'doubled opacity modifier (x/a/b)': /\/\d+\/\d+/g,
   'data-attribute shorthand (data-x:)': /\bdata-(?!\[)[a-z][\w-]*:/g,
   'supports shorthand (supports-x:)': /\bsupports-(?!\[)[a-z][\w-]*:/g,
   'css-var shorthand (-(--x))': /[\w\])]-\(--[\w.-]+\)/g,
@@ -184,6 +192,23 @@ const COLOUR_UTILITY_PREFIX =
 
 /** Custom properties the stylesheet declares, e.g. `--card` -> `card`. */
 const CSS_CUSTOM_PROPERTY = /(?:^|[\s;{])--([a-z][a-z0-9-]*)\s*:/gm;
+
+/**
+ * A colour utility naming a family and shade, e.g. `text-coral-400`.
+ *
+ * The shade must be two or three digits, which keeps `text-2xl`, `border-x-4` and
+ * `ring-offset-2` out without a list of exceptions.
+ */
+const COLOUR_FAMILY_SHADE = /(?:bg|text|border|ring|from|via|to|fill|stroke|divide|outline|decoration|placeholder|caret|accent)-([a-z]+-\d{2,3})(?:\/\d+)?(?![\w-])/g;
+
+/**
+ * Families that are not colours.
+ *
+ * `bg-opacity-75` is a real Tailwind 3 utility (the legacy `--tw-bg-opacity` path) and
+ * matches the pattern above, so it is named here rather than being reported as a typo
+ * forever.
+ */
+const NON_COLOUR_FAMILIES = new Set(['opacity']);
 
 /**
  * The metric set, in report order, with the phase that takes each to zero.
@@ -525,17 +550,22 @@ function declaredCssTokens(root) {
 }
 
 /**
- * Colour utilities that reference a token the theme does not expose.
+ * Colour utilities that cannot resolve.
  *
- * The defect this measures is one step worse than an inert v4 construct, because
- * the token *looks* declared: `src/index.css` defines `--card` and
- * `--card-foreground`, `theme.extend.colors` never registers them, so `bg-card`
- * compiles to nothing and the kit's Card renders with no background at all. Four
- * tokens are affected today (`card`, `card-foreground`, `popover`,
- * `popover-foreground`), used in `card.tsx`, `dialog.tsx` and `dropdown-menu.tsx`.
+ * Two shapes, one failure: the element renders with no colour at all, and the source
+ * looks deliberate either way.
+ *
+ *   1. **A token with no palette entry.** `src/index.css` declares `--card` and
+ *      `--card-foreground`; `theme.extend.colors` never registered them, so `bg-card`
+ *      compiled to nothing while looking declared. Found in P1 (8 occurrences).
+ *   2. **A family and shade no palette knows.** `bg-coral-100` is not a Tailwind colour
+ *      and was never a project token - it is an invented palette, and every element
+ *      using it renders transparent. Found in P5 (43 occurrences across the parent
+ *      area and one analytics component).
  *
  * Only tokens with a real usage are counted, which keeps the metric free of the
- * length- and geometry-valued custom properties (`--radius`, `--font-*`).
+ * length- and geometry-valued custom properties (`--radius`, `--font-*`), and
+ * `NON_COLOUR_FAMILIES` keeps the v3 `bg-opacity-*` utilities out.
  *
  * @param {string} root
  */
@@ -548,6 +578,7 @@ export async function unresolvedTokenUtilities(root) {
 
   let count = 0;
   const offenders = [];
+
   for (const token of declaredCssTokens(root)) {
     if (colours.has(token)) continue;
 
@@ -558,6 +589,21 @@ export async function unresolvedTokenUtilities(root) {
     const found = findOccurrences(root, files, pattern);
     count += found.count;
     offenders.push(...found.offenders.map((o) => `${o} [${token}]`));
+  }
+
+  for (const abs of files) {
+    const rel = toRel(root, abs);
+    const text = blankComments(fs.readFileSync(abs, 'utf8'));
+    for (const match of text.matchAll(new RegExp(COLOUR_FAMILY_SHADE.source, 'g'))) {
+      const shade = match[1];
+      const family = shade.replace(/-\d+$/, '');
+      if (colours.has(shade) || colours.has(family)) continue;
+      if (NON_COLOUR_FAMILIES.has(family)) continue;
+
+      count += 1;
+      const line = text.slice(0, match.index ?? 0).split(/\r?\n/).length;
+      offenders.push(`${rel}:${line} [${match[0]}]`);
+    }
   }
 
   return { count, offenders };

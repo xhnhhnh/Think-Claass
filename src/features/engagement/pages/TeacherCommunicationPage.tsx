@@ -153,7 +153,7 @@ export default function TeacherCommunication() {
           <span className="text-sm text-slate-500">共 {messages.length} 条消息</span>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto space-y-6 bg-slate-50/50/50">
+        <div className="p-6 flex-1 overflow-y-auto space-y-6 bg-slate-50">
           {loading ? (
             <div className="text-center py-12 text-slate-500">加载中...</div>
           ) : messages.length === 0 ? (

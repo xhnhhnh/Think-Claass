@@ -3,29 +3,46 @@ import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-type InsightTone = 'blue' | 'indigo' | 'purple' | 'emerald' | 'orange' | 'pink' | 'green' | 'coral' | 'amber';
+/**
+ * Insight tones.
+ *
+ * Replaces a nine-name colour vocabulary (`blue | indigo | purple | emerald | orange |
+ * pink | green | coral | amber`) that named colours instead of meanings - and two of
+ * them were not Tailwind colours at all, so every `coral` card rendered with no colour
+ * while `green` sat beside `emerald` meaning the same thing. The five tones below are
+ * the ones the design system has; `toneForIndex` keeps the original "a different colour
+ * per card" intent without letting a caller name a palette.
+ */
+type InsightTone = 'primary' | 'success' | 'warning' | 'info' | 'destructive';
 type InsightSurface = 'glass' | 'paper';
 
 const toneClasses: Record<InsightTone, { icon: string; value: string; bar: string }> = {
-  blue: { icon: 'bg-blue-100 text-blue-600', value: 'text-blue-600', bar: 'from-blue-400 to-blue-500' },
-  indigo: { icon: 'bg-indigo-100 text-indigo-600', value: 'text-indigo-600', bar: 'from-indigo-400 to-indigo-500' },
-  purple: { icon: 'bg-purple-100 text-purple-600', value: 'text-purple-600', bar: 'from-purple-400 to-purple-500' },
-  emerald: { icon: 'bg-emerald-100 text-emerald-600', value: 'text-emerald-600', bar: 'from-emerald-400 to-emerald-500' },
-  orange: { icon: 'bg-orange-100 text-orange-600', value: 'text-orange-600', bar: 'from-orange-400 to-orange-500' },
-  pink: { icon: 'bg-pink-100 text-pink-600', value: 'text-pink-600', bar: 'from-pink-400 to-pink-500' },
-  green: { icon: 'bg-green-50 text-green-500', value: 'text-green-500', bar: 'from-green-400 to-green-500' },
-  coral: { icon: 'bg-coral-50 text-coral-500', value: 'text-coral-500', bar: 'from-coral-400 to-coral-500' },
-  amber: { icon: 'bg-amber-50 text-amber-500', value: 'text-amber-500', bar: 'from-amber-400 to-amber-500' },
+  primary: { icon: 'bg-primary/10 text-primary', value: 'text-primary', bar: 'from-primary/70 to-primary' },
+  success: { icon: 'bg-success/10 text-success', value: 'text-success', bar: 'from-success/70 to-success' },
+  warning: { icon: 'bg-warning/10 text-warning', value: 'text-warning', bar: 'from-warning/70 to-warning' },
+  info: { icon: 'bg-info/10 text-info', value: 'text-info', bar: 'from-info/70 to-info' },
+  destructive: {
+    icon: 'bg-destructive/10 text-destructive',
+    value: 'text-destructive',
+    bar: 'from-destructive/70 to-destructive',
+  },
 };
 
+const TONE_CYCLE: InsightTone[] = ['primary', 'info', 'success', 'warning', 'destructive'];
+
+/** Deterministic tone for the nth card, for a grid that wants variety without a palette. */
+export function toneForIndex(index: number): InsightTone {
+  return TONE_CYCLE[index % TONE_CYCLE.length];
+}
+
 const metricSurfaceClasses: Record<InsightSurface, string> = {
-  glass: 'rounded-2xl border border-white/60 bg-white/80 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-xl',
-  paper: 'rounded-[2rem] border border-amber-50 bg-[#fffdfa] p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]',
+  glass: 'rounded-card border border-border bg-paper/80 p-6 shadow-card backdrop-blur-xl',
+  paper: 'rounded-panel border border-border bg-paper-warm p-7 shadow-raised transition-all duration-300',
 };
 
 const panelSurfaceClasses: Record<InsightSurface, string> = {
-  glass: 'rounded-3xl border border-white/60 bg-white/80 p-8 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-xl',
-  paper: 'rounded-[2rem] border border-amber-50 bg-[#fffdfa] p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)]',
+  glass: 'rounded-panel border border-border bg-paper/80 p-8 shadow-card backdrop-blur-xl',
+  paper: 'rounded-panel border border-border bg-paper-warm p-7 shadow-raised',
 };
 
 export interface MetricCardItem {
@@ -119,7 +136,7 @@ export function EmptyData({ text }: { text: ReactNode }) {
 export function HorizontalBarList({
   items,
   unit,
-  tone = 'green',
+  tone = 'primary',
 }: {
   items: Array<{ label: string; value: number }>;
   unit?: ReactNode;

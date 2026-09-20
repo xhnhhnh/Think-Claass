@@ -127,7 +127,7 @@ export default function AddStudent() {
         <div className="flex border-b border-white/60">
           <button
             className={`flex-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'single' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50/30' : 'text-slate-500 hover:text-slate-700'
+              activeTab === 'single' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'
             }`}
             onClick={() => setActiveTab('single')}
           >
@@ -135,7 +135,7 @@ export default function AddStudent() {
           </button>
           <button
             className={`flex-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'batch' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50/50/30' : 'text-slate-500 hover:text-slate-700'
+              activeTab === 'batch' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'
             }`}
             onClick={() => setActiveTab('batch')}
           >
