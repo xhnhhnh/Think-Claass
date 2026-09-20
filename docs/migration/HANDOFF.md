@@ -1446,10 +1446,25 @@ admin 的跨域**读**保留为 `data.reads`（统计面板跨六域计数，与
   （`v0.0.1`、`v1.0.0`–`v1.0.5`；`v1.5.0+` 保留，安装/更新链路不受影响）。
 - **但删 tag 不能取消暴露**：blob 仍可按 SHA 取，`refs/pull/*` 是 GitHub 托管的、git 删不掉。
   公开仓库里推过的对象只有三条路能真正清掉 —— **转私有 / 删库重建 / 找 GitHub Support**。
-  本轮按用户裁决执行「删库重建 + 推送干净历史」，并顺带滤掉 `database.sqlite*`、`gh*.tar.gz`、
-  `gh_2.54.0_linux_amd64/**`、`.tmp/**`（旧 vendor 副本）。
-- **仍然要人做的一件事**：那条 13 位明文超管口令（如果还在别处使用）必须轮换；
-  部署机上也要设同一把新 `ENCRYPTION_KEY` 并跑一次迁移脚本，否则新构建会按设计直接报错。
+  本轮按用户裁决执行「把泄露的库移出公开 + 用干净历史重建」，实测路径（与最初的计划略有出入，
+  因为 token 缺 `delete_repo` 权限，而改名+转私有不需要它）：
+  1. `git filter-branch` 从**全部 ref** 里滤掉 `database.sqlite*`、`gh.tar.gz`、`gh_2.54.0_linux_amd64/**`、
+     `.tmp/**`（旧 vendor 副本），删 `refs/original`、清 reflog、`gc --prune=now`；
+     验证：任何 ref 都到不了这些路径，pack 85.5 MB（剩下的大对象是 `src/assets/pets/**` 的产品图，属正常内容）。
+  2. 旧库改名 `Think-Claass-legacy` 并**转私有** → 泄露的公开访问立即断开（匿名 API 404）。
+  3. 新建同名公开库 `xhnhhnh/Think-Claass`，先按 first-parent 链**分段推送**（85 MB 一次性推送会被
+     `curl 65 / RPC failed` 打断，10 段各推一次即可），再推 `main` 与 6 个 release tag，最后删掉临时分支
+     并把默认分支改回 `main`。
+  4. 复验：三个泄露 blob 在**新库**里匿名取回 404；新库 `main` 的完整历史里没有 `database.sqlite` / `gh*` / `.tmp`。
+  **代价（如实记录）**：新库 0 star（4 个 star 留在旧库上）、GitHub Releases 不再存在（原本就**没有任何 asset**，
+  所以更新链路本就取不到 `think-class-release.zip`）。
+- **仍然要人做的两件事**：
+  1. 那条 13 位明文超管口令（如果还在别处使用）必须轮换；
+  2. 部署机上也要设同一把新 `ENCRYPTION_KEY` 并跑一次迁移脚本（`node scripts/rotate-encryption-key.mjs
+     --db <库> --old-key <旧密钥> --new-key <新密钥> --yes`），否则新构建按设计会直接报错。
+- **旧库仍以私有形式存在**（`xhnhhnh/Think-Claass-legacy`，作为备份/证据）。要按原计划彻底删除，
+  需要一次带 `delete_repo` 权限的授权：`gh auth refresh -h github.com -s delete_repo`，
+  然后 `gh repo delete xhnhhnh/Think-Claass-legacy --yes`。（GitHub 对已删除仓库保留 90 天可恢复期。）
 
 **实测**：`npm test` **121 文件 / 941 用例**全绿；`check` exit 0；`api:surface` **297 不变**；
 `guard` **13 文件 / 57 用例**（G18 新增）。
