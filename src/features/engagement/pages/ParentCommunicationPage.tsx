@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { Send, MessageSquare, AlertCircle, RefreshCw, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 import { toast } from 'sonner';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
@@ -94,15 +95,12 @@ export default function ParentCommunication() {
     <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col bg-paper-warm rounded-panel shadow-raised border border-warning overflow-hidden relative">
       {/* Header */}
       <div className="px-8 py-6 border-b border-warning bg-paper/50 backdrop-blur-sm flex justify-between items-center relative z-10">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-primary/5 text-primary rounded-card flex items-center justify-center shadow-inner">
-            <MessageSquare className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-ink-1 tracking-wide">家校信箱</h1>
-            <p className="text-sm text-ink-3 mt-1">记录与老师的每一次温暖交流</p>
-          </div>
-        </div>
+        <PageHeader
+          title="家校信箱"
+          description="记录与老师的每一次温暖交流"
+          icon={MessageSquare}
+          className="min-w-0"
+        />
         <Button 
           onClick={() => classId && refetch()}
           disabled={loading}

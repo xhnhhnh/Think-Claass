@@ -476,21 +476,26 @@ for. That comment is the most useful thing in this document: every one of them e
 page's markup said one thing and the product needed another, and the fix was always to change the
 page.
 
-**Not done, and deliberately:** `HomePage.tsx` is still one ~700-line file, and `Report.tsx` /
-`ParentCommunicationPage.tsx` still write their own headers. Both are maintainability rather than
-design-system work; both are colour-migrated, on the kit's controls and measured at 0 on every
-metric. They are listed in §8.
+**Done in the same round, and worth recording because it is the only structural move left:** the
+`HomePage` was 702 lines of sections written inline. It is **68** now, with the page's data in
+`components/home/homeContent.ts` and one file per section (`HomeNav`, `HomeHero`, `HomeQuickLinks`,
+`HomeAudience`, `HomeAbout`, `HomeJourney`, `HomeClassroomMoments`, `HomeNews`, `HomeClosingCta`,
+`HomeFooter`). The split was verified as a *move* rather than a rewrite: the CJK copy multiset, the
+`className` multiset, the double-quoted string literals and all 626 numeric literals (typewriter
+delays, animation durations, stagger factors) are identical between the original file and the new
+set, and every original code line reappears in order inside exactly one section file.
+
+Two smaller closures: `Report.tsx` and `ParentCommunicationPage.tsx` use `PageHeader` now, and
+`src/components/ui/dropdown-menu.tsx` was **deleted** - it was the last unadopted kit primitive, no
+file imported it, and the `deadCode` ratchet counts an unreferenced file. If a menu is needed, it
+comes back from shadcn with the styles already fixed, which is cheaper than carrying it dead.
 
 ## 8. Deferred / open
 
 | Item | Phase | Why it is not done |
 | --- | --- | --- |
-| Split `HomePage.tsx` into local section components | P8 | ~700 lines, sections are data-driven maps; a maintainability chore, not a palette or kit issue |
-| `Report.tsx` / `ParentCommunicationPage.tsx` page headers and loading states | P8 | P5 migrated their colour and their buttons; the header block and the spinner are still hand-written |
-| Adopt or delete `DropdownMenu` | P6/P8 | The last unadopted kit primitive, and the last component file the `deadCode` ratchet counts |
-| `bigscreen` page | P6 | Projection-stage surface: tokenised, deliberately not card-ified |
-| Page-title duplication | P6 | The shell renders the route title as `h1` and several pages repeat it as their `h2`; decide per page whether the page or the shell owns it |
-| Browser-based visual regression | - | No automation is installed and the project does not add dependencies; visual acceptance is the maintainer's pass over the URL lists in each phase |
+| Browser-based visual regression | - | No automation is installed and the project does not add dependencies; visual acceptance is the maintainer's pass over the URL lists published at the end of each phase |
+| `bigscreen`'s one raw `<button>` and the three data-driven inline styles | - | Declared exceptions, not debt: the countdown readout is a projection-stage instrument, and the danmaku overlay's per-message position/colour plus two animation-driven bar widths are values a class cannot carry |
 
 
 

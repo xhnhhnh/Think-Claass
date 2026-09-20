@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, Calendar, Heart, LoaderCircle, PieChart, Star, TrendingDown, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
 
 import {
   DataList,
@@ -94,17 +95,14 @@ export default function ParentReport() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
-      <div className="mb-0 flex items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold text-ink-1">成长足迹</h1>
-          <p className="mt-2 text-ink-3">
-            {report?.student.name ? `${report.student.name} 的真实成长报告` : '记录宝贝每一次闪光的瞬间'}
-          </p>
-        </div>
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-card bg-primary/5 text-primary shadow-inner">
-          <PieChart className="size-7" />
-        </div>
-      </div>
+      <PageHeader
+        title="成长足迹"
+        description={
+          report?.student.name ? `${report.student.name} 的真实成长报告` : '记录宝贝每一次闪光的瞬间'
+        }
+        icon={PieChart}
+        className="mb-0"
+      />
 
       {isLoading && (
         <div className="flex items-center justify-center rounded-panel bg-paper p-16 text-ink-3 shadow-raised">
