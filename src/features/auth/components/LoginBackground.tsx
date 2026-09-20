@@ -1,19 +1,18 @@
-import { COLORS } from "./loginStyles";
-
+/**
+ * Login backdrop.
+ *
+ * Both decorations are utilities rather than inline styles: the dot grid used to be
+ * a `style={{ backgroundImage: radial-gradient(..., ${COLORS.text}...) }}`, which is
+ * where three of the portal's inline styles and eleven of its hex colours lived.
+ */
 export default function LoginBackground() {
   return (
     <>
-      {/* Subtle dot grid pattern */}
-      <div
-        className="fixed inset-0 opacity-[0.04] pointer-events-none z-0"
-        style={{
-          backgroundImage: `radial-gradient(circle, ${COLORS.text} 1px, transparent 1px)`,
-          backgroundSize: "24px 24px",
-        }}
-      />
+      {/* Dot grid, drawn from the ink token at 4% so it reads on paper and on canvas. */}
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle,hsl(var(--ink-2))_1px,transparent_1px)] bg-[length:24px_24px] opacity-[0.04]" />
 
-      {/* Top campus accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-700 via-orange-400 to-sky-500 pointer-events-none z-0" />
+      {/* Campus accent bar: the brand's three colours, in one place. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-1 bg-gradient-to-r from-emerald-700 via-orange-400 to-sky-500" />
     </>
   );
 }

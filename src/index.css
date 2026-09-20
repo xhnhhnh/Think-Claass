@@ -291,49 +291,16 @@
   color: rgb(71 85 105) !important;
 }
 
-/* The portal's design language, force-repainted. Deleted by P3. */
-.public-campus-page {
-  background: var(--campus-canvas);
-}
-
-.public-campus-page [class*="blur-3xl"] {
-  display: none;
-}
-
-.public-campus-page .text-indigo-500,
-.public-campus-page .text-indigo-600,
-.public-campus-page .hover\:text-indigo-600:hover {
-  color: rgb(22 101 52) !important;
-}
-
-.public-campus-page .text-violet-500,
-.public-campus-page .text-purple-500 {
-  color: rgb(234 88 12) !important;
-}
-
-.public-campus-page .bg-indigo-50,
-.public-campus-page .bg-violet-50 {
-  background-color: rgb(240 253 244) !important;
-}
-
-.public-campus-page .bg-indigo-500,
-.public-campus-page .bg-indigo-600 {
-  background-color: rgb(22 101 52) !important;
-}
-
-.public-campus-page .hover\:bg-indigo-600:hover,
-.public-campus-page .hover\:bg-indigo-700:hover {
-  background-color: rgb(21 128 61) !important;
-}
-
-.public-campus-page .border-indigo-100,
-.public-campus-page .border-indigo-200 {
-  border-color: rgb(220 252 231) !important;
-}
-
-.public-campus-page [class*="shadow-indigo"] {
-  box-shadow: var(--campus-soft-shadow) !important;
-}
+/*
+ * The portal's force-recolour block used to live here: nine rules that repainted
+ * every `indigo-*`/`violet-*` class green inside `.public-campus-page`, because the
+ * public pages were written in a design language the product does not use and CSS was
+ * the only thing making them look like the same product.
+ *
+ * P3 migrated those pages onto the tokens, so the block has nothing left to correct
+ * and is gone. It is the template for the remaining overrides above: a page that says
+ * what it means needs no correcting from outside.
+ */
 
 :root {
   font-family: "Geist Variable", system-ui, sans-serif;

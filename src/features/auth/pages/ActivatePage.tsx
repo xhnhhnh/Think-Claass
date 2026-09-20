@@ -1,12 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { Key, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Key } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 import { authApi } from '@/features/auth/api/authApi';
+import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 
+/**
+ * Activation-code entry.
+ *
+ * Composed from the kit, so the card, the field and the button come from the same
+ * tokens as the login page next door - and dropping `public-campus-page` here is
+ * what lets P3 delete the recolour block that block was compensating for.
+ */
 export default function Activate() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,7 +34,7 @@ export default function Activate() {
 
     setLoading(true);
     try {
-      const data = await authApi.activate({ code: code.trim(), userId: user?.id }) as any;
+      const data = (await authApi.activate({ code: code.trim(), userId: user?.id })) as any;
 
       if (data.success) {
         toast.success('激活成功！欢迎加入 Think-Class');
@@ -48,59 +59,58 @@ export default function Activate() {
   };
 
   return (
-    <div className="public-campus-page flex min-h-screen items-center justify-center bg-[var(--campus-canvas)] p-4">
-      <motion.div 
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-4">
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md overflow-hidden rounded-lg border border-[var(--campus-border)] bg-white shadow-sm"
+        className="w-full max-w-md overflow-hidden rounded-panel border border-border bg-paper shadow-sm"
       >
         <div className="bg-gradient-to-r from-emerald-50 via-white to-orange-50 p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
-            <Key className="w-8 h-8" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-paper text-primary shadow-sm">
+            <Key className="h-8 w-8" />
           </div>
-          <h2 className="mb-2 text-2xl font-bold text-slate-950">输入激活码</h2>
-          <p className="text-sm text-slate-500">此账号需要激活后才能使用系统的全部功能</p>
+          <h2 className="mb-2 text-2xl font-bold text-ink-1">输入激活码</h2>
+          <p className="text-sm text-ink-3">此账号需要激活后才能使用系统的全部功能</p>
         </div>
 
-        <form onSubmit={handleActivate} className="p-8 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              激活码
-            </label>
-            <input
+        <form onSubmit={handleActivate} className="space-y-6 p-8">
+          <FormField label="激活码">
+            <Input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="请输入 12 位专属激活码"
-              className="w-full rounded-lg border border-[var(--campus-border)] px-4 py-3 text-center font-mono text-lg uppercase tracking-widest outline-none transition-all focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
               maxLength={12}
+              className="h-12 text-center font-mono text-lg uppercase tracking-widest"
             />
-          </div>
+          </FormField>
 
-          <button
+          <Button
             type="submit"
+            size="lg"
             disabled={loading || !code}
-            className="flex w-full items-center justify-center rounded-lg bg-emerald-700 py-3.5 font-bold text-white shadow-sm transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-12 w-full font-bold"
           >
             {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Spinner label="正在激活" className="text-primary-foreground" />
             ) : (
               <>
-                立即激活 <ArrowRight className="w-5 h-5 ml-2" />
+                立即激活 <ArrowRight data-icon="inline-end" />
               </>
             )}
-          </button>
-          
-          <button
+          </Button>
+
+          <Button
             type="button"
+            variant="ghost"
+            className="w-full text-ink-3 hover:text-ink-1"
             onClick={() => {
               useStore.getState().logout();
               navigate('/login');
             }}
-            className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
           >
             退出登录
-          </button>
+          </Button>
         </form>
       </motion.div>
     </div>

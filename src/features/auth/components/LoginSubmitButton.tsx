@@ -1,40 +1,34 @@
 import { type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
-import { type RoleType, ROLE_THEME } from "./loginStyles";
 
-interface LoginSubmitButtonProps {
-  loading: boolean;
-  disabled?: boolean;
-  role?: RoleType;
-  children: ReactNode;
-}
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
+/**
+ * The primary action on a login surface.
+ *
+ * Was a `motion.button` with `style={{ backgroundColor: theme.primary, boxShadow:
+ * ... }}` - an inline style as the *only* thing making the button the right colour
+ * for the chosen role. It is now the kit's Button, so `bg-primary` resolves through
+ * the role theme like every other control, and the hover lift is a transform rather
+ * than a motion prop (`transition` is cheaper and does not need a mock in tests).
+ */
 export default function LoginSubmitButton({
   loading,
   disabled,
-  role = "student",
   children,
-}: LoginSubmitButtonProps) {
-  const theme = ROLE_THEME[role];
-
+}: {
+  loading: boolean;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <motion.button
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.99 }}
+    <Button
       type="submit"
+      size="lg"
       disabled={disabled || loading}
-      className="w-full flex justify-center items-center py-3.5 px-4 rounded-xl shadow-sm text-[15px] font-semibold text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-      style={{
-        backgroundColor: theme.primary,
-        boxShadow: `0 4px 14px -3px ${theme.primary}44`,
-      }}
+      className="h-12 w-full rounded-lg text-[15px] shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
     >
-      {loading ? (
-        <Loader2 className="h-5 w-5 animate-spin" />
-      ) : (
-        children
-      )}
-    </motion.button>
+      {loading ? <Spinner label="正在登录" className="text-primary-foreground" /> : children}
+    </Button>
   );
 }

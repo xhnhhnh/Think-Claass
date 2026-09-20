@@ -100,7 +100,12 @@ describe('G19 version management', () => {
     })
       .split(/\r?\n/)
       .filter(Boolean)
-      .filter((rel) => !rel.startsWith('tests/'));
+      .filter((rel) => !rel.startsWith('tests/'))
+      // `git ls-files` reads the index, so a file deleted in the working tree but not
+      // yet committed is still listed - and reading it threw ENOENT, which made this
+      // guardrail fail for a reason that had nothing to do with versions. Deleting a
+      // file is exactly what a refactor does; the check is about its contents.
+      .filter((rel) => fs.existsSync(path.join(ROOT, rel)));
 
     const offenders = candidates.filter((rel) => /CURRENT_VERSION=\d+\.\d+\.\d+/.test(read(rel)));
     expect(offenders).toEqual([]);
