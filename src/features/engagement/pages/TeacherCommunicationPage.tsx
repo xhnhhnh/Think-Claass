@@ -201,7 +201,7 @@ export default function TeacherCommunication() {
                   </div>
 
                   {replyingTo === msg.sender_id && (
-                    <div className="mt-4 pl-13 flex space-x-3 animate-in slide-in-from-top-2">
+                    <div className="mt-4 pl-13 flex space-x-3 animate-slide-in-top">
                       <input
                         type="text"
                         value={replyContent}

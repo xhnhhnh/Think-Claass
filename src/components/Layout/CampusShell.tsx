@@ -95,7 +95,12 @@ export default function CampusShell({
   const theme = roleCopy[role];
 
   return (
-    <div className={cn('campus-shell min-h-screen bg-[var(--campus-canvas)] text-slate-900', `theme-${role}`)}>
+    /*
+     * No `theme-<role>` class here on purpose: `ThemeWrapper` owns the role theme and
+     * puts it on `<html>`, so portalled dialogs and menus inherit it too. Setting it
+     * in both places is how the two drifted apart in the first place.
+     */
+    <div className={cn('campus-shell min-h-screen bg-[var(--campus-canvas)] text-slate-900')}>
       {showAnnouncement ? <AnnouncementBanner /> : null}
       <div className="flex min-h-screen">
         <aside className="hidden w-[272px] shrink-0 border-r border-[var(--campus-border)] bg-white/88 lg:flex lg:flex-col">

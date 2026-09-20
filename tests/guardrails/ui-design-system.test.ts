@@ -53,6 +53,7 @@ const HARD_CAPS = {
   rawSelects: 27,
   rawTables: 13,
   hexColors: 67,
+  offBrandAccents: 790,
   inlineStyles: 18,
   nativeDialogs: 14,
   importantOverrides: 14,
@@ -71,15 +72,21 @@ const HARD_CAPS = {
  * compile") produces false positives from variant names, `data-slot` values and
  * prose, and a noisy guardrail gets switched off. The `inertTokens` ratchet covers
  * the constructs this list does not name, and `unresolvedTokenUtilities` covers
- * the tokens the theme does not expose - which is why `bg-card` and
- * `text-card-foreground` are absent here until P1 registers them.
+ * the tokens the theme does not expose.
  *
- * P1 extends this list with the semantic tokens it introduces.
+ * P1 added the second half of this list: the semantic tokens and the v3 spellings
+ * that replaced the v4 constructs the kit shipped with. Each entry here is a class
+ * the kit or a migrated page actually writes, so a token rename that forgets the
+ * config fails this test rather than the browser.
  */
 const CONTRACT_UTILITIES = [
   // semantic colours
   'bg-background',
   'text-foreground',
+  'bg-card',
+  'text-card-foreground',
+  'bg-popover',
+  'text-popover-foreground',
   'bg-primary',
   'text-primary-foreground',
   'bg-secondary',
@@ -91,25 +98,65 @@ const CONTRACT_UTILITIES = [
   'border-input',
   'ring-ring',
   'bg-muted/45',
-  // shape, type, motion
+  'bg-canvas',
+  'text-ink-1',
+  'text-ink-2',
+  'text-ink-3',
+  'bg-paper-warm',
+  'text-success',
+  'text-warning',
+  'text-info',
+  // shape, elevation, motion
   'rounded-lg',
+  'rounded-card',
+  'rounded-panel',
+  'rounded-pill',
   'shadow-sm',
+  'shadow-card',
+  'shadow-raised',
+  'shadow-floating',
+  'font-heading',
+  'animate-fade-in',
+  'animate-fade-out',
+  'animate-zoom-in',
+  'animate-zoom-out',
+  'animate-slide-in-top',
+  'animate-slide-in-bottom',
+  'animate-slide-in-left',
+  'animate-slide-in-right',
+  // type and layout values the kit's sizes rely on
   'font-semibold',
   'whitespace-nowrap',
   'transition-colors',
-  // layout values the kit's sizes rely on
   'h-9',
   'size-4',
   'size-8',
   'px-3',
   'gap-1.5',
-  // variants the kit uses for state
-  'placeholder:text-muted-foreground',
-  'focus-visible:ring-2',
-  'disabled:opacity-50',
-  // default palette the kit leans on for table text
   'bg-white',
   'text-slate-600',
+  // variants the kit uses for state, in the v3 spellings P1 introduced
+  'placeholder:text-muted-foreground',
+  'focus-visible:ring-2',
+  'focus-visible:ring-[3px]',
+  'disabled:opacity-50',
+  'data-[open]:animate-fade-in',
+  'data-[closed]:animate-fade-out',
+  'supports-[backdrop-filter]:backdrop-blur-sm',
+  'has-[[data-slot=card-footer]]:pb-0',
+  'has-[[data-icon=inline-end]]:pr-1.5',
+  'group-has-[[disabled]]:opacity-50',
+  'data-[inset]:pl-7',
+  'data-[side=bottom]:animate-slide-in-top',
+  'max-h-[var(--available-height)]',
+  'w-[var(--anchor-width)]',
+  'origin-[var(--transform-origin)]',
+  'active:[&:not([aria-haspopup])]:translate-y-px',
+  '[[data-slot=button-group]_&]:rounded-lg',
+  '[&.border-b]:pb-4',
+  '[&>img:first-child]:rounded-t-lg',
+  '[&_a]:underline-offset-[3px]',
+  '[&>svg]:!size-3',
 ];
 
 /**
@@ -117,9 +164,9 @@ const CONTRACT_UTILITIES = [
  *
  * This list is the premise of the `inertTokens` metric: if one of these ever
  * starts producing CSS, the metric is counting something harmless and must be
- * corrected rather than lowered. It happened once already - the named-group form
+ * corrected rather than lowered. That has happened once: the named-group form
  * `group-data-[size=sm]/card:px-3` was on this list and in the metric until this
- * test compiled it and showed `.group\/card[data-size="sm"] ...`.
+ * test compiled it and showed `.group\/card[data-size="sm"] ...` - v3.4 supports it.
  */
 const INERT_CONSTRUCTS = [
   'ring-3',
@@ -130,7 +177,15 @@ const INERT_CONSTRUCTS = [
   'animate-in',
   'fade-in',
   'slide-in-from-top-2',
-  'font-heading',
+  'data-open:animate-in',
+  'data-disabled:opacity-50',
+  'max-h-(--available-height)',
+  'supports-backdrop-filter:backdrop-blur-xs',
+  'outline-hidden',
+  'not-data-[variant=destructive]:text-destructive',
+  'group-has-disabled/field:opacity-50',
+  'rounded-4xl',
+  'size-3!',
 ];
 
 /** Compile class names through the project's own Tailwind config. */

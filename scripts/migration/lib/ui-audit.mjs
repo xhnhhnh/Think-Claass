@@ -104,12 +104,42 @@ const INERT_TOKENS = /** @type {const} */ ({
   'has-data-': /\bhas-data-/g,
   'in-data-': /\bin-data-/g,
   'named-container (@container/x)': /@container\/[a-z]/g,
+  'data-attribute shorthand (data-x:)': /\bdata-(?!\[)[a-z][\w-]*:/g,
+  'supports shorthand (supports-x:)': /\bsupports-(?!\[)[a-z][\w-]*:/g,
+  'css-var shorthand (-(--x))': /[\w\])]-\(--[\w.-]+\)/g,
+  'v4-only scale value': /\b(?:backdrop-)?blur-xs\b|\brounded-(?:xs|4xl)\b|\bshadow-xs\b/g,
+  'trailing important (x!)': /[a-z][\w/[\].,-]*-[\w/[\].,-]+!(?=[\s"'])/g,
+  'named group-has (group-has-x/y:)': /\bgroup-has-(?!\[)[a-z][\w-]*\/[\w-]+:/g,
+  'unbracketed has / group-has': /\b(?:group-)?has-(?!\[)[a-z][\w-]*:/g,
+  'compound aria variants (aria-x:aria-y:)': /\baria-[\w-]+:aria-[\w-]+:/g,
+  'scale gap (underline-offset-3)': /\bunderline-offset-(?!\[|auto\b|0\b|1\b|2\b|4\b|8\b)\d/g,
+  'outline-hidden': /\boutline-hidden\b/g,
+  'not-* variant': /\bnot-(?!\[)[a-z][\w-]*:/g,
+  'all-descendants variant (**:)': /\*\*:/g,
   'animate-in': /\banimate-in\b/g,
   'animate-out': /\banimate-out\b/g,
   'slide-in-from-': /\bslide-in-from-/g,
   'slide-out-to-': /\bslide-out-to-/g,
   'bare fade/zoom in/out keyframe utilities': /(?<!animate-)\b(?:fade|zoom)-(?:in|out)\b/g,
 });
+
+/**
+ * Accent families that are not part of this product's identity.
+ *
+ * The campus language is green, with amber/orange and sky as the two
+ * supporting accents (that is the whole point of the login role themes and of
+ * `.gemini-gradient`). Indigo, violet, purple, fuchsia, pink and rose are not -
+ * they are what the pages were originally written in, and only the portal's copy
+ * is repainted by the `.public-campus-page` override block. Everywhere else they
+ * render as authored, which is why the same product shows two design languages.
+ */
+const OFF_BRAND_ACCENTS = 'indigo|violet|purple|fuchsia|pink|rose';
+
+/** An off-brand accent utility: `text-indigo-500`, `bg-purple-50/60`, ... */
+const OFF_BRAND_ACCENT_UTILITY = new RegExp(
+  `(?:bg|text|border|ring|from|via|to|fill|stroke|divide|shadow|outline|decoration|placeholder|caret|accent)-(?:${OFF_BRAND_ACCENTS})-\\d{2,3}(?:/\\d+)?`,
+  'g',
+);
 
 /**
  * CSS imports that only exist for Tailwind v4. `tw-animate-css` resolves, so it is
@@ -146,6 +176,11 @@ export const UI_METRICS = /** @type {const} */ ([
   { key: 'rawSelects', target: 'P2-P7', label: 'raw <select> elements' },
   { key: 'rawTables', target: 'P2-P7', label: 'raw <table> elements' },
   { key: 'hexColors', target: 'P1-P7', label: 'hex colour literals' },
+  {
+    key: 'offBrandAccents',
+    target: 'P3-P8',
+    label: 'off-brand accent utilities (indigo/violet/purple/...)',
+  },
   { key: 'inlineStyles', target: 'P3-P7', label: 'inline style={{ }} props' },
   { key: 'nativeDialogs', target: 'P2-P5', label: 'confirm()/prompt()/alert() calls' },
   { key: 'importantOverrides', target: 'P8', label: '!important overrides in index.css' },
@@ -195,6 +230,72 @@ export function uiSourceFiles(root) {
 }
 
 /**
+ * Blank out comments while preserving every offset and newline.
+ *
+ * Without this the audit measures its own documentation: a metric that counts
+ * `ring-3` will otherwise count the comment explaining that `ring-3` is inert,
+ * and "write down the defect" shows up as "add the defect". Quote-aware, because
+ * `"https://…"` and a template literal both contain sequences that look like
+ * comment starts.
+ *
+ * @param {string} text
+ */
+export function blankComments(text) {
+  let out = '';
+  let i = 0;
+  let quote = null;
+
+  const blank = (ch) => (ch === '\n' ? '\n' : ' ');
+
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (quote) {
+      out += ch;
+      if (ch === '\\') {
+        out += next ?? '';
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i += 1;
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch;
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      while (i < text.length && text[i] !== '\n') {
+        out += blank(text[i]);
+        i += 1;
+      }
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) {
+        out += blank(text[i]);
+        i += 1;
+      }
+      out += '  ';
+      i += 2;
+      continue;
+    }
+
+    out += ch;
+    i += 1;
+  }
+
+  return out;
+}
+
+/**
  * Count matches and report where they are.
  *
  * `path:line` is deliberate: a ratchet failure that only says "263" cannot be
@@ -214,7 +315,7 @@ export function findOccurrences(root, files, pattern, include) {
     const rel = toRel(root, abs);
     if (include && !include(rel)) continue;
 
-    const text = fs.readFileSync(abs, 'utf8');
+    const text = blankComments(fs.readFileSync(abs, 'utf8'));
     // A fresh regex per file: lastIndex is stateful when the `g` flag is set, and
     // reusing one instance across files silently skips matches.
     const perFile = new RegExp(pattern.source, pattern.flags);
@@ -250,8 +351,11 @@ export function auditStylesheet(root, srcText) {
     };
   }
 
-  const text = fs.readFileSync(abs, 'utf8');
-  const lines = text.split(/\r?\n/);
+  const raw = fs.readFileSync(abs, 'utf8');
+  // Comments are blanked rather than deleted: offsets and line numbers must keep
+  // pointing at the real file, and a metric that counts the phrase `!important`
+  // inside prose is measuring the documentation, not the debt.
+  const text = raw.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '));
   const lineOf = (index) => text.slice(0, index).split(/\r?\n/).length;
 
   // --- !important -----------------------------------------------------------------
@@ -470,6 +574,10 @@ export async function auditUi(root) {
   const hex = findOccurrences(root, files, HEX_COLOR, (rel) => !HEX_COLOR_EXEMPT.includes(rel));
   counts.hexColors = hex.count;
   offenders.hexColors = hex.offenders;
+
+  const accents = findOccurrences(root, files, OFF_BRAND_ACCENT_UTILITY);
+  counts.offBrandAccents = accents.count;
+  offenders.offBrandAccents = accents.offenders;
 
   const inline = findOccurrences(root, files, INLINE_STYLE);
   counts.inlineStyles = inline.count;

@@ -215,14 +215,14 @@ export function CrudPage<TItem, TForm extends Record<string, unknown>>({
                       rows={field.rows ?? 3}
                       value={String(fieldValue ?? '')}
                       onChange={(event) => setField(field, event.target.value)}
-                      className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     />
                   ) : field.type === 'select' ? (
                     <select
                       {...commonProps}
                       value={String(fieldValue ?? '')}
                       onChange={(event) => setField(field, event.target.value)}
-                      className="h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
                       {(field.options ?? []).map((option) => (
                         <option key={option.value} value={option.value}>

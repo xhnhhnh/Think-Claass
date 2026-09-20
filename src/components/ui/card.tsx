@@ -2,6 +2,16 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Card surface, in Tailwind 3.4 syntax.
+ *
+ * The v4 spellings this file shipped with - `has-data-[slot=…]`, `*:[img:…]`,
+ * `[.border-b]`, `@container/card-header` - compile to nothing in v3, so the
+ * footer padding, the image corner rounding and the bordered-header padding never
+ * applied. They are now the v3 arbitrary variants. `@container/card-header` is
+ * deleted rather than translated: no container-query variant is used anywhere, so
+ * the class was a declaration with nothing behind it.
+ */
 function Card({
   className,
   size = "default",
@@ -12,7 +22,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-lg border border-[var(--campus-border)] bg-card py-4 text-sm text-card-foreground shadow-sm has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-lg *:[img:last-child]:rounded-b-lg",
+        "group/card flex flex-col gap-4 overflow-hidden rounded-lg border border-border bg-card py-4 text-sm text-card-foreground shadow-sm has-[[data-slot=card-footer]]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-[[data-slot=card-footer]]:pb-0 [&>img:first-child]:rounded-t-lg [&>img:last-child]:rounded-b-lg",
         className
       )}
       {...props}
@@ -25,7 +35,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-lg px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
+        "group/card-header grid auto-rows-min items-start gap-1 rounded-t-lg px-4 group-data-[size=sm]/card:px-3 has-[[data-slot=card-action]]:grid-cols-[1fr_auto] has-[[data-slot=card-description]]:grid-rows-[auto_auto] [&.border-b]:pb-4 group-data-[size=sm]/card:[&.border-b]:pb-3",
         className
       )}
       {...props}

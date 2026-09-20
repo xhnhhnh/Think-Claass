@@ -1,12 +1,43 @@
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Design tokens.
+ *
+ * Three layers, in this order, and nothing else may define a colour:
+ *
+ *   1. **Primitives** - `--background`, `--primary`, `--border`, ... HSL triplets
+ *      consumed as `hsl(var(--x))`. These are what `tailwind.config.js` maps into
+ *      utility names (`bg-primary`, `border-border`).
+ *   2. **Semantic** - `--canvas`, `--paper`, `--ink-1..3`, the radius/elevation/motion
+ *      scale. Named for the role they play, not for the colour they currently are,
+ *      so a page asks for "the paper surface" instead of "the beige one".
+ *   3. **Compatibility aliases** (`--campus-*`) - the names the pre-refactor pages
+ *      use (`border-[var(--campus-border)]`, ~100 call sites). They resolve to layer 2,
+ *      so pages can migrate one phase at a time without a flag day.
+ *
+ * Two things were removed here rather than migrated, because they never did anything:
+ *
+ *   - `@import "shadcn/tailwind.css"` - `node_modules/shadcn/tailwind.css` does not
+ *     exist, so the line contributed nothing (G20 still measures it as the last
+ *     unresolved import).
+ *   - `@import "tw-animate-css"` - a Tailwind **v4** package in a v3 project. Its
+ *     `@theme`/`@utility` at-rules were emitted verbatim into the production bundle
+ *     where no v3 build reads them, and the v4 animation names it implies
+ *     (`animate-in`, `fade-in`, `slide-in-from-*`) compile to nothing. The animations
+ *     the pages actually reference are now defined as real keyframes in
+ *     `tailwind.config.js`.
+ *
+ * `.dark` is deliberately untouched: it is defined, nothing wires a theme switch, and
+ * this refactor neither enables it nor deletes it.
+ */
+
 @layer base {
   :root {
+    /* --- primitives: surfaces, text, brand ------------------------------------ */
     --background: 42 43% 98%;
     --foreground: 222 37% 16%;
     --primary: 145 45% 34%;
@@ -19,12 +50,25 @@
     --accent-foreground: 205 55% 28%;
     --destructive: 2 72% 54%;
     --destructive-foreground: 0 0% 100%;
-    --border: 41 25% 86%;
-    --input: 41 25% 86%;
     --ring: 145 45% 34%;
-    --radius: 0.5rem;
     --glow-primary: 145 45% 34%;
     --glow-secondary: 39 58% 94%;
+
+    /*
+     * One line colour. `--border` and `--input` used to be two nearly-identical
+     * values (41 25% 86% and the campus paper line) for the same job; the campus
+     * value wins because it is what ~100 call sites already use, and the difference
+     * was under two percent of lightness.
+     */
+    --border: 38.2 33.3% 87.1%;
+    --input: 38.2 33.3% 87.1%;
+
+    /* --- primitives: status --------------------------------------------------- */
+    --success: 145 45% 34%;
+    --warning: 32 88% 45%;
+    --info: 199 71% 45%;
+
+    /* --- primitives: card / popover / sidebar / charts ------------------------ */
     --card: 0 0% 100%;
     --card-foreground: 222 37% 16%;
     --popover: 0 0% 100%;
@@ -40,13 +84,54 @@
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 145 45% 94%;
     --sidebar-accent-foreground: 145 45% 25%;
-    --sidebar-border: 41 25% 86%;
+    --sidebar-border: 38.2 33.3% 87.1%;
     --sidebar-ring: 145 45% 34%;
-    --campus-canvas: #fbfaf6;
-    --campus-paper: #ffffff;
-    --campus-paper-warm: #fffdf8;
-    --campus-border: #e9e1d3;
-    --campus-soft-shadow: 0 12px 32px rgba(72, 58, 38, 0.07);
+
+    /* --- semantic: the campus surfaces and text steps ------------------------- */
+    --canvas: 48 38.5% 97.5%;
+    --paper: 0 0% 100%;
+    --paper-warm: 42.9 100% 98.6%;
+    --ink-1: 222 47% 11%;
+    --ink-2: 215 25% 27%;
+    --ink-3: 215 16% 47%;
+
+    /* --- semantic: shape ------------------------------------------------------ */
+    /*
+     * The radius scale the campus look actually uses. `--radius-card` (0.625rem) and
+     * `--radius-panel` (0.75rem) are the values the shell-wide `!important`
+     * overrides currently force onto `rounded-2xl`/`rounded-3xl`; naming them here
+     * is what lets a page drop the arbitrary value and still look the same.
+     */
+    --radius: 0.5rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-card: 0.625rem;
+    --radius-panel: 0.75rem;
+    --radius-pill: 9999px;
+
+    /* --- semantic: elevation -------------------------------------------------- */
+    --elev-1: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --elev-2: 0 12px 32px rgba(72, 58, 38, 0.07);
+    --elev-3: 0 20px 48px rgba(72, 58, 38, 0.12);
+
+    /* --- semantic: control sizing -------------------------------------------- */
+    --control-h-sm: 1.75rem;
+    --control-h: 2.25rem;
+    --control-h-lg: 2.75rem;
+
+    /* --- semantic: motion ---------------------------------------------------- */
+    --motion-fast: 150ms;
+    --motion-base: 200ms;
+    --motion-slow: 320ms;
+    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* --- compatibility aliases (pre-refactor class names) --------------------- */
+    --campus-canvas: hsl(var(--canvas));
+    --campus-paper: hsl(var(--paper));
+    --campus-paper-warm: hsl(var(--paper-warm));
+    --campus-border: hsl(var(--border));
+    --campus-soft-shadow: var(--elev-2);
   }
 
   .dark {
@@ -104,6 +189,13 @@
     --glow-primary: 25 78% 54%;
     --glow-secondary: 35 86% 94%;
   }
+
+  /*
+   * Teacher is the default theme: these values are identical to `:root`'s. It exists
+   * so that the four role shells are described the same way (rather than three
+   * themes and one absence), and it was a dead rule until `ThemeWrapper` started
+   * applying it for `/teacher`.
+   */
   .theme-teacher {
     --primary: 145 45% 34%;
     --primary-foreground: 0 0% 100%;
@@ -113,10 +205,7 @@
     --accent-foreground: 205 55% 28%;
     --ring: 145 45% 34%;
   }
-  .theme {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
-  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -137,32 +226,20 @@
   .glass-dark {
     @apply border border-[var(--campus-border)] bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl;
   }
-
-  .gemini-gradient {
-    @apply bg-gradient-to-r from-emerald-600 via-sky-500 to-orange-400;
-  }
-
-  .gemini-gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-emerald-700 via-sky-600 to-orange-500;
-  }
-
-  .soft-shadow {
-    box-shadow: var(--campus-soft-shadow);
-  }
-
-  .glow-shadow {
-    box-shadow: 0 10px 24px hsl(var(--primary) / 0.12);
-  }
-
-  .campus-panel {
-    @apply rounded-lg border border-[var(--campus-border)] bg-white/90 shadow-sm;
-  }
-
-  .campus-soft-panel {
-    @apply rounded-lg border border-[var(--campus-border)] bg-[var(--campus-paper-warm)] shadow-sm;
-  }
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Overrides still in force.
+ *
+ * Each block here rewrites page styles from outside the page, and each is on its
+ * way out: the phase that migrates the pages making a block redundant deletes it
+ * (see docs/design-system.md). Nothing new may be added to this section - the
+ * `importantOverrides` and `recolorRules` ratchets in G20 only count down.
+ * ---------------------------------------------------------------------------
+ */
+
+/* Radius flattening. The scale in tailwind.config.js now carries these values. */
 .campus-shell .rounded-3xl,
 .campus-shell .rounded-\[2rem\] {
   border-radius: 0.75rem !important;
@@ -172,6 +249,7 @@
   border-radius: 0.625rem !important;
 }
 
+/* Shadow flattening: every elevation inside a shell becomes the campus soft shadow. */
 .campus-shell .shadow-lg,
 .campus-shell .shadow-xl,
 .campus-shell .shadow-2xl,
@@ -213,6 +291,7 @@
   color: rgb(71 85 105) !important;
 }
 
+/* The portal's design language, force-repainted. Deleted by P3. */
 .public-campus-page {
   background: var(--campus-canvas);
 }

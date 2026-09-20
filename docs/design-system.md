@@ -109,10 +109,88 @@ pass over that phase's routes.
 
 ## 5. Token contract
 
-*(Filled in by P1: the semantic aliases, the radius/elevation/motion scale, and which role
-theme owns which accent. Until then the authoritative list is `src/index.css`.)*
+Layers, in order, all in `src/index.css` and registered in `tailwind.config.js`:
+
+| Layer | Names | Consumed as |
+| --- | --- | --- |
+| Primitives | `--background`, `--foreground`, `--primary`, `--secondary`, `--accent`, `--muted`, `--destructive`, `--border`, `--input`, `--ring`, `--card`, `--popover`, `--sidebar*`, `--chart-1..5` | `hsl(var(--x))` via `bg-*` / `text-*` / `border-*` |
+| Status | `--success`, `--warning`, `--info` | `text-success`, `bg-warning/10`, … |
+| Surfaces & text | `--canvas`, `--paper`, `--paper-warm`, `--ink-1/2/3` | `bg-canvas`, `bg-paper-warm`, `text-ink-2` |
+| Shape | `--radius` (-sm/-md/-lg), `--radius-card` 0.625rem, `--radius-panel` 0.75rem, `--radius-pill` | `rounded-lg`, `rounded-card`, `rounded-panel`, `rounded-pill` |
+| Elevation | `--elev-1/2/3` | `shadow-card`, `shadow-raised`, `shadow-floating` |
+| Motion | `--motion-fast` 150ms, `--motion-base` 200ms, `--motion-slow` 320ms, `--ease-out-soft` | `duration-base`, `ease-soft`, the `animate-*` keyframes |
+| Compatibility | `--campus-canvas/-paper/-paper-warm/-border/-soft-shadow` | legacy `var(--campus-*)` call sites (~100), resolving to the layers above |
+
+Animations are named after the intent and defined as real keyframes: `animate-fade-in`,
+`animate-fade-out`, `animate-zoom-in`, `animate-zoom-out`, `animate-slide-in-top/-bottom/-left/-right`.
+There is no `animate-in`/`slide-in-from-*` composition: those were the v4 package's vocabulary and
+never compiled here.
+
+### The accent palette
+
+The product's identity is **green**, with **amber/orange** and **sky** as the two supporting accents.
+Every other colour family in a page is debt, and it is measured: `offBrandAccents` counts
+`indigo|violet|purple|fuchsia|pink|rose` utilities, because those are what the pages were written in
+and only the portal's copy is repainted by the `.public-campus-page` block.
+
+| Was | Becomes |
+| --- | --- |
+| `text-indigo-500/600`, `bg-indigo-500/600` | `text-primary`, `bg-primary` |
+| `bg-indigo-50`, `border-indigo-100/200` | `bg-primary/5`, `border-primary/20` |
+| `text-violet-500`, `text-purple-500` | `text-accent-foreground`, `text-secondary-foreground` |
+| `bg-violet-50`, `bg-purple-50` | `bg-accent`, `bg-secondary` |
+| `from-indigo-500 to-violet-500` | `from-primary to-accent` (or a role gradient token) |
+| glow shadows (`shadow-[0_0_15px_rgba(99,102,241,…)]`) | `shadow-glow-primary` |
 
 ## 6. Component contract
 
 *(Filled in by P2: one row per exported component — import path, purpose, props, and the state
 variants it owns — so that a new page is composed rather than styled.)*
+
+## 7. Phase log
+
+### P0 — measure first
+
+14 metrics, G20's ratchet, `npm run ui:audit`, these notes.
+
+### P1 — the token layer, and a component layer that compiles
+
+| Metric | Before | After |
+| --- | --- | --- |
+| `inertTokens` | 74 (recounted 126 with the widened pattern set) | **0** |
+| `unresolvedTokenUtilities` | 8 | **0** |
+| `deadUtilities` | 6 | **0** |
+| `unresolvedCssImports` | 1 | **0** |
+| `v4OnlyCssImports` | 1 | **0** |
+| `offBrandAccents` | 790 (first measurement) | 790 (P3–P8 work) |
+| `importantOverrides` | 14 | 14 (unchanged - each phase deletes its own) |
+| built CSS | 188,058 bytes | 181,422 bytes |
+
+What became real, rather than merely written down:
+
+- **Focus rings.** `ring-3` does not exist in v3, so `Button`, `Input`, `Checkbox` and the CRUD
+  form had no focus ring at all. Now `ring-[3px]`, verified in `dist/assets/index-*.css`.
+- **The card surface.** `bg-card`/`text-card-foreground` named tokens the Tailwind theme never
+  registered; registering `card`, `popover`, `sidebar*`, `chart*`, `canvas`, `paper`, `ink*` and the
+  status colours made the kit render the surface it always claimed.
+- **The dialog and menu entrances.** `data-open:`/`data-closed:`/`data-inset:`/`data-disabled:`
+  are v4 spellings of `data-[open]:` and friends, and `animate-in fade-in-0 zoom-in-95` was a v4
+  package's composition. Base UI already sets those attributes, so the dialogs, the overlay and the
+  dropdown menus animate for the first time. `max-h-(--x)`/`w-(--x)`/`origin-(--x)` became
+  `max-h-[var(--x)]`, which is what makes a dropdown respect its available height.
+- **One theme owner.** `ThemeWrapper` puts the role theme on `<html>` (a layout effect, so no flash),
+  `CampusShell` no longer duplicates it, `/teacher` finally gets its own class, and dialog portals -
+  which live outside the shell element - now inherit the role palette instead of the default green.
+- **Badges.** `rounded-4xl` and `size-3!` meant `Badge` had square corners; it is a pill now.
+- Markdown `Card`, `Dialog` and `DropdownMenu` surfaces use `border-border` instead of
+  `border-[var(--campus-border)]`, the first two files moved onto tokens.
+
+Two metric corrections came out of doing this, both recorded because a metric that is wrong about
+what it counts is worse than no metric:
+
+1. `group-data-[size=sm]/card:px-3` **does** compile in v3.4 - it was in the inert list and was
+   removed (79 → 74).
+2. Comments were being counted. `!important` in a CSS comment, and `ring-3` in a TypeScript comment
+   explaining that `ring-3` is inert, both scored as debt. Both scans now blank comments while
+   preserving line numbers.
+

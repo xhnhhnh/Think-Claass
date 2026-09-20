@@ -59,7 +59,7 @@ export function AIRadarModal({ isOpen, onClose, student, stage, report }: AIRada
             {stage === 2 && <div className="text-purple-300 animate-pulse">正在生成多维能力模型...</div>}
             
             {stage === 3 && report && (
-              <div className="text-left w-full space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="text-left w-full space-y-4 animate-slide-in-bottom">
                 <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
                   <h4 className="text-green-400 font-semibold mb-2 flex items-center">
                     <span className="w-2 h-2 rounded-full bg-green-400 mr-2" />
