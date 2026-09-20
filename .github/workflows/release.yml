@@ -73,6 +73,39 @@ jobs:
       - name: Build the release archive
         run: bash pack.sh
 
+      # The archive must actually contain the running system, not just build output. `pack.sh` shipped
+      # dist/api/prisma and omitted `packages/` and `plugins/` for the whole plugin refactor - a release
+      # that boots a server with no kernel and no domains - and nothing noticed because nothing looked.
+      # G19 asserts the copy lines are still in the script; this asserts the packaged file list, which is
+      # the thing that is downloaded.
+      - name: The archive contains the runtime tree
+        run: |
+          set -euo pipefail
+          unzip -l think-class-release.zip > archive-contents.txt
+          missing=0
+          for entry in \
+            api/server.ts \
+            packages/kernel/src/index.ts \
+            packages/plugin-runtime/src/index.ts \
+            packages/plugin-sdk/src/index.ts \
+            plugins/admin/plugin.json \
+            plugins/classroom/plugin.json \
+            dist/index.html \
+            install.sh \
+            update.sh \
+            package.json
+          do
+            if ! grep -q " ${entry}$" archive-contents.txt; then
+              echo "::error::release archive is missing ${entry}"
+              missing=$((missing + 1))
+            fi
+          done
+          plugins=$(grep -cE ' plugins/[^/]+/plugin\.json$' archive-contents.txt || true)
+          echo "plugins packaged: ${plugins}"
+          echo "archive entries: $(grep -cE '^ *[0-9]+ ' archive-contents.txt || true)"
+          [ "$missing" -eq 0 ] || exit 1
+          [ "$plugins" -ge 20 ] || { echo "::error::expected the full plugin set, found ${plugins}"; exit 1; }
+
       - name: Checksums
         run: sha256sum think-class-release.zip > SHA256SUMS
 
