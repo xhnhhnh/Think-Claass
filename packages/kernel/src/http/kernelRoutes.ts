@@ -20,6 +20,8 @@
  * It was previously a Nest module whose whole body was a `SELECT key, value`.
  */
 
+import fs from 'node:fs';
+
 import { Router, type Request, type Response } from 'express';
 
 import type { HealthStatus, PublicPluginDescriptor } from '@thinkclass/contracts';
@@ -64,6 +66,28 @@ export interface KernelRoutesOptions {
    * route work after boot - and what makes it degrade to 503 again if that plugin is stopped.
    */
   authProvider?: { current: AuthProvider | null };
+  /**
+   * The application's own version, for `/api/health` and `/api/kernel/info`.
+   *
+   * It used to be the literal `'1.0.0'` in both responses while `package.json` said 2.0.0 - a
+   * version nobody could act on, because it named neither the kernel API (`apiVersion`, which is
+   * what clients actually negotiate against) nor the application. That is fake data in the one
+   * endpoint an operator checks first, so the value is now passed in and read from
+   * `package.json` by `createKernel`; when it cannot be resolved the field says `'unknown'`
+   * instead of inventing a number.
+   */
+  appVersion?: string;
+}
+
+/** `package.json` is the single source of truth for the application version (see docs/versioning.md). */
+function readAppVersion(): string {
+  try {
+    const packagePath = new URL('../../../../package.json', import.meta.url);
+    const parsed = JSON.parse(fs.readFileSync(packagePath, 'utf8')) as { version?: unknown };
+    return typeof parsed.version === 'string' && parsed.version.trim() !== '' ? parsed.version : 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
 
 function bearerToken(req: Request): string | null {
@@ -75,6 +99,7 @@ function bearerToken(req: Request): string | null {
 
 export function createKernelRouter(options: KernelRoutesOptions): Router {
   const router = Router();
+  const appVersion = options.appVersion ?? readAppVersion();
 
   /**
    * Issue a real session.
@@ -135,7 +160,7 @@ export function createKernelRouter(options: KernelRoutesOptions): Router {
       success: true,
       message: 'ok',
       kernel: {
-        version: '1.0.0',
+        version: appVersion,
         apiVersion: KERNEL_API_VERSION,
         uptimeMs: Date.now() - options.startedAt,
         plugins: options.plugins.summary(),
@@ -148,7 +173,9 @@ export function createKernelRouter(options: KernelRoutesOptions): Router {
     res.json({
       success: true,
       data: {
-        kernelVersion: '1.0.0',
+        // The application version, read from `package.json`. `apiVersion` is the contract clients
+        // negotiate; `kernelVersion` is kept for the existing consumers of this endpoint.
+        kernelVersion: appVersion,
         apiVersion: KERNEL_API_VERSION,
         env: options.config.env,
         pluginDirs: options.config.pluginDirs,

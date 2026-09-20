@@ -50,10 +50,12 @@ export function createGachaRepository(db: DbApi): GachaRepository {
     },
 
     createDefaultPool(classId) {
+      // A neutral name, not a banner: the pool is created because a class has none, and the teacher
+      // renames it. It used to be the demo banner `限定召唤: 星空之约`.
       db.run(
         `
           INSERT INTO gacha_pools (class_id, name, cost_points, ssr_rate, sr_rate, r_rate, n_rate)
-          VALUES (?, '限定召唤: 星空之约', 100, 0.01, 0.1, 0.3, 0.59)
+          VALUES (?, '默认召唤', 100, 0.01, 0.1, 0.3, 0.59)
         `,
         [classId],
       );

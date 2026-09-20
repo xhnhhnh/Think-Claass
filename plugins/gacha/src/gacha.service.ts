@@ -81,6 +81,25 @@ function toApiError(refusal: ClassroomRefusal): ApiError {
   }
 }
 
+/**
+ * Thrown when the rolled rarity has no `pet_dictionary` entry, so there is no pet to grant.
+ *
+ * `roll()` used to return the invented entry `{ id: 0, name: '星尘碎片 (未找到图鉴)' }` instead -
+ * a "pet" that exists in no table - and it did so *after* the points had already been debited, so
+ * the student paid for it. A draw that cannot grant a pet is now an error: `draw()` catches it,
+ * refunds the points through the classroom port and rethrows, so the charge never stands.
+ *
+ * `ApiError`'s constructor resets the prototype to `ApiError` (its own compatibility shim), so the
+ * subclass restores it - otherwise `instanceof GachaDictionaryMissingError` would be false.
+ */
+export class GachaDictionaryMissingError extends ApiError {
+  constructor(readonly rarity: GachaRarity) {
+    super(500, `图鉴未配置：稀有度 ${rarity} 没有可发放的宠物`, { code: 'GACHA_DICTIONARY_MISSING' });
+    this.name = 'GachaDictionaryMissingError';
+    Object.setPrototypeOf(this, GachaDictionaryMissingError.prototype);
+  }
+}
+
 export class GachaService {
   constructor(
     private readonly repository: GachaRepository,
@@ -229,13 +248,15 @@ export class GachaService {
     for (let i = 0; i < times; i += 1) {
       const rarity = rollRarity(pool, this.random);
       const candidates = this.repository.listDictionaryByRarity(rarity);
-      if (candidates.length > 0) {
-        const wonPet = candidates[Math.floor(this.random() * candidates.length)];
-        this.repository.insertStudentPet(studentId, wonPet.id);
-        results.push(wonPet);
-      } else {
-        results.push({ id: 0, name: '星尘碎片 (未找到图鉴)', rarity, element: 'neutral', base_power: 0 });
+      if (candidates.length === 0) {
+        // Nothing is inserted for this roll and the whole roll sequence is abandoned: the caller
+        // (`draw`) refunds the debit and surfaces the error. Returning a stand-in entry here is
+        // what charged students for a pet that no table contains.
+        throw new GachaDictionaryMissingError(rarity);
       }
+      const wonPet = candidates[Math.floor(this.random() * candidates.length)];
+      this.repository.insertStudentPet(studentId, wonPet.id);
+      results.push(wonPet);
     }
     return results;
   }

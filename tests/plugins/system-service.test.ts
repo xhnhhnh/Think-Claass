@@ -9,12 +9,17 @@
  *  2. that `upsertSetting` still takes the update-if-exists branch, which is the only
  *     real branching logic the domain has.
  *
+ * All eight routes now gate on `requireAdmin` before they produce any of those shapes, so every
+ * controller call below carries an admin request. That the gate itself refuses anonymous and
+ * non-admin callers is `tests/plugins/system-authorization.test.ts`'s job, over real HTTP.
+ *
  * The final block is the interesting one: it executes the repository's SQL against a real
  * in-memory database through a `DbApi` built from the manifest's data declaration with
  * ownership checking ON. A statement naming an undeclared table throws there, so the
  * manifest and the shipped SQL cannot drift apart silently.
  */
 
+import type { Request } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { openDatabase, type Database } from '@thinkclass/kernel';
@@ -43,6 +48,13 @@ function fakeRepository(overrides: Partial<SystemRepository> = {}): SystemReposi
   };
 }
 
+/** A request whose kernel context carries an actor, as the middleware would leave it. */
+function adminRequest(): Request {
+  return {
+    context: { requestId: 'test', actor: { userId: 1, role: 'superadmin' }, authSource: 'bearer' },
+  } as unknown as Request;
+}
+
 describe('SystemController envelope shapes', () => {
   let repository: SystemRepository;
   let controller: SystemController;
@@ -55,7 +67,7 @@ describe('SystemController envelope shapes', () => {
   it('lists questions under `questions`, not `data`', () => {
     (repository.listQuestions as Mocked).mockReturnValue([{ id: 1, title: 'Q' }]);
 
-    expect(controller.getQuestions('5')).toEqual({
+    expect(controller.getQuestions(adminRequest(), '5')).toEqual({
       success: true,
       questions: [{ id: 1, title: 'Q' }],
     });
@@ -65,16 +77,16 @@ describe('SystemController envelope shapes', () => {
   it('returns the created question under `question`', () => {
     (repository.createQuestion as Mocked).mockReturnValue({ id: 9, title: 'New' });
 
-    expect(controller.createQuestion({ title: 'New' } as QuestionInput)).toEqual({
+    expect(controller.createQuestion(adminRequest(), { title: 'New' } as QuestionInput)).toEqual({
       success: true,
       question: { id: 9, title: 'New' },
     });
   });
 
   it('acknowledges updates and deletes with a bare success', () => {
-    expect(controller.updateQuestion('3', {} as QuestionInput)).toEqual({ success: true });
+    expect(controller.updateQuestion(adminRequest(), '3', {} as QuestionInput)).toEqual({ success: true });
     expect(repository.updateQuestion).toHaveBeenCalledWith('3', {});
-    expect(controller.deleteQuestion('3')).toEqual({ success: true });
+    expect(controller.deleteQuestion(adminRequest(), '3')).toEqual({ success: true });
     expect(repository.deleteQuestion).toHaveBeenCalledWith('3');
   });
 
@@ -82,8 +94,8 @@ describe('SystemController envelope shapes', () => {
     (repository.listSettings as Mocked).mockReturnValue([{ key: 'k' }]);
     (repository.listLogs as Mocked).mockReturnValue([{ id: 1 }]);
 
-    expect(controller.getSettings()).toEqual({ success: true, settings: [{ key: 'k' }] });
-    expect(controller.getLogs()).toEqual({ success: true, logs: [{ id: 1 }] });
+    expect(controller.getSettings(adminRequest())).toEqual({ success: true, settings: [{ key: 'k' }] });
+    expect(controller.getLogs(adminRequest())).toEqual({ success: true, logs: [{ id: 1 }] });
   });
 
   it('sends the backup body verbatim with the download headers', () => {
@@ -91,7 +103,7 @@ describe('SystemController envelope shapes', () => {
     // download would arrive quoted and escaped. `@Res()` exists to prevent exactly that.
     const response = { setHeader: vi.fn(), send: vi.fn() };
 
-    controller.exportBackup(response as never);
+    controller.exportBackup(adminRequest(), response as never);
 
     expect(response.setHeader).toHaveBeenCalledWith(
       'Content-disposition',

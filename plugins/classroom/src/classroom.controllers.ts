@@ -29,6 +29,14 @@
  * this file. Backticked names without parentheses were always safe; the parenthesised form no
  * longer is a trap either - but the two must not disagree, and that equality is now tested.
  *
+ * Authorization: the three student reads (`GET /api/students`, `GET /api/students/:id` and
+ * `GET /api/students/records`) hand the request to the service, which resolves the caller from
+ * the kernel's verified request context. Anonymous is 401; staff see only the students of the
+ * classes they own, a student only their own row and a parent only their linked children
+ * (`ClassroomService.listStudents` / `getStudent` / `getRecords`). The invite lookup below is
+ * public on purpose - the activation page calls it before login
+ * (`src/features/auth/api/authApi.ts`), so it must not gain an actor check.
+ *
  * Errors: the service throws the kernel's `ApiError`, and `throwClassroomError` only decides
  * what an *unexpected* error becomes (`'Server error'` for groups/presets, the error's own
  * message for attendance/leaves, `'Internal Server Error'` elsewhere - the legacy fallbacks).
@@ -51,27 +59,27 @@ export class StudentsController {
   constructor(@Inject(ClassroomService) private readonly classroomService: ClassroomService) {}
 
   @Get()
-  listStudents(@Query('classId') classId?: string) {
+  listStudents(@Req() req: Request, @Query('classId') classId?: string) {
     try {
-      return { success: true, students: this.classroomService.listStudents(classId) };
+      return { success: true, students: this.classroomService.listStudents(req, classId) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get('records')
-  getRecords(@Query() query: Record<string, any>) {
+  getRecords(@Req() req: Request, @Query() query: Record<string, any>) {
     try {
-      return { success: true, records: this.classroomService.getRecords(query) };
+      return { success: true, records: this.classroomService.getRecords(req, query) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get('progress-star')
-  getProgressStar(@Query('classId') classId?: string) {
+  getProgressStar(@Req() req: Request, @Query('classId') classId?: string) {
     try {
-      return { success: true, students: this.classroomService.getProgressStar(classId) };
+      return { success: true, students: this.classroomService.getProgressStar(req, classId) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -79,9 +87,9 @@ export class StudentsController {
 
   @Post('checkin')
   @HttpCode(HttpStatus.OK)
-  checkin(@Body() body: Record<string, any>) {
+  checkin(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.checkin(body) };
+      return { success: true, ...this.classroomService.checkin(req, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -89,9 +97,9 @@ export class StudentsController {
 
   @Post('gift')
   @HttpCode(HttpStatus.OK)
-  gift(@Body() body: Record<string, any>) {
+  gift(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.gift(body) };
+      return { success: true, ...this.classroomService.gift(req, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -99,9 +107,9 @@ export class StudentsController {
 
   @Post('batch-import')
   @HttpCode(HttpStatus.OK)
-  batchImport(@Body() body: Record<string, any>) {
+  batchImport(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.batchImport(body) };
+      return { success: true, ...this.classroomService.batchImport(req, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -109,9 +117,9 @@ export class StudentsController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  createStudent(@Body() body: Record<string, any>) {
+  createStudent(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.createStudent(body) };
+      return { success: true, ...this.classroomService.createStudent(req, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -119,9 +127,9 @@ export class StudentsController {
 
   @Post('batch-points')
   @HttpCode(HttpStatus.OK)
-  batchPoints(@Body() body: Record<string, any>) {
+  batchPoints(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.batchPoints(body) };
+      return { success: true, ...this.classroomService.batchPoints(req, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -129,18 +137,18 @@ export class StudentsController {
 
   @Post('batch-edit')
   @HttpCode(HttpStatus.OK)
-  batchEdit(@Body() body: Record<string, any>) {
+  batchEdit(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.batchEdit(body) };
+      return { success: true, ...this.classroomService.batchEdit(req, body) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get(':id')
-  getStudent(@Param('id') id: string) {
+  getStudent(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, student: this.classroomService.getStudent(id) };
+      return { success: true, student: this.classroomService.getStudent(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -177,36 +185,36 @@ export class StudentsController {
 
   @Post(':id/points')
   @HttpCode(HttpStatus.OK)
-  updateStudentPoints(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateStudentPoints(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
     try {
-      return { success: true, student: this.classroomService.updateStudentPoints(id, body) };
+      return { success: true, student: this.classroomService.updateStudentPoints(req, id, body) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Put(':id/birthday')
-  updateBirthday(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateBirthday(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.updateBirthday(id, body) };
+      return { success: true, ...this.classroomService.updateBirthday(req, id, body) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get(':id/achievements')
-  getAchievements(@Param('id') id: string) {
+  getAchievements(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, ...this.classroomService.getAchievements(id) };
+      return { success: true, ...this.classroomService.getAchievements(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get(':id/peer-reviews/pending')
-  getPendingPeerReviews(@Param('id') id: string) {
+  getPendingPeerReviews(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, pending: this.classroomService.getPendingPeerReviews(id) };
+      return { success: true, pending: this.classroomService.getPendingPeerReviews(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -214,9 +222,9 @@ export class StudentsController {
 
   @Post(':id/peer-reviews')
   @HttpCode(HttpStatus.OK)
-  createPeerReview(@Param('id') id: string, @Body() body: Record<string, any>) {
+  createPeerReview(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.createPeerReview(id, body) };
+      return { success: true, ...this.classroomService.createPeerReview(req, id, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -256,45 +264,45 @@ export class ClassesController {
   }
 
   @Get(':id')
-  getClass(@Param('id') id: string) {
+  getClass(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, class: this.classroomService.getClass(id) };
+      return { success: true, class: this.classroomService.getClass(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get(':id/features')
-  getClassFeatures(@Param('id') id: string) {
+  getClassFeatures(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, ...this.classroomService.getClassFeatures(id) };
+      return { success: true, ...this.classroomService.getClassFeatures(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get(':id/bigscreen')
-  getBigscreen(@Param('id') id: string) {
+  getBigscreen(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, ...this.classroomService.getBigscreen(id) };
+      return { success: true, ...this.classroomService.getBigscreen(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Get(':id/guild-ranking')
-  getGuildRanking(@Param('id') id: string) {
+  getGuildRanking(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, ...this.classroomService.getGuildRanking(id) };
+      return { success: true, ...this.classroomService.getGuildRanking(req, id) };
     } catch (error) {
       throwClassroomError(error);
     }
   }
 
   @Put([':id/settings', ':id/features'])
-  updateClassSettings(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateClassSettings(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
     try {
-      return { success: true, ...this.classroomService.updateClassSettings(id, body) };
+      return { success: true, ...this.classroomService.updateClassSettings(req, id, body) };
     } catch (error) {
       throwClassroomError(error);
     }
@@ -340,9 +348,9 @@ export class PresetsController {
   constructor(@Inject(ClassroomService) private readonly classroomService: ClassroomService) {}
 
   @Get()
-  listPresets(@Query('teacherId') teacherId?: string) {
+  listPresets(@Req() req: Request, @Query('teacherId') teacherId?: string) {
     try {
-      return { success: true, presets: this.classroomService.listPresets(teacherId) };
+      return { success: true, presets: this.classroomService.listPresets(req, teacherId) };
     } catch (error) {
       throwClassroomError(error, 'Server error');
     }
@@ -350,18 +358,18 @@ export class PresetsController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  createPreset(@Body() body: Record<string, any>) {
+  createPreset(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, preset: this.classroomService.createPreset(body) };
+      return { success: true, preset: this.classroomService.createPreset(req, body) };
     } catch (error) {
       throwClassroomError(error, 'Server error');
     }
   }
 
   @Delete(':id')
-  deletePreset(@Param('id') id: string) {
+  deletePreset(@Req() req: Request, @Param('id') id: string) {
     try {
-      return { success: true, ...this.classroomService.deletePreset(id) };
+      return { success: true, ...this.classroomService.deletePreset(req, id) };
     } catch (error) {
       throwClassroomError(error, 'Server error');
     }
@@ -373,9 +381,9 @@ export class AttendanceController {
   constructor(@Inject(ClassroomService) private readonly classroomService: ClassroomService) {}
 
   @Get()
-  listAttendance(@Query() query: Record<string, any>) {
+  listAttendance(@Req() req: Request, @Query() query: Record<string, any>) {
     try {
-      return { success: true, data: this.classroomService.listAttendance(query) };
+      return { success: true, data: this.classroomService.listAttendance(req, query) };
     } catch (error) {
       throwClassroomError(error, errorMessage);
     }
@@ -383,9 +391,9 @@ export class AttendanceController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  saveAttendance(@Body() body: Record<string, any>) {
+  saveAttendance(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      this.classroomService.saveAttendance(body);
+      this.classroomService.saveAttendance(req, body);
       return { success: true };
     } catch (error) {
       throwClassroomError(error, errorMessage);
@@ -398,9 +406,9 @@ export class LeavesController {
   constructor(@Inject(ClassroomService) private readonly classroomService: ClassroomService) {}
 
   @Get()
-  listLeaves(@Query() query: Record<string, any>) {
+  listLeaves(@Req() req: Request, @Query() query: Record<string, any>) {
     try {
-      return { success: true, data: this.classroomService.listLeaves(query) };
+      return { success: true, data: this.classroomService.listLeaves(req, query) };
     } catch (error) {
       throwClassroomError(error, errorMessage);
     }
@@ -408,18 +416,18 @@ export class LeavesController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  createLeave(@Body() body: Record<string, any>) {
+  createLeave(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return { success: true, id: this.classroomService.createLeave(body) };
+      return { success: true, id: this.classroomService.createLeave(req, body) };
     } catch (error) {
       throwClassroomError(error, errorMessage);
     }
   }
 
   @Put(':id')
-  updateLeave(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateLeave(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
     try {
-      this.classroomService.updateLeave(id, body);
+      this.classroomService.updateLeave(req, id, body);
       return { success: true };
     } catch (error) {
       throwClassroomError(error, errorMessage);

@@ -3,8 +3,11 @@
  *
  * `createKernel()` assembles the minimal core and returns a ready express app. It
  * knows nothing about classes, students, pets or points: everything domain-shaped
- * arrives later as a plugin. With `pluginsEnabled: false` (the P1 default) the
- * kernel boots and serves `/api/health` plus `/api/kernel/*` with zero plugins.
+ * arrives later as a plugin. The plugin host is on by default (`pluginsEnabled`), because the
+ * host is the application's only module source; a kernel-only deployment opts out explicitly with
+ * `KERNEL_ENABLED=1 PLUGINS_ENABLED=0`, and then serves `/api/health` plus `/api/kernel/*` with
+ * zero plugins. `createKernel()` itself never discovers plugins - it only reports the flag and
+ * calls the `mountPlugins` hook the caller provides.
  */
 
 import fs from 'node:fs';

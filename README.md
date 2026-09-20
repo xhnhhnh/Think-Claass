@@ -98,7 +98,8 @@ Create a `.env` in the repository root:
 # Which SQLite file to open, relative to the repository root. Default: database.sqlite
 DATABASE_FILE="database.sqlite"
 
-# Seeded superadmin. Change these before the instance is reachable from a network.
+# Required on the first boot: they create the superadmin account, and there is no default.
+# Change them before the instance is reachable from a network.
 SUPERADMIN_USERNAME="superadmin"
 SUPERADMIN_PASSWORD="superadmin"
 
@@ -143,8 +144,12 @@ npm run start        # API only
 > leftover from when every domain lived under `api/`. Restart it by hand, or run
 > `npm run start` under your own watcher, while working in a plugin.
 
-Local accounts other than the superadmin come from the database seed and whatever teachers
-created in the app; there is no fixed student or parent password.
+The superadmin account is created on the first boot from `SUPERADMIN_USERNAME` and
+`SUPERADMIN_PASSWORD`, and only from them — a database with no superadmin row and no variables
+refuses to boot rather than falling back to a published default ([`api/db.ts`](api/db.ts)). Every
+other account is created in the app: teachers register themselves (or an admin creates them in the
+console) and students and parents are added by their teacher. The boot seeds no example teacher,
+class, shop item or point preset, and there is no fixed student or parent password.
 
 ### Configuration
 
@@ -158,11 +163,26 @@ Everything else is optional and read from the environment:
 | `STATIC_DIR` | `dist` | Built frontend, served when it exists |
 | `ADMIN_PATH` / `VITE_ADMIN_PATH` | `/beiadmin` | Superadmin console base path |
 | `LOG_LEVEL` | `info` (`silent` under `NODE_ENV=test`) | Root log level |
-| `PLUGINS_ENABLED` | `false` | Kernel composition only; the legacy composition used by `npm run dev` and `npm run start` always mounts every domain |
+| `KERNEL_ENABLED` | unset | Unset boots the legacy Nest root; `1` boots the kernel as the composition root instead (`isKernelEnabled()` in [`api/app.ts`](api/app.ts)). Plugins mount in both — see the next row |
+| `PLUGINS_ENABLED` | `true` | Maps to `pluginsEnabled`. Without the host the legacy root has no modules at all — every domain is a plugin and [`api/app.module.ts`](api/app.module.ts) declares `imports: []` — so this is the default composition's only source of business routes. Setting `0` is only meaningful together with `KERNEL_ENABLED=1` (kernel-only); with the legacy root, `PLUGINS_ENABLED=0` used to leave `/api/students`, `/api/classes`, `/api/auth/login` and every sibling answering 404 while `/api/health` still answered 200, and it is now refused at boot by `assertUsableComposition()` ([`api/app.ts`](api/app.ts)) |
 | `PLUGIN_DIRS` | `plugins,plugins-ext` | Directories scanned for plugin manifests |
 | `SESSION_TTL_MS` | 7 days | Session lifetime |
-| `ALLOW_LEGACY_HEADER_AUTH` | `true` | Accepts the legacy `x-user-role` / `x-user-id` bridge the frontend still sends. Bearer sessions are the target path — see [`packages/kernel/src/auth`](packages/kernel/src/auth) |
+| `ALLOW_LEGACY_HEADER_AUTH` | `false` | Accepts `x-user-role` / `x-user-id` as identity. These headers are client-supplied and cannot be verified, so with this on any caller becomes any user — including `superadmin` — and every per-endpoint authorization check becomes advisory. Closed by default; set `1` only for a deployment that genuinely still needs the bridge (every bridged request is logged). See [`packages/kernel/src/auth`](packages/kernel/src/auth) |
 | `THINK_CLASS_ROOT` | `process.cwd()` | Deployment root |
+
+The two composition switches are set by nothing in this repository: `install.sh`, `update.sh`,
+`update.ps1`, `pack.sh`, `nodemon.json` and `package.json` set neither, and the PM2 launcher runs
+`npm run start` with the environment as-is ([`scripts/deploy-common.sh:325`](scripts/deploy-common.sh)).
+The defaults above are therefore also the deployed configuration, which is why `PLUGINS_ENABLED`
+defaulting to `true` is load-bearing rather than a preference.
+
+`assertUsableComposition()` ([`api/app.ts`](api/app.ts)) is fail-closed on both of its branches: the
+legacy root with `PLUGINS_ENABLED=0`, and a plugin host that is enabled but activated zero plugins,
+both **throw at boot** rather than start. Neither is hypothetical — the first was what every launcher
+ran before the default changed, and the only symptom was the business surface: `/api/health` answered
+200 with `plugins: { total: 0, active: 0 }` while `/api/students`, `/api/classes`, `/api/auth/login`,
+`/api/pet/health` and `/api/website/home` all answered 404. [`api/index.ts`](api/index.ts) (the Vercel
+entry) goes through the same `createApp()`, so a serverless deployment was exposed the same way.
 
 `DATABASE_URL` is **not** the runtime switch. The Prisma CLI reads it from `.env`; the application
 resolves `DATABASE_FILE` ([`packages/kernel/src/config/loadConfig.ts`](packages/kernel/src/config/loadConfig.ts)),
@@ -201,6 +221,23 @@ npm run guard
 npm test
 npm run lint            # local only; not part of the release workflow
 ```
+
+The default composition (no composition variables set) must serve business routes. Nothing in the
+repository sets `PLUGINS_ENABLED`, so the default is what actually ships, and the failure mode when it
+is wrong is silent: `/api/health` still answers 200 with `plugins: { total: 0, active: 0 }` while the
+whole business surface 404s. [`tests/plugins/legacy-default-composition.test.ts`](tests/plugins/legacy-default-composition.test.ts),
+which the `backend` project collects ([`vitest.backend.config.ts:29`](vitest.backend.config.ts)) and so
+`npm test` enforces, boots a real subprocess to pin the default **and** both edges of it: with `KERNEL_ENABLED` and
+`PLUGINS_ENABLED` both deleted from the child environment, `/api/kernel/info` must report
+`pluginsEnabled: true`, `/api/kernel/plugins` must list the 20 plugins, `/api/website/home` must answer
+200, and `/api/pets/999` must reach the pet controller's own `Student not found` rather than Nest's
+`Cannot GET` catch-all; legacy + `PLUGINS_ENABLED=0` must **fail to start** with a message naming the
+variable; and `KERNEL_ENABLED=1 PLUGINS_ENABLED=0` (kernel-only) must still start and answer
+`/api/health` with `kernel.plugins.total === 0`, with `/api/students` answering the kernel's own
+`NOT_FOUND` envelope rather than a plugin route.
+
+`tests/plugins/legacy-boot-probe.test.ts` covers the same composition but pins `PLUGINS_ENABLED=1`
+explicitly, which is precisely the configuration nothing deploys.
 
 For release packaging, `bash pack.sh` builds `think-class-release.zip` containing the built
 frontend, the API server, the kernel and runtime packages, all plugins, the deployment scripts and

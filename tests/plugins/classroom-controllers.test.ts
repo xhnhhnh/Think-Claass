@@ -234,7 +234,7 @@ type DeclaredRoute = { controller: string; handler: string; route: string };
  * the framework reads at bootstrap, so this is what the application will actually register -
  * unlike the extractor, which is a regex over raw text.
  */
-function declaredRoutes(controller: Function): DeclaredRoute[] {
+function declaredRoutes(controller: new (...args: never[]) => unknown): DeclaredRoute[] {
   const declared: DeclaredRoute[] = [];
   for (const base of pathSegments(Reflect.getMetadata(PATH_METADATA, controller))) {
     for (const handlerName of Object.getOwnPropertyNames(controller.prototype)) {

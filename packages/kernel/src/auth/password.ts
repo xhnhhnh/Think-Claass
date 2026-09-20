@@ -25,10 +25,11 @@ export function isPasswordHash(value: string | null | undefined): boolean {
 /**
  * Verify a password against a stored value.
  *
- * Legacy rows hold the plaintext password (the seed code writes `'admin123'`
- * directly), so a non-hash stored value falls back to a plain comparison. That
- * fallback is preserved for compatibility and is upgraded on next login by the
- * identity plugin.
+ * A non-hash stored value falls back to a plain comparison for two reasons: rows written before
+ * this hashing existed, and the first superadmin, whose credential is written from
+ * `SUPERADMIN_USERNAME` / `SUPERADMIN_PASSWORD` at boot. (It used to be stated as "the seed code
+ * writes `admin123`" - that fabricated teacher account no longer exists.) The identity plugin
+ * upgrades the stored plaintext on the next successful login.
  */
 export function verifyPassword(password: string, storedValue: string): boolean {
   if (!isPasswordHash(storedValue)) {

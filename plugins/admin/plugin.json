@@ -37,13 +37,13 @@
       { "method": "GET", "base": "/api/admin/system/update", "handler": "AdminUpdateController.getStatus", "auth": "actor" },
       { "method": "GET", "base": "/api/admin/system/update", "handler": "AdminUpdateController.checkLatest", "auth": "actor" },
       { "method": "POST", "base": "/api/admin/system/update", "handler": "AdminUpdateController.startUpdate", "auth": "actor" },
-      { "method": "GET", "base": "/api/openapi", "handler": "OpenApiController.listKeys", "auth": "public" },
-      { "method": "POST", "base": "/api/openapi", "handler": "OpenApiController.createKey", "auth": "public" },
-      { "method": "DELETE", "base": "/api/openapi", "handler": "OpenApiController.deleteKey", "auth": "public" },
-      { "method": "GET", "base": "/api/openapi", "handler": "OpenApiController.listSchools", "auth": "public" },
-      { "method": "POST", "base": "/api/openapi", "handler": "OpenApiController.createSchool", "auth": "public" },
-      { "method": "PUT", "base": "/api/openapi", "handler": "OpenApiController.updateSchool", "auth": "public" },
-      { "method": "DELETE", "base": "/api/openapi", "handler": "OpenApiController.deleteSchool", "auth": "public" },
+      { "method": "GET", "base": "/api/openapi", "handler": "OpenApiController.listKeys", "auth": "actor" },
+      { "method": "POST", "base": "/api/openapi", "handler": "OpenApiController.createKey", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/openapi", "handler": "OpenApiController.deleteKey", "auth": "actor" },
+      { "method": "GET", "base": "/api/openapi", "handler": "OpenApiController.listSchools", "auth": "actor" },
+      { "method": "POST", "base": "/api/openapi", "handler": "OpenApiController.createSchool", "auth": "actor" },
+      { "method": "PUT", "base": "/api/openapi", "handler": "OpenApiController.updateSchool", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/openapi", "handler": "OpenApiController.deleteSchool", "auth": "actor" },
       { "method": "GET", "base": "/api/audit-logs", "handler": "AuditLogsController.listLogs", "auth": "actor" }
     ],
     "events": {
@@ -66,6 +66,6 @@
       "operation_logs"
     ],
     "_reads_note": "`GET /api/admin/system/stats` is a dashboard: it counts teachers and students (users), classes, the point ledger, assignments, leave requests, team quests and the pets' experience sum. Those are reads of six other domains' tables, declared rather than turned into six single-integer ports - the same judgement plugins/system's whole-database backup export records, and the same shape (a declared read is checked; a silent one is not). `operation_logs` is the eighth: the kernel's audit sink owns that table (migration 0005_kernel_operation_logs), so the console's log viewer reads it and can never write it - writes go through `ctx.audit`.",
-    "_known_debt": "1. `src/admin.update.ts` imports `node:child_process` directly for the Linux self-updater. The SDK requires `data.capabilities: [\"child_process\"]` for the capability accessor, and the runtime refuses that declaration unless `isolation: \"worker\"`, which does not exist until P6 - so the three options today are a false declaration, a false isolation claim, or a direct import that is written down. This is the third; P6 closes it. 2. Database maintenance (export/import/reset) is executed by the host through `ctx.maintenance`, because replacing the SQLite file and replaying the application schema is about the connection, not about a table. The plugin owns the route, the envelope and the superadmin round-trip; the host owns the file operations. 3. `GET /api/audit-logs` reads `operation_logs` with raw SQL: the kernel publishes an audit *writer* (`ctx.audit`), not a query surface, and the filters here are the console's own presentation choice. 4. The OpenAPI routes (`/api/openapi/*`) stay unauthenticated exactly as they were before the migration. That is a product posture, not an oversight, and changing it would be a behaviour change this round must not make."
+    "_known_debt": "1. `src/admin.update.ts` imports `node:child_process` directly for the Linux self-updater. The SDK requires `data.capabilities: [\"child_process\"]` for the capability accessor, and the runtime refuses that declaration unless `isolation: \"worker\"`, which does not exist until P6 - so the three options today are a false declaration, a false isolation claim, or a direct import that is written down. This is the third; P6 closes it. 2. Database maintenance (export/import/reset) is executed by the host through `ctx.maintenance`, because replacing the SQLite file and replaying the application schema is about the connection, not about a table. The plugin owns the route, the envelope and the superadmin round-trip; the host owns the file operations. 3. `GET /api/audit-logs` reads `operation_logs` with raw SQL: the kernel publishes an audit *writer* (`ctx.audit`), not a query surface, and the filters here are the console's own presentation choice. 4. The OpenAPI routes (`/api/openapi/*`) were unauthenticated before the migration, and the migration preserved that on the grounds that changing it would be a behaviour change. It was a defect, not a product posture: `GET /api/openapi/keys` answered any anonymous caller with API keys in plaintext (`sk_...`). All seven routes now require an admin actor, and the route declarations below were corrected from `auth: \"public\"` to `auth: \"actor\"` to match."
   }
 }

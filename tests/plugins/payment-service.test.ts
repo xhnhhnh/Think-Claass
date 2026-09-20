@@ -130,6 +130,11 @@ beforeEach(async () => {
   });
 
   seedUser();
+
+  // The service no longer falls back to `'mock'` when the setting is missing (a missing row must not
+  // silently mean "simulated payments"), so the suite states the environment it tests, explicitly.
+  // `payment_environment` is also the one setting `initDb()` deliberately does not seed any more.
+  setSetting('payment_environment', 'mock');
 });
 
 afterEach(async () => {
@@ -191,6 +196,34 @@ describe('createOrder', () => {
     // order cannot leave a half-written ledger entry behind.
     setSetting('payment_environment', 'production');
     await apiErrorOf(() => createOrder('wechat'));
+
+    const count = kernel.db.prepare(`SELECT COUNT(*) AS n FROM payment_orders`).get() as { n: number };
+    expect(count.n).toBe(0);
+  });
+
+  it('refuses to sell anything while payment_environment is unset', async () => {
+    // `'mock'` used to be the fallback here, which meant an installation nobody configured would
+    // issue simulated orders. The seed no longer writes the row either: the operator chooses.
+    kernel.db.prepare(`DELETE FROM settings WHERE key = 'payment_environment'`).run();
+
+    const unset = await apiErrorOf(() => createOrder('wechat'));
+    expect(unset.statusCode).toBe(503);
+    expect(unset.message).toContain('payment_environment');
+
+    const count = kernel.db.prepare(`SELECT COUNT(*) AS n FROM payment_orders`).get() as { n: number };
+    expect(count.n).toBe(0);
+  });
+
+  it('refuses a production alipay order without credentials instead of issuing a mock URL', async () => {
+    // PAY-1: `AlipayPaymentProvider` used to extend `MockPaymentProvider`, so this exact call
+    // returned `https://mock-pay.local/alipay/...` in production and the public notify route then
+    // accepted the literal mock signature - a free activation.
+    setSetting('payment_environment', 'production');
+    setSetting('payment_enable_alipay', '1');
+
+    const refused = await apiErrorOf(() => createOrder('alipay'));
+    expect(refused.statusCode).toBe(400);
+    expect(refused.message).toContain('支付宝未配置');
 
     const count = kernel.db.prepare(`SELECT COUNT(*) AS n FROM payment_orders`).get() as { n: number };
     expect(count.n).toBe(0);

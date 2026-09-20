@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, CheckCircle2, Clock, Clock4, FileText, PlusCircle, XCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, Clock4, FileText, Heart, LoaderCircle, PlusCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -17,47 +17,48 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { SectionCard } from '@/components/ui/section-card';
 import { Textarea } from '@/components/ui/textarea';
+import { useCreateLeaveMutation, useLeaves } from '@/features/classroom/hooks/useLeaves';
+import { useStore } from '@/store/useStore';
 
-interface LeaveRequest {
-  id: number;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  submittedAt: string;
+/**
+ * `created_at` is SQLite's `CURRENT_TIMESTAMP`, i.e. UTC in `YYYY-MM-DD HH:MM:SS`; the bare
+ * string parses as local time, so the zone is appended before the day and minute are shown.
+ * Anything already in another format is handed to `Date` untouched.
+ */
+function formatSubmittedAt(createdAt: string) {
+  const utc = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(createdAt)
+    ? `${createdAt.replace(' ', 'T')}Z`
+    : createdAt;
+  const parsed = new Date(utc);
+
+  if (Number.isNaN(parsed.getTime())) return createdAt;
+
+  return parsed.toLocaleString([], {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /**
  * 请假假条.
  *
- * Local-only page: the two seeded rows and every new one live in `useState`, and nothing
- * here calls an API. It is `PageHeader` + `SectionCard` + `Badge` now, with the form moved
- * into a `Dialog` behind `FormField` - the four controls were hand-styled with an indigo
- * focus ring, their labels were never associated with them, and the modal was a fixed
- * overlay with a `shadow-raised` and a blurred decoration behind it.
+ * The two rows and every new request used to live in `useState`, so the page showed invented
+ * history and a submit that never reached the server. It now reads `GET /api/leaves` for the
+ * bound child and files through `POST /api/leaves` (see `features/classroom/hooks/useLeaves`),
+ * which is also why an empty list is an `EmptyState` rather than a placeholder row.
  *
  * `老师查看中` is `info` rather than the amber it was written in: the row is with the
- * teacher, and `warning` is what the rejected state means here.
+ * teacher, and `warning` is what the rejected state means here. A status the server has but
+ * this page does not name is printed as-is instead of being folded into one of the three.
  */
 export default function ParentLeaveRequest() {
-  const [requests, setRequests] = useState<LeaveRequest[]>([
-    {
-      id: 1,
-      startDate: '2023-11-20',
-      endDate: '2023-11-21',
-      reason: '感冒发烧，需要去医院就诊',
-      status: 'approved',
-      submittedAt: '2023-11-19 08:30'
-    },
-    {
-      id: 2,
-      startDate: '2023-12-05',
-      endDate: '2023-12-05',
-      reason: '参加亲戚婚礼',
-      status: 'pending',
-      submittedAt: '2023-11-28 14:20'
-    }
-  ]);
+  const user = useStore((state) => state.user);
+  const studentId = user?.studentId ?? null;
+  const { data: requests = [], isLoading, error } = useLeaves({ studentId }, !!studentId);
+  const createLeaveMutation = useCreateLeaveMutation(studentId);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newRequest, setNewRequest] = useState({
@@ -66,8 +67,13 @@ export default function ParentLeaveRequest() {
     reason: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!studentId) {
+      toast.error('还没有绑定宝贝信息，暂时无法提交假条');
+      return;
+    }
+
     if (!newRequest.startDate || !newRequest.endDate || !newRequest.reason) {
       toast.error('请填写完整的假条信息');
       return;
@@ -78,35 +84,50 @@ export default function ParentLeaveRequest() {
       return;
     }
 
-    const newReq: LeaveRequest = {
-      id: Date.now(),
-      ...newRequest,
-      status: 'pending',
-      submittedAt: new Date().toLocaleString().slice(0, 16).replace('T', ' ')
-    };
-
-    setRequests([newReq, ...requests]);
-    setIsModalOpen(false);
-    setNewRequest({ startDate: '', endDate: '', reason: '' });
-    toast.success('假条已经交给老师啦');
+    try {
+      await createLeaveMutation.mutateAsync({
+        start_date: newRequest.startDate,
+        end_date: newRequest.endDate,
+        reason: newRequest.reason,
+      });
+      setIsModalOpen(false);
+      setNewRequest({ startDate: '', endDate: '', reason: '' });
+      toast.success('假条已经交给老师啦');
+    } catch {
+      // `@/lib/api` already showed the server's message; the dialog stays open so the form
+      // is not thrown away on a rejection.
+    }
   };
 
   /** The status icon keeps the shape the row had; the chip next to it carries the colour. */
-  const getStatusIcon = (status: LeaveRequest['status']) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle2 aria-hidden="true" className="size-5 text-success" />;
       case 'rejected': return <XCircle aria-hidden="true" className="size-5 text-warning" />;
       case 'pending': return <Clock4 aria-hidden="true" className="size-5 text-info" />;
+      default: return <Clock aria-hidden="true" className="size-5 text-ink-3" />;
     }
   };
 
-  const getStatusText = (status: LeaveRequest['status']) => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'approved': return <Badge variant="success">老师已同意</Badge>;
       case 'rejected': return <Badge variant="warning">需要再沟通</Badge>;
       case 'pending': return <Badge variant="info">老师查看中</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  if (!studentId) {
+    return (
+      <EmptyState
+        icon={Heart}
+        className="mx-auto max-w-xl"
+        title="等待宝贝加入"
+        description="您的账号还没有绑定宝贝信息，绑定后就能为宝贝提交假条了。"
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -132,7 +153,14 @@ export default function ParentLeaveRequest() {
           </span>
         }
       >
-        {requests.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center p-10 text-ink-3">
+            <LoaderCircle className="mr-3 size-5 animate-spin" />
+            正在获取假条记录...
+          </div>
+        ) : error ? (
+          <div className="p-10 text-center text-red-600">假条记录加载失败，请稍后重试。</div>
+        ) : requests.length > 0 ? (
           <div className="divide-y divide-border">
             {requests.map((request) => (
               <div key={request.id} className="p-5 sm:p-6">
@@ -140,7 +168,7 @@ export default function ParentLeaveRequest() {
                   {getStatusIcon(request.status)}
                   {getStatusText(request.status)}
                   <span className="text-sm font-medium tracking-wider text-ink-3">
-                    提交于 {request.submittedAt}
+                    提交于 {formatSubmittedAt(request.created_at)}
                   </span>
                 </div>
 
@@ -149,7 +177,7 @@ export default function ParentLeaveRequest() {
                     请假时间
                   </span>
                   <p className="text-[15px] font-bold text-ink-2">
-                    {request.startDate} <span className="mx-2 font-normal text-ink-3">至</span> {request.endDate}
+                    {request.start_date} <span className="mx-2 font-normal text-ink-3">至</span> {request.end_date}
                   </p>
                 </div>
 
@@ -162,11 +190,27 @@ export default function ParentLeaveRequest() {
                     {request.reason}
                   </p>
                 </div>
+
+                {request.review_comment ? (
+                  <div className="mt-4">
+                    <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                      老师回复
+                    </span>
+                    <p className="rounded-panel border border-border bg-paper p-4 text-[15px] leading-relaxed text-ink-2">
+                      {request.review_comment}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
         ) : (
-          <EmptyState icon={Calendar} className="border-0 bg-transparent" title="还没有请假记录哦" />
+          <EmptyState
+            icon={Calendar}
+            className="border-0 bg-transparent"
+            title="还没有请假记录哦"
+            description="写完假条交给老师之后会显示在这里"
+          />
         )}
       </SectionCard>
 
@@ -210,7 +254,9 @@ export default function ParentLeaveRequest() {
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                 不请了
               </Button>
-              <Button type="submit">交给老师</Button>
+              <Button type="submit" disabled={createLeaveMutation.isPending}>
+                {createLeaveMutation.isPending ? '提交中...' : '交给老师'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

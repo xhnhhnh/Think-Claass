@@ -53,6 +53,7 @@ import {
   type PaymentEnvironment,
   type PaymentMethod,
   type PaymentProvider,
+  type PaymentProviderConfig,
 } from './providers/index.js';
 
 /** `paymentOrderPayload` from the pre-migration service, unchanged. */
@@ -136,14 +137,61 @@ export class PaymentService {
     this.identity = deps.identity;
   }
 
-  /** `payment_environment`, defaulting to `mock` exactly as the pre-migration service did. */
+  /**
+   * The channel credentials the admin UI collects, as the provider factory expects them.
+   *
+   * They were previously never passed: `provider()` called the factory with no config, so the
+   * `payment_wechat_*` / `payment_alipay_*` settings were write-only and every real channel call
+   * had to fail on a missing credential. `appId` is per-method (WeChat AppID and Alipay APPID are
+   * different values), so the caller says which channel the config is for.
+   */
+  private providerConfig(method: PaymentMethod): PaymentProviderConfig {
+    const read = (key: string) => {
+      const value = this.ctx.settings.getPlatform<string>(key);
+      return value === undefined || value === null || String(value).trim() === '' ? undefined : String(value);
+    };
+
+    if (method === 'wechat') {
+      return {
+        appId: read('payment_wechat_appid'),
+        mchId: read('payment_wechat_mchid'),
+        serialNo: read('payment_wechat_serial_no'),
+        privateKey: read('payment_wechat_private_key'),
+        apiV3Key: read('payment_wechat_api_v3_key'),
+      };
+    }
+
+    return {
+      appId: read('payment_alipay_app_id'),
+      privateKey: read('payment_alipay_private_key'),
+      alipayPublicKey: read('payment_alipay_public_key'),
+      gateway: read('payment_alipay_gateway'),
+    };
+  }
+
+  /**
+   * `payment_environment`.
+   *
+   * Read strictly - no `'mock'` fallback. A deployment whose setting row is missing must not
+   * silently issue simulated payment URLs; `index.ts` deliberately does not seed the row either.
+   * An explicit `'mock'` still selects the mock provider, which is what makes the notify route
+   * testable without channel credentials.
+   */
   private environment(): PaymentEnvironment {
-    return setting(this.ctx, 'payment_environment', 'mock') as PaymentEnvironment;
+    const value = setting(this.ctx, 'payment_environment', '');
+    if (value !== 'mock' && value !== 'sandbox' && value !== 'production') {
+      throw new ApiError(
+        503,
+        '支付环境未配置：请先在系统设置中选择 payment_environment（mock / sandbox / production）',
+        { code: 'PAYMENT_ENVIRONMENT_UNSET' },
+      );
+    }
+    return value;
   }
 
   /** The provider for a method, built through the same factory the old code used. */
   provider(method: PaymentMethod, environment: PaymentEnvironment = this.environment()): PaymentProvider {
-    return createPaymentProvider(method, environment);
+    return createPaymentProvider(method, environment, this.providerConfig(method));
   }
 
   /**

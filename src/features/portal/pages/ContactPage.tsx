@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mail, MapPin, MessageSquare, Phone, Send } from "lucide-react";
+import { Mail, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -19,10 +19,17 @@ import { Textarea } from "@/components/ui/textarea";
  * `Input`/`Textarea` behind `FormField` now, so clicking a label focuses its field
  * and the focus ring follows the theme.
  */
+/**
+ * Contact channels rendered above the message form.
+ *
+ * This list used to carry three invented values - the phone number was the literal placeholder
+ * `400-XXX-XXXX`, and the address was a generic `中国，北京` - presented as if they were this
+ * deployment's real contact details. Fabricated contact information is worse than none, so the two
+ * were removed; only the address this project actually publishes remains. Add real entries here (or
+ * read them from the site settings) when the deployment has them.
+ */
 const CONTACT_ITEMS = [
   { icon: Mail, label: "邮箱", value: "contact@thinkclass.cn", tone: "bg-primary" },
-  { icon: Phone, label: "电话", value: "400-XXX-XXXX", tone: "bg-success" },
-  { icon: MapPin, label: "地址", value: "中国，北京", tone: "bg-warning" },
 ];
 
 export default function ContactPage() {
@@ -61,7 +68,7 @@ export default function ContactPage() {
       </motion.div>
 
       <div className="mx-auto max-w-3xl">
-        <div className="mb-10 grid grid-cols-3 gap-4">
+        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CONTACT_ITEMS.map((item, idx) => (
             <motion.div
               key={item.label}

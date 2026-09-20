@@ -33,6 +33,9 @@ GET /api/health   {"plugins":{"total":2,"active":2,"degraded":0}}
 GET /api/pet/health  {"success":true,"data":{"plugin":"pet","version":"1.0.0"}}
 ```
 
+(P3's invocation exported `PLUGINS_ENABLED=1` explicitly. It now defaults to `true`, so
+`KERNEL_ENABLED=1 npx tsx api/server.ts` is the equivalent command — see §5.)
+
 ---
 
 ## 2. Packages and plugins added
@@ -179,14 +182,37 @@ and the service registry.
 
 ### Both compositions, on a running server
 
-| | kernel mode | legacy mode |
+The table P3 recorded here said legacy mode answered `/api/pet/health` with **404 (plugins not
+mounted)**. That is no longer what the code does, and has not been since P4.3b.0: `mountPlugins()`
+runs in both compositions and, in legacy mode, `createLegacyRootModule()` imports `host.modules` into
+the legacy Nest root (`api/app.ts`). Both compositions serve the plugin routes; what differs
+is only who owns the Nest instance — the runtime owns it when the kernel is the composition root
+(`packages/plugin-runtime/src/host.ts:475-498`), the legacy root owns it otherwise.
+
+| | kernel mode (`KERNEL_ENABLED=1`) | legacy mode (default) |
 |---|---|---|
-| `/api/health` | kernel shape, plugins 2/2 | legacy shape |
-| `/api/pet/health` | **200** (plugin route) | 404 (plugins not mounted) |
+| `/api/health` | kernel shape, plugins mounted | kernel shape, plugins mounted — the kernel router is mounted before Nest in both compositions |
+| `/api/pet/health` | **200** (plugin route) | **200** (plugin route) |
+| `/api/kernel/plugins` | 200, the in-repo plugins | 200, the 20 in-repo plugins |
 | `/api/kernel/auth/login` | 200 + token | 200 + token |
-| `/api/auth/login` | 404 (legacy app absent) | 200 + token |
-| `/api/settings` | 404 | 200 |
-| legacy header auth | n/a | honoured (bridge on) |
+| `/api/auth/login` | 200 + token (plugin route) | 200 + token (plugin route) |
+| `/api/settings` | 200 (kernel route since P5.3c; data is `{}` because `initDb()` does not seed in this composition) | 200, seeded values |
+| legacy header auth | off unless `ALLOW_LEGACY_HEADER_AUTH=1` | off unless `ALLOW_LEGACY_HEADER_AUTH=1` |
+
+The legacy column is asserted by a real-startup probe that spawns `api/server.ts` and issues real HTTP
+requests: `tests/plugins/legacy-boot-probe.test.ts` (plugin routes 200, identity login 200 + accepted
+token, admin console login 200, kernel login 200, anonymous refusal where the domain refuses). The
+kernel column follows the same mounting path read from `api/app.ts` and
+`packages/plugin-runtime/src/host.ts`; the header-bridge row is covered by
+`tests/kernel/auth-session.test.ts:172-187`.
+
+**"Kernel mode" is not "kernel-only".** Kernel-only is the explicit pair `KERNEL_ENABLED=1
+PLUGINS_ENABLED=0`: `/api/health` plus `/api/kernel/*`, zero plugins, business routes 404 by design
+(`packages/kernel/src/config/loadConfig.ts:36-41`). Legacy mode with plugins off is refused at boot by
+`assertUsableComposition()` rather than served (`api/app.ts`), because `api/app.module.ts` declares
+`imports: []` — that pairing has no business routes at all. Exporting `PLUGINS_ENABLED` is not a step
+an operator needs for either supported composition: it now defaults to `true` and the legacy root is
+the default.
 
 ---
 

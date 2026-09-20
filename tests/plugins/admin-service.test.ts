@@ -397,28 +397,38 @@ describe('stats, audit log and OpenAPI surface', () => {
     expect(body.data[0].action).toBe('ADMIN_UPDATE_TEACHER');
   });
 
-  it('keeps the OpenAPI key and school routes working, unauthenticated as before', async () => {
-    const key = await call('POST', '/api/openapi/keys', { body: { name: '测试密钥' } });
+  it('keeps the OpenAPI key and school routes working for the console, and only for it', async () => {
+    const key = await call('POST', '/api/openapi/keys', { token: adminToken, body: { name: '测试密钥' } });
     expect(key.status).toBe(200);
     expect(key.body.key.key).toMatch(/^sk_[0-9a-f]{48}$/);
 
-    const keys = await call('GET', '/api/openapi/keys');
+    const keys = await call('GET', '/api/openapi/keys', { token: adminToken });
     expect(keys.body.keys).toHaveLength(1);
 
-    expect((await call('DELETE', `/api/openapi/keys/${key.body.key.id}`)).status).toBe(200);
-    expect((await call('GET', '/api/openapi/keys')).body.keys).toHaveLength(0);
+    expect((await call('DELETE', `/api/openapi/keys/${key.body.key.id}`, { token: adminToken })).status).toBe(200);
+    expect((await call('GET', '/api/openapi/keys', { token: adminToken })).body.keys).toHaveLength(0);
 
-    const school = await call('POST', '/api/openapi/schools', { body: { name: '示范学校', description: 'd' } });
+    const school = await call('POST', '/api/openapi/schools', {
+      token: adminToken,
+      body: { name: '示范学校', description: 'd' },
+    });
     expect(school.status).toBe(200);
     const updated = await call('PUT', `/api/openapi/schools/${school.body.school.id}`, {
+      token: adminToken,
       body: { name: '示范学校二', description: 'd2' },
     });
     expect(updated.body.school.name).toBe('示范学校二');
-    expect((await call('GET', '/api/openapi/schools')).body.schools).toHaveLength(1);
-    expect((await call('DELETE', `/api/openapi/schools/${school.body.school.id}`)).status).toBe(200);
+    expect((await call('GET', '/api/openapi/schools', { token: adminToken })).body.schools).toHaveLength(1);
+    expect(
+      (await call('DELETE', `/api/openapi/schools/${school.body.school.id}`, { token: adminToken })).status,
+    ).toBe(200);
 
-    // `/api/openapi/*` is a public surface: no token was sent for any of the calls above.
-    expect((await call('POST', '/api/openapi/keys', { body: {} })).status).toBe(400);
+    // These routes used to be public - `GET /api/openapi/keys` answered an anonymous caller with
+    // plaintext `sk_...` secrets. The full per-route 401/403/200 matrix lives in
+    // `admin-openapi-authorization.test.ts`; what this pins is that authorization now runs first,
+    // and that an authorized empty body still reaches the repository's own 400.
+    expect((await call('POST', '/api/openapi/keys', { body: {} })).status).toBe(401);
+    expect((await call('POST', '/api/openapi/keys', { token: adminToken, body: {} })).status).toBe(400);
   });
 });
 

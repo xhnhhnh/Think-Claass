@@ -1,8 +1,16 @@
 import { useState } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { Edit, FileText, PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStore } from '@/store/useStore';
-import { useAssignments, useCreateAssignmentMutation, useDeleteAssignmentMutation } from '@/features/learning/hooks/useAssignments';
+import { assignmentsApi } from '@/features/learning/api/assignmentsApi';
+import {
+  useAssignments,
+  useCreateAssignmentMutation,
+  useDeleteAssignmentMutation,
+  useUpdateStudentAssignmentMutation,
+} from '@/features/learning/hooks/useAssignments';
+import { useStudents } from '@/hooks/queries/useStudents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,55 +27,73 @@ import { PageHeader } from '@/components/ui/page-header';
 import { SectionCard } from '@/components/ui/section-card';
 import { Textarea } from '@/components/ui/textarea';
 
-interface Assignment {
-  id: number;
-  title: string;
-  description: string;
-  dueDate: string;
-  classId: number;
-  status: 'active' | 'closed';
-}
-
+/** One `student_assignments` row joined with the submitting student's name. */
 interface Submission {
   id: number;
-  studentName: string;
   assignmentId: number;
-  content: string;
-  status: 'submitted' | 'graded';
-  grade?: number;
-  feedback?: string;
+  studentName: string;
+  content: string | null;
+  status: string;
+  score: number | null;
+}
+
+const submissionKeys = {
+  all: ['assignment-submissions'] as const,
+  byAssignment: (assignmentId: number) => ['assignment-submissions', assignmentId] as const,
+};
+
+/** Today as `YYYY-MM-DD` in local time, so a due date compares as a plain string. */
+function localDateString(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 /**
  * 作业管理.
  *
- * Two fixed-overlay modals became `Dialog`s, so the close buttons, the submit buttons
- * and the four form controls came with them. The two lists are `SectionCard`s - the
- * page was a pair of hand-built `bg-white/80` boxes - and the status chips are
- * `Badge` tones instead of four `bg-*-100 text-*-700` pairs. The submissions block is
- * still seeded locally: the page has no submissions endpoint, and inventing one is not
- * this phase's job.
+ * The submissions list is real: one
+ * `GET /api/assignments/student-assignments?assignment_id=` per assignment of the
+ * class, because that endpoint filters by assignment and `StudentAssignment` carries
+ * `student_id` without a name - the name is joined from `GET /api/students?classId=`.
+ * Grading writes `score` / `teacher_feedback` through
+ * `PUT /api/assignments/student-assignments/:id`; nothing is graded in local state.
  */
 export default function TeacherAssignments() {
   const user = useStore((state) => state.user);
+  const queryClient = useQueryClient();
   const classId = user?.class_id ?? 1;
   const teacherId = user?.id ?? 1;
-  const { data: assignmentRows = [] } = useAssignments(classId);
+  const { data: assignments = [] } = useAssignments(classId);
+  const { data: students = [] } = useStudents(classId);
   const createAssignmentMutation = useCreateAssignmentMutation(classId);
   const deleteAssignmentMutation = useDeleteAssignmentMutation(classId);
-  const assignments: Assignment[] = assignmentRows.map((assignment) => ({
-    id: assignment.id,
-    title: assignment.title,
-    description: assignment.description ?? '',
-    dueDate: assignment.due_date ?? '',
-    classId: assignment.class_id,
-    status: 'active',
-  }));
-  const [submissions, setSubmissions] = useState<Submission[]>([
-    { id: 1, studentName: '张三', assignmentId: 1, content: '已完成所有练习题，拍照上传。', status: 'submitted' },
-    { id: 2, studentName: '李四', assignmentId: 1, content: '最后一题不会做。', status: 'graded', grade: 85, feedback: '再接再厉' }
-  ]);
-  
+  const updateSubmissionMutation = useUpdateStudentAssignmentMutation();
+
+  const submissionQueries = useQueries({
+    queries: assignments.map((assignment) => ({
+      queryKey: submissionKeys.byAssignment(assignment.id),
+      queryFn: async () =>
+        (await assignmentsApi.listStudentAssignments({ assignmentId: assignment.id })).data,
+    })),
+  });
+
+  const assignmentIds = new Set(assignments.map((assignment) => assignment.id));
+  const studentNames = new Map(students.map((student) => [student.id, student.name]));
+  const submissions: Submission[] = submissionQueries
+    .flatMap((query) => query.data ?? [])
+    .filter((row) => assignmentIds.has(row.assignment_id))
+    .map((row) => ({
+      id: row.id,
+      assignmentId: row.assignment_id,
+      studentName: studentNames.get(row.student_id) ?? `学生 #${row.student_id}`,
+      content: row.content,
+      status: row.status,
+      score: row.score,
+    }));
+  const submissionsLoading = submissionQueries.some((query) => query.isLoading);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -77,6 +103,8 @@ export default function TeacherAssignments() {
   const [currentSubmission, setCurrentSubmission] = useState<Submission | null>(null);
   const [gradeInput, setGradeInput] = useState('');
   const [feedbackInput, setFeedbackInput] = useState('');
+
+  const today = localDateString();
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,15 +124,23 @@ export default function TeacherAssignments() {
     toast.success('作业发布成功');
   };
 
-  const handleGradeSubmit = (e: React.FormEvent) => {
+  const handleGradeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSubmission || !gradeInput) return;
-    
-    setSubmissions(submissions.map(s => 
-      s.id === currentSubmission.id 
-        ? { ...s, status: 'graded', grade: parseInt(gradeInput), feedback: feedbackInput }
-        : s
-    ));
+
+    const score = Number.parseInt(gradeInput, 10);
+    if (Number.isNaN(score)) return;
+
+    try {
+      await updateSubmissionMutation.mutateAsync({
+        id: currentSubmission.id,
+        payload: { status: 'graded', score, teacher_feedback: feedbackInput.trim() || null },
+      });
+    } catch {
+      // The api layer already surfaced the failure; keep the dialog open to retry.
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: submissionKeys.all });
     setShowGradeModal(false);
     toast.success('批改完成');
   };
@@ -134,74 +170,89 @@ export default function TeacherAssignments() {
             <EmptyState icon={FileText} title="暂无发布的作业" />
           ) : (
             <div className="space-y-4">
-              {assignments.map(assignment => (
-                <div key={assignment.id} className="rounded-card border border-border bg-muted/50 p-4">
-                  <div className="mb-2 flex items-start justify-between gap-3">
-                    <h4 className="font-bold text-ink-1">{assignment.title}</h4>
-                    <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
-                      {assignment.status === 'active' ? '进行中' : '已结束'}
-                    </Badge>
+              {assignments.map(assignment => {
+                const closed = !!assignment.due_date && assignment.due_date < today;
+                return (
+                  <div key={assignment.id} className="rounded-card border border-border bg-muted/50 p-4">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <h4 className="font-bold text-ink-1">{assignment.title}</h4>
+                      <Badge variant={closed ? 'secondary' : 'default'}>
+                        {closed ? '已截止' : '进行中'}
+                      </Badge>
+                    </div>
+                    <p className="mb-3 text-sm text-ink-2">{assignment.description}</p>
+                    <div className="flex items-center justify-between text-xs text-ink-3">
+                      <span>截止日期: {assignment.due_date || '无'}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`删除${assignment.title}`}
+                        title="删除"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => deleteAssignment(assignment.id)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
                   </div>
-                  <p className="mb-3 text-sm text-ink-2">{assignment.description}</p>
-                  <div className="flex items-center justify-between text-xs text-ink-3">
-                    <span>截止日期: {assignment.dueDate || '无'}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`删除${assignment.title}`}
-                      title="删除"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => deleteAssignment(assignment.id)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </SectionCard>
 
         {/* Submissions List */}
         <SectionCard title="学生提交">
-          <div className="space-y-4">
-            {submissions.map(sub => {
-              const assignment = assignments.find(a => a.id === sub.assignmentId);
-              return (
-                <div key={sub.id} className="rounded-card border border-border p-4">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="font-medium text-ink-1">
-                      {sub.studentName} <span className="text-sm text-ink-3">提交了</span> {assignment?.title}
+          {submissionsLoading ? (
+            <p className="py-6 text-center text-sm text-ink-3">加载中...</p>
+          ) : submissions.length === 0 ? (
+            <EmptyState icon={FileText} title="暂无学生提交" />
+          ) : (
+            <div className="space-y-4">
+              {submissions.map(sub => {
+                const assignment = assignments.find(a => a.id === sub.assignmentId);
+                return (
+                  <div key={sub.id} className="rounded-card border border-border p-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="font-medium text-ink-1">
+                        {sub.studentName} <span className="text-sm text-ink-3">提交了</span> {assignment?.title ?? `作业 #${sub.assignmentId}`}
+                      </div>
+                      {sub.status === 'graded' ? (
+                        <Badge variant="success">
+                          {sub.score === null ? '已批改' : `已批改: ${sub.score}分`}
+                        </Badge>
+                      ) : sub.status === 'submitted' ? (
+                        <Badge variant="warning">待批改</Badge>
+                      ) : (
+                        <Badge variant="secondary">未提交</Badge>
+                      )}
                     </div>
-                    {sub.status === 'graded' ? (
-                      <Badge variant="success">已批改: {sub.grade}分</Badge>
-                    ) : (
-                      <Badge variant="warning">待批改</Badge>
+                    <p className="mb-3 rounded-card bg-muted/50 p-2 text-sm text-ink-2">
+                      {sub.content ?? '（未填写提交内容）'}
+                    </p>
+
+                    {sub.status === 'submitted' && (
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCurrentSubmission(sub);
+                            setGradeInput('');
+                            setFeedbackInput('');
+                            setShowGradeModal(true);
+                          }}
+                        >
+                          <Edit data-icon="inline-start" />
+                          去批改
+                        </Button>
+                      </div>
                     )}
                   </div>
-                  <p className="mb-3 rounded-card bg-muted/50 p-2 text-sm text-ink-2">{sub.content}</p>
-                  
-                  {sub.status === 'submitted' && (
-                    <div className="flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setCurrentSubmission(sub);
-                          setGradeInput('');
-                          setFeedbackInput('');
-                          setShowGradeModal(true);
-                        }}
-                      >
-                        <Edit data-icon="inline-start" />
-                        去批改
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </SectionCard>
       </div>
 
@@ -252,7 +303,7 @@ export default function TeacherAssignments() {
           <form onSubmit={handleGradeSubmit} className="flex flex-col gap-4">
             <div className="rounded-card bg-muted/50 p-3 text-sm text-ink-2">
               <strong>提交内容：</strong><br/>
-              {currentSubmission?.content}
+              {currentSubmission?.content ?? '（未填写提交内容）'}
             </div>
             <FormField label="分数 (0-100)" required>
               <Input
@@ -277,7 +328,7 @@ export default function TeacherAssignments() {
               <Button type="button" variant="outline" onClick={() => setShowGradeModal(false)}>
                 取消
               </Button>
-              <Button type="submit">提交批改</Button>
+              <Button type="submit" disabled={updateSubmissionMutation.isPending}>提交批改</Button>
             </DialogFooter>
           </form>
         </DialogContent>

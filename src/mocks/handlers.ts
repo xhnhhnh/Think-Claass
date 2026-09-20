@@ -1,3 +1,26 @@
+/**
+ * MSW handlers - **test scaffolding, never shipped runtime data**.
+ *
+ * This is the only place in `src/**` where invented records are legitimate, so the rules are worth
+ * stating: the browser worker is never started (`main.tsx` does not import `./mocks/browser`, and
+ * `vite.config.ts` has no `mock` plugin), and the Node server below is installed by
+ * `src/setupTests.ts`, which every test file under this project (jsdom + MSW) uses. Production code
+ * therefore cannot reach any of these responses, and the app's own runtime fake data - hardcoded
+ * rosters, seeded submissions, mock payment URLs - has been removed.
+ *
+ * What the values are for:
+ *   - `admin` / `123456` is the identity `src/api/__tests__/auth.test.ts` asserts against, i.e. the
+ *     fixture a client test logs in with. It is not a credential the application accepts: the real
+ *     login reads the `users` table.
+ *   - `Class 1` / `Student A` / the `TEST-N` activation codes are the minimum rows the client API
+ *     suites need so a request can succeed at all.
+ *   - `payment_environment: 'mock'` mirrors what the server seeds outside production; the handlers
+ *     do not model payment channels.
+ *
+ * Keep it minimal and keep it honest: add a handler only when a test needs it, and never copy a
+ * real credential or a real person's data in here.
+ */
+
 import { http, HttpResponse } from 'msw';
 
 export const handlers = [

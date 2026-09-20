@@ -24,6 +24,16 @@
  *
  * The database is redirected with `DATABASE_FILE` so the probe never touches the
  * developer's `database.sqlite`.
+ *
+ * ## A fresh database now has exactly one account
+ *
+ * `initDb()` used to fabricate demo rows on every boot: the teacher `admin` / `admin123`, a
+ * `默认班级`, four shop items and six point presets. All of it is gone, so a clean install contains
+ * the schema, the neutral settings and one superadmin built from `SUPERADMIN_USERNAME` /
+ * `SUPERADMIN_PASSWORD` - nothing a probe may assert as "seeded". The prerequisites this file needs
+ * (a teacher, a class, a configured payment environment) are therefore created through the real API
+ * in the `beforeAll` below, which is also the stronger assertion: they prove the endpoints that
+ * create them work.
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -58,10 +68,63 @@ let child: ChildProcess | null = null;
 let base = '';
 let tempDir = '';
 let startupLog = '';
+/**
+ * The class the setup creates. The probes that used to hardcode class `1` (which the removed
+ * `默认班级` seed happened to occupy) use this id instead.
+ */
+let probeClassId = 0;
 
 async function probe(pathname: string, init?: RequestInit): Promise<ProbeResponse> {
   const response = await fetch(base + pathname, { redirect: 'manual', ...init });
   return { status: response.status, body: await response.text() };
+}
+
+/**
+ * A superadmin session for the probes that used to be anonymous. The legacy composition *creates*
+ * `probe-root` from `SUPERADMIN_USERNAME` / `SUPERADMIN_PASSWORD` (see the `env` block above), and one
+ * login is reused for the whole file.
+ */
+let cachedSuperadminToken: string | null = null;
+async function superadminToken(): Promise<string> {
+  if (cachedSuperadminToken) return cachedSuperadminToken;
+
+  const response = await probe('/api/admin/session', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'probe-root', password: 'probe-secret' }),
+  });
+  const payload = JSON.parse(response.body) as { data?: { token?: string } };
+  expect(typeof payload.data?.token, `login body: ${response.body}`).toBe('string');
+  cachedSuperadminToken = payload.data!.token as string;
+  return cachedSuperadminToken;
+}
+
+/**
+ * A session for the teacher this file's setup creates (`probe-teacher` / `probe-teacher-secret`).
+ *
+ * `initDb()` no longer seeds a teacher: `admin` / `admin123` was fabricated demo data published in
+ * this repository, so it is gone, and the probes that need a non-superadmin actor now use an account
+ * created through `POST /api/admin/users` in the `beforeAll` below. The role is part of the
+ * credential: `findUserByCredentials` looks a user up by `(username, role)`, so a superadmin cannot
+ * log in with `role: 'teacher'`.
+ *
+ * The probes below used to present `x-user-role` / `x-user-id` headers instead. Those headers are
+ * client-supplied and unverifiable, so `allowLegacyHeaderAuth` now defaults to off and they no longer
+ * authenticate anyone - which is why every credentialed probe in this file logs in for real.
+ */
+let cachedTeacherToken: string | null = null;
+async function teacherToken(): Promise<string> {
+  if (cachedTeacherToken) return cachedTeacherToken;
+
+  const response = await probe('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'probe-teacher', password: 'probe-teacher-secret', role: 'teacher' }),
+  });
+  const payload = JSON.parse(response.body) as { token?: string };
+  expect(typeof payload.token, `teacher login body: ${response.body}`).toBe('string');
+  cachedTeacherToken = payload.token as string;
+  return cachedTeacherToken;
 }
 
 beforeAll(async () => {
@@ -79,10 +142,11 @@ beforeAll(async () => {
       LOG_LEVEL: 'warn',
       DATABASE_FILE: path.join(tempDir, 'probe.sqlite'),
       // Deterministic console credentials. `api/server.ts` calls `dotenv.config()` before
-      // `initDb()`, so a value in the repository's `.env` would otherwise win over the seed -
-      // and dotenv does not override variables that are already set, which is what makes
-      // pinning them here enough (this is the trap P4.3b.7 recorded when a probe's login kept
-      // answering 401).
+      // `initDb()`, so a value in the repository's `.env` would otherwise win - and dotenv does not
+      // override variables that are already set, which is what makes pinning them here enough
+      // (this is the trap P4.3b.7 recorded when a probe's login kept answering 401). A fresh
+      // database has no superadmin row any more, so these two variables are now *required*, not
+      // just convenient: `initDb()` refuses to invent a credential.
       SUPERADMIN_USERNAME: 'probe-root',
       SUPERADMIN_PASSWORD: 'probe-secret',
     },
@@ -110,6 +174,39 @@ beforeAll(async () => {
   }
 
   expect(ready, `legacy server never became ready on ${base}\n--- output ---\n${startupLog}`).toBe(true);
+
+  // --- prerequisites, created through the real API -------------------------------------------
+  //
+  // The order matters: `createClass` falls back to the first `teachers` row when a non-teacher
+  // actor creates a class (`classroom.service.ts`), so the teacher has to exist first.
+  const admin = await superadminToken();
+  const auth = { 'content-type': 'application/json', authorization: `Bearer ${admin}` };
+
+  const teacherCreated = await probe('/api/admin/users', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({ username: 'probe-teacher', password: 'probe-teacher-secret' }),
+  });
+  expect(teacherCreated.status, `create teacher body: ${teacherCreated.body}`).toBe(200);
+
+  const classCreated = await probe('/api/classes', {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({ name: '探针班级' }),
+  });
+  expect(classCreated.status, `create class body: ${classCreated.body}`).toBe(200);
+  probeClassId = (JSON.parse(classCreated.body) as { class: { id: number } }).class.id;
+  expect(Number.isInteger(probeClassId) && probeClassId > 0, `class body: ${classCreated.body}`).toBe(true);
+
+  // The payment flow states its own environment and enables the channel it uses. Neither is a boot
+  // seed any more: `payment_environment` is only seeded outside production and both channels are
+  // seeded disabled.
+  const settings = await probe('/api/admin/system/settings', {
+    method: 'PUT',
+    headers: auth,
+    body: JSON.stringify({ payment_environment: 'mock', payment_enable_wechat: '1' }),
+  });
+  expect(settings.status, `settings body: ${settings.body}`).toBe(200);
 }, 120_000);
 
 afterAll(async () => {
@@ -163,8 +260,9 @@ describe('legacy composition serves plugin routes', () => {
     // plugins/economy through the legacy root module. 403 is the class feature gate
     // ("该功能当前已关闭") firing through the port, which proves the whole path ran:
     // plugin controller -> service -> classroom.public -> capability/column fallback.
-    // A route that was not mounted would be 404.
-    const response = await probe('/api/economy/classes/1/stocks');
+    // A route that was not mounted would be 404, and a class that does not exist would be 404 too -
+    // hence the setup-created id: the class is real and every `enable_*` flag on it defaults off.
+    const response = await probe(`/api/economy/classes/${probeClassId}/stocks`);
     expect(response.status).toBe(403);
     expect(response.body).toContain('该功能当前已关闭');
   });
@@ -183,12 +281,24 @@ describe('legacy composition serves plugin routes', () => {
     expect(response.body).not.toContain('Cannot GET');
   });
 
-  it('serves the migrated system domain from its plugin', async () => {
+  it('serves the migrated system domain from its plugin, to an admin only', async () => {
     // `api/modules/system` is gone (P4.3b.5) and these routes have no legacy module
     // left. The empty-id list comes from the plugin's own repository, so a 200 with the
     // `{success, questions}` envelope proves the plugin served it: a route that was not
     // mounted would answer Nest's catch-all instead.
-    const response = await probe('/api/system/questions?teacherId=7');
+    //
+    // The anonymous request comes first because this surface used to answer it with 200 -
+    // `GET /api/system/backup/export` dumped the whole database, `users.password_hash`
+    // included. `未登录或登录已过期` is the plugin's own gate, so the body still does the
+    // real work: it distinguishes "the controller ran and refused" from "Cannot GET".
+    const anonymous = await probe('/api/system/questions?teacherId=7');
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toContain('未登录或登录已过期');
+    expect(anonymous.body).not.toContain('Cannot GET');
+
+    const response = await probe('/api/system/questions?teacherId=7', {
+      headers: { authorization: `Bearer ${await superadminToken()}` },
+    });
 
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
@@ -242,16 +352,20 @@ describe('legacy composition serves plugin routes', () => {
   });
 
   it('serves the migrated classroom envelope to a credentialed caller', async () => {
-    // The other half of the contract: with a teacher actor the same route answers 200, and the
+    // The other half of the contract: with a credentialed caller the same route answers 200, and the
     // payload keeps this domain's legacy envelope - a `classes` key, not `data`, whose rows are
     // the raw `classes` shape (the 19 `enable_*` columns included). `data.classes` would be a
     // silently different response shape for every existing client.
     //
-    // The list is not asserted empty: `initDb()` seeds a `默认班级` for the default teacher, so a
-    // fresh legacy database legitimately has one class. Asserting emptiness would pin the seed,
-    // not the route.
+    // The list is not empty: the setup creates one class, and this teacher owns it. It is asserted
+    // through the owner's own scope rather than pinned to a boot seed - there is no seeded class any
+    // more, and `listClasses` narrows a teacher to their own rows.
+    //
+    // This used to present `x-user-role: teacher` / `x-user-id: 1` and rely on the legacy header
+    // bridge. That bridge now defaults off - trusting client-supplied headers meant any caller could
+    // be any user - so the probe logs in like a client does and presents the session it is issued.
     const response = await probe('/api/classes', {
-      headers: { 'x-user-role': 'teacher', 'x-user-id': '1' },
+      headers: { authorization: `Bearer ${await teacherToken()}` },
     });
 
     expect(response.status).toBe(200);
@@ -261,10 +375,9 @@ describe('legacy composition serves plugin routes', () => {
     expect(payload.success).toBe(true);
     expect(Array.isArray(payload.classes)).toBe(true);
     expect(payload).not.toHaveProperty('data');
-    if (payload.classes.length > 0) {
-      expect(payload.classes[0]).toHaveProperty('enable_achievements');
-      expect(payload.classes[0]).toHaveProperty('invite_code');
-    }
+    expect(payload.classes.length).toBeGreaterThan(0);
+    expect(payload.classes[0]).toHaveProperty('enable_achievements');
+    expect(payload.classes[0]).toHaveProperty('invite_code');
   });
 
   it('serves the admin console from its plugin in this composition', async () => {
@@ -297,8 +410,8 @@ describe('legacy composition serves plugin routes', () => {
     expect(users.body).not.toContain('Cannot GET');
     const listed = JSON.parse(users.body) as { success: boolean; data: { items: unknown[]; total: number } };
     expect(listed.success).toBe(true);
-    // `initDb()` seeds one teacher (`admin`), so this asserts the port answered rather than
-    // pinning the seed count.
+    // The setup creates `probe-teacher` through this same endpoint, so the list is non-empty for a
+    // reason the probe controls - not because a boot seed put a teacher there.
     expect(listed.data.total).toBeGreaterThan(0);
 
     // And the anonymous half: the console's routes are still gated in this composition.
@@ -330,9 +443,9 @@ describe('legacy composition serves plugin routes', () => {
     expect(missing.body).toContain('Class not found');
     expect(missing.body).not.toContain('Cannot GET');
 
-    // The boot-seeded class exists, so this one goes all the way through the port: aggregates from
+    // The setup-created class exists, so this one goes all the way through the port: aggregates from
     // classroom, praise count from engagement, and the derived rates computed here.
-    const overview = await probe('/api/analytics/classes/1/overview');
+    const overview = await probe(`/api/analytics/classes/${probeClassId}/overview`);
     expect(overview.status, `overview body: ${overview.body}`).toBe(200);
     expect(overview.body).not.toContain('Cannot GET');
 
@@ -344,7 +457,7 @@ describe('legacy composition serves plugin routes', () => {
       top_students: unknown[];
     };
     expect(payload.success).toBe(true);
-    expect(payload.class.id).toBe(1);
+    expect(payload.class.id).toBe(probeClassId);
     // Every key the summary contract names, present and numeric - the shape the dashboard reads.
     for (const key of [
       'total_students',
@@ -370,10 +483,11 @@ describe('legacy composition serves plugin routes', () => {
     expect(anonymous.status).toBe(403);
     expect(anonymous.body).not.toContain('Cannot GET');
 
-    // With the legacy header bridge, a teacher asking about a class they do not own gets the
-    // class-overview refusal - the other hand-written gate in this domain.
+    // The teacher asking about a class they do not own gets the class-overview refusal - the other
+    // hand-written gate in this domain. Like the classroom probe above, this presents a real session
+    // rather than the legacy identity headers, which no longer authenticate by default.
     const teacher = await probe('/api/analytics/classes/999/overview', {
-      headers: { 'x-user-role': 'teacher', 'x-user-id': '1' },
+      headers: { authorization: `Bearer ${await teacherToken()}` },
     });
     expect(teacher.status).toBe(403);
     expect(teacher.body).toContain('无权限查看该班级分析');
@@ -384,10 +498,10 @@ describe('legacy composition serves plugin routes', () => {
     // the strongest available evidence that the move kept working: a real HTTP login against a real
     // database, answered by the plugin's own repository through the ownership-checked `ctx.db`.
     //
-    // The account is the teacher `initDb()` always seeds with a literal password (`admin` /
-    // `admin123`), not the superadmin: `createApp()` calls `dotenv.config()` before `initDb()`, so
-    // a populated `SUPERADMIN_USERNAME`/`SUPERADMIN_PASSWORD` in `.env` *replaces* the seeded
-    // superadmin's credentials and the literal defaults are then wrong. Measured, not assumed.
+    // The account is `probe-teacher`, created through `POST /api/admin/users` in the setup above:
+    // `initDb()` no longer seeds a teacher at all, because `admin` / `admin123` was fabricated demo
+    // data published in this repository. The role still matters: `findUserByCredentials` looks a
+    // user up by `(username, role)`.
     //
     // The token matters as much as the body: it is minted from `ctx.sessions`, so a session that
     // verifies on the next request proves the plugin is wired to the kernel's session store rather
@@ -395,7 +509,7 @@ describe('legacy composition serves plugin routes', () => {
     const login = await probe('/api/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123', role: 'teacher' }),
+      body: JSON.stringify({ username: 'probe-teacher', password: 'probe-teacher-secret', role: 'teacher' }),
     });
 
     expect(login.status, `login body: ${login.body}`).toBe(200);
@@ -409,6 +523,7 @@ describe('legacy composition serves plugin routes', () => {
     };
     expect(payload.success).toBe(true);
     expect(payload.user.role).toBe('teacher');
+    expect(payload.user.username).toBe('probe-teacher');
     expect(typeof payload.token).toBe('string');
     expect(payload.expiresAt).toBeTruthy();
 
@@ -418,17 +533,19 @@ describe('legacy composition serves plugin routes', () => {
     const profile = await probe('/api/auth/profile', {
       method: 'PUT',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${payload.token}` },
-      body: JSON.stringify({ username: 'admin' }),
+      body: JSON.stringify({ username: 'probe-teacher' }),
     });
     expect(profile.status, `profile body: ${profile.body}`).toBe(200);
-    expect(JSON.parse(profile.body)).toMatchObject({ success: true, user: { username: 'admin' } });
+    expect(JSON.parse(profile.body)).toMatchObject({ success: true, user: { username: 'probe-teacher' } });
   });
 
   it('answers a bad identity login with the plugin own 401, not a catch-all 404', async () => {
+    // A wrong password for an account that exists - not an unknown username - so the 401 comes from
+    // the credential check rather than from the lookup finding nothing.
     const response = await probe('/api/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'wrong', role: 'teacher' }),
+      body: JSON.stringify({ username: 'probe-teacher', password: 'wrong', role: 'teacher' }),
     });
 
     expect(response.status).toBe(401);
@@ -441,11 +558,12 @@ describe('legacy composition serves plugin routes', () => {
     // used to be served by `api/modules/auth/legacyAuthProvider.ts`; that adapter is deleted, and
     // the route now works because plugins/identity registers an `AuthProvider` through
     // `ctx.auth.registerProvider` during setup. Without that registration this answers 503, so a
-    // 200 here is the whole wiring proof.
+    // 200 here is the whole wiring proof. The account is the setup-created teacher: a superadmin
+    // cannot log in under `role: 'teacher'`, because the lookup matches on both.
     const response = await probe('/api/kernel/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123', role: 'teacher' }),
+      body: JSON.stringify({ username: 'probe-teacher', password: 'probe-teacher-secret', role: 'teacher' }),
     });
 
     expect(response.status).toBe(200);
@@ -472,18 +590,19 @@ describe('legacy composition serves plugin routes', () => {
     // `infrastructure`-tier plugin, because it owns live orders and cannot be switched off like a
     // feature. This walks the whole chain against the real server:
     //
-    //   login -> create an order -> a bad signature is rejected -> the real mock webhook settles it
-    //   -> the order reads PAID *and* the account it paid for reports is_activated: true.
+    //   the setup session -> create an order -> a bad signature is rejected -> the real mock webhook
+    //   settles it -> the order reads PAID *and* the account it paid for reports is_activated: true.
     //
     // The last step is the one that matters. `is_activated` lives in `users` (identity's table) and
     // the order lives in `payment_orders` (this plugin's), so observing both changed proves the
     // cross-plugin activation port actually ran - no fake can show that.
-    const login = await probe('/api/auth/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123', role: 'teacher' }),
-    });
-    const token = (JSON.parse(login.body) as { token: string }).token;
+    //
+    // The payer is the setup's superadmin, whose row starts with `is_activated = 0` (the boot writes
+    // it from the environment and nothing activates it), so the flip at the end is a real change.
+    // `payment_environment: 'mock'` and `payment_enable_wechat: '1'` come from the setup's settings
+    // PUT, not from a boot seed: production gets no environment row and both channels are seeded
+    // disabled, which is why the probe states what it needs through the console API.
+    const token = await superadminToken();
     const auth = { 'content-type': 'application/json', authorization: `Bearer ${token}` };
 
     const created = await probe('/api/payment/create', {
@@ -533,7 +652,7 @@ describe('legacy composition serves plugin routes', () => {
     const profile = await probe('/api/auth/profile', {
       method: 'PUT',
       headers: auth,
-      body: JSON.stringify({ username: 'admin' }),
+      body: JSON.stringify({ username: 'probe-root' }),
     });
     expect(profile.status, `profile body: ${profile.body}`).toBe(200);
     expect(JSON.parse(profile.body)).toMatchObject({ success: true, user: { is_activated: true } });
@@ -541,10 +660,10 @@ describe('legacy composition serves plugin routes', () => {
 
   it('serves the migrated pet domain from its plugin, through the classroom port', async () => {
     // `GET /api/pet/classes/:classId` builds its answer from `classroom.public.listClassStudents`,
-    // so an empty database answering `{success, data:{students:[]}, students:[]}` proves three
+    // so the setup-created class answering `{success, data:{students:[]}, students:[]}` proves three
     // things at once: the plugin's controller ran, the port resolved, and both envelope copies
     // are intact. A route that was not mounted would be Nest's catch-all instead.
-    const response = await probe('/api/pet/classes/1');
+    const response = await probe(`/api/pet/classes/${probeClassId}`);
 
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');

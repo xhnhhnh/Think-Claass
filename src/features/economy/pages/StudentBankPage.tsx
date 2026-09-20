@@ -153,12 +153,14 @@ export default function StudentEconomy() {
               <Coins className="mr-2 size-8 text-warning" />
               {bank?.deposit_amount || 0}
             </div>
-            <Badge
-              variant="success"
-              className="mt-3 h-auto border-success/40 bg-success/20 px-3 py-1 text-sm font-bold text-success-foreground"
-            >
-              <TrendingUp /> 日利率: {((bank?.interest_rate || 0.05) * 100).toFixed(1)}%
-            </Badge>
+            {bank && (
+              <Badge
+                variant="success"
+                className="mt-3 h-auto border-success/40 bg-success/20 px-3 py-1 text-sm font-bold text-success-foreground"
+              >
+                <TrendingUp /> 日利率: {(bank.interest_rate * 100).toFixed(1)}%
+              </Badge>
+            )}
           </div>
 
           <div className="relative z-10 flex gap-3">

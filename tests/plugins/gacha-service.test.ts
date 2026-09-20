@@ -20,7 +20,7 @@ import { ApiError, openDatabase } from '@thinkclass/kernel';
 import { createDbApi, TableOwnershipError } from '@thinkclass/plugin-runtime';
 
 import { createGachaRepository } from '../../plugins/gacha/src/gacha.repository.js';
-import { GachaService } from '../../plugins/gacha/src/gacha.service.js';
+import { GachaDictionaryMissingError, GachaService } from '../../plugins/gacha/src/gacha.service.js';
 import type {
   GachaPool,
   GachaRepository,
@@ -262,6 +262,33 @@ describe('GachaService', () => {
     expect(classroom.ledger).toHaveLength(0);
   });
 
+  /**
+   * The empty-dictionary case, which used to be a silent charge: `roll()` returned the invented
+   * entry `{ id: 0, name: '星尘碎片 (未找到图鉴)' }` after the debit, so a class whose
+   * `pet_dictionary` has no row for the rolled rarity paid points for a pet that exists in no
+   * table. It is a typed failure now, and the debit is refunded.
+   */
+  it('refunds the debit when the rolled rarity has no dictionary entry', async () => {
+    await service.listPools(3);
+    repository.dictionary = [];
+
+    const failure = await service.draw(1, { poolId: 1, times: 1 }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(GachaDictionaryMissingError);
+    expect((failure as GachaDictionaryMissingError).rarity).toBe('SSR');
+    expect((failure as Error).message).not.toContain('星尘碎片');
+    expect((failure as Error).message).toContain('图鉴未配置');
+
+    // Nothing stands: the balance is back where it started, no pet was granted and the ledger is
+    // untouched (the debit and its refund are the port's business, not this domain's ledger).
+    expect(classroom.students.get(1)?.snapshot.availablePoints).toBe(500);
+    expect(repository.collection).toHaveLength(0);
+    expect(classroom.ledger).toHaveLength(0);
+  });
+
   it('rejects the draw when the port refuses the credit transfer', async () => {
     await service.listPools(3);
     classroom.failCredits = { code: 'insufficient-credits', message: '积分不足' };
@@ -406,7 +433,7 @@ describe('createGachaRepository against a real ownership-checked DbApi', () => {
         studentId: 1,
         type: 'GACHA_PULL',
         amount: -100,
-        description: 'Performed 1x Gacha Pull from 限定召唤: 星空之约',
+        description: 'Performed 1x Gacha Pull from 默认召唤',
       },
     ]);
   });

@@ -49,11 +49,16 @@ collect_inputs() {
     ADMIN_PATH=${input_admin_path:-$ADMIN_PATH}
     [[ "$ADMIN_PATH" == /* ]] || ADMIN_PATH="/$ADMIN_PATH"
 
-    read -r -p "超级管理员账号 (默认: Think): " SUPERADMIN_USERNAME
-    SUPERADMIN_USERNAME=${SUPERADMIN_USERNAME:-Think}
+    # No default credentials. This prompt used to offer `Think` / `wx951004` when the operator just
+    # pressed Enter, which kept a password published in this repository alive on every installation
+    # that accepted it - and `api/db.ts` no longer falls back to those literals either, so a blank
+    # answer here would produce a deployment nobody can log in to. Both answers are required, and the
+    # script says so instead of inventing one.
+    read -r -p "超级管理员账号（必填，安装器不再提供默认账号）: " SUPERADMIN_USERNAME
+    [ -n "$SUPERADMIN_USERNAME" ] || die "超级管理员账号不能为空。请设置自己的超级管理员账号，安装器不再提供默认账号。"
 
-    read -r -p "超级管理员密码 (默认: wx951004): " SUPERADMIN_PASSWORD
-    SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-wx951004}
+    read -r -p "超级管理员密码（必填，安装器不再提供默认密码）: " SUPERADMIN_PASSWORD
+    [ -n "$SUPERADMIN_PASSWORD" ] || die "超级管理员密码不能为空。请设置自己的超级管理员密码，安装器不再提供默认密码，也不会自动生成。"
 
     read -r -p "应用端口 (默认: ${PORT}): " input_port
     PORT=${input_port:-$PORT}

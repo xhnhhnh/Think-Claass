@@ -7,6 +7,18 @@
  *
  * The list is the plugin's own business vocabulary, which is why it stays here and not in the
  * kernel: the kernel's `SettingsApi` stores and returns `key -> value` without knowing any of them.
+ *
+ * ## The three payment keys and the boot seed
+ *
+ * `api/db.ts` seeds a fresh database with these values, so the two must agree. They disagreed on
+ * the two channel flags until the seed was fixed: it wrote `payment_enable_wechat` /
+ * `payment_enable_alipay` as `'1'` while both copies of this list declare `'0'`, i.e. a new install
+ * accepted payments nobody had configured. The seed now writes `'0'`.
+ *
+ * `payment_environment` is the one key the boot deliberately does not always write: it seeds
+ * `'mock'` only when `NODE_ENV !== 'production'`. A production database gets no row, and
+ * `plugins/payment` then refuses to create an order with an actionable 503 instead of silently
+ * issuing simulated ones - the operator picks `mock` / `sandbox` / `production` first.
  */
 
 import type { SystemSettings } from '@thinkclass/contracts/domains/admin';

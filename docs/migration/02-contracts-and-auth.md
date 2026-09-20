@@ -95,9 +95,19 @@ become a superadmin by editing a request header**.
 | Legacy `/api/auth/login` and `/api/admin/session` now also return a token | `auth.controller.ts`, `admin.controllers.ts` |
 | Frontend stores the token and sends `Authorization: Bearer` | `src/store/useStore.ts`, `src/lib/api.ts`, `Login.tsx`, `AdminLoginPage.tsx` |
 
-`ALLOW_LEGACY_HEADER_AUTH` (default **on**) controls the bridge. Every bridged
-request logs `legacy header auth used`, so the bridge is visible in logs rather than
-silently permanent.
+`ALLOW_LEGACY_HEADER_AUTH` (default **on** at the time of this round; **now defaults off**, see
+below) controls the bridge. Every bridged request logs `legacy header auth used`, so the bridge is
+visible in logs rather than silently permanent.
+
+> **Update.** The default was flipped to **off** after this round. P2 recorded that "flipping this off
+> is the breaking step, so it must be an explicit, loggable switch" - correct as a sequencing decision,
+> but the switch was never flipped, and an open-by-default bridge that accepts unverifiable
+> client-supplied headers means any caller can be any user (including `superadmin`), which makes every
+> per-endpoint authorization check advisory. Both login paths store a Bearer token and the
+> register/activate paths force a re-login, so no session established today needs the bridge. A
+> deployment that still wants it sets `ALLOW_LEGACY_HEADER_AUTH=1` and keeps the old behaviour.
+> `tests/kernel/auth-session.test.ts` now pins the closed default, the explicit opt-in, and the fact
+> that a presented-but-invalid token never falls through to the headers.
 
 ### Two defects found while building it
 

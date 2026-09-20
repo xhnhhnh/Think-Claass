@@ -25,15 +25,34 @@ export interface KernelConfig {
   /** Admin console base path. Replaces the build-time `sed` rewrite. */
   adminPath: string;
   /**
-   * When true, unverified `x-user-role` / `x-user-id` headers are accepted.
-   * Exists only to bridge the migration; must be false in production.
+   * When true, unverified `x-user-role` / `x-user-id` headers are accepted as identity.
+   *
+   * Defaults to **false**. These headers are entirely client-supplied and cannot be verified, so
+   * with this on any caller becomes any user by editing two headers - including `superadmin`. That
+   * is not a theoretical weakness: it defeats every per-endpoint authorization check in the
+   * application at once, which is why it has to default to closed rather than open.
+   *
+   * It previously defaulted to `true` as a migration bridge "so the frontend can be switched over
+   * without a flag day" (`packages/kernel/src/http/requestContext.ts`). That flag day has passed:
+   * both login paths store a Bearer token (`LoginPage.tsx`, `AdminLoginPage.tsx`), and the
+   * register/activate paths deliberately force a re-login, so no session established today depends
+   * on the bridge. Setting it to `1` remains possible for a deployment that genuinely still needs
+   * it, and every bridged request is logged as such.
+   *
+   * Consequence of the flip, stated so it is not a surprise: a browser holding a session persisted
+   * *before* tokens existed has a `user` but no `token`, so it is now anonymous and must log in
+   * again once.
    */
   allowLegacyHeaderAuth: boolean;
   /** Session lifetime in milliseconds. */
   sessionTtlMs: number;
   /** Root log level. */
   logLevel: 'debug' | 'info' | 'warn' | 'error' | 'silent';
-  /** Enable the plugin host. When false the kernel boots with zero plugins. */
+  /**
+   * Enable the plugin host. Defaults to true: since every domain is a plugin, the host being
+   * off means an application with no business routes. Turning it off is only meaningful
+   * together with `KERNEL_ENABLED=1` (a kernel-only deployment).
+   */
   pluginsEnabled: boolean;
   /** Directories scanned for plugins, in precedence order. */
   pluginDirs: string[];
@@ -89,10 +108,26 @@ export function loadConfig(options: LoadConfigOptions = {}): KernelConfig {
     staticDir: path.resolve(rootDir, env.STATIC_DIR ?? 'dist'),
     uploadsDir: path.resolve(rootDir, env.UPLOADS_DIR ?? 'uploads'),
     adminPath: env.VITE_ADMIN_PATH || env.ADMIN_PATH || DEFAULTS.adminPath,
-    allowLegacyHeaderAuth: envFlag(env.ALLOW_LEGACY_HEADER_AUTH, true),
+    allowLegacyHeaderAuth: envFlag(env.ALLOW_LEGACY_HEADER_AUTH, false),
     sessionTtlMs: envInt(env.SESSION_TTL_MS, DEFAULTS.sessionTtlMs),
     logLevel: (env.LOG_LEVEL as KernelConfig['logLevel']) || (nodeEnv === 'test' ? 'silent' : 'info'),
-    pluginsEnabled: envFlag(env.PLUGINS_ENABLED, false),
+    /**
+     * Defaults to **true**, and that default is load-bearing rather than a preference.
+     *
+     * `api/app.module.ts` declares `imports: []` - every business domain moved into a plugin - so
+     * the plugin host is the legacy composition's *only* source of modules. With the host off, that
+     * composition boots an application with zero business routes and answers 404 for `/api/students`,
+     * `/api/classes`, `/api/auth/login` and every sibling. Because nothing in `scripts/deploy-common.sh`,
+     * `install.sh`, `update.sh`, `pack.sh`, `nodemon.json` or `package.json` sets this variable, the
+     * default WAS the deployed configuration: a fresh install served no business route at all, and
+     * `/api/health` reported `plugins: { total: 0 }` as its only symptom.
+     *
+     * Kernel-only deployment is still supported - it is the explicit pair
+     * `KERNEL_ENABLED=1 PLUGINS_ENABLED=0`, which is what `docs/migration/HANDOFF.md` already
+     * prescribed. `api/app.ts` refuses legacy + plugins-off outright, because that pairing describes
+     * nothing that can serve a request.
+     */
+    pluginsEnabled: envFlag(env.PLUGINS_ENABLED, true),
     pluginDirs: (env.PLUGIN_DIRS ?? 'plugins,plugins-ext')
       .split(',')
       .map((d) => d.trim())

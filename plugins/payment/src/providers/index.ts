@@ -44,17 +44,30 @@ export interface PaymentProviderConfig {
   gateway?: string;
 }
 
+/**
+ * Build the provider for a method in an environment.
+ *
+ * The order of the two decisions is the contract, and it used to be wrong: `mock` is an explicit
+ * environment, and it is the only one that may return `MockPaymentProvider`. Every other
+ * environment must reach a real channel provider - the previous version fell through to
+ * `AlipayPaymentProvider`, which extended the mock, so `production` + `alipay` issued
+ * `mock-pay.local` URLs and accepted the mock webhook signature in production.
+ */
 export function createPaymentProvider(
   method: PaymentMethod,
-  environment: PaymentEnvironment = 'mock',
+  environment: PaymentEnvironment = 'production',
   config: PaymentProviderConfig = {},
 ): PaymentProvider {
   if (environment === 'mock') {
     return new MockPaymentProvider(method, environment);
   }
 
-  if (method === 'wechat') {
-    return new WechatPaymentProvider(environment, config);
+  switch (method) {
+    case 'wechat':
+      return new WechatPaymentProvider(environment, config);
+    case 'alipay':
+      return new AlipayPaymentProvider(environment, config);
+    default:
+      throw new Error(`Unsupported payment method: ${String(method)}`);
   }
-  return new AlipayPaymentProvider(environment, config);
 }

@@ -16,8 +16,11 @@
  *      right status.
  *
  * Authorization is unchanged in position: `requireAdmin` guards every `/api/admin` route, the
- * update routes additionally require `superadmin`, and the OpenAPI routes stay unguarded exactly as
- * they were (they are a public API-key surface; changing that is a product decision, not a port).
+ * update routes additionally require `superadmin`, and so do the OpenAPI and audit-log routes -
+ * the console is the only caller of all three, and it sends the session token its own login
+ * (`POST /api/admin/session`) mints. Those two controllers used to be reachable anonymously:
+ * `/api/openapi/keys` answered with plaintext `sk_...` keys and the audit log with operator ids
+ * and IPs, so the gate is a fix, not a behaviour change the UI can observe.
  */
 
 import {
@@ -266,8 +269,9 @@ export class OpenApiController {
   constructor(@Inject(OpenApiService) private readonly openApiService: OpenApiService) {}
 
   @Get('keys')
-  listKeys() {
+  listKeys(@Req() req: Request) {
     try {
+      requireAdmin(req);
       return { success: true, keys: this.openApiService.listKeys() };
     } catch (error) {
       console.error('Fetch API keys error:', error);
@@ -277,8 +281,9 @@ export class OpenApiController {
 
   @Post('keys')
   @HttpCode(HttpStatus.OK)
-  createKey(@Body() body: Record<string, any>) {
+  createKey(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
+      requireAdmin(req);
       return { success: true, key: this.openApiService.createKey(body) };
     } catch (error) {
       if (!(error instanceof ApiError)) console.error('Create API key error:', error);
@@ -287,8 +292,9 @@ export class OpenApiController {
   }
 
   @Delete('keys/:id')
-  deleteKey(@Param('id') id: string) {
+  deleteKey(@Req() req: Request, @Param('id') id: string) {
     try {
+      requireAdmin(req);
       this.openApiService.deleteKey(id);
       return { success: true };
     } catch (error) {
@@ -298,8 +304,9 @@ export class OpenApiController {
   }
 
   @Get('schools')
-  listSchools() {
+  listSchools(@Req() req: Request) {
     try {
+      requireAdmin(req);
       return { success: true, schools: this.openApiService.listSchools() };
     } catch (error) {
       console.error('Fetch schools error:', error);
@@ -309,8 +316,9 @@ export class OpenApiController {
 
   @Post('schools')
   @HttpCode(HttpStatus.OK)
-  createSchool(@Body() body: Record<string, any>) {
+  createSchool(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
+      requireAdmin(req);
       return { success: true, school: this.openApiService.createSchool(body) };
     } catch (error) {
       if (!(error instanceof ApiError)) console.error('Create school error:', error);
@@ -319,8 +327,9 @@ export class OpenApiController {
   }
 
   @Put('schools/:id')
-  updateSchool(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateSchool(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
     try {
+      requireAdmin(req);
       return { success: true, school: this.openApiService.updateSchool(id, body) };
     } catch (error) {
       if (!(error instanceof ApiError)) console.error('Update school error:', error);
@@ -329,8 +338,9 @@ export class OpenApiController {
   }
 
   @Delete('schools/:id')
-  deleteSchool(@Param('id') id: string) {
+  deleteSchool(@Req() req: Request, @Param('id') id: string) {
     try {
+      requireAdmin(req);
       this.openApiService.deleteSchool(id);
       return { success: true };
     } catch (error) {
@@ -345,8 +355,9 @@ export class AuditLogsController {
   constructor(@Inject(AuditLogsService) private readonly auditLogsService: AuditLogsService) {}
 
   @Get()
-  listLogs(@Query() query: Record<string, any>) {
+  listLogs(@Req() req: Request, @Query() query: Record<string, any>) {
     try {
+      requireAdmin(req);
       return { success: true, ...this.auditLogsService.listLogs(query) };
     } catch (error) {
       throwAdminError(error, errorMessage);

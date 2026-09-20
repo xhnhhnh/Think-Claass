@@ -1,82 +1,102 @@
 import { useState } from 'react';
-import { AlertCircle, Award, BarChart3, BookOpen, CheckCircle, Clock, FileText, Star, TrendingUp } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  AlertCircle,
+  Award,
+  BarChart3,
+  BookOpen,
+  CheckCircle,
+  Clock,
+  FileText,
+  Heart,
+  LoaderCircle,
+  Star,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
 import { StatCard } from '@/components/ui/stat-card';
+import { useStudentReport } from '@/hooks/queries/useAnalytics';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/store/useStore';
 
-interface Assignment {
-  id: number;
-  title: string;
-  subject: string;
-  dueDate: string;
-  status: 'pending' | 'submitted' | 'graded';
-  score?: number;
-}
-
-interface Exam {
-  id: number;
-  title: string;
-  subject: string;
-  date: string;
-  score: number;
-  totalScore: number;
-  classAverage: number;
-}
+/** Shown where the API has no figure yet; a `0` would read as a real result. */
+const NOT_RECORDED = '—';
 
 /**
- * Subject chips, as complete class strings.
+ * How an assignment status is named here.
  *
- * The four subjects used to pick indigo/coral/amber/green by `switch`, and `coral` is not
- * a family `tailwind.config.js` registers - two of the four chips had no background at
- * all. The map keeps one hue per subject out of the token set (the parent theme's orange
- * is `primary`), and it is spelled out rather than composed because Tailwind cannot
- * compile a class name it cannot see.
+ * The status column is free text on the wire, so an unrecognised value is printed as-is
+ * (below) instead of being folded into one of these three.
  */
-const SUBJECT_TONES: Record<string, string> = {
-  数学: 'border-info/20 bg-info/10 text-info',
-  语文: 'border-primary/20 bg-primary/5 text-primary',
-  英语: 'border-warning/20 bg-warning/10 text-warning',
+const ASSIGNMENT_STATUS: Record<string, { label: string; variant: 'warning' | 'info' | 'success'; icon: LucideIcon }> = {
+  pending: { label: '待完成', variant: 'warning', icon: AlertCircle },
+  submitted: { label: '老师查看中', variant: 'info', icon: FileText },
+  graded: { label: '已批改', variant: 'success', icon: CheckCircle },
 };
-
-const DEFAULT_SUBJECT_TONE = 'border-success/20 bg-success/10 text-success';
-
-const getSubjectTone = (subject: string) => SUBJECT_TONES[subject] ?? DEFAULT_SUBJECT_TONE;
 
 /**
  * 学习采撷.
  *
- * The three header tiles were gradients in the coral, green and indigo/purple families -
- * coral is not registered in `tailwind.config.js` at all and the other two are off-brand -
- * so they are `StatCard`s now, whose `tone` is an enum. The completion bar was a hard-coded
- * `style={{ width: '75%' }}` that did not even agree with the figure printed above it, and
- * it is the kit's `Progress` fed by the same computation. There is no `PageHeader` here:
- * the shell already prints this route's title, and duplicating it is P6's open question.
+ * Everything on this page used to be a literal: four assignments with invented due dates, three
+ * exams with invented class averages, and the three header tiles computed from them. It now
+ * reads the child's real report (`useStudentReport`, the same endpoint 成长足迹 uses), and
+ * fields the report does not carry - a per-assignment subject, a per-exam class average - are
+ * gone rather than guessed. A figure that has no rows behind it renders `—`, and an empty list
+ * renders `EmptyState`, so nothing here can be mistaken for data that does not exist.
+ *
+ * The layout is unchanged: `StatCard` tiles over one `Card` whose segmented control switches
+ * the two lists.
  */
 export default function ParentAssignments() {
+  const user = useStore((state) => state.user);
   const [activeTab, setActiveTab] = useState<'assignments' | 'exams'>('assignments');
+  const studentId = user?.studentId ?? null;
+  const { data: report, isLoading, error } = useStudentReport(studentId);
 
-  const assignments: Assignment[] = [
-    { id: 1, title: '数学课后练习', subject: '数学', dueDate: '2023-11-15', status: 'pending' },
-    { id: 2, title: '语文阅读分享', subject: '语文', dueDate: '2023-11-14', status: 'submitted' },
-    { id: 3, title: '英语单词记忆', subject: '英语', dueDate: '2023-11-10', status: 'graded', score: 95 },
-    { id: 4, title: '科学小实验', subject: '科学', dueDate: '2023-11-08', status: 'graded', score: 88 },
-  ];
+  if (!user?.studentId) {
+    return (
+      <EmptyState
+        icon={Heart}
+        className="mx-auto max-w-xl"
+        title="等待宝贝加入"
+        description="您的账号还没有绑定宝贝信息，绑定后这里会显示真实的学习记录与成绩。"
+      />
+    );
+  }
 
-  const exams: Exam[] = [
-    { id: 1, title: '期中数学检测', subject: '数学', date: '2023-11-01', score: 92, totalScore: 100, classAverage: 85 },
-    { id: 2, title: '期中语文检测', subject: '语文', date: '2023-11-02', score: 88, totalScore: 100, classAverage: 82 },
-    { id: 3, title: '英语单元小测', subject: '英语', date: '2023-10-20', score: 95, totalScore: 100, classAverage: 90 },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center rounded-panel bg-paper p-16 text-ink-3 shadow-raised">
+        <LoaderCircle className="mr-3 size-5 animate-spin" />
+        正在获取学习记录...
+      </div>
+    );
+  }
 
-  const pendingCount = assignments.filter(a => a.status === 'pending').length;
-  const averageScore = Math.round(exams.reduce((acc, curr) => acc + curr.score, 0) / (exams.length || 1));
-  const completionRate = Math.round(
-    (assignments.filter(a => a.status !== 'pending').length / assignments.length) * 100,
-  );
+  if (error) {
+    return (
+      <div className="rounded-panel border border-red-100 bg-red-50 px-8 py-16 text-center text-red-600 shadow-raised">
+        学习记录加载失败，请稍后重试。
+      </div>
+    );
+  }
+
+  const assignments = report?.assignments ?? [];
+  const exams = report?.recent_exams ?? [];
+
+  const pendingCount = assignments.filter((assignment) => assignment.status === 'pending').length;
+  const averageScore = exams.length > 0
+    ? Math.round(exams.reduce((acc, exam) => acc + exam.score, 0) / exams.length)
+    : null;
+  const completionRate = assignments.length > 0
+    ? Math.round(
+        (assignments.filter((assignment) => assignment.status !== 'pending').length / assignments.length) * 100,
+      )
+    : null;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -96,37 +116,44 @@ export default function ParentAssignments() {
         <StatCard
           label="平均成绩"
           value={
-            <>
-              {averageScore}
-              <span className="ml-1 text-sm font-medium text-ink-3">分</span>
-            </>
+            averageScore === null ? (
+              NOT_RECORDED
+            ) : (
+              <>
+                {averageScore}
+                <span className="ml-1 text-sm font-medium text-ink-3">分</span>
+              </>
+            )
           }
           icon={BarChart3}
           tone="success"
-          hint={
-            <span className="flex items-center gap-1.5">
-              <TrendingUp aria-hidden="true" className="size-4" />
-              表现很棒哦
-            </span>
-          }
+          hint={averageScore === null ? '还没有出分的考试' : '按已出分考试计算'}
         />
         <StatCard
           label="学习完成率"
           value={
-            <>
-              {completionRate}
-              <span className="ml-1 text-sm font-medium text-ink-3">%</span>
-            </>
+            completionRate === null ? (
+              NOT_RECORDED
+            ) : (
+              <>
+                {completionRate}
+                <span className="ml-1 text-sm font-medium text-ink-3">%</span>
+              </>
+            )
           }
           icon={CheckCircle}
           tone="info"
           hint={
-            <Progress
-              value={completionRate}
-              label={`学习完成率 ${completionRate}%`}
-              tone="info"
-              className="mt-2"
-            />
+            completionRate === null ? (
+              '还没有作业记录'
+            ) : (
+              <Progress
+                value={completionRate}
+                label={`学习完成率 ${completionRate}%`}
+                tone="info"
+                className="mt-2"
+              />
+            )
           }
         />
       </div>
@@ -165,105 +192,118 @@ export default function ParentAssignments() {
 
         <CardContent className="p-5">
           {activeTab === 'assignments' ? (
-            <div className="space-y-3">
-              {assignments.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="flex flex-col justify-between gap-4 rounded-panel border border-border bg-muted/50 p-5 md:flex-row md:items-center"
-                >
-                  <div className="flex items-start gap-4">
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-card border px-3 py-1.5 text-sm font-bold',
-                        getSubjectTone(assignment.subject),
-                      )}
+            assignments.length === 0 ? (
+              <EmptyState
+                icon={BookOpen}
+                className="border-0 bg-transparent"
+                title="还没有学习记录"
+                description="老师布置作业之后会显示在这里"
+              />
+            ) : (
+              <div className="space-y-3">
+                {assignments.map((assignment, index) => {
+                  const status = ASSIGNMENT_STATUS[assignment.status];
+                  const StatusIcon = status?.icon;
+
+                  return (
+                    <div
+                      key={`${assignment.title}-${index}`}
+                      className="flex flex-col justify-between gap-4 rounded-panel border border-border bg-muted/50 p-5 md:flex-row md:items-center"
                     >
-                      {assignment.subject}
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-base font-bold tracking-wide text-ink-1">{assignment.title}</h3>
-                      <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-3">
-                        <Clock aria-hidden="true" className="size-4" />
-                        截止: {assignment.dueDate}
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold tracking-wide text-ink-1">{assignment.title}</h3>
+                        <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-3">
+                          <Clock aria-hidden="true" className="size-4" />
+                          截止: {assignment.due_date ?? '老师未设置截止日期'}
+                        </div>
+                        {assignment.teacher_feedback ? (
+                          <p className="mt-2 text-sm leading-relaxed text-ink-2">
+                            老师评语：{assignment.teacher_feedback}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 md:w-48 md:justify-end">
+                        {assignment.score != null ? (
+                          <div className="text-right">
+                            <span className="block text-xs font-bold uppercase tracking-widest text-ink-3">
+                              得分
+                            </span>
+                            <span className="text-2xl font-bold text-success">{assignment.score}</span>
+                          </div>
+                        ) : null}
+                        {status && StatusIcon ? (
+                          <Badge variant={status.variant}>
+                            <StatusIcon data-icon="inline-start" />
+                            {status.label}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">{assignment.status}</Badge>
+                        )}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 md:w-48 md:justify-end">
-                    {assignment.status === 'pending' && (
-                      <Badge variant="warning">
-                        <AlertCircle data-icon="inline-start" />
-                        待完成
-                      </Badge>
-                    )}
-                    {assignment.status === 'submitted' && (
-                      <Badge variant="info">
-                        <FileText data-icon="inline-start" />
-                        老师查看中
-                      </Badge>
-                    )}
-                    {assignment.status === 'graded' && (
-                      <div className="text-right">
-                        <span className="block text-xs font-bold uppercase tracking-widest text-ink-3">得分</span>
-                        <span className="text-2xl font-bold text-success">{assignment.score}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )
+          ) : exams.length === 0 ? (
+            <EmptyState
+              icon={Award}
+              className="border-0 bg-transparent"
+              title="还没有考试成绩"
+              description="老师录入成绩之后会显示在这里"
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {exams.map((exam) => (
-                <div key={exam.id} className="rounded-panel border border-border bg-muted/50 p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={cn(
-                          'rounded-card border px-3 py-1.5 text-sm font-bold',
-                          getSubjectTone(exam.subject),
-                        )}
-                      >
-                        {exam.subject}
-                      </span>
-                      <span className="text-sm font-medium tracking-wider text-ink-3">{exam.date}</span>
-                    </div>
-                    {exam.score >= 90 && (
-                      <Badge variant="warning">
-                        <Star data-icon="inline-start" className="fill-current" />
-                        太棒啦
-                      </Badge>
-                    )}
-                  </div>
+              {exams.map((exam, index) => {
+                const scoreRate = exam.total_score > 0 ? exam.score / exam.total_score : null;
 
-                  <h3 className="mt-4 text-lg font-bold tracking-wide text-ink-1">{exam.title}</h3>
-
-                  <div className="mt-5 flex items-end justify-between rounded-panel border border-border bg-paper p-5">
-                    <div>
-                      <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-3">
-                        班级平均分
+                return (
+                  <div key={`${exam.title}-${index}`} className="rounded-panel border border-border bg-muted/50 p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-sm font-medium tracking-wider text-ink-3">
+                        {exam.exam_date ?? '未记录考试日期'}
                       </span>
-                      <span className="text-xl font-bold text-ink-2">{exam.classAverage}</span>
+                      {scoreRate !== null && scoreRate >= 0.9 ? (
+                        <Badge variant="warning">
+                          <Star data-icon="inline-start" className="fill-current" />
+                          太棒啦
+                        </Badge>
+                      ) : null}
                     </div>
-                    <div className="text-right">
-                      <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-3">
-                        宝贝得分
-                      </span>
-                      <div className="flex items-baseline justify-end">
-                        <span
-                          className={cn(
-                            'text-3xl font-bold tracking-tight',
-                            exam.score >= exam.classAverage ? 'text-success' : 'text-warning',
-                          )}
-                        >
-                          {exam.score}
+
+                    <h3 className="mt-4 text-lg font-bold tracking-wide text-ink-1">{exam.title}</h3>
+                    {exam.feedback ? (
+                      <p className="mt-2 text-sm leading-relaxed text-ink-2">老师评语：{exam.feedback}</p>
+                    ) : null}
+
+                    <div className="mt-5 flex items-end justify-between rounded-panel border border-border bg-paper p-5">
+                      <div>
+                        <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                          卷面总分
                         </span>
-                        <span className="ml-1.5 text-sm font-medium text-ink-3">/ {exam.totalScore}</span>
+                        <span className="text-xl font-bold text-ink-2">{exam.total_score}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                          宝贝得分
+                        </span>
+                        <div className="flex items-baseline justify-end">
+                          <span
+                            className={cn(
+                              'text-3xl font-bold tracking-tight',
+                              scoreRate !== null && scoreRate >= 0.6 ? 'text-success' : 'text-warning',
+                            )}
+                          >
+                            {exam.score}
+                          </span>
+                          <span className="ml-1.5 text-sm font-medium text-ink-3">/ {exam.total_score}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

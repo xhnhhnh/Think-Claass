@@ -31,6 +31,7 @@ import express, {
   type NextFunction,
 } from 'express'
 import path from 'path'
+import fs from 'node:fs'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import {
@@ -40,6 +41,7 @@ import {
   renderError,
   type AuthProvider,
   type Kernel,
+  type KernelConfig,
   type KernelRuntimeHooks,
   type PluginHostView,
 } from '@thinkclass/kernel';
@@ -55,11 +57,33 @@ import { CORE_AUDIT_DESCRIPTORS, CORE_AUDIT_OWNER } from './audit/descriptors.js
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-function registerStaticAssets(server: Express) {
+/**
+ * Serve uploaded files, the built frontend, and the SPA fallback.
+ *
+ * This is the composition that actually ships (`npm run start`), and the `GET *` handler below is
+ * the only place that injects `window.__TC_CONFIG__`. It did not inject anything: it answered with
+ * `res.sendFile(dist/index.html)`, which ships the file byte-for-byte, while the *kernel's* handler
+ * (`createKernel`) does the marker replacement. Since a deployment runs the legacy composition by
+ * default, `window.__TC_CONFIG__` was never defined there - so every `runtimeConfig()` reader in the
+ * frontend fell back to its build-time value and the per-deployment admin path (`ADMIN_PATH` /
+ * `VITE_ADMIN_PATH`) never took effect. `src/constants.ts` and the P5.3a notes both assume the
+ * kernel's injection is what the app sees; in the default composition it never ran.
+ *
+ * The handler now mirrors the kernel's: read `index.html`, replace `<!--__TC_CONFIG__-->`, send the
+ * result. `index: false` is load-bearing on both sides - with the default `express.static` settings
+ * the middleware answers `/` from `index.html` itself, so this handler never runs and the marker
+ * survives as a literal HTML comment. That is exactly the bug the kernel's copy documents fixing,
+ * and the same reasoning applies here.
+ *
+ * The marker is left in place when `index.html` is absent, so a deployment without a frontend build
+ * still gets a clean 404 rather than an error.
+ */
+function registerStaticAssets(server: Express, config: KernelConfig) {
   const distPath = path.join(__dirname, '../dist')
+  const indexHtml = path.join(distPath, 'index.html')
 
   server.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
-  server.use(express.static(distPath))
+  server.use(express.static(distPath, { index: false }))
 
   server.get('*', (req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api')) {
@@ -67,7 +91,24 @@ function registerStaticAssets(server: Express) {
       return
     }
 
-    res.sendFile(path.join(distPath, 'index.html'))
+    if (!fs.existsSync(indexHtml)) {
+      next()
+      return
+    }
+
+    // The same payload the kernel writes, so both compositions describe themselves identically to
+    // the frontend.
+    const html = fs.readFileSync(indexHtml, 'utf8').replace(
+      '<!--__TC_CONFIG__-->',
+      `<script>window.__TC_CONFIG__=${JSON.stringify({
+        adminPath: config.adminPath,
+        apiBase: '/api',
+        pluginRuntime: config.pluginsEnabled,
+        env: config.env,
+      })}</script>`,
+    )
+
+    res.type('html').send(html)
   })
 }
 
@@ -210,7 +251,7 @@ export async function createLegacyApp(kernel: Kernel): Promise<Express> {
   // 注入操作日志中间件
   server.use(operationLogger)
 
-  registerStaticAssets(server)
+  registerStaticAssets(server, kernel.config)
 
   await nest.init()
 
@@ -262,6 +303,52 @@ async function mountPlugins(hooks: KernelRuntimeHooks): Promise<PluginHostView |
   return pluginHost;
 }
 
+/**
+ * Refuse to serve a composition that cannot answer a business request, and say so loudly.
+ *
+ * Both checks exist because this failure mode is **silent by construction**. `api/app.module.ts`
+ * declares `imports: []` - every domain is a plugin now - so the plugin host is the legacy
+ * composition's only source of modules. When it does not run, Nest still starts, `/api/health` still
+ * answers `200 {"success":true}`, and every business route answers 404. There is no error, no
+ * warning, and nothing in the deployment that points at the cause.
+ *
+ * That is not hypothetical. `PLUGINS_ENABLED` defaulted to `false` while every launcher
+ * (`scripts/deploy-common.sh`, `install.sh`, `update.sh`, `update.ps1`, `pack.sh`, `nodemon.json`,
+ * `package.json`) left it unset, so this was the *deployed* configuration: a fresh install served no
+ * business route at all. `/api/health`'s only hint was `plugins: { total: 0 }`, and the test suite
+ * never exercised the default (`tests/plugins/legacy-boot-probe.test.ts` pins `PLUGINS_ENABLED: '1'`).
+ *
+ * Two distinct causes, two distinct messages:
+ *
+ *   1. the host was switched off in the legacy composition - always a misconfiguration, because that
+ *      composition has no other module source. Kernel-only deployment is the explicit pair
+ *      `KERNEL_ENABLED=1 PLUGINS_ENABLED=0` and is deliberately exempt;
+ *   2. the host ran but discovered nothing - a wrong `PLUGIN_DIRS` / `THINK_CLASS_ROOT`, or a release
+ *      archive missing `plugins/` (the exact defect `pack.sh` once shipped, and which G19 now
+ *      cross-checks at packaging time).
+ */
+function assertUsableComposition(config: KernelConfig, kernelEnabled: boolean): void {
+  const activated = pluginHost?.summary().active ?? 0;
+
+  if (!kernelEnabled && !config.pluginsEnabled) {
+    throw new Error(
+      'PLUGINS_ENABLED=0 is not a usable configuration for the legacy composition: every domain is a ' +
+        'plugin now (`api/app.module.ts` declares imports: []), so this combination boots an application ' +
+        'with zero business routes. Unset PLUGINS_ENABLED to use the default (plugin host on), or set ' +
+        'KERNEL_ENABLED=1 for a kernel-only deployment.',
+    );
+  }
+
+  if (config.pluginsEnabled && activated === 0) {
+    throw new Error(
+      `The plugin host is enabled but activated 0 plugins, so no business route would be served. ` +
+        `Checked plugin directories: ${config.pluginDirs.join(', ') || '(none)'}. ` +
+        `Check PLUGIN_DIRS and THINK_CLASS_ROOT, and that the deployment actually contains ` +
+        `plugins/*/plugin.json.`,
+    );
+  }
+}
+
 export async function createApp(): Promise<Express> {
   dotenv.config()
 
@@ -297,6 +384,8 @@ export async function createApp(): Promise<Express> {
   // are recorded and how they read. Registering them in both compositions means the
   // legacy app keeps exactly the coverage it had.
   bootedKernel.auditRegistry.register(CORE_AUDIT_DESCRIPTORS, CORE_AUDIT_OWNER)
+
+  assertUsableComposition(bootedKernel.config, kernelEnabled)
 
   if (kernelEnabled) {
     return bootedKernel.app

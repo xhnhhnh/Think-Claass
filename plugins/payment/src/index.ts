@@ -55,7 +55,9 @@ export default definePlugin({
 
     ctx.log.info('payment service ready', {
       owns: ctx.plugin.slug,
-      environment: ctx.settings.getPlatform<string>('payment_environment') ?? 'mock',
+      // No `?? 'mock'`: an unset environment used to be reported - and, before PAY-1, treated - as
+      // mock. The service now refuses to build a provider until the operator chooses one.
+      environment: ctx.settings.getPlatform<string>('payment_environment') ?? '(unset)',
     });
   },
 

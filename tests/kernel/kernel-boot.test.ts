@@ -6,9 +6,15 @@
  */
 
 import type { Server } from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createKernel, type Kernel } from '@thinkclass/kernel';
+
+// `package.json` is the version source of truth (docs/versioning.md); ROOT comes from the same
+// helper the guardrail suite uses, rather than a second relative-path guess.
+import { ROOT } from '../guardrails/lib/paths.mjs';
 
 let kernel: Kernel;
 let server: Server;
@@ -42,6 +48,18 @@ describe('kernel boots with zero plugins', () => {
     expect(body.success).toBe(true);
     expect(body.kernel.apiVersion).toBe(1);
     expect(body.kernel.plugins).toEqual({ total: 0, active: 0, degraded: 0 });
+  });
+
+  it('reports the application version instead of a hardcoded one', async () => {
+    // `version`/`kernelVersion` used to be the literal '1.0.0' while package.json said 2.0.0 -
+    // unusable for an operator and wrong about both the kernel API and the application.
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string };
+
+    const health = await get('/api/health');
+    expect(health.body.kernel.version).toBe(pkg.version);
+
+    const info = await get('/api/kernel/info');
+    expect(info.body.data.kernelVersion).toBe(pkg.version);
   });
 
   it('reports itself through /api/kernel/info', async () => {

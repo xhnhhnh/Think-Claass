@@ -121,6 +121,21 @@ export function createClassroomRepository(ctx: KernelContext) {
         : db.query<StudentDetailRow>(base);
     },
 
+    /**
+     * Roster rows for an explicit student set, same projection as `listStudentDetails`.
+     *
+     * `GET /api/students` resolves a *scope* from the caller first - a teacher's classes, a
+     * parent's children, a student's own row - and this is the one read that turns that id
+     * set back into rows. Ids are bound individually, and an empty list answers `[]` without
+     * a query: `IN ()` is a syntax error, and "no ids" must never widen into "every student"
+     * (the same rule `listStudentAccountsByClassIds` documents for the deletion scope).
+     */
+    listStudentDetailsByIds(studentIds: number[]): StudentDetailRow[] {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(', ');
+      return db.query<StudentDetailRow>(`${STUDENT_DETAIL_SELECT} WHERE s.id IN (${placeholders})`, studentIds);
+    },
+
     studentUserId(studentId: unknown): { user_id: number } | undefined {
       return db.get<{ user_id: number }>(`SELECT user_id FROM students WHERE id = ?`, [studentId as never]);
     },
@@ -222,6 +237,33 @@ export function createClassroomRepository(ctx: KernelContext) {
       `;
 
       return db.query<{ id: number; name: string; points_gained: number }>(query, params as never[]);
+    },
+
+    /**
+     * The progress-star rows of an explicit student set.
+     *
+     * Same aggregate, window and ordering as `listProgressStar`, but scoped by student ids
+     * rather than by class. The id form exists because the scoped callers cannot use the
+     * class form: a student may only see their own row (the global `LIMIT 10` would drop it),
+     * and a teacher's answer must be the union over the classes they own, not one class.
+     */
+    listProgressStarForStudents(studentIds: number[]): Array<{ id: number; name: string; points_gained: number }> {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(', ');
+      return db.query<{ id: number; name: string; points_gained: number }>(
+        `SELECT s.id, s.name, COALESCE(SUM(r.amount), 0) as points_gained
+           FROM students s
+           LEFT JOIN records r ON s.id = r.student_id
+             AND r.type = 'ADD_POINTS'
+             AND r.amount > 0
+             AND r.created_at >= datetime('now', '-7 days')
+          WHERE s.id IN (${placeholders})
+          GROUP BY s.id
+         HAVING points_gained > 0
+          ORDER BY points_gained DESC
+          LIMIT 10`,
+        studentIds,
+      );
     },
 
     /** The `students` half of `createStudentAccount`; the `users` half is a foreign write. */
@@ -446,6 +488,26 @@ export function createClassroomRepository(ctx: KernelContext) {
     },
 
     /**
+     * The ledger rows of an explicit student set, newest first.
+     *
+     * `listRecords` narrows to one student or one teacher; a parent's read scope is the list
+     * of children linked to them, so the multi-student form exists here instead of looping
+     * the single-student query per child. Same projection and same ordering as the branches
+     * above, and an empty list answers `[]` without a query.
+     */
+    listRecordsForStudents(studentIds: number[]): LedgerRow[] {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(', ');
+      return db.query<LedgerRow>(
+        `SELECT r.*, s.name as student_name
+           FROM records r JOIN students s ON r.student_id = s.id
+          WHERE r.student_id IN (${placeholders})
+          ORDER BY r.created_at DESC`,
+        studentIds,
+      );
+    },
+
+    /**
      * The `LUCKY_DRAW` history behind the "非酋附体" achievement.
      *
      * `redemption_tickets` is marketplace-owned; declared as a read in the manifest, so it
@@ -620,6 +682,16 @@ export function createClassroomRepository(ctx: KernelContext) {
       query += ' ORDER BY created_at DESC';
 
       return db.query<Record<string, unknown>>(query, params as never[]);
+    },
+
+    /**
+     * One leave request, for the authorization check `PUT /api/leaves/:id` needs.
+     *
+     * The reviewer must be the teacher of the class the requesting student belongs to, which
+     * cannot be decided from the request body - it is a property of the row being changed.
+     */
+    findLeave(id: unknown): Record<string, unknown> | undefined {
+      return db.get<Record<string, unknown>>(`SELECT * FROM leave_requests WHERE id = ?`, [id as never]);
     },
 
     /** FOREIGN WRITE - `leave_requests` has no owning plugin yet. */

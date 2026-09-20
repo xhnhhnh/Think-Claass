@@ -1,220 +1,309 @@
 import { useState } from 'react';
-import { CalendarCheck, CheckCircle, XCircle, Clock, Search, UserCheck, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import type { LucideIcon } from 'lucide-react';
+import { AlertCircle, CalendarCheck, CheckCircle, Clock, UserCheck, Users, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Student {
-  id: number;
-  name: string;
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { SectionCard } from '@/components/ui/section-card';
+import type { SaveAttendanceRecordPayload } from '@/features/classroom/api/attendanceApi';
+import { useAttendance, useSaveAttendanceMutation } from '@/features/classroom/hooks/useAttendance';
+import { useLeaves, useUpdateLeaveMutation } from '@/features/classroom/hooks/useLeaves';
+import { useClasses } from '@/hooks/queries/useClasses';
+import { useStudents } from '@/hooks/queries/useStudents';
+import { cn } from '@/lib/utils';
+
+interface AttendanceOption {
+  value: string;
+  label: string;
+  icon: LucideIcon;
+  activeClassName: string;
 }
 
-interface LeaveRequest {
-  id: number;
-  studentName: string;
-  reason: string;
-  startDate: string;
-  endDate: string;
-  status: 'pending' | 'approved' | 'rejected';
+/** The states this page records; the value is stored verbatim in `attendance_records.status`. */
+const ATTENDANCE_OPTIONS: AttendanceOption[] = [
+  { value: 'present', label: '出勤', icon: CheckCircle, activeClassName: 'border-primary/20 bg-primary/10 text-primary' },
+  { value: 'absent', label: '缺勤', icon: XCircle, activeClassName: 'border-destructive/30 bg-destructive/20 text-destructive' },
+  { value: 'late', label: '迟到', icon: Clock, activeClassName: 'border-orange-200 bg-warning/20 text-orange-700' },
+  { value: 'leave', label: '请假', icon: AlertCircle, activeClassName: 'border-blue-200 bg-blue-100 text-blue-700' },
+];
+
+const INACTIVE_STATUS_CLASS =
+  'border-border bg-paper/80 text-ink-2 backdrop-blur-xl hover:bg-muted/60';
+
+/** Status labels; an unknown status keeps its own text instead of a guessed one. */
+const LEAVE_STATUS_META: Record<string, { label: string; className: string }> = {
+  pending: { label: '待审批', className: 'bg-warning/20 text-orange-700' },
+  approved: { label: '已批准', className: 'bg-primary/10 text-primary' },
+  rejected: { label: '已拒绝', className: 'bg-destructive/20 text-destructive' },
+};
+
+/** Today as `YYYY-MM-DD` in local time, the format `attendance_records.date` stores. */
+function localDateString(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * 考勤与请假.
+ *
+ * Both tabs read and write the real endpoints: the roster comes from
+ * `GET /api/students?classId=`, the day's marks from `GET /api/attendance?class_id=&date=`
+ * and are saved with `POST /api/attendance`; leave requests come from `GET /api/leaves`
+ * and are decided with `PUT /api/leaves/:id`. A student with no saved row for the chosen
+ * day starts unmarked - nothing is pre-filled with an invented status, and a student left
+ * unmarked is not written on save.
+ */
 export default function TeacherAttendance() {
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  const students: Student[] = [
-    { id: 1, name: '张三' },
-    { id: 2, name: '李四' },
-    { id: 3, name: '王五' },
-    { id: 4, name: '赵六' },
-  ];
-
-  // Attendance states: present, absent, late, leave
-  const [attendance, setAttendance] = useState<Record<number, string>>({
-    1: 'present',
-    2: 'present',
-    3: 'late',
-    4: 'leave'
-  });
-
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([
-    { id: 1, studentName: '赵六', reason: '生病发烧', startDate: '2026-04-05', endDate: '2026-04-06', status: 'approved' },
-    { id: 2, studentName: '李四', reason: '家里有事', startDate: '2026-04-07', endDate: '2026-04-07', status: 'pending' }
-  ]);
-
+  const { data: classes = [], isLoading: isClassesLoading } = useClasses();
+  const [preferredClassId, setPreferredClassId] = useState<number | null>(null);
+  const [currentDate, setCurrentDate] = useState(localDateString);
   const [activeTab, setActiveTab] = useState<'take' | 'leaves'>('take');
+  /** Unsaved picks for the selected day, keyed by student id. */
+  const [draftStatus, setDraftStatus] = useState<Record<number, string>>({});
 
-  const handleStatusChange = (studentId: number, status: string) => {
-    setAttendance(prev => ({ ...prev, [studentId]: status }));
+  // The teacher's own first class is the default; no request fires until one is known.
+  const selectedClassId = preferredClassId ?? classes[0]?.id ?? null;
+
+  const { data: students = [], isLoading: isStudentsLoading } = useStudents(selectedClassId);
+  const { data: attendanceRows = [], isLoading: isAttendanceLoading } = useAttendance(
+    { classId: selectedClassId, date: currentDate },
+    !!selectedClassId,
+  );
+  const { data: leaveRows = [], isLoading: isLeavesLoading } = useLeaves({}, !!selectedClassId);
+  const saveAttendanceMutation = useSaveAttendanceMutation();
+  const updateLeaveMutation = useUpdateLeaveMutation();
+
+  const savedStatusByStudent = new Map<number, string>();
+  for (const row of attendanceRows) {
+    if (row.student_id !== null) savedStatusByStudent.set(row.student_id, row.status);
+  }
+  const statusOf = (studentId: number): string | null =>
+    draftStatus[studentId] ?? savedStatusByStudent.get(studentId) ?? null;
+  const studentNames = new Map(students.map((student) => [student.id, student.name]));
+  const hasPendingLeave = leaveRows.some((row) => row.status === 'pending');
+
+  const handleClassChange = (classId: number) => {
+    setPreferredClassId(classId);
+    setDraftStatus({});
   };
 
-  const handleSaveAttendance = () => {
+  const handleDateChange = (date: string) => {
+    setCurrentDate(date);
+    setDraftStatus({});
+  };
+
+  const handleStatusChange = (studentId: number, status: string) => {
+    setDraftStatus((previous) => ({ ...previous, [studentId]: status }));
+  };
+
+  const handleSaveAttendance = async () => {
+    if (!selectedClassId) return;
+
+    const records: SaveAttendanceRecordPayload[] = [];
+    for (const student of students) {
+      const status = statusOf(student.id);
+      if (status) records.push({ student_id: student.id, date: currentDate, status });
+    }
+
+    if (records.length === 0) {
+      toast.error('请先为学生选择考勤状态');
+      return;
+    }
+
+    try {
+      await saveAttendanceMutation.mutateAsync({ class_id: selectedClassId, records });
+    } catch {
+      // The api layer already surfaced the failure; the draft stays for a retry.
+      return;
+    }
     toast.success(`${currentDate} 考勤保存成功`);
   };
 
-  const handleLeaveAction = (id: number, action: 'approved' | 'rejected') => {
-    setLeaveRequests(prev => prev.map(req => 
-      req.id === id ? { ...req, status: action } : req
-    ));
-    toast.success(`已${action === 'approved' ? '批准' : '拒绝'}请假申请`);
+  const handleLeaveAction = async (id: number, status: 'approved' | 'rejected') => {
+    try {
+      await updateLeaveMutation.mutateAsync({ id, payload: { status } });
+    } catch {
+      return;
+    }
+    toast.success(status === 'approved' ? '已批准请假申请' : '已拒绝请假申请');
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-paper/80 backdrop-blur-xl p-4 rounded-card shadow-card border border-white/60">
-        <div className="flex items-center space-x-2">
-          <CalendarCheck className="h-6 w-6 text-primary" />
-          <h2 className="text-lg font-bold text-ink-1">考勤与请假</h2>
-        </div>
-        
-        <div className="flex space-x-2 bg-muted/50 p-1 rounded-card">
-          <Button variant="ghost"
-            onClick={() => setActiveTab('take')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-card transition-colors ${
-              activeTab === 'take' ? 'bg-paper/80 backdrop-blur-xl text-primary shadow-card' : 'text-ink-2 hover:text-ink-1'
-            }`}
-          >
-            考勤打卡
-          </Button>
-          <Button variant="ghost"
-            onClick={() => setActiveTab('leaves')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-card transition-colors flex items-center ${
-              activeTab === 'leaves' ? 'bg-paper/80 backdrop-blur-xl text-primary shadow-card' : 'text-ink-2 hover:text-ink-1'
-            }`}
-          >
-            请假审批
-            {leaveRequests.some(r => r.status === 'pending') && (
-              <span className="ml-1.5 w-2 h-2 rounded-full bg-destructive"></span>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {activeTab === 'take' && (
-        <div className="bg-paper/80 backdrop-blur-xl rounded-card shadow-card border border-white/60 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-ink-2">考勤日期:</label>
-              <Input 
-                type="date" 
-                value={currentDate}
-                onChange={(e) => setCurrentDate(e.target.value)}
-                className="border-input rounded-card py-1.5 px-3 border focus:ring-ring focus:border-ring sm:text-sm"
-              />
-            </div>
-            <Button
-              onClick={handleSaveAttendance}
-              className="px-5 py-2 bg-gradient-to-r from-primary to-cyan-500 text-white rounded-card hover:from-primary/90 hover:to-cyan-600 transition-colors shadow-card font-medium flex items-center"
+      <PageHeader
+        title="考勤与请假"
+        description={currentDate}
+        icon={CalendarCheck}
+        actions={
+          <div className="flex space-x-2 rounded-card bg-muted/50 p-1">
+            <Button variant="ghost"
+              onClick={() => setActiveTab('take')}
+              className={`rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'take' ? 'bg-paper/80 text-primary shadow-card backdrop-blur-xl' : 'text-ink-2 hover:text-ink-1'
+              }`}
             >
-              <UserCheck className="w-4 h-4 mr-2" />
-              保存今日考勤
+              考勤打卡
+            </Button>
+            <Button variant="ghost"
+              onClick={() => setActiveTab('leaves')}
+              className={`flex items-center rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'leaves' ? 'bg-paper/80 text-primary shadow-card backdrop-blur-xl' : 'text-ink-2 hover:text-ink-1'
+              }`}
+            >
+              请假审批
+              {hasPendingLeave && (
+                <span className="ml-1.5 h-2 w-2 rounded-full bg-destructive"></span>
+              )}
             </Button>
           </div>
+        }
+      />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {students.map(student => (
-              <div key={student.id} className="p-4 border border-white/60 rounded-card hover:shadow-md transition-shadow bg-muted/50">
-                <h3 className="font-bold text-ink-1 text-lg mb-3">{student.name}</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="ghost"
-                    onClick={() => handleStatusChange(student.id, 'present')}
-                    className={`flex items-center justify-center py-2 rounded-card text-sm font-medium border ${
-                      attendance[student.id] === 'present' 
-                        ? 'bg-primary/10 border-primary/20 text-primary' 
-                        : 'bg-paper/80 backdrop-blur-xl border-border text-ink-2 hover:bg-muted/60'
-                    }`}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    出勤
-                  </Button>
-                  <Button variant="ghost"
-                    onClick={() => handleStatusChange(student.id, 'absent')}
-                    className={`flex items-center justify-center py-2 rounded-card text-sm font-medium border ${
-                      attendance[student.id] === 'absent' 
-                        ? 'bg-destructive/20 border-destructive/30 text-destructive' 
-                        : 'bg-paper/80 backdrop-blur-xl border-border text-ink-2 hover:bg-muted/60'
-                    }`}
-                  >
-                    <XCircle className="w-4 h-4 mr-1" />
-                    缺勤
-                  </Button>
-                  <Button variant="ghost"
-                    onClick={() => handleStatusChange(student.id, 'late')}
-                    className={`flex items-center justify-center py-2 rounded-card text-sm font-medium border ${
-                      attendance[student.id] === 'late' 
-                        ? 'bg-warning/20 border-orange-200 text-orange-700' 
-                        : 'bg-paper/80 backdrop-blur-xl border-border text-ink-2 hover:bg-muted/60'
-                    }`}
-                  >
-                    <Clock className="w-4 h-4 mr-1" />
-                    迟到
-                  </Button>
-                  <Button variant="ghost"
-                    onClick={() => handleStatusChange(student.id, 'leave')}
-                    className={`flex items-center justify-center py-2 rounded-card text-sm font-medium border ${
-                      attendance[student.id] === 'leave' 
-                        ? 'bg-blue-100 border-blue-200 text-blue-700' 
-                        : 'bg-paper/80 backdrop-blur-xl border-border text-ink-2 hover:bg-muted/60'
-                    }`}
-                  >
-                    <AlertCircle className="w-4 h-4 mr-1" />
-                    请假
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+      {classes.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto rounded-card border border-white/60 bg-paper/80 p-4 shadow-card backdrop-blur-xl">
+          <span className="mr-2 shrink-0 text-sm font-bold text-ink-3">选择班级:</span>
+          {classes.map((cls) => (
+            <Button variant="ghost"
+              key={cls.id}
+              onClick={() => handleClassChange(cls.id)}
+              className={cn(
+                'shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                selectedClassId === cls.id
+                  ? 'bg-gradient-to-r from-primary to-cyan-500 text-white shadow-card'
+                  : 'border border-border bg-muted/50 text-ink-2 hover:bg-muted/60',
+              )}
+            >
+              {cls.name}
+            </Button>
+          ))}
         </div>
       )}
 
+      {activeTab === 'take' && (
+        <SectionCard
+          title="考勤打卡"
+          description="选择每个学生的状态后保存；未选择的学生不会写入考勤记录。"
+          actions={
+            <div className="flex items-center gap-3">
+              <label htmlFor="attendance-date" className="text-sm font-medium text-ink-2">考勤日期:</label>
+              <Input
+                id="attendance-date"
+                type="date"
+                value={currentDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="rounded-card border border-input px-3 py-1.5 focus:border-ring focus:ring-ring sm:text-sm"
+              />
+              <Button
+                onClick={handleSaveAttendance}
+                disabled={saveAttendanceMutation.isPending}
+                className="flex items-center rounded-card bg-gradient-to-r from-primary to-cyan-500 px-5 py-2 font-medium text-white shadow-card transition-colors hover:from-primary/90 hover:to-cyan-600"
+              >
+                <UserCheck className="mr-2 h-4 w-4" />
+                保存今日考勤
+              </Button>
+            </div>
+          }
+        >
+          {isClassesLoading || (classes.length > 0 && (isStudentsLoading || isAttendanceLoading)) ? (
+            <p className="py-8 text-center text-sm text-ink-3">加载中...</p>
+          ) : classes.length === 0 ? (
+            <EmptyState icon={Users} title="暂无班级数据" description="请先在班级管理中创建班级。" />
+          ) : students.length === 0 ? (
+            <EmptyState icon={UserCheck} title="班级暂无学生" description="请先在班级管理中添加学生。" />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {students.map(student => {
+                const currentStatus = statusOf(student.id);
+                return (
+                  <div key={student.id} className="rounded-card border border-white/60 bg-muted/50 p-4 transition-shadow hover:shadow-md">
+                    <h3 className="mb-3 text-lg font-bold text-ink-1">{student.name}</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ATTENDANCE_OPTIONS.map(option => {
+                        const Icon = option.icon;
+                        const isActive = currentStatus === option.value;
+                        return (
+                          <Button variant="ghost"
+                            key={option.value}
+                            onClick={() => handleStatusChange(student.id, option.value)}
+                            aria-pressed={isActive}
+                            className={cn(
+                              'flex items-center justify-center rounded-card border py-2 text-sm font-medium',
+                              isActive ? option.activeClassName : INACTIVE_STATUS_CLASS,
+                            )}
+                          >
+                            <Icon className="mr-1 h-4 w-4" />
+                            {option.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
+      )}
+
       {activeTab === 'leaves' && (
-        <div className="bg-paper/80 backdrop-blur-xl rounded-card shadow-card border border-white/60 p-6">
-          <h3 className="text-md font-bold text-ink-1 mb-4">请假审批</h3>
-          <div className="space-y-4">
-            {leaveRequests.map(req => (
-              <div key={req.id} className="p-5 border border-white/60 rounded-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <span className="font-bold text-ink-1 text-lg">{req.studentName}</span>
-                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
-                      req.status === 'pending' ? 'bg-warning/20 text-orange-700' :
-                      req.status === 'approved' ? 'bg-primary/10 text-primary' :
-                      'bg-destructive/20 text-destructive'
-                    }`}>
-                      {req.status === 'pending' ? '待审批' : req.status === 'approved' ? '已批准' : '已拒绝'}
-                    </span>
+        <SectionCard title="请假审批">
+          {isLeavesLoading ? (
+            <p className="py-8 text-center text-sm text-ink-3">加载中...</p>
+          ) : leaveRows.length === 0 ? (
+            <EmptyState icon={CalendarCheck} title="暂无请假申请" />
+          ) : (
+            <div className="space-y-4">
+              {leaveRows.map(req => {
+                const statusMeta = LEAVE_STATUS_META[req.status];
+                return (
+                  <div key={req.id} className="flex flex-col justify-between gap-4 rounded-card border border-white/60 p-5 md:flex-row md:items-center">
+                    <div className="flex-1">
+                      <div className="mb-2 flex items-center space-x-3">
+                        <span className="text-lg font-bold text-ink-1">
+                          {studentNames.get(req.student_id) ?? `学生 #${req.student_id}`}
+                        </span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta?.className ?? 'bg-muted text-ink-2'}`}>
+                          {statusMeta?.label ?? req.status}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-sm text-ink-2">
+                        <p><span className="text-ink-3">请假时间：</span> {req.start_date} 至 {req.end_date}</p>
+                        <p><span className="text-ink-3">请假事由：</span> {req.reason}</p>
+                        {req.review_comment && (
+                          <p><span className="text-ink-3">审批意见：</span> {req.review_comment}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {req.status === 'pending' && (
+                      <div className="flex shrink-0 space-x-3">
+                        <Button variant="ghost"
+                          onClick={() => handleLeaveAction(req.id, 'rejected')}
+                          disabled={updateLeaveMutation.isPending}
+                          className="rounded-card border border-destructive/30 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+                        >
+                          拒绝
+                        </Button>
+                        <Button variant="ghost"
+                          onClick={() => handleLeaveAction(req.id, 'approved')}
+                          disabled={updateLeaveMutation.isPending}
+                          className="rounded-card bg-gradient-to-r from-primary to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:from-primary/90 hover:to-cyan-600"
+                        >
+                          批准
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-sm text-ink-2 space-y-1">
-                    <p><span className="text-ink-3">请假时间：</span> {req.startDate} 至 {req.endDate}</p>
-                    <p><span className="text-ink-3">请假事由：</span> {req.reason}</p>
-                  </div>
-                </div>
-                
-                {req.status === 'pending' && (
-                  <div className="flex space-x-3 shrink-0">
-                    <Button variant="ghost"
-                      onClick={() => handleLeaveAction(req.id, 'rejected')}
-                      className="px-4 py-2 border border-destructive/30 text-destructive rounded-card hover:bg-destructive/10 text-sm font-medium transition-colors"
-                    >
-                      拒绝
-                    </Button>
-                    <Button variant="ghost"
-                      onClick={() => handleLeaveAction(req.id, 'approved')}
-                      className="px-4 py-2 bg-gradient-to-r from-primary to-cyan-500 text-white rounded-card hover:from-primary/90 hover:to-cyan-600 text-sm font-medium transition-colors shadow-card"
-                    >
-                      批准
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-            
-            {leaveRequests.length === 0 && (
-              <div className="text-center py-12 text-ink-3 border-2 border-dashed border-border rounded-card">
-                暂无请假申请
-              </div>
-            )}
-          </div>
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
       )}
     </div>
   );

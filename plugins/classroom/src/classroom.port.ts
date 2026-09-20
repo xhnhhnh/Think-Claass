@@ -13,6 +13,17 @@
  * are type-only (G6) and a boolean-literal discriminated union does not narrow under
  * `strict:false`. The `assertStudentInClass` helper is the exception - it is an assertion
  * and its pre-migration callers catch its rejection.
+ *
+ * Scope and authorization: this port is an in-process API between plugins, not an HTTP
+ * surface, so it carries **no** actor checks and no per-caller filtering - a method answers
+ * for the id it is given (`listClassStudents`, `listStudentsByParent`) or for one student
+ * (`getStudentById`, `getStudentByUserId`). Deciding *who* may ask is the consuming route's
+ * job, and each consumer already does it: the classroom HTTP surface scopes its three student
+ * reads in `ClassroomService` before ever reaching the repository, and the admin console's
+ * deletion cascade (`listClassIdsByTeacher` / `listStudentAccountsByClassIds`) is gated by
+ * `requireAdmin` on `DELETE /api/admin/users/:id`. A port method must therefore never be
+ * widened into an unauthenticated HTTP answer; when a route needs a scoped read it resolves
+ * the scope first, which is the rule the classroom service follows.
  */
 
 import type {

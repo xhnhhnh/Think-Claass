@@ -111,6 +111,19 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 它是最后一个模块，也是唯一一条绕过所有权模型的写路径。legacy 组装仍然服务全部域：
 `createLegacyRootModule()` 把插件模块并进同一个 Nest 根模块，但那条"把域注册成静态模块"的路已经不存在了。
 
+**默认组装的插件宿主默认开启**（本轮修复，命令与实测见 §8.5）：`PLUGINS_ENABLED` 此前默认 `false`，
+而 `scripts/deploy-common.sh`、`install.sh`、`update.sh`、`update.ps1`、`pack.sh`、`nodemon.json`、
+`package.json` **没有任何一处**设置它 —— 所以 `npm run dev` / `npm start` / 每次 PM2 部署跑的都是
+"legacy 组装 + 宿主关闭"，业务路由**一条都不存在**。实测（改前）：`/api/students`、`/api/classes`、
+`/api/auth/login`、`/api/pet/health`、`/api/website/home` **全部 404**，而 `/api/health` 照常 200 并只报
+`plugins:{total:0,active:0}`。`api/index.ts`（Vercel 入口）走同一条 `createApp()`，同样中招。
+改后实测：不设任何组装变量，`/api/health` 报 `plugins:{total:20,active:20}`，上述路径不再返回 404
+（改由各域自己的业务/鉴权应答处理，例如匿名 `/api/classes` 是 403「无权限查看班级」而不是 404）。
+现在默认值是 `true`（`packages/kernel/src/config/loadConfig.ts:115`），并加了启动守卫
+`assertUsableComposition()`（`api/app.ts`）——**两个分支都是启动期抛错（fail-closed）**：
+legacy + `PLUGINS_ENABLED=0` 抛错，宿主开启却激活 0 个插件也抛错并点名 `PLUGIN_DIRS` /
+`THINK_CLASS_ROOT`。**内核-only 仍然受支持**，写法是显式组合 `KERNEL_ENABLED=1 PLUGINS_ENABLED=0`。
+
 **跨域级联删除有了正式裁决与机制**（`docs/migration/admin-cascade-decision.md`）：
 `DELETE /api/admin/users/:id` 曾经在一个 Prisma 事务里按 58 个硬编码表名删数据 —— 原子，但对所有权检查完全不可见。
 现在每个插件在 `setup()` 里注册自己的清理规则（`ctx.cleanup.register`），运行时按 **schema 的外键图**排序，
@@ -160,10 +173,10 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ```bash
 npm run check                 # exit 0
-npm test                      # 全绿；用例数只增不减（最近一次记录的基线：124 文件 / 955 用例，
+npm test                      # 全绿；用例数只增不减（最近一次记录的基线：133 文件 / 1122 用例，
                               #   见 §7 —— 以本次输出为准，不要引用这里的数字）
 npm run api:surface -- --check # 必须仍是 297 endpoints（等价短写：npm run api:surface:check）
-npm run guard                 # 护栏全绿（当前 14 个文件，以输出为准）；deadCode ≤ 55、
+npm run guard                 # 护栏全绿（当前 16 个文件，以输出为准）；deadCode ≤ 55、
                               #   adoptedTables ≤ 74、routeCollisions = 0
 ```
 
@@ -213,7 +226,7 @@ npm run guard                 # 护栏全绿（当前 14 个文件，以输出�
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 防伪护栏棘轮（当前 14 文件 / 63 用例，以输出为准；含 G17「schema 只住在迁移里」）
+npm run guard         # 防伪护栏棘轮（当前 16 文件 / 90 用例，以输出为准；含 G17「schema 只住在迁移里」）
 
 npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
@@ -445,15 +458,62 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 
 ## 7. 当前验证状态
 
-**下面这组数字是最近一次记录的实测（P4.4 轮；commit `400771c` 更正过这里的用例数与护栏文件数）。**
+**下面这组数字是最近一次记录的实测（安全修复轮；`git log --oneline -1` 取 HEAD）。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        124 文件 / 955 用例全绿（P4.3b.13 是 120 / 881）
+npm test        133 文件 / 1122 用例全绿（上一轮记录是 124 / 955）
 npm run check   exit 0
-api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
-guardrails      14 文件 / 63 用例（P4.3b.15 加 G18，P4.4 加 G19）
+api:surface     unchanged (297 endpoints)   ← 仍然零漂移
+guardrails      16 文件 / 90 用例（本轮加 G21「served index.html 必须注入 __TC_CONFIG__」）
+npm run lint    0 error（4 个 react-refresh warning，与本轮无关）
 ```
+
+### ⚠️ 本轮修掉的两个 P0：默认组装是坏的，且身份可自证
+
+这两条都不在既有测试的覆盖范围内，所以既有闸门全绿也说明不了它们不存在。**改动含两处默认值反转，
+升级前必读**（尚未写入 CHANGELOG —— 见下文"未做"）：
+
+1. **`PLUGINS_ENABLED` 默认 `false` → `true`。** `api/app.module.ts` 早已是 `imports: []`，
+   插件宿主是 legacy 组装**唯一**的模块来源；而 `api/app.ts` 在该值为 false 时直接 `return null`，
+   六个启动器（`scripts/deploy-common.sh`、`install.sh`、`update.sh`、`update.ps1`、`pack.sh`、
+   `nodemon.json`/`package.json`）**无一设置它** —— 所以默认值就是线上配置：
+   实测默认启动下 `/api/students`、`/api/classes`、`/api/auth/login` 全部 404，
+   `/api/health` 只报 `plugins:{total:0}`（两个组装在 HTTP 上不可区分，这就是它一直没被发现的原因）。
+   现在 `api/app.ts` 的 `assertUsableComposition()` 对「legacy + 关插件」与「开了插件但零激活」
+   两个分支都**启动期抛错**（fail-closed）；内核-only `KERNEL_ENABLED=1 PLUGINS_ENABLED=0` 仍然受支持。
+   回归测试 `tests/plugins/legacy-default-composition.test.ts`（变异验证：默认值改回 false → 变红）。
+2. **`ALLOW_LEGACY_HEADER_AUTH` 默认 `true` → `false`。** `requestContext.ts` 原本直接把客户端自带的
+   `x-user-role`/`x-user-id` 当 actor，等于**任何调用者加两个请求头就是 superadmin**，
+   使每一处端点鉴权都变成摆设 —— 这比逐个补鉴权更前置。升级影响：浏览器里持久化的、
+   早于 token 时代的会话（`localStorage` 的 `thinkclass-user` 有 `user` 无 `token`）会变成匿名，
+   需重新登录一次。显式设 `ALLOW_LEGACY_HEADER_AUTH=1` 仍可恢复旧行为。
+
+**鉴权批次（本轮已关闭的漏点）**：`plugins/system` 全 8 条、`plugins/admin` 的 `OpenapiController`(7)
+与 `AuditLogsController`(1)、`plugins/classroom` 全 38 个 handler（按 actor 过滤结果集，
+不只是拒匿名）。实测匿名 `GET /api/system/backup/export` 曾返回 **8,284,456 字节**整库 JSON
+（含 `users.password_hash`），`/api/openapi/keys` 曾泄漏明文 `sk_…` —— 两者均已 401。
+**这是既有缺陷、不是迁移引入的**（旧仓库 `api/modules/system/system.controller.ts` 同样无鉴权），
+但迁移本该顺手修掉。
+
+**逐条鉴权矩阵在 [`docs/security/route-authorization-matrix.md`](../security/route-authorization-matrix.md)**
+（297 端点全覆盖，每条带 `file:line`、建议角色、P 级）。基线判定 **218 条无鉴权/半受控**，
+本轮关闭 51 条（**P0 已清零**），**仍敞开 167 条** —— 完整清单在矩阵 §3.1，
+接手时按那里的 P0→P1→P2→P3 顺序继续。
+
+**另一个本轮发现并修掉的既有缺陷**：legacy 组装的 SPA 回退用 `res.sendFile`，
+**从不注入 `window.__TC_CONFIG__`**（替换逻辑只在 `createKernel` 里），
+而默认组装的部署走的正是 legacy —— 所以 `adminPath()`/`pluginRuntimeEnabled()` 在实际部署里
+一直回落到构建期常量，P5.3a 声称生效的每部署管理端路径从未生效。已改为与内核同样的
+「读 index.html → 替换标记 → send」，并用 `tests/guardrails/runtime-config-injection.test.ts`
+钉住（变异验证：改回 `res.sendFile` → 3 条断言变红）。
+
+**未做（留给下一轮，不要以为已完成）**：
+- **`CHANGELOG.md` 与版本号没动**，上面两处默认值反转属破坏性变化，按 `docs/versioning.md` 应进
+  CHANGELOG 并升版本（建议 MINOR）。发布走 `npm run release`，不要手改 `package.json`（G19 核对三者一致）。
+- 残余弱点：`GET /api/classes` 对 student 返回自己班级时**带 `invite_code`**（激活码本身）。
+  作用域是对的（只返回自己那一个班），但邀请码是加入班级的凭据，是否该出现在学生自己的响应里需要裁决。
+- 学生登录仍用应用创建的默认密码 `123456`（实测可用）。不属本轮范围，但值得单开一项。
 
 **已迁成插件的域（20 个 —— 与 `plugins/` 目录数一致，以 `ls plugins` 为准）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace,
 portal, system, assignments, parent-buff, pet, classroom, learning, identity, payment, engagement, insights,
@@ -568,7 +628,7 @@ NestFactory.create(Root, new ExpressAdapter(server), { bodyParser: false, abortO
 
 **为什么不是"宿主自己挂到 express 上"**：宿主自建 Nest 实例会再装一个 catch-all not-found，先注册的那个会把另一个的路由全部遮蔽 —— 这正是原来的设计在 legacy 下不可用的原因。
 
-**验证方式**（`tests/plugins/legacy-boot-probe.test.ts`）：真的起一个子进程跑 `PLUGINS_ENABLED=1`（不开 `KERNEL_ENABLED`）的 `api/server.ts`，然后打真实 HTTP：
+**验证方式**（`tests/plugins/legacy-boot-probe.test.ts`）：真的起一个子进程跑 `PLUGINS_ENABLED=1`（不开 `KERNEL_ENABLED`）的 `api/server.ts`，然后打真实 HTTP（`PLUGINS_ENABLED=1` 是当时的写法；该变量如今默认 `true`，见 §8.5）：
 
 - `/api/kernel/plugins` → 200，列出 `classroom` + `pet`
 - `/api/pet/health` → 200（**该路由只存在于插件**，不在 `api/modules/pet`）
@@ -762,13 +822,29 @@ npm run check && npm test && npm run api:surface -- --check && npm run guard
 外加**真实启动探测**：两种组装各起一次，确认该域路由 200/403（**不是 404**）：
 
 ```bash
+# legacy 组装（默认，同样是回滚目标）—— 插件宿主默认开启，不传任何组装变量
+npx tsx api/server.ts
 # kernel 组装
-KERNEL_ENABLED=1 PLUGINS_ENABLED=1 npx tsx api/server.ts
-# legacy 组装（默认，同样是回滚目标）
-PLUGINS_ENABLED=1 npx tsx api/server.ts
+KERNEL_ENABLED=1 npx tsx api/server.ts
+# kernel-only（最小内核、零插件）—— 这是 PLUGINS_ENABLED 唯一有意义的用法
+KERNEL_ENABLED=1 PLUGINS_ENABLED=0 npx tsx api/server.ts
 ```
 
-两者都要能看到 `/api/kernel/plugins` 列出该域。`tests/plugins/legacy-boot-probe.test.ts` 已经把 legacy 这一半自动化了，照着加断言即可。
+**不要再为了看到业务路由去传 `PLUGINS_ENABLED=1`** —— 它默认已是 `true`
+（`packages/kernel/src/config/loadConfig.ts:115`）。反过来，"legacy 组装 + `PLUGINS_ENABLED=0`"会被启动守卫
+`assertUsableComposition()` 直接拒绝（`api/app.ts`，**抛错而不是日志**）：`api/app.module.ts` 是 `imports: []`，
+那种组合一条业务路由都没有 —— 而它曾经**就是**默认部署的配置（见 §1）。
+默认组装（不设任何组装变量）必须能服务业务路由 —— `tests/plugins/legacy-default-composition.test.ts`
+会真的起一个子进程验证这一点，并同时钉住两条边界：legacy + `PLUGINS_ENABLED=0` 必须启动失败
+（非零退出，且 stderr 含 `not a usable configuration for the legacy composition`），
+`KERNEL_ENABLED=1 PLUGINS_ENABLED=0` 的内核-only 模式必须仍可用（起得来、`/api/health` 报
+`kernel.plugins.total === 0`、`/api/students` 收到内核自己的 `NOT_FOUND` 信封）。
+（它把 `KERNEL_ENABLED` 与 `PLUGINS_ENABLED` 都从子进程环境里 `delete` 掉，模拟"没人设过这两个变量"
+的真实部署，而不是像 `tests/plugins/legacy-boot-probe.test.ts` 那样显式传 `1`。）
+
+前两条都要能看到 `/api/kernel/plugins` 列出该域（kernel-only 那条刻意只有 0 个插件）。
+`tests/plugins/legacy-boot-probe.test.ts` 已经把 legacy 这一半自动化了，照着加断言即可 ——
+注意它显式钉住 `PLUGINS_ENABLED: '1'`，那正是"曾经谁都不设、于是默认组装全 404"的那个坑。
 
 **并且**：删完旧模块后确认 `routeCollisions` 回到 0（G11）。若没回到 0，说明旧模块没删干净 —— 那条路由只有先注册者可达。**注意**：G11 现在也扫内核路由器，所以"内核里已有一条同名路由"同样会被算成碰撞 —— 这是对的，那种情况下 Nest 控制器不可达（`api/health.controller.ts` 就是这样被发现的，P5.3c 已删）。
 
@@ -1415,7 +1491,8 @@ admin 的跨域**读**保留为 `data.reads`（统计面板跨六域计数，与
 
 #### 5. 真启动实测
 
-- **legacy 组装**（真子进程 `PLUGINS_ENABLED=1 KERNEL_ENABLED=0`）：新增断言
+- **legacy 组装**（真子进程 `PLUGINS_ENABLED=1 KERNEL_ENABLED=0`；`PLUGINS_ENABLED` 现在是默认值，
+  当时的显式写法已不需要 —— 见 §8.5）：新增断言
   `POST /api/admin/session`（真实 `identity.public.verifyAdminCredentials` → 内核会话）→
   用该 token 打 `GET /api/admin/users` 得 200 且 `total > 0` → 匿名 401。
   探针的 `SUPERADMIN_*` 显式写死，因为 `dotenv.config()` 在 `initDb()` 之前跑，

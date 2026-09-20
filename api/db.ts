@@ -156,6 +156,25 @@ export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: str
   `);
 }
 
+/**
+ * The alphabet class invite codes are drawn from - the same base-36 set the legacy generator used.
+ *
+ * `Math.random().toString(36).substring(2, 8).toUpperCase()` was the old source. It is not a
+ * CSPRNG, and it was not even fixed-length: a base-36 fraction shorter than six characters yielded
+ * a shorter code. An invite code is a join credential for a class, so it comes from
+ * `crypto.randomInt` over this alphabet instead, and is always exactly six characters.
+ */
+const INVITE_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const INVITE_CODE_LENGTH = 6;
+
+export function generateInviteCode(): string {
+  let code = '';
+  for (let i = 0; i < INVITE_CODE_LENGTH; i += 1) {
+    code += INVITE_CODE_ALPHABET[crypto.randomInt(INVITE_CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
 // The application schema lives in `api/schema/`, and `APP_MIGRATIONS` there is the single
 // list BOTH compositions apply: this one through `initDb()`, the kernel one through
 // `createKernel({ migrations })`. Until P4.3c.3 this file kept its own copy of the list,
@@ -254,19 +273,27 @@ export function initDb() {
     db.prepare("INSERT INTO settings (key, value) VALUES ('payment_description', 'Think-Class 平台激活')").run();
   }
 
+  // `payment_environment` is a deployment decision, not something a seed can know. The payment
+  // plugin reads it strictly and refuses to create an order when it is unset (503, naming the
+  // setting), so production deliberately gets no row: an operator chooses `mock` / `sandbox` /
+  // `production` before payments can be taken. Outside production the running process *is* a
+  // simulated one, so the honest value is written for developer and test boots.
   const paymentEnvExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_environment'").get();
-  if (!paymentEnvExists) {
+  if (!paymentEnvExists && process.env.NODE_ENV !== 'production') {
     db.prepare("INSERT INTO settings (key, value) VALUES ('payment_environment', 'mock')").run();
   }
 
+  // Both payment channels default to off, matching `DEFAULT_SYSTEM_SETTINGS` in
+  // `plugins/admin/src/admin.defaults.ts` (and its frontend parity copy). They used to be seeded
+  // `'1'`, i.e. a fresh install accepted payments nobody had configured.
   const paymentWechatExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_enable_wechat'").get();
   if (!paymentWechatExists) {
-    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_wechat', '1')").run();
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_wechat', '0')").run();
   }
 
   const paymentAlipayExists = db.prepare("SELECT key FROM settings WHERE key = 'payment_enable_alipay'").get();
   if (!paymentAlipayExists) {
-    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_alipay', '1')").run();
+    db.prepare("INSERT INTO settings (key, value) VALUES ('payment_enable_alipay', '0')").run();
   }
 
   // The compatibility columns (operation_logs user attribution, articles metadata,
@@ -312,8 +339,7 @@ export function initDb() {
   // because it is data backfill, not schema.
   const classesWithoutCode = db.prepare('SELECT id FROM classes WHERE invite_code IS NULL').all() as {id: number}[];
   for (const c of classesWithoutCode) {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    db.prepare('UPDATE classes SET invite_code = ? WHERE id = ?').run(code, c.id);
+    db.prepare('UPDATE classes SET invite_code = ? WHERE id = ?').run(generateInviteCode(), c.id);
   }
 
   // shop_items and pets compatibility columns, and users.is_activated, are part of
@@ -321,59 +347,55 @@ export function initDb() {
 
   migrateLegacyHomeSchoolSenderRoles();
 
-  // Insert initial teacher user if not exists
-  const teacher = db.prepare('SELECT * FROM users WHERE role = ?').get('teacher') as any;
-  let teacherId = teacher?.id;
-  if (!teacher) {
-    const info = db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)').run('teacher', 'admin', 'admin123');
-    teacherId = info.lastInsertRowid;
-  }
-
-  // Insert initial superadmin user if not exists, or update existing from env vars
+  // The first superadmin comes from the environment, and only from the environment.
+  //
+  // This used to fall back to `'Think'` / `'wx951004'` when the variables were unset - two literals
+  // published in this repository - so every deployment that never set them shared one superadmin
+  // password, and the credentials were readable in the source. There is no fallback now: a database
+  // with no superadmin row and no variables refuses to boot and names the variables. The value is
+  // still written as-is (the identity plugin upgrades the stored plaintext to a scrypt hash on the
+  // first successful login - see `identity.service.ts`), which is unchanged behaviour.
   const superadmin = db.prepare('SELECT * FROM users WHERE role = ?').get('superadmin') as any;
-  
+
   const adminUsername = process.env.SUPERADMIN_USERNAME;
   const adminPassword = process.env.SUPERADMIN_PASSWORD;
 
-  if (!superadmin) {
-    db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)').run('superadmin', adminUsername || 'Think', adminPassword || 'wx951004');
-  } else if (adminUsername && adminPassword) {
-    // Only update existing superadmin if credentials are explicitly provided via env vars
-    db.prepare('UPDATE users SET username = ?, password_hash = ? WHERE role = ?').run(adminUsername, adminPassword, 'superadmin');
+  if (superadmin) {
+    // The existing row is the deployment's credential. The variables re-sync it when *both* are
+    // set, which is how a deployment rotates the account; a partial pair changes nothing.
+    if (adminUsername && adminPassword) {
+      db.prepare('UPDATE users SET username = ?, password_hash = ? WHERE role = ?').run(adminUsername, adminPassword, 'superadmin');
+    }
+  } else {
+    if (!adminUsername || !adminPassword) {
+      const missing = [
+        !adminUsername ? 'SUPERADMIN_USERNAME' : null,
+        !adminPassword ? 'SUPERADMIN_PASSWORD' : null,
+      ].filter(Boolean).join(' and ');
+      throw new Error(
+        `Refusing to create the first superadmin without a credential: set ${missing}. ` +
+          'The account used to be seeded with a username and password published in this repository, ' +
+          'so every installation that did not override them shared the same superadmin login. That ' +
+          'fallback is gone and there is no default - provide both variables, or restore a database ' +
+          'that already has a superadmin row.',
+      );
+    }
+    db.prepare('INSERT INTO users (role, username, password_hash) VALUES (?, ?, ?)').run('superadmin', adminUsername, adminPassword);
   }
 
-  // Create default class if no classes exist
-  const classes = db.prepare('SELECT COUNT(*) as count FROM classes').get() as { count: number };
-  if (classes.count === 0 && teacherId) {
-    db.prepare('INSERT INTO classes (name, teacher_id) VALUES (?, ?)').run('默认班级', teacherId);
-  }
+  // Teachers, classes, shop items and point presets are deliberately NOT created here any more.
+  // Every one of them used to be an invented example: a teacher `admin` with the plaintext password
+  // `admin123`, a `默认班级`, four shop items and six point presets. They are real capabilities the
+  // console already offers (teacher registration / `POST /api/admin/users`, `POST /api/classes`,
+  // the shop page and the preset page), created by a person who means it, not by the boot.
 
-  // Assign students without a class to the default class
+  // Assign students without a class to the first existing class.
+  //
+  // This stays: it is a backfill for rows an import or an older schema left with `class_id IS NULL`,
+  // not a fabricated default. With no class there is nothing to assign to, and none is created.
   const defaultClass = db.prepare('SELECT id FROM classes LIMIT 1').get() as { id: number };
   if (defaultClass) {
     db.prepare('UPDATE students SET class_id = ? WHERE class_id IS NULL').run(defaultClass.id);
-  }
-
-  // Insert some initial shop items if not exists
-  const items = db.prepare('SELECT COUNT(*) as count FROM shop_items').get() as { count: number };
-  if (items.count === 0 && teacherId) {
-    const insertItem = db.prepare('INSERT INTO shop_items (name, description, price, teacher_id) VALUES (?, ?, ?, ?)');
-    insertItem.run('免抄写卡', '可免去一次家庭作业的抄写任务', 50, teacherId);
-    insertItem.run('选座位权', '下周可优先选择自己的座位', 100, teacherId);
-    insertItem.run('免值日卡', '免去一次班级值日任务', 80, teacherId);
-    insertItem.run('零食大礼包', '兑换一份零食大礼包', 200, teacherId);
-  }
-
-  // Insert initial point presets if not exists
-  const presets = db.prepare('SELECT COUNT(*) as count FROM point_presets').get() as { count: number };
-  if (presets.count === 0 && teacherId) {
-    const insertPreset = db.prepare('INSERT INTO point_presets (label, amount, teacher_id) VALUES (?, ?, ?)');
-    insertPreset.run('发言', 2, teacherId);
-    insertPreset.run('作业优秀', 5, teacherId);
-    insertPreset.run('帮助同学', 3, teacherId);
-    insertPreset.run('作业未交', -5, teacherId);
-    insertPreset.run('迟到', -2, teacherId);
-    insertPreset.run('上课纪律差', -2, teacherId);
   }
 
   // Drop foreign key constraints on messages.sender_id

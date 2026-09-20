@@ -16,6 +16,12 @@ KERNEL_ENABLED=1   ->  packages/kernel boots;  /api/health + /api/kernel/*   (ve
 otherwise          ->  legacy Nest composition, 14 static modules            (verified)
 ```
 
+> **Post-P4.3b.14 update.** The "14 static modules" figure is P1's. `api/modules/**` no longer
+> exists and `api/app.module.ts` declares `imports: []`; the legacy root's modules now come from the
+> plugin host (`api/app.ts` `mountPlugins()` / `createLegacyRootModule()`), so both compositions
+> serve the plugin routes. That is what makes the switch a choice of *who owns the Nest instance*
+> rather than a choice of *which routes exist* — see §5 below.
+
 Both paths were booted through the real entry point (`npx tsx api/server.ts`) and
 probed over HTTP; see §5.
 
@@ -128,7 +134,7 @@ Scenario C also confirms two plugin modules can be mounted under separate namesp
 | Sessions store `sha256(token)`, never the token | A database leak must not yield usable credentials. Verified constant-time comparison. |
 | Permissions fail closed on an undeclared key | A typo must deny, not silently allow. |
 | Scope chain narrowest-first, default last | Replaces the 19 `enable_*` columns on `classes` with assignments at student / class / school / platform scope. |
-| `allowLegacyHeaderAuth` defaults **true** | The frontend still sends `x-user-role`/`x-user-id`; flipping this off in P2 is the breaking step, so it must be an explicit, loggable switch rather than a silent behaviour change. |
+| `allowLegacyHeaderAuth` defaulted **true** in this round (now **false**) | The P2 reasoning: the frontend still sends `x-user-role`/`x-user-id`, and flipping this off is the breaking step, so it must be an explicit, loggable switch rather than a silent behaviour change. The switch is now flipped - the P2 note above is the history, not the current default. |
 | Kernel owns only its own tables | Enforced by `checkTableOwnership`: the kernel may not touch a plugin's tables and vice versa. |
 | Migration checksums | Editing an already-applied migration throws instead of silently diverging. |
 
@@ -143,6 +149,22 @@ scan) and passes against `packages/kernel/**`.
 ## 5. Verification evidence
 
 ### Kernel mode (`KERNEL_ENABLED=1 PORT=4555 npx tsx api/server.ts`)
+
+> **This transcript is P1-era evidence, not operator guidance.** At P1 the plugin host did not exist
+> yet, so a kernel boot had `pluginsEnabled: false` and (correctly, then) served zero business
+> routes. The switch no longer works that way: `PLUGINS_ENABLED` defaults to `true`
+> (`packages/kernel/src/config/loadConfig.ts:115`) and the plugin host runs in **both** compositions,
+> so the two supported invocations are:
+>
+> ```bash
+> npx tsx api/server.ts                   # legacy composition (default); plugins mounted
+> KERNEL_ENABLED=1 npx tsx api/server.ts  # kernel composition; plugins mounted
+> ```
+>
+> Kernel-*only* — the minimal core with zero plugins — is the explicit pair
+> `KERNEL_ENABLED=1 PLUGINS_ENABLED=0`; legacy mode with plugins off is refused at boot by
+> `assertUsableComposition()` (`api/app.ts`). Nobody needs to export `PLUGINS_ENABLED` for either
+> supported composition.
 
 ```
 [kernel] kernel starting {"env":"development","pluginsEnabled":false}
@@ -160,10 +182,17 @@ only — a new `sessions` table, no existing table touched).
 
 ### Legacy mode (`PORT=4556 npx tsx api/server.ts`, no `KERNEL_ENABLED`)
 
+> Same caveat: this transcript is P1-era. Since P5.3c the kernel router is mounted in **both**
+> compositions (`mountKernelInfrastructure()` in `api/app.ts`, called from `createLegacyApp()`), so in
+> legacy mode today `/api/kernel/info` answers 200, `/api/health` carries the kernel's
+> `kernel.plugins` summary, and `/api/pet/health` and the rest of the plugin surface answer 200 as
+> well. The current composition-by-composition table is in
+> [03-plugin-runtime.md](03-plugin-runtime.md#both-compositions-on-a-running-server) §5.
+
 ```
-GET /api/health       200 {"success":true,"message":"ok"}          <- legacy shape
+GET /api/health       200 {"success":true,"message":"ok"}          <- legacy shape (P1)
 GET /api/settings     200 {"success":true,"data":{"site_title":"Think-Class", ...}}
-GET /api/kernel/info  404                                          <- kernel absent
+GET /api/kernel/info  404                                          <- kernel absent (P1)
 ```
 
 ### Suites
