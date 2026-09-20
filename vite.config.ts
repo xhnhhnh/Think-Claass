@@ -16,7 +16,14 @@ export default defineConfig({
   ],
   server: {
     watch: {
-      ignored: ['**/.pnpm-store/**']
+      /*
+       * Editors that save atomically - and the agent tooling working in this repository -
+       * write `<file>.<pid>.<uuid>.tmpdir/` next to the target and rename it into place.
+       * The chokidar watcher can catch that directory mid-rename and die with
+       * `EBUSY: resource busy or locked`, which takes the whole dev server down. The
+       * pattern is ignored for the same reason `.pnpm-store` is: nothing in it is source.
+       */
+      ignored: ['**/.pnpm-store/**', '**/*.tmpdir/**']
     },
     proxy: {
       '/api': {
