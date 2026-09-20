@@ -15,9 +15,19 @@ name: release
 
 on:
   push:
+    # Glob, not a regular expression: GitHub matches these with fnmatch, so the regex form
+    # 'v[0-9]+.[0-9]+.[0-9]+' never fires - `+` is a literal there. That mistake is why v2.0.0 was
+    # pushed and produced no run at all, which is exactly the "nothing fails when it doesn't work"
+    # pattern this pipeline exists to end.
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+      - 'v*'
+  # Re-build a release for an existing tag without touching the tag: used to repair a failed run, and
+  # to publish the first artifact for a tag that predates this workflow.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and publish (e.g. v2.0.0)'
+        required: true
 
 permissions:
   contents: write
@@ -31,6 +41,7 @@ jobs:
       - name: Check out the tagged commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref_name }}
           # The version gate below inspects tags, and `gh release create` needs the full history.
           fetch-depth: 0
 
@@ -68,9 +79,10 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
+          tag="$RELEASE_TAG"
           prerelease=""
           case "$tag" in
             *-rc.*) prerelease="--prerelease" ;;
@@ -107,7 +119,7 @@ jobs:
       - name: Summary
         run: |
           {
-            echo "### Release ${GITHUB_REF_NAME}"
+            echo "### Release ${RELEASE_TAG}"
             echo
             echo "| artifact | bytes |"
             echo "| --- | --- |"
@@ -116,3 +128,5 @@ jobs:
             echo
             cat SHA256SUMS
           } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
