@@ -155,10 +155,10 @@ npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTable
 
 它们各自是一轮或几轮。
 
-### 环境约束（不变，见 §2）
+### 环境约束（见 §2；P4.3b.14 起 GitHub 可达）
 
-网络完全不可用（不能 `npm install` 或加依赖）；文件策略 full-access，测试直接跑。
-团队名额上限 8（含 Lead），名字不可复用。
+网络：GitHub 与 npm registry 的 443 实测可达（可 `git push`/`fetch`），但**仍然不要加依赖**（未验证过安装的完整性）。
+文件策略 full-access，测试直接跑。团队名额上限 8（含 Lead），名字不可复用。
 
 ---
 
@@ -166,7 +166,7 @@ npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTable
 
 | 项 | 状态 |
 |---|---|
-| 网络 | **完全不可用**（npm registry / github 均 TLS 失败）。**不能 `pnpm install` 或加依赖。** |
+| 网络 | **P4.3b.14 实测：GitHub 与 `registry.npmjs.org` 的 443 都可达**，`git ls-remote` / `git fetch` / `git push` 都成功（本文档此前写的"完全不可用（npm registry / github 均 TLS 失败）"已失效，按"以事实为准"改掉）。**但"不要加依赖"这条不变**：没有人验证过 `npm install` 的完整性，而 node_modules 已从源仓库复制、可直接用 |
 | node_modules | 已从源仓库复制，可用 |
 | 测试 | `npm test` 正常。此前沙箱受限时需要提权，当前文件策略为 full-access，直接跑即可 |
 | 原始仓库 | `D:\ThinkClass\Think-Claass-main`（只读参照，未改动） |
