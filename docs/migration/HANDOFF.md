@@ -412,10 +412,10 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
-npm test        121 文件 / 941 用例全绿（P4.3b.13 是 120 / 881）
+npm test        124 文件 / 955 用例全绿（P4.3b.13 是 120 / 881）
 npm run check   exit 0
 api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不变
-guardrails      13 文件 / 57 用例（P4.3b.15 新增 G18）
+guardrails      14 文件 / 63 用例（P4.3b.15 加 G18，P4.4 加 G19）
 ```
 
 **已迁成插件的域（21 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace,
@@ -1468,6 +1468,35 @@ admin 的跨域**读**保留为 `data.reads`（统计面板跨六域计数，与
 
 **实测**：`npm test` **121 文件 / 941 用例**全绿；`check` exit 0；`api:surface` **297 不变**；
 `guard` **13 文件 / 57 用例**（G18 新增）。
+
+---
+
+### P4.4 · 版本管理与发布链路（设计 + 落地）—— ✅ 已完成
+
+**设计文档是 `docs/versioning.md`**（唯一权威），这里只记"为什么换掉旧流程"与实测事实。
+
+旧流程是"改 package.json + 手写 release-notes + 打 tag + 本地打包上传"，实测有三个断点：
+
+1. **`pack.sh` 的清单不含 `packages/` 与 `plugins/`** —— 插件化之后这两个目录是**运行期数据**
+   （`api/server.ts` 靠 tsconfig paths 解析 `@thinkclass/*`，宿主靠读 `plugins/<slug>/plugin.json` 发现域），
+   所以按那份清单发出来的包**没有内核、没有插件**，装上去是空壳。
+2. **仓库从无 `.github/workflows`，所有 Release 的 `assets` 都是空数组** ——
+   `releases/latest/download/think-class-release.zip` 永远 404，**自动更新从未成功过**，而且没有任何东西会因此报错。
+3. **没人检查版本号是否一致** —— `package.json` 是 1.7.0，而 CHANGELOG 顶部条目是 1.6.7。
+
+落地内容：`scripts/release.mjs`（一条命令：脏树拒绝 → 四道验收门 → 改 package.json → 插 CHANGELOG → 提交 → 打 tag；
+发布交给 CI，因为"产物必须来自通过验收的那棵树"）、`.github/workflows/release.yml`
+（tag → 验收 → `pack.sh` → `SHA256SUMS` → Release；**注意 Actions 的 tag 过滤器是 glob 不是正则**，
+第一版写成 `v[0-9]+.[0-9]+.[0-9]+` 导致推 v2.0.0 时**一个 run 都没触发** —— 和"Release 没有 asset"是同一类静默失败）、
+`pack.sh` 补齐两个目录、`deploy-common.sh` 的 `download_release_zip` **强制校验 `SHA256SUMS`**
+（此前下载裸 zip 直接解压并以 root 执行里面的脚本）、**G19** 六条一致性断言。
+
+**版本号决策**：HEAD 定为 **2.0.0**（MAJOR 的理由是部署前提变了 —— `ENCRYPTION_KEY` 变成必填），
+CHANGELOG 补了 1.7.0 与 2.0.0 两条，顶部漂移消失。`KERNEL_API_VERSION` 仍是 1（P4.3b.14 的
+`ctx.cleanup`/`ctx.audit`/`ctx.maintenance` 是**只增不改**，不构成不兼容）。
+
+**实测**：`check` exit 0、`api:surface` 297 不变、`guard` 14 文件 / 63 用例、`npm test` 124 文件 / 955 用例；
+`npm run release -- minor --dry-run` 正确拒绝脏工作区；v2.0.0 的 tag 已推送，Release 由 CI 构建（含 `SHA256SUMS`）。
 
 ---
 
