@@ -32,6 +32,15 @@ function toBlindBoxPayload(form: BlindBoxForm): BlindBoxPayload {
   };
 }
 
+/**
+ * Blind box card.
+ *
+ * `CrudPage` already owned the header, the form dialog and the delete confirmation;
+ * what this file still wrote itself was the tile - a `border-purple-100` /
+ * `from-purple-500 to-indigo-600` hero, a `bg-gray-300` inactive state and a
+ * `bg-blue-50 text-blue-800` note. Those are `primary` and `info` tokens now, and the
+ * probability copy is untouched.
+ */
 function renderBlindBoxCard(
   box: BlindBox,
   actions: {
@@ -43,9 +52,9 @@ function renderBlindBoxCard(
   const isActive = box.is_active === 1;
 
   return (
-    <Card className={cn('transition-all hover:shadow-lg', isActive ? 'border-purple-100 shadow-sm' : 'opacity-75 grayscale-[0.5]')}>
-      <div className={cn('relative flex h-32 items-center justify-center', isActive ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gray-300')}>
-        <Package className="size-16 text-white opacity-80" />
+    <Card className={cn('transition-all hover:shadow-raised', isActive ? 'border-primary/20 shadow-card' : 'opacity-75 grayscale-[0.5]')}>
+      <div className={cn('relative flex h-32 items-center justify-center', isActive ? 'bg-primary' : 'bg-muted')}>
+        <Package className={cn('size-16', isActive ? 'text-primary-foreground opacity-80' : 'text-ink-3')} />
         <div className="absolute right-3 top-3">
           <Button
             type="button"
@@ -71,9 +80,9 @@ function renderBlindBoxCard(
             <Coins />
             价格
           </span>
-          <span className="font-bold text-amber-600">{box.price} 积分</span>
+          <span className="font-bold text-warning">{box.price} 积分</span>
         </div>
-        <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">
+        <div className="rounded-lg bg-info/10 p-3 text-xs text-info">
           <p className="mb-1 font-bold">当前内置概率规则：</p>
           <p>10% 稀有道具，30% 普通道具，60% 保底退还 10 积分。</p>
         </div>

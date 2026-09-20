@@ -18,9 +18,9 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
   const colors = [
     { id: 'bg-yellow-100', label: '温馨黄' },
     { id: 'bg-blue-100', label: '沉稳蓝' },
-    { id: 'bg-green-100', label: '活力绿' },
-    { id: 'bg-pink-100', label: '浪漫粉' },
-    { id: 'bg-purple-100', label: '神秘紫' }
+    { id: 'bg-success/20', label: '活力绿' },
+    { id: 'bg-destructive/10', label: '浪漫粉' },
+    { id: 'bg-accent/60', label: '神秘紫' }
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -34,9 +34,9 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-white/90 backdrop-blur-xl border-white/60">
+      <DialogContent className="sm:max-w-md bg-paper/90 backdrop-blur-xl border-white/60">
         <DialogHeader>
-          <DialogTitle className="text-slate-800 text-xl font-bold">发送表扬信</DialogTitle>
+          <DialogTitle className="text-ink-1 text-xl font-bold">发送表扬信</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
@@ -55,7 +55,7 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
             <Label>信纸颜色</Label>
             <div className="flex gap-3 flex-wrap">
               {colors.map(c => (
-                <button
+                <Button variant="ghost"
                   key={c.id}
                   type="button"
                   onClick={() => setColor(c.id)}

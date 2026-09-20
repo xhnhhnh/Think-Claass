@@ -1,4 +1,5 @@
 import React from 'react';
+import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,9 @@ export function EditStudentsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-white/90 backdrop-blur-xl border-white/60">
+      <DialogContent className="sm:max-w-md bg-paper/90 backdrop-blur-xl border-white/60">
         <DialogHeader>
-          <DialogTitle className="text-slate-800 text-xl font-bold">批量修改学生 ({targetCount}人)</DialogTitle>
+          <DialogTitle className="text-ink-1 text-xl font-bold">批量修改学生 ({targetCount}人)</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
@@ -65,7 +66,7 @@ export function EditStudentsModal({
                 type="button"
                 variant={action === 'change_class' ? 'default' : 'outline'}
                 onClick={() => handleActionChange('change_class')}
-                className={`w-full ${action === 'change_class' ? 'bg-blue-600 hover:bg-blue-700 text-white border-transparent' : 'text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                className={`w-full ${action === 'change_class' ? 'bg-blue-600 hover:bg-blue-700 text-white border-transparent' : 'text-ink-2 border-input hover:bg-muted/50'}`}
               >
                 修改班级
               </Button>
@@ -73,7 +74,7 @@ export function EditStudentsModal({
                 type="button"
                 variant={action === 'change_group' ? 'default' : 'outline'}
                 onClick={() => handleActionChange('change_group')}
-                className={`w-full ${action === 'change_group' ? 'bg-purple-600 hover:bg-purple-700 text-white border-transparent' : 'text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                className={`w-full ${action === 'change_group' ? 'bg-primary hover:bg-primary/90 text-primary-foreground border-transparent' : 'text-ink-2 border-input hover:bg-muted/50'}`}
               >
                 修改小组
               </Button>
@@ -81,7 +82,7 @@ export function EditStudentsModal({
                 type="button"
                 variant={action === 'reset_password' ? 'default' : 'outline'}
                 onClick={() => handleActionChange('reset_password')}
-                className={`w-full ${action === 'reset_password' ? 'bg-orange-500 hover:bg-orange-600 text-white border-transparent' : 'text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                className={`w-full ${action === 'reset_password' ? 'bg-warning hover:bg-orange-600 text-white border-transparent' : 'text-ink-2 border-input hover:bg-muted/50'}`}
               >
                 重置密码
               </Button>
@@ -92,9 +93,9 @@ export function EditStudentsModal({
             {action === 'change_class' && (
               <>
                 <Label htmlFor="class-select">选择新班级</Label>
-                <select
+                <Select
                   id="class-select"
-                  className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
+                  className="block w-full border-input rounded-card py-2 px-3 border focus:ring-ring focus:border-ring sm:text-sm bg-paper"
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   required
@@ -103,16 +104,16 @@ export function EditStudentsModal({
                   {classes.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
-                </select>
+                </Select>
               </>
             )}
 
             {action === 'change_group' && (
               <>
                 <Label htmlFor="group-select">选择新小组</Label>
-                <select
+                <Select
                   id="group-select"
-                  className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
+                  className="block w-full border-input rounded-card py-2 px-3 border focus:ring-ring focus:border-ring sm:text-sm bg-paper"
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   required
@@ -122,7 +123,7 @@ export function EditStudentsModal({
                   {groups.map(g => (
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
-                </select>
+                </Select>
               </>
             )}
 
@@ -139,14 +140,14 @@ export function EditStudentsModal({
                   required
                   autoFocus
                 />
-                <p className="text-xs text-gray-500 mt-1">选中的所有学生密码都将被重置为此新密码。</p>
+                <p className="text-xs text-ink-3 mt-1">选中的所有学生密码都将被重置为此新密码。</p>
               </>
             )}
           </div>
 
           <div className="flex justify-end space-x-2 pt-2">
             <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>取消</Button>
-            <Button type="submit" disabled={submitting || !value} className="bg-slate-800 hover:bg-slate-900">
+            <Button type="submit" disabled={submitting || !value} className="bg-muted/50 hover:bg-ink-1">
               {submitting ? '提交中...' : '确认修改'}
             </Button>
           </div>

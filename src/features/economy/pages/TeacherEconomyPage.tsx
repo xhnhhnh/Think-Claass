@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { CrudPage, type CrudField } from '@/components/crud/CrudPage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useTeacherStockMutation, useTeacherStocks } from '../hooks/useEconomy';
 import type { StockDto, StockPayload } from '../types';
@@ -21,9 +22,17 @@ function sparklinePoints(history: string | null) {
   }
 }
 
+/**
+ * Sparkline.
+ *
+ * The stroke was the hex literal `#4f46e5` - the indigo this product does not use -
+ * so it is the `primary` token now, through `stroke-primary` rather than
+ * `style={{ stroke }}`: the whole point of the token layer is that a page never writes
+ * a colour value.
+ */
 function Sparkline({ history }: { history: string | null }) {
   const points = sparklinePoints(history);
-  if (points.length < 2) return <div className="h-10 text-xs text-slate-400">暂无走势</div>;
+  if (points.length < 2) return <div className="h-10 text-xs text-ink-3">暂无走势</div>;
 
   const max = Math.max(...points);
   const min = Math.min(...points);
@@ -33,7 +42,7 @@ function Sparkline({ history }: { history: string | null }) {
 
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-10 w-full">
-      <path d={`M ${path}`} fill="none" stroke="#4f46e5" strokeWidth="4" vectorEffect="non-scaling-stroke" />
+      <path d={`M ${path}`} fill="none" className="stroke-primary" strokeWidth="4" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -44,6 +53,15 @@ const fields: CrudField<StockForm>[] = [
   { name: 'current_price', label: '当前价格', type: 'number', required: true, min: 1 },
 ];
 
+/**
+ * 股票管理.
+ *
+ * The class picker above the `CrudPage` is the kit's `Select` (it had grown its own
+ * indigo focus ring), and the tile below is tokenised: the price chip, the sparkline
+ * well and the footer note were indigo, slate and emerald, and the sparkline stroke was
+ * a hex literal. Every `teacherApi`-family call, the payload shape and the three test
+ * contracts (`股票名称`, `保存`, `删除课堂之星`) are unchanged.
+ */
 export default function TeacherEconomyPage() {
   const { data: classes = [] } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -61,17 +79,18 @@ export default function TeacherEconomyPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <select
+        <Select
+          aria-label="选择班级"
+          wrapperClassName="w-48"
           value={selectedClassId}
           onChange={(event) => setSelectedClassId(event.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
         >
           {classes.map((cls) => (
             <option key={cls.id} value={cls.id}>
               {cls.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <CrudPage<StockDto, StockForm>
@@ -117,12 +136,12 @@ export default function TeacherEconomyPage() {
             <CardContent className="flex h-full flex-col gap-4 p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-lg font-bold text-slate-800">{item.name}</div>
-                  <div className="font-mono text-xs text-slate-400">{item.symbol}</div>
+                  <div className="text-lg font-bold text-ink-1">{item.name}</div>
+                  <div className="font-mono text-xs text-ink-3">{item.symbol}</div>
                 </div>
-                <div className="rounded-xl bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">{item.current_price} 积分</div>
+                <div className="rounded-card bg-primary/5 px-3 py-1 text-sm font-bold text-primary">{item.current_price} 积分</div>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
+              <div className="rounded-card bg-muted/50 p-3">
                 <Sparkline history={item.trend_history} />
               </div>
               <div className="mt-auto flex gap-2">
@@ -138,7 +157,7 @@ export default function TeacherEconomyPage() {
           </Card>
         )}
       />
-      <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+      <div className="flex items-center gap-2 rounded-card bg-success/10 px-4 py-3 text-sm font-medium text-success">
         <TrendingUp className="h-4 w-4" />
         学生端行情每 15 秒自动刷新一次。
       </div>

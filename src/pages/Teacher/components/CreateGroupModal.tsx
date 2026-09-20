@@ -24,9 +24,9 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, submitting }: Crea
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-white/90 backdrop-blur-xl border-white/60">
+      <DialogContent className="sm:max-w-md bg-paper/90 backdrop-blur-xl border-white/60">
         <DialogHeader>
-          <DialogTitle className="text-slate-800 text-xl font-bold">新建小组</DialogTitle>
+          <DialogTitle className="text-ink-1 text-xl font-bold">新建小组</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">

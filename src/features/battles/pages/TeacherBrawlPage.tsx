@@ -2,12 +2,30 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Swords, ShieldAlert, Crosshair, AlertCircle, RefreshCw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 import { battlesApi, type Battle } from '@/features/battles/api/battlesApi';
 import { useBattleActionMutation, useBattleStats, useInitiateBattleMutation, useTeacherBattles } from '@/features/battles/hooks/useBattles';
 import { useClasses } from '@/hooks/queries/useClasses';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Toolbar } from '@/components/ui/toolbar';
+import { cn } from '@/lib/utils';
 
+/**
+ * 校区跨班大乱斗.
+ *
+ * The live battle panel is a stage, not a table: the red/blue split, the giant VS and
+ * the tug-of-war bar that a spring animates from the two scores all stay. The two team
+ * colours are the `destructive` and `info` tokens now, and the bar is the one place
+ * where a `motion` width is the point - it is two scores sharing one track, which a
+ * single `Progress` cannot express. Challenging a class asks through `ConfirmDialog`
+ * instead of `window.confirm`.
+ */
 export default function TeacherBrawl() {
   const queryClient = useQueryClient();
   const { data: classes = [] } = useClasses();
@@ -17,11 +35,12 @@ export default function TeacherBrawl() {
   const { data: activeStats } = useBattleStats(activeBattle?.id ?? null, !!activeBattle);
   const initiateMutation = useInitiateBattleMutation(classId);
   const actionMutation = useBattleActionMutation(classId);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{id: number, name: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [challengeTarget, setChallengeTarget] = useState<{ id: number, name: string } | null>(null);
   const reloadBattles = async () => {
     if (!classId) return;
     await queryClient.invalidateQueries({ queryKey: ['teacher-battles', classId] });
@@ -30,7 +49,7 @@ export default function TeacherBrawl() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim() || !classId) return;
-    
+
     setIsSearching(true);
     try {
       const data = await battlesApi.searchClasses(
@@ -50,8 +69,6 @@ export default function TeacherBrawl() {
 
   const initiateBattle = async (targetId: number, targetName: string) => {
     if (!classId) return;
-    
-    if (!window.confirm(`确定要向 [${targetName}] 发起大乱斗挑战吗？`)) return;
 
     try {
       const data = await initiateMutation.mutateAsync({ initiator_class_id: classId, target_class_id: targetId });
@@ -92,73 +109,78 @@ export default function TeacherBrawl() {
     }
   };
 
-  if (!classId) return <div className="p-8 text-center text-slate-500">请先创建或选择一个班级</div>;
+  if (!classId) {
+    return (
+      <EmptyState
+        icon={Swords}
+        title="请先创建或选择一个班级"
+        className="bg-paper"
+      />
+    );
+  }
 
   const pendingReceived = battles.filter(b => b.status === 'pending' && b.target_class_id === classId);
   const pendingSent = battles.filter(b => b.status === 'pending' && b.initiator_class_id === classId);
+  const historyBattles = battles.filter(b => b.status === 'ended' || b.status === 'rejected').slice(0, 10);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-            <Swords className="w-8 h-8 mr-3 text-rose-500" />
-            校区跨班大乱斗
-          </h1>
-          <p className="text-slate-500 mt-1">挑战其他班级，争夺校区最强魔法分院荣誉！</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8 p-4">
+      <PageHeader
+        title="校区跨班大乱斗"
+        description="挑战其他班级，争夺校区最强魔法分院荣誉！"
+        icon={Swords}
+      />
 
       {/* Active Battle Dashboard */}
       {activeBattle && activeStats && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900 rounded-3xl p-8 shadow-2xl relative overflow-hidden border border-slate-800"
+          className="relative overflow-hidden rounded-panel border border-accent-foreground bg-secondary-foreground p-8 shadow-raised"
         >
           {/* VS Background */}
           <div className="absolute inset-0 flex">
-            <div className="w-1/2 bg-rose-900/20" />
-            <div className="w-1/2 bg-blue-900/20" />
+            <div className="w-1/2 bg-destructive/20" />
+            <div className="w-1/2 bg-info/20" />
           </div>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-            <Swords className="w-96 h-96 text-white" />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10">
+            <Swords className="size-96 text-primary-foreground" />
           </div>
 
           <div className="relative z-10">
-            <div className="flex justify-between items-center mb-12">
-              <div className="text-center w-1/3">
-                <div className="text-rose-400 font-bold text-xl mb-2">
+            <div className="mb-12 flex items-center justify-between">
+              <div className="w-1/3 text-center">
+                <div className="mb-2 text-xl font-bold text-destructive">
                   {activeBattle.initiator_class_id === classId ? '本班 (红方)' : '敌班 (红方)'}
                 </div>
-                <div className="text-white text-3xl font-black">{activeBattle.initiator_class_name}</div>
-                <div className="text-rose-500 text-5xl font-black mt-4 drop-shadow-[0_0_15px_rgba(244,63,94,0.5)]">
+                <div className="text-3xl font-black text-primary-foreground">{activeBattle.initiator_class_name}</div>
+                <div className="mt-4 text-5xl font-black text-destructive drop-shadow-lg">
                   {activeStats.initiatorScore}
                 </div>
               </div>
 
-              <div className="text-center w-1/3">
-                <div className="text-yellow-500 font-black text-6xl italic drop-shadow-lg">VS</div>
-                <div className="text-slate-400 mt-4 text-sm font-mono flex items-center justify-center">
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> 战况实时同步中
+              <div className="w-1/3 text-center">
+                <div className="text-6xl font-black italic text-warning drop-shadow-lg">VS</div>
+                <div className="mt-4 flex items-center justify-center font-mono text-sm text-primary-foreground/70">
+                  <RefreshCw className="mr-2 size-4 animate-spin" /> 战况实时同步中
                 </div>
               </div>
 
-              <div className="text-center w-1/3">
-                <div className="text-blue-400 font-bold text-xl mb-2">
+              <div className="w-1/3 text-center">
+                <div className="mb-2 text-xl font-bold text-info">
                   {activeBattle.target_class_id === classId ? '本班 (蓝方)' : '敌班 (蓝方)'}
                 </div>
-                <div className="text-white text-3xl font-black">{activeBattle.target_class_name}</div>
-                <div className="text-blue-500 text-5xl font-black mt-4 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                <div className="text-3xl font-black text-primary-foreground">{activeBattle.target_class_name}</div>
+                <div className="mt-4 text-5xl font-black text-info drop-shadow-lg">
                   {activeStats.targetScore}
                 </div>
               </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="h-6 w-full bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
+            <div className="flex h-6 w-full overflow-hidden rounded-full bg-foreground shadow-inner">
               <motion.div 
-                className="h-full bg-gradient-to-r from-rose-600 to-rose-400"
+                className="h-full bg-gradient-to-r from-destructive to-destructive/60"
                 initial={{ width: '50%' }}
                 animate={{ 
                   width: `${activeStats.initiatorScore + activeStats.targetScore === 0 ? 50 : (activeStats.initiatorScore / (activeStats.initiatorScore + activeStats.targetScore)) * 100}%` 
@@ -166,7 +188,7 @@ export default function TeacherBrawl() {
                 transition={{ type: 'spring', bounce: 0.2 }}
               />
               <motion.div 
-                className="h-full bg-gradient-to-l from-blue-600 to-blue-400"
+                className="h-full bg-gradient-to-l from-info to-info/60"
                 initial={{ width: '50%' }}
                 animate={{ 
                   width: `${activeStats.initiatorScore + activeStats.targetScore === 0 ? 50 : (activeStats.targetScore / (activeStats.initiatorScore + activeStats.targetScore)) * 100}%` 
@@ -176,52 +198,56 @@ export default function TeacherBrawl() {
             </div>
 
             <div className="mt-8 flex justify-center">
-              <button 
+              <Button 
                 onClick={() => handleAction(activeBattle.id, 'end')}
-                className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-900/50 transition-all hover:scale-105"
+                className="bg-destructive text-destructive-foreground shadow-raised transition-all hover:scale-105 hover:bg-destructive/90"
               >
                 结束大乱斗并结算
-              </button>
+              </Button>
             </div>
           </div>
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Search & Initiate */}
         {!activeBattle && (
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <Crosshair className="w-5 h-5 mr-2 text-indigo-500" />
+          <div className="rounded-panel border border-border bg-paper/80 p-6 shadow-card backdrop-blur-xl">
+            <h3 className="mb-4 flex items-center text-lg font-bold text-ink-1">
+              <Crosshair className="mr-2 size-5 text-primary" />
               寻找对手
             </h3>
-            <form onSubmit={handleSearch} className="flex gap-3 mb-6">
-              <input
-                type="text"
-                placeholder="输入班级名称搜索..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="flex-1 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            <form onSubmit={handleSearch} className="mb-6">
+              <Toolbar
+                search={{
+                  value: searchQuery,
+                  onChange: setSearchQuery,
+                  placeholder: '输入班级名称搜索...',
+                }}
+                searchLabel="输入班级名称搜索"
+                actions={
+                  <Button
+                    type="submit"
+                    disabled={isSearching || !searchQuery.trim()}
+                    className="bg-secondary-foreground text-primary-foreground hover:bg-secondary-foreground/90"
+                  >
+                    {isSearching ? '搜索中...' : '搜索'}
+                  </Button>
+                }
               />
-              <button 
-                type="submit" 
-                disabled={isSearching || !searchQuery.trim()}
-                className="px-6 py-2 bg-slate-900 text-white font-bold rounded-xl disabled:opacity-50"
-              >
-                {isSearching ? '搜索中...' : '搜索'}
-              </button>
             </form>
 
             <div className="space-y-3">
               {searchResults.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="font-bold text-slate-700">{c.name}</span>
-                  <button
-                    onClick={() => initiateBattle(c.id, c.name)}
-                    className="px-4 py-2 bg-rose-100 text-rose-700 hover:bg-rose-200 font-bold rounded-lg transition-colors text-sm"
+                <div key={c.id} className="flex items-center justify-between rounded-card border border-border bg-muted/50 p-4">
+                  <span className="font-bold text-ink-2">{c.name}</span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setChallengeTarget({ id: c.id, name: c.name })}
                   >
                     发起挑战
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -231,30 +257,32 @@ export default function TeacherBrawl() {
         {/* Pending Requests */}
         <div className="space-y-6">
           {pendingReceived.length > 0 && (
-            <div className="bg-amber-50 rounded-3xl p-6 border border-amber-200 shadow-lg">
-              <h3 className="text-lg font-bold text-amber-900 mb-4 flex items-center">
-                <AlertCircle className="w-5 h-5 mr-2 text-amber-600" />
+            <div className="rounded-panel border border-warning/30 bg-warning/10 p-6 shadow-card">
+              <h3 className="mb-4 flex items-center text-lg font-bold text-warning">
+                <AlertCircle className="mr-2 size-5 text-warning" />
                 收到的挑战战书 ({pendingReceived.length})
               </h3>
               <div className="space-y-3">
                 {pendingReceived.map(b => (
-                  <div key={b.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white rounded-2xl border border-amber-100 gap-4">
-                    <span className="font-bold text-slate-800">
-                      来自: <span className="text-rose-600">{b.initiator_class_name}</span>
+                  <div key={b.id} className="flex flex-col justify-between gap-4 rounded-card border border-warning/20 bg-paper p-4 sm:flex-row sm:items-center">
+                    <span className="font-bold text-ink-1">
+                      来自: <span className="text-destructive">{b.initiator_class_name}</span>
                     </span>
                     <div className="flex gap-2">
-                      <button
+                      <Button
+                        size="sm"
+                        className="bg-success text-primary-foreground hover:bg-success/90"
                         onClick={() => handleAction(b.id, 'accept')}
-                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-colors text-sm"
                       >
                         应战
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() => handleAction(b.id, 'reject')}
-                        className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition-colors text-sm"
                       >
                         拒绝
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -263,20 +291,20 @@ export default function TeacherBrawl() {
           )}
 
           {pendingSent.length > 0 && (
-            <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200">
-              <h3 className="text-lg font-bold text-slate-700 mb-4 flex items-center">
-                <ShieldAlert className="w-5 h-5 mr-2 text-slate-500" />
+            <div className="rounded-panel border border-border bg-muted/50 p-6">
+              <h3 className="mb-4 flex items-center text-lg font-bold text-ink-2">
+                <ShieldAlert className="mr-2 size-5 text-ink-3" />
                 已发出的挑战
               </h3>
               <div className="space-y-3">
                 {pendingSent.map(b => (
-                  <div key={b.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
-                    <span className="font-medium text-slate-600">
-                      等待 <span className="font-bold text-slate-800">{b.target_class_name}</span> 迎战
+                  <div key={b.id} className="flex items-center justify-between rounded-card border border-border bg-paper p-4">
+                    <span className="font-medium text-ink-2">
+                      等待 <span className="font-bold text-ink-1">{b.target_class_name}</span> 迎战
                     </span>
-                    <span className="text-xs font-bold px-3 py-1 bg-amber-100 text-amber-700 rounded-full animate-pulse">
+                    <Badge variant="warning" className="animate-pulse">
                       Pending
-                    </span>
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -286,41 +314,73 @@ export default function TeacherBrawl() {
       </div>
 
       {/* Battle History */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-4">历史战役记录</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-3 rounded-l-xl">发起方</th>
-                <th className="px-4 py-3">迎战方</th>
-                <th className="px-4 py-3">状态</th>
-                <th className="px-4 py-3 rounded-r-xl">获胜方</th>
-              </tr>
-            </thead>
-            <tbody>
-              {battles.filter(b => b.status === 'ended' || b.status === 'rejected').slice(0, 10).map(b => (
-                <tr key={b.id} className="border-b border-slate-50 last:border-0">
-                  <td className={`px-4 py-3 font-medium ${b.initiator_class_id === classId ? 'text-indigo-600' : 'text-slate-700'}`}>
-                    {b.initiator_class_name}
-                  </td>
-                  <td className={`px-4 py-3 font-medium ${b.target_class_id === classId ? 'text-indigo-600' : 'text-slate-700'}`}>
-                    {b.target_class_name}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${b.status === 'ended' ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-600'}`}>
-                      {b.status === 'ended' ? '已结束' : '已拒绝'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-emerald-600">
-                    {b.winner_class_id === b.initiator_class_id ? b.initiator_class_name : (b.winner_class_id === b.target_class_id ? b.target_class_name : '-')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold text-ink-1">历史战役记录</h3>
+        <DataTable<Battle>
+          columns={[
+            {
+              key: 'initiator',
+              header: '发起方',
+              render: (b) => (
+                <span className={cn('font-medium', b.initiator_class_id === classId ? 'text-primary' : 'text-ink-2')}>
+                  {b.initiator_class_name}
+                </span>
+              ),
+            },
+            {
+              key: 'target',
+              header: '迎战方',
+              render: (b) => (
+                <span className={cn('font-medium', b.target_class_id === classId ? 'text-primary' : 'text-ink-2')}>
+                  {b.target_class_name}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: '状态',
+              render: (b) => (
+                <Badge variant={b.status === 'ended' ? 'secondary' : 'destructive'}>
+                  {b.status === 'ended' ? '已结束' : '已拒绝'}
+                </Badge>
+              ),
+            },
+            {
+              key: 'winner',
+              header: '获胜方',
+              className: 'font-bold text-success',
+              render: (b) => (
+                b.winner_class_id === b.initiator_class_id
+                  ? b.initiator_class_name
+                  : (b.winner_class_id === b.target_class_id ? b.target_class_name : '-')
+              ),
+            },
+          ]}
+          rows={historyBattles}
+          getRowKey={(b) => b.id}
+          empty={
+            <EmptyState
+              icon={Swords}
+              title="暂无历史战役记录"
+              className="bg-paper"
+            />
+          }
+        />
       </div>
+
+      <ConfirmDialog
+        open={Boolean(challengeTarget)}
+        onOpenChange={(open) => !open && setChallengeTarget(null)}
+        title={challengeTarget ? `确定要向 [${challengeTarget.name}] 发起大乱斗挑战吗？` : '发起大乱斗挑战'}
+        confirmLabel="发起挑战"
+        pendingLabel="发起中..."
+        isPending={initiateMutation.isPending}
+        onConfirm={async () => {
+          if (!challengeTarget) return;
+          await initiateBattle(challengeTarget.id, challengeTarget.name);
+          setChallengeTarget(null);
+        }}
+      />
     </div>
   );
 }

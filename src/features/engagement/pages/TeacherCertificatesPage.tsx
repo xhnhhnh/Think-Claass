@@ -1,12 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { Award, Search, Plus, User, Calendar, CheckCircle } from 'lucide-react';
+import { Award, Plus, Calendar, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { certificatesApi } from '@/features/engagement/api/certificatesApi';
 import { launchConfetti } from '@/lib/confetti';
+import { CELEBRATION } from '@/lib/celebrationPalette';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { StatCard } from '@/components/ui/stat-card';
+import { Textarea } from '@/components/ui/textarea';
+import { Toolbar } from '@/components/ui/toolbar';
 
 interface Student {
   id: number;
@@ -23,6 +42,15 @@ interface Certificate {
   created_at: string;
 }
 
+/**
+ * 荣誉奖状.
+ *
+ * The award cards are the game surface: each one keeps its amber hero band and its
+ * `motion` entrance, and issuing one still fires confetti - now through the shared
+ * `CELEBRATION.brand` palette instead of the library default, because this is the
+ * ceremony the palette was named for. The hand-built overlay became the kit `Dialog`
+ * so the close button, the focus trap and the entrance animation are not re-invented.
+ */
 export default function TeacherCertificates() {
   const user = useStore((state) => state.user);
   const [students, setStudents] = useState<Student[]>([]);
@@ -82,7 +110,8 @@ export default function TeacherCertificates() {
         void launchConfetti({
           particleCount: 100,
           spread: 70,
-          origin: { y: 0.6 }
+          origin: { y: 0.6 },
+          colors: [...CELEBRATION.brand]
         });
         setIsModalOpen(false);
         setSelectedStudent('');
@@ -104,75 +133,76 @@ export default function TeacherCertificates() {
   );
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/80 backdrop-blur-xl p-6 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-indigo-100/50 rounded-2xl flex items-center justify-center mr-4">
-            <Award className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">荣誉奖状</h1>
-            <p className="text-sm text-slate-500 mt-1">为表现优异的学生颁发专属荣誉</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white px-6 py-2.5 rounded-xl font-medium shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all flex items-center w-full sm:w-auto justify-center"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          颁发新奖状
-        </button>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <PageHeader
+        title="荣誉奖状"
+        description="为表现优异的学生颁发专属荣誉"
+        icon={Award}
+        actions={
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-gradient-to-r from-primary to-warning text-primary-foreground hover:from-primary hover:to-warning"
+          >
+            <Plus data-icon="inline-start" />
+            颁发新奖状
+          </Button>
+        }
+      />
 
       {/* Search & Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white/80 backdrop-blur-xl p-2 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 flex items-center">
-          <Search className="w-5 h-5 text-slate-400 ml-3" />
-          <input
-            type="text"
-            placeholder="搜索学生姓名或荣誉称号..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-transparent border-none focus:ring-0 text-slate-700 px-4"
+      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+        <div className="flex-1 rounded-panel border border-border bg-paper/80 p-4 shadow-card backdrop-blur-xl">
+          <Toolbar
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: '搜索学生姓名或荣誉称号...',
+            }}
+            searchLabel="搜索学生姓名或荣誉称号"
           />
         </div>
-        <div className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 flex items-center justify-between">
-          <span className="text-slate-500 font-medium">累计颁发</span>
-          <span className="text-2xl font-bold text-indigo-600">{certificates.length}</span>
-        </div>
+        <StatCard
+          label="累计颁发"
+          value={certificates.length}
+          icon={Award}
+          tone="warning"
+          className="md:w-64"
+        />
       </div>
 
       {/* Certificates List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <div className="col-span-full py-20 text-center text-slate-400">加载中...</div>
+          Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} className="h-56 rounded-card" />
+          ))
         ) : filteredCerts.length === 0 ? (
-          <div className="col-span-full py-20 text-center bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 border-dashed">
-            <Award className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 font-medium">暂无颁发记录</p>
-          </div>
+          <EmptyState
+            icon={Award}
+            title="暂无颁发记录"
+            className="col-span-full"
+          />
         ) : (
           filteredCerts.map((cert) => (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               key={cert.id}
-              className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden group hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all"
+              className="overflow-hidden rounded-card border border-border bg-paper shadow-card transition-all hover:shadow-raised"
             >
-              <div className="bg-gradient-to-br from-amber-100 to-orange-50 p-6 text-center border-b border-amber-200/50 relative">
+              <div className="relative border-b border-warning/20 bg-gradient-to-br from-warning/15 to-warning/5 p-6 text-center">
                 <div className="absolute top-4 right-4 opacity-20">
-                  <Award className="w-16 h-16 text-amber-600" />
+                  <Award className="size-16 text-warning" />
                 </div>
-                <h3 className="text-xl font-black text-amber-800 mb-1 relative z-10">{cert.title}</h3>
-                <p className="text-amber-600/80 text-sm font-medium relative z-10">授予：{cert.student_name}</p>
+                <h3 className="relative z-10 mb-1 text-xl font-black text-warning">{cert.title}</h3>
+                <p className="relative z-10 text-sm font-medium text-warning/80">授予：{cert.student_name}</p>
               </div>
               <div className="p-6">
-                <p className="text-slate-600 text-sm mb-4 leading-relaxed line-clamp-3">
+                <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-ink-2">
                   {cert.description || '表现优异，特发此状，以资鼓励。'}
                 </p>
-                <div className="flex items-center text-xs text-slate-400">
-                  <Calendar className="w-4 h-4 mr-1.5" />
+                <div className="flex items-center text-xs text-ink-3">
+                  <Calendar className="mr-1.5 size-4" />
                   {new Date(cert.created_at).toLocaleDateString()}
                 </div>
               </div>
@@ -182,97 +212,76 @@ export default function TeacherCertificates() {
       </div>
 
       {/* Issue Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
-              onClick={() => setIsModalOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden"
-            >
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h2 className="text-lg font-bold text-slate-800 flex items-center">
-                  <Award className="w-5 h-5 mr-2 text-indigo-500" />
-                  颁发荣誉奖状
-                </h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
-              </div>
-              
-              <form onSubmit={handleIssueCertificate} className="p-6 space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">选择学生 <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <User className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <select
-                      value={selectedStudent}
-                      onChange={(e) => setSelectedStudent(Number(e.target.value))}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none"
-                      required
-                    >
-                      <option value="">请选择要表彰的学生</option>
-                      {students.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && setIsModalOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Award className="mr-2 size-5 text-primary" />
+              颁发荣誉奖状
+            </DialogTitle>
+          </DialogHeader>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">荣誉称号 <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="如：阅读之星、进步标兵"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                    required
-                  />
-                </div>
+          <form onSubmit={handleIssueCertificate} className="space-y-5">
+            <FormField label="选择学生" required>
+              <Select
+                value={selectedStudent}
+                onChange={(e) => setSelectedStudent(Number(e.target.value))}
+                required
+              >
+                <option value="">请选择要表彰的学生</option>
+                {students.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </Select>
+            </FormField>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">表彰寄语</label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="写几句鼓励的话语...（选填）"
-                    rows={3}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
-                  />
-                </div>
+            <FormField label="荣誉称号" required>
+              <Input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="如：阅读之星、进步标兵"
+                required
+              />
+            </FormField>
 
-                <div className="pt-4 flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-2.5 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-                  >
-                    取消
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 py-2.5 rounded-xl font-medium text-white bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex justify-center items-center"
-                  >
-                    {submitting ? '颁发中...' : (
-                      <>
-                        <CheckCircle className="w-5 h-5 mr-1.5" /> 确认颁发
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            <FormField label="表彰寄语">
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="写几句鼓励的话语...（选填）"
+                rows={3}
+              />
+            </FormField>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsModalOpen(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="bg-gradient-to-r from-primary to-info text-primary-foreground hover:from-primary hover:to-info"
+              >
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" label="正在颁发" />
+                    颁发中...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle data-icon="inline-start" /> 确认颁发
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

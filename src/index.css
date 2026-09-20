@@ -226,6 +226,36 @@
   .glass-dark {
     @apply border border-[var(--campus-border)] bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl;
   }
+
+  /*
+   * Hidden scrollbar, for a horizontally scrolling strip (the big screen's danmaku and
+   * podium rows). `.scrollbar-hide` was written in the page and defined nowhere, so it
+   * compiled to nothing - the class is real now.
+   */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * `@keyframes` live outside `@layer` so they are emitted whenever the stylesheet is,
+ * not only when a `animate-*` utility references them: the big screen drives its
+ * transmission bar with the arbitrary value `animate-[slideRight_2s_linear_infinite]`,
+ * which Tailwind emits as `animation: slideRight 2s linear infinite` and nothing else.
+ * Without these keyframes that bar never moved.
+ */
+@keyframes slideRight {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 /*

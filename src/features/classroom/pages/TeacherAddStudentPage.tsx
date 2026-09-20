@@ -1,11 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { UserPlus, ArrowLeft, Upload } from 'lucide-react';
+import { UserPlus, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
+/**
+ * 添加学生.
+ *
+ * Two forms behind one tab strip. The visible copy, the payloads and the
+ * `navigate` state transition are unchanged; what moved is the presentation - a
+ * hand-written header, raw controls and indigo/blue accents became `PageHeader`,
+ * the kit's form controls and the token palette.
+ *
+ * The `error` string is still the single source of truth for both the inline message
+ * and the toast: it stays next to the form rather than being left to the toast alone,
+ * because the form remains on screen after a failure.
+ */
 export default function AddStudent() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -106,189 +126,168 @@ export default function AddStudent() {
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center space-x-4 bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <button
-          onClick={() => navigate('/teacher', { state: { classId: defaultClassId } })}
-          className="p-2 text-gray-400 hover:text-slate-600 hover:bg-slate-50/50 rounded-xl transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">添加学生</h1>
-          <p className="text-sm text-slate-500">为班级添加新的学生账号</p>
-        </div>
-      </div>
+  const goBack = () => navigate('/teacher', { state: { classId: defaultClassId } });
 
-      {/* Form Container */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden">
-        <div className="flex border-b border-white/60">
-          <button
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'single' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'
-            }`}
+  const errorBanner = error ? (
+    <div
+      role="alert"
+      className="flex items-center rounded-card border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
+    >
+      {error}
+    </div>
+  ) : null;
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="添加学生"
+        description="为班级添加新的学生账号"
+        icon={UserPlus}
+        actions={
+          <Button type="button" variant="outline" onClick={goBack}>
+            返回班级
+          </Button>
+        }
+      />
+
+      <div className="overflow-hidden rounded-panel border border-border bg-paper shadow-card">
+        {/* Both tabs stay mounted-in-place as one switch: `activeTab` is a form mode, not a route. */}
+        <div className="flex border-b border-border">
+          <Button
+            type="button"
+            aria-pressed={activeTab === 'single'}
             onClick={() => setActiveTab('single')}
+            className={cn(
+              'h-auto flex-1 rounded-none border-b-2 border-transparent bg-transparent py-4 text-sm font-medium text-ink-3 hover:bg-transparent hover:text-ink-1',
+              activeTab === 'single' && 'border-primary bg-primary/5 text-primary hover:text-primary',
+            )}
           >
             单个添加
-          </button>
-          <button
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'batch' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'
-            }`}
+          </Button>
+          <Button
+            type="button"
+            aria-pressed={activeTab === 'batch'}
             onClick={() => setActiveTab('batch')}
+            className={cn(
+              'h-auto flex-1 rounded-none border-b-2 border-transparent bg-transparent py-4 text-sm font-medium text-ink-3 hover:bg-transparent hover:text-ink-1',
+              activeTab === 'batch' && 'border-primary bg-primary/5 text-primary hover:text-primary',
+            )}
           >
             批量导入
-          </button>
+          </Button>
         </div>
 
         {activeTab === 'single' ? (
-          <form onSubmit={handleCreateStudent} className="p-8 space-y-6">
-            {error && (
-              <div className="p-4 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100 flex items-center">
-                {error}
-              </div>
-            )}
-            
+          <form onSubmit={handleCreateStudent} className="space-y-6 p-8">
+            {errorBanner}
+
             <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  所属班级 <span className="text-red-500">*</span>
-                </label>
-                <select
+              <FormField label="所属班级" required>
+                <Select
                   required
                   value={newStudent.class_id}
                   onChange={(e) => setNewStudent({ ...newStudent, class_id: parseInt(e.target.value) })}
-                  className="block w-full border-gray-300 rounded-xl py-3 px-4 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50/50 focus:bg-white/80 backdrop-blur-xl transition-colors"
                 >
                   <option value="" disabled>请选择班级</option>
                   {classes.map(cls => (
                     <option key={cls.id} value={cls.id}>{cls.name}</option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  学生姓名 <span className="text-red-500">*</span>
-                </label>
-                <input
+              <FormField label="学生姓名" required>
+                <Input
                   type="text"
                   required
                   value={newStudent.name}
                   onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-                  className="block w-full border-gray-300 rounded-xl py-3 px-4 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50/50 focus:bg-white/80 backdrop-blur-xl transition-colors"
                   placeholder="例如: 张三"
                 />
-              </div>
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  登录账号 <span className="text-red-500">*</span>
-                </label>
-                <input
+              <FormField label="登录账号" required>
+                <Input
                   type="text"
                   required
                   value={newStudent.username}
                   onChange={(e) => setNewStudent({ ...newStudent, username: e.target.value })}
-                  className="block w-full border-gray-300 rounded-xl py-3 px-4 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50/50 focus:bg-white/80 backdrop-blur-xl transition-colors"
                   placeholder="建议使用学号或拼音缩写"
                 />
-                <div className="mt-2 p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                  <p className="text-sm text-blue-700 flex items-center">
-                    <span className="font-semibold mr-1">提示:</span> 
-                    新创建的学生账号默认登录密码为 
-                    <code className="mx-1 px-1.5 py-0.5 bg-blue-100 rounded text-blue-800 font-mono">123456</code>
-                  </p>
-                </div>
+              </FormField>
+
+              <div className="rounded-card border border-primary/20 bg-primary/5 p-3">
+                <p className="flex items-center text-sm text-ink-2">
+                  <span className="mr-1 font-semibold">提示:</span>
+                  新创建的学生账号默认登录密码为
+                  <code className="mx-1 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary">123456</code>
+                </p>
               </div>
             </div>
-            
-            <div className="pt-6 border-t border-white/60 flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => navigate('/teacher', { state: { classId: defaultClassId } })}
-                className="px-6 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-slate-700 bg-white/80 backdrop-blur-xl hover:bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-              >
+
+            <div className="flex justify-end gap-3 border-t border-border pt-6">
+              <Button type="button" variant="outline" onClick={goBack}>
                 取消
-              </button>
-              <button
-                type="submit"
-                disabled={creating}
-                className="flex items-center px-6 py-2.5 border border-transparent rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating ? <Spinner size="sm" label="创建中" /> : <UserPlus data-icon="inline-start" />}
                 {creating ? '创建中...' : '确认添加'}
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleBatchImport} className="p-8 space-y-6">
-            {error && (
-              <div className="p-4 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100 flex items-center">
-                {error}
-              </div>
-            )}
-            
+          <form onSubmit={handleBatchImport} className="space-y-6 p-8">
+            {errorBanner}
+
             <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  导入至班级 <span className="text-red-500">*</span>
-                </label>
-                <select
+              <FormField label="导入至班级" required>
+                <Select
                   required
                   value={batchClassId}
                   onChange={(e) => setBatchClassId(parseInt(e.target.value))}
-                  className="block w-full border-gray-300 rounded-xl py-3 px-4 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50/50 focus:bg-white/80 backdrop-blur-xl transition-colors"
                 >
                   <option value="" disabled>请选择班级</option>
                   {classes.map(cls => (
                     <option key={cls.id} value={cls.id}>{cls.name}</option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </FormField>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  粘贴学生数据 <span className="text-red-500">*</span>
-                </label>
-                <div className="mb-2 text-sm text-slate-500">
+                <FormField label="粘贴学生数据" required>
+                  <Textarea
+                    required
+                    value={batchData}
+                    onChange={(e) => setBatchData(e.target.value)}
+                    rows={8}
+                    className="font-mono"
+                    placeholder="张三 zhangsan&#10;李四 lisi&#10;王五,wangwu"
+                  />
+                </FormField>
+                {/*
+                  Outside the `FormField`: its `<label>` wraps the control, so a paragraph
+                  inside it would join the textarea's accessible name.
+                */}
+                <div className="mt-2 text-sm text-ink-3">
                   请按照 <strong>姓名 账号</strong> 的格式输入，每行一个学生。支持使用空格、制表符（Tab）或逗号分隔。
                 </div>
-                <textarea
-                  required
-                  value={batchData}
-                  onChange={(e) => setBatchData(e.target.value)}
-                  rows={8}
-                  className="block w-full border-gray-300 rounded-xl py-3 px-4 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-slate-50/50 focus:bg-white/80 backdrop-blur-xl transition-colors font-mono"
-                  placeholder="张三 zhangsan&#10;李四 lisi&#10;王五,wangwu"
-                />
-                <div className="mt-2 p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                  <p className="text-sm text-blue-700">
-                    <span className="font-semibold mr-1">提示:</span> 
-                    您可以直接从 Excel 表格中复制两列（姓名列、账号列），然后粘贴到上方输入框中。默认密码均为 123456。
-                  </p>
-                </div>
+              </div>
+
+              <div className="rounded-card border border-primary/20 bg-primary/5 p-3">
+                <p className="text-sm text-ink-2">
+                  <span className="mr-1 font-semibold">提示:</span>
+                  您可以直接从 Excel 表格中复制两列（姓名列、账号列），然后粘贴到上方输入框中。默认密码均为 123456。
+                </p>
               </div>
             </div>
-            
-            <div className="pt-6 border-t border-white/60 flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => navigate('/teacher', { state: { classId: defaultClassId } })}
-                className="px-6 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-slate-700 bg-white/80 backdrop-blur-xl hover:bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-              >
+
+            <div className="flex justify-end gap-3 border-t border-border pt-6">
+              <Button type="button" variant="outline" onClick={goBack}>
                 取消
-              </button>
-              <button
-                type="submit"
-                disabled={creating || !batchData.trim()}
-                className="flex items-center px-6 py-2.5 border border-transparent rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Upload className="h-4 w-4 mr-2" />
+              </Button>
+              <Button type="submit" disabled={creating || !batchData.trim()}>
+                {creating ? <Spinner size="sm" label="导入中" /> : <Upload data-icon="inline-start" />}
                 {creating ? '导入中...' : '确认导入'}
-              </button>
+              </Button>
             </div>
           </form>
         )}

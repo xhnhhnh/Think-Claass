@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, LoaderCircle, Plus, UploadCloud } from 'lucide-react';
+import { FileText, Plus, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -9,7 +9,35 @@ import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { usePapers } from '@/features/learning/hooks/usePapers';
 import { useSubjects } from '@/features/learning/hooks/useKnowledge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Toolbar } from '@/components/ui/toolbar';
 
+/**
+ * 试卷库.
+ *
+ * The heading moved into `PageHeader`, the create/filter row into `Toolbar` (its three
+ * controls keep their visible labels through `FormField`), the loading and empty blocks
+ * into `Spinner` and `EmptyState`, and the four action buttons onto `Button`.
+ *
+ * `管理学科` used to call `prompt()`, which is a blocking browser dialog this refactor
+ * is removing - it is a one-field `Dialog` now, and `handleCreateSubject` is unchanged
+ * underneath (same `knowledgeApi.createSubject` payload, same toast).
+ */
 export default function TeacherPapers() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -24,6 +52,9 @@ export default function TeacherPapers() {
     subject_id: null as number | null,
     total_points: 100,
   });
+
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false);
+  const [subjectName, setSubjectName] = useState('');
 
   const classOptions = useMemo(() => classes, [classes]);
 
@@ -46,13 +77,16 @@ export default function TeacherPapers() {
     } catch (e) {}
   };
 
-  const handleCreateSubject = async () => {
-    const name = prompt('请输入学科名称（如：数学）');
+  const handleCreateSubject = async (event: FormEvent) => {
+    event.preventDefault();
+    const name = subjectName.trim();
     if (!name) return;
     try {
-      await knowledgeApi.createSubject({ name: name.trim() });
+      await knowledgeApi.createSubject({ name });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-subjects'] });
       toast.success('已新增学科');
+      setSubjectName('');
+      setShowSubjectDialog(false);
     } catch (e) {}
   };
 
@@ -74,132 +108,148 @@ export default function TeacherPapers() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-800 flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-indigo-500" />
-            试卷库
-          </h2>
-          <button
-            onClick={handleCreateSubject}
-            className="px-4 py-2 rounded-2xl text-sm font-medium bg-slate-50/50 text-slate-600 border border-gray-200 hover:bg-slate-100/50"
-          >
+      <PageHeader
+        title="试卷库"
+        icon={FileText}
+        actions={
+          <Button variant="outline" onClick={() => setShowSubjectDialog(true)}>
             管理学科
-          </button>
-        </div>
+          </Button>
+        }
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-2">
-            <div className="text-sm font-medium text-slate-500 mb-2">新建试卷</div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                value={createState.title}
-                onChange={(e) => setCreateState((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="试卷名称"
-                className="flex-1 px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-              <button
-                onClick={handleCreatePaper}
-                className="px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-semibold shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex items-center justify-center"
-              >
-                <Plus className="w-4 h-4 mr-2" />
+      <Card>
+        <CardContent className="space-y-6">
+          <Toolbar
+            filters={
+              <>
+                <FormField label="新建试卷" className="w-full sm:w-72">
+                  <Input
+                    value={createState.title}
+                    onChange={(e) => setCreateState((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="试卷名称"
+                  />
+                </FormField>
+                <FormField label="班级筛选" className="w-full sm:w-44">
+                  <Select
+                    value={selectedClassId ?? ''}
+                    onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">全部班级</option>
+                    {classOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="新建默认学科" className="w-full sm:w-44">
+                  <Select
+                    value={createState.subject_id ?? ''}
+                    onChange={(e) => setCreateState((prev) => ({ ...prev, subject_id: e.target.value ? Number(e.target.value) : null }))}
+                  >
+                    <option value="">不设置</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+              </>
+            }
+            actions={
+              <Button onClick={handleCreatePaper}>
+                <Plus data-icon="inline-start" />
                 创建
-              </button>
-            </div>
-          </div>
+              </Button>
+            }
+          />
 
-          <div>
-            <div className="text-sm font-medium text-slate-500 mb-2">班级筛选</div>
-            <select
-              value={selectedClassId ?? ''}
-              onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
-            >
-              <option value="">全部班级</option>
-              {classOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <div className="text-sm font-medium text-slate-500 mb-2">新建默认学科</div>
-            <select
-              value={createState.subject_id ?? ''}
-              onChange={(e) => setCreateState((prev) => ({ ...prev, subject_id: e.target.value ? Number(e.target.value) : null }))}
-              className="w-full px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
-            >
-              <option value="">不设置</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          {isLoading && (
-            <div className="flex items-center justify-center py-10 text-slate-500">
-              <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-3 py-10 text-ink-3">
+              <Spinner label="正在加载试卷" />
               正在加载试卷...
             </div>
-          )}
-
-          {!isLoading && papers.length === 0 && <div className="py-10 text-center text-slate-500">暂无试卷</div>}
-
-          {!isLoading && papers.length > 0 && (
+          ) : papers.length === 0 ? (
+            <EmptyState icon={FileText} title="暂无试卷" />
+          ) : (
             <div className="space-y-3">
               {papers.map((p) => (
                 <div
                   key={p.id}
-                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white/70 border border-white/60 rounded-3xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+                  className="flex flex-col gap-3 rounded-card border border-border bg-muted/50 p-5 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="min-w-0">
-                    <div className="font-bold text-slate-800 truncate">{p.title}</div>
-                    <div className="text-sm text-slate-500">
+                    <div className="truncate font-bold text-ink-1">{p.title}</div>
+                    <div className="text-sm text-ink-3">
                       状态：{p.status} {p.subjects?.name ? `· 学科：${p.subjects.name}` : ''} {p.class_id ? `· 班级ID：${p.class_id}` : ''}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => navigate(`/teacher/papers/${p.id}/edit`)}
-                      className="px-4 py-2 rounded-2xl text-sm font-medium bg-slate-50/50 text-slate-600 border border-gray-200 hover:bg-slate-100/50"
                     >
                       编辑
-                    </button>
+                    </Button>
                     {p.status === 'published' ? (
-                      <button
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         onClick={() => handleUnpublish(p.id)}
-                        className="px-4 py-2 rounded-2xl text-sm font-medium bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
                       >
                         取消发布
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
+                        size="sm"
                         onClick={() => handlePublish(p.id)}
-                        className="px-4 py-2 rounded-2xl text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
                       >
                         发布
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => navigate(`/teacher/papers/${p.id}/edit#upload`)}
-                      className="px-4 py-2 rounded-2xl text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 flex items-center"
                     >
-                      <UploadCloud className="w-4 h-4 mr-2" />
+                      <UploadCloud data-icon="inline-start" />
                       上传试卷
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showSubjectDialog} onOpenChange={setShowSubjectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>管理学科</DialogTitle>
+            <DialogDescription>请输入学科名称（如：数学）</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateSubject} className="flex flex-col gap-4">
+            <FormField label="学科名称" required>
+              <Input
+                required
+                value={subjectName}
+                onChange={(event) => setSubjectName(event.target.value)}
+                placeholder="例如：数学"
+              />
+            </FormField>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowSubjectDialog(false)}>
+                取消
+              </Button>
+              <Button type="submit">确认新增</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

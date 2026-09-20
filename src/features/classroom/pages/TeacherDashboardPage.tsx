@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, UserPlus, Users, PlusCircle, CheckSquare, Square, Edit2, Dice5 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
 import { DroppableGroup } from '@/pages/Teacher/components/DroppableGroup';
@@ -245,79 +247,79 @@ export default function TeacherDashboard() {
       {/* Class Tabs */}
       <div className="flex flex-col space-y-3 pb-2">
         <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide">
-          <span className="text-sm font-bold text-slate-500 mr-2 flex-shrink-0">班级:</span>
+          <span className="text-sm font-bold text-ink-3 mr-2 flex-shrink-0">班级:</span>
           {classes.map((cls) => (
-            <button
+            <Button variant="ghost"
               key={cls.id}
               onClick={() => setSelectedClassId(cls.id)}
               className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 selectedClassId === cls.id
-                  ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-[0_2px_12px_rgba(0,0,0,0.03)]'
-                  : 'bg-white/80 backdrop-blur-xl text-slate-600 border border-gray-200 hover:bg-slate-50/50'
+                  ? 'bg-gradient-to-r from-primary to-cyan-500 text-white shadow-card'
+                  : 'bg-paper/80 backdrop-blur-xl text-ink-2 border border-border hover:bg-muted/60'
               }`}
             >
               {cls.name}
-            </button>
+            </Button>
           ))}
-          <button
+          <Button variant="ghost"
             onClick={() => setShowAddClass(true)}
-            className="flex-shrink-0 flex items-center px-4 py-2 rounded-full text-sm font-medium bg-white/80 backdrop-blur-xl text-indigo-600 border border-indigo-200/50 hover:bg-indigo-50/50 transition-colors border-dashed"
+            className="flex-shrink-0 flex items-center px-4 py-2 rounded-full text-sm font-medium bg-paper/80 backdrop-blur-xl text-primary border border-primary/20 hover:bg-primary/5 transition-colors border-dashed"
           >
             <PlusCircle className="h-4 w-4 mr-1" />
             新建班级
-          </button>
+          </Button>
         </div>
 
         {selectedClassId && (
           <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide pt-1">
-            <span className="text-sm font-bold text-slate-500 mr-2 flex-shrink-0">小组:</span>
+            <span className="text-sm font-bold text-ink-3 mr-2 flex-shrink-0">小组:</span>
             {groups.map((group) => (
               <div
                 key={group.id}
-                className="flex-shrink-0 px-3 py-1.5 rounded-2xl text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100"
+                className="flex-shrink-0 px-3 py-1.5 rounded-card text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100"
               >
                 {group.name}
               </div>
             ))}
-            <button
+            <Button variant="ghost"
               onClick={() => setShowAddGroup(true)}
-              className="flex-shrink-0 flex items-center px-3 py-1.5 rounded-2xl text-sm font-medium bg-white/80 backdrop-blur-xl text-blue-600 border border-blue-200 hover:bg-blue-50 transition-colors border-dashed"
+              className="flex-shrink-0 flex items-center px-3 py-1.5 rounded-card text-sm font-medium bg-paper/80 backdrop-blur-xl text-blue-600 border border-blue-200 hover:bg-blue-50 transition-colors border-dashed"
             >
               <PlusCircle className="h-3.5 w-3.5 mr-1" />
               新建小组
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
       {selectedClassId && (
-        <div className="rounded-2xl border border-white/60 bg-white/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] backdrop-blur-xl">
+        <div className="rounded-card border border-white/60 bg-paper/80 p-5 shadow-card backdrop-blur-xl">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">课堂功能控制</h2>
-              <p className="text-sm text-slate-500">当前班级的 19 项课堂能力会实时同步到学生端、家长端与接口兜底校验</p>
+              <h2 className="text-lg font-bold text-ink-1">课堂功能控制</h2>
+              <p className="text-sm text-ink-3">当前班级的 19 项课堂能力会实时同步到学生端、家长端与接口兜底校验</p>
             </div>
-            <button
+            <Button variant="ghost"
               onClick={() => navigate('/teacher/features')}
-              className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+              className="rounded-card bg-muted px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-slate-200"
             >
               进入完整控制台
-            </button>
+            </Button>
           </div>
           <ClassFeaturePanel classId={selectedClassId} compact />
         </div>
       )}
 
       {/* Top Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 gap-4 sm:gap-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-paper/80 backdrop-blur-xl p-4 rounded-card shadow-card border border-white/60 gap-4 sm:gap-0">
         <div className="flex items-center space-x-4 w-full sm:w-auto">
           <div className="relative w-full sm:w-80">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-5 w-5 text-ink-3" />
             </div>
-            <input
+            <Input
               type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-slate-50/50 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-input rounded-card leading-5 bg-muted/50 placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-ring sm:text-sm"
               placeholder="搜索学生姓名或账号..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -325,47 +327,47 @@ export default function TeacherDashboard() {
           </div>
           {selectedClassId && (
             <>
-              <div className="hidden sm:flex items-center px-3 py-1.5 bg-indigo-50/50 border border-green-100 rounded-2xl">
-                <span className="text-xs text-indigo-500 font-medium mr-2">班级均分:</span>
-                <span className="text-sm font-bold text-indigo-700">{classAverage} 分</span>
+              <div className="hidden sm:flex items-center px-3 py-1.5 bg-primary/5 border border-success/20 rounded-card">
+                <span className="text-xs text-primary font-medium mr-2">班级均分:</span>
+                <span className="text-sm font-bold text-primary">{classAverage} 分</span>
               </div>
             </>
           )}
         </div>
         
         <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <button
+          <Button variant="ghost"
             onClick={() => setShowTools(!showTools)}
-            className="flex items-center px-3 py-1.5 bg-purple-100 text-purple-700 rounded-2xl hover:bg-purple-200 transition-colors font-medium text-sm"
+            className="flex items-center px-3 py-1.5 bg-accent/60 text-accent-foreground rounded-card hover:bg-accent transition-colors font-medium text-sm"
           >
             <Dice5 className="h-4 w-4 mr-1" />
             课堂工具
-          </button>
+          </Button>
           {filteredStudents.length > 0 && (
-            <button onClick={toggleSelectAll} className="flex items-center text-sm text-slate-600 hover:text-indigo-600">
-              {selectedStudents.length === filteredStudents.length ? <CheckSquare className="h-5 w-5 mr-1 text-indigo-500" /> : <Square className="h-5 w-5 mr-1" />}
+            <Button variant="link" onClick={toggleSelectAll} className="flex items-center text-sm text-ink-2 hover:text-primary">
+              {selectedStudents.length === filteredStudents.length ? <CheckSquare className="h-5 w-5 mr-1 text-primary" /> : <Square className="h-5 w-5 mr-1" />}
               全选
-            </button>
+            </Button>
           )}
           {selectedStudents.length > 0 && (
-            <button onClick={() => openPointsModal('batch')} className="flex items-center px-3 py-1.5 bg-orange-100 text-orange-700 rounded-2xl hover:bg-orange-200 transition-colors font-medium text-sm">
+            <Button variant="ghost" onClick={() => openPointsModal('batch')} className="flex items-center px-3 py-1.5 bg-warning/20 text-orange-700 rounded-card hover:bg-orange-200 transition-colors font-medium text-sm">
               <Users className="h-4 w-4 mr-1" />
               批量评分 ({selectedStudents.length})
-            </button>
+            </Button>
           )}
           {selectedStudents.length > 0 && (
-            <button onClick={() => setShowEditModal(true)} className="flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 rounded-2xl hover:bg-blue-200 transition-colors font-medium text-sm">
+            <Button variant="ghost" onClick={() => setShowEditModal(true)} className="flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 rounded-card hover:bg-blue-200 transition-colors font-medium text-sm">
               <Edit2 className="h-4 w-4 mr-1" />
               批量修改 ({selectedStudents.length})
-            </button>
+            </Button>
           )}
-          <button
+          <Button variant="ghost"
             onClick={() => navigate('/teacher/add-student', { state: { classId: selectedClassId } })}
-            className="w-full sm:w-auto flex justify-center items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] font-medium"
+            className="w-full sm:w-auto flex justify-center items-center px-4 py-2 bg-gradient-to-r from-primary to-cyan-500 text-white rounded-card shadow-card font-medium"
           >
             <UserPlus className="h-5 w-5 mr-2" />
             添加学生
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -373,7 +375,7 @@ export default function TeacherDashboard() {
 
       {/* Student Grid */}
       {loadingStudents ? (
-        <div className="text-center py-12 text-slate-500">加载中...</div>
+        <div className="text-center py-12 text-ink-3">加载中...</div>
       ) : (
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
           <div className="space-y-8">
@@ -402,7 +404,7 @@ export default function TeacherDashboard() {
                     />
                   ))}
                   {groupStudents.length === 0 && (
-                    <div className="col-span-full flex items-center justify-center h-24 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm">
+                    <div className="col-span-full flex items-center justify-center h-24 border-2 border-dashed border-border rounded-card text-ink-3 text-sm">
                       拖拽学生到这里
                     </div>
                   )}
@@ -410,7 +412,7 @@ export default function TeacherDashboard() {
               )
             })}
             {filteredStudents.length === 0 && (
-              <div className="col-span-full text-center py-12 text-slate-500 bg-white/80 backdrop-blur-xl rounded-2xl border border-dashed border-gray-300">
+              <div className="col-span-full text-center py-12 text-ink-3 bg-paper/80 backdrop-blur-xl rounded-card border border-dashed border-input">
                 未找到学生信息
               </div>
             )}

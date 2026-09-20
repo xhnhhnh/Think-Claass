@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { GitBranch, Plus, XCircle, Edit2, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { GitBranch, Plus, Edit2, Trash2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 import {
   useCreateTaskNodeMutation,
@@ -11,6 +11,21 @@ import {
   useUpdateTaskNodeMutation,
 } from '@/features/collaboration/hooks/useTaskTree';
 import { useClasses } from '@/hooks/queries/useClasses';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface TaskNode {
   id: number;
@@ -22,6 +37,16 @@ interface TaskNode {
   y_pos: number;
 }
 
+/**
+ * 多维任务树管理.
+ *
+ * The canvas is the feature, so it keeps its dark starry stage, its glowing nodes and
+ * the spring entrance on each one. Two things had to leave it: the `stroke="#6366f1"`
+ * literal (the connection lines are `currentColor` on `text-primary` now) and the
+ * `style={{ left, top }}` that positioned a node - the same coordinates ride on the
+ * `motion.div`'s `animate` instead, which is where the rest of its animation already
+ * lived. Deleting a node asks through `ConfirmDialog` rather than `window.confirm`.
+ */
 export default function TeacherTaskTree() {
   const queryClient = useQueryClient();
   const { data: classes = [] } = useClasses();
@@ -30,9 +55,10 @@ export default function TeacherTaskTree() {
   const createMutation = useCreateTaskNodeMutation();
   const updateMutation = useUpdateTaskNodeMutation();
   const deleteMutation = useDeleteTaskNodeMutation();
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<TaskNode | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaskNode | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -84,7 +110,6 @@ export default function TeacherTaskTree() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('确定要删除此节点吗？')) return;
     try {
       const data = await deleteMutation.mutateAsync(id);
       if (data.success) {
@@ -122,34 +147,37 @@ export default function TeacherTaskTree() {
     setIsModalOpen(true);
   };
 
-  if (!classId) return <div className="p-8 text-center text-slate-500">请先创建或选择一个班级</div>;
+  if (!classId) {
+    return (
+      <EmptyState
+        icon={GitBranch}
+        title="请先创建或选择一个班级"
+        className="bg-paper"
+      />
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 p-4">
-      <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-            <GitBranch className="w-8 h-8 mr-3 text-indigo-500" />
-            多维任务树管理
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm">构建知识图谱与成长路线，学生需按顺序解锁节点。</p>
-        </div>
-        <button
-          onClick={openCreateModal}
-          className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all flex items-center"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          新建节点
-        </button>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 p-4">
+      <PageHeader
+        title="多维任务树管理"
+        description="构建知识图谱与成长路线，学生需按顺序解锁节点。"
+        icon={GitBranch}
+        actions={
+          <Button onClick={openCreateModal}>
+            <Plus data-icon="inline-start" />
+            新建节点
+          </Button>
+        }
+      />
 
       {/* Visual Tree Editor/Viewer */}
-      <div className="bg-slate-900 rounded-3xl p-6 shadow-xl relative min-h-[600px] border border-slate-800 overflow-hidden">
+      <div className="relative min-h-[600px] overflow-hidden rounded-panel border border-accent-foreground bg-secondary-foreground p-6 shadow-raised">
         {/* Starry background */}
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/30 via-secondary-foreground to-foreground opacity-60" />
 
         {/* Connections Layer */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-primary">
           {nodes.map(node => {
             if (!node.parent_node_id) return null;
             const parent = nodes.find(n => n.id === node.parent_node_id);
@@ -162,7 +190,7 @@ export default function TeacherTaskTree() {
                 y1={`${parent.y_pos}%`}
                 x2={`${node.x_pos}%`}
                 y2={`${node.y_pos}%`}
-                stroke="#6366f1"
+                stroke="currentColor"
                 strokeWidth="2"
                 strokeDasharray="4 4"
                 opacity="0.5"
@@ -175,138 +203,149 @@ export default function TeacherTaskTree() {
         {nodes.map(node => (
           <motion.div
             key={node.id}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            style={{ left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
-            className="absolute z-10 flex flex-col items-center group"
+            initial={{ scale: 0, left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
+            animate={{ scale: 1, left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
+            transition={{ type: 'spring', bounce: 0.35 }}
+            className="group absolute z-10 flex flex-col items-center"
           >
-            <div className="w-16 h-16 rounded-full bg-indigo-500 border-4 border-indigo-300 shadow-lg shadow-indigo-500/50 flex items-center justify-center text-white font-bold relative group-hover:scale-110 transition-transform">
+            <div className="relative flex size-16 items-center justify-center rounded-full border-4 border-primary/40 bg-primary font-bold text-primary-foreground shadow-glow-primary transition-transform group-hover:scale-110">
               {node.id}
-              
+
               {/* Quick Actions */}
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex gap-2 bg-slate-800 p-2 rounded-xl shadow-xl">
-                <button onClick={() => openEditModal(node)} className="text-blue-400 hover:text-blue-300"><Edit2 className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(node.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
+              <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 gap-2 rounded-card bg-secondary-foreground/95 p-2 shadow-raised group-hover:flex">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`编辑 ${node.title}`}
+                  title="编辑节点"
+                  className="text-info hover:bg-info/10 hover:text-info"
+                  onClick={() => openEditModal(node)}
+                >
+                  <Edit2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`删除 ${node.title}`}
+                  title="删除节点"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteTarget(node)}
+                >
+                  <Trash2 />
+                </Button>
               </div>
             </div>
-            
+
             {/* Label */}
-            <div className="mt-2 text-center w-32">
-              <span className="text-sm font-bold text-indigo-200 drop-shadow-md">
+            <div className="mt-2 w-32 text-center">
+              <span className="text-sm font-bold text-primary-foreground/90 drop-shadow-md">
                 {node.title}
               </span>
-              <div className="text-xs text-indigo-400/70">{node.points_reward} 积分</div>
+              <div className="text-xs text-primary-foreground/60">{node.points_reward} 积分</div>
             </div>
           </motion.div>
         ))}
 
         {nodes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-slate-500 font-medium">
-            暂无节点，点击右上角新建根节点开始构建任务树
-          </div>
+          <EmptyState
+            icon={GitBranch}
+            title="暂无节点，点击右上角新建根节点开始构建任务树"
+            className="absolute inset-0 border-primary-foreground/25 bg-transparent [&_div]:text-primary-foreground"
+          />
         )}
       </div>
 
       {/* Create/Edit Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl max-w-md w-full border border-indigo-100"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-slate-800">{editingNode ? '编辑节点' : '新建节点'}</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && setIsModalOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingNode ? '编辑节点' : '新建节点'}</DialogTitle>
+          </DialogHeader>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">节点标题</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={e => setFormData({...formData, title: e.target.value})}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-                    placeholder="如: 第一章：魔法起源"
-                  />
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <FormField label="节点标题" required>
+              <Input
+                type="text"
+                required
+                value={formData.title}
+                onChange={e => setFormData({...formData, title: e.target.value})}
+                placeholder="如: 第一章：魔法起源"
+              />
+            </FormField>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">节点描述</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={e => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 h-24 resize-none"
-                    placeholder="任务详情..."
-                  />
-                </div>
+            <FormField label="节点描述">
+              <Textarea
+                value={formData.description}
+                onChange={e => setFormData({...formData, description: e.target.value})}
+                placeholder="任务详情..."
+              />
+            </FormField>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">奖励积分</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.points_reward}
-                      onChange={e => setFormData({...formData, points_reward: Number(e.target.value)})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">前置节点</label>
-                    <select
-                      value={formData.parent_node_id || ''}
-                      onChange={e => setFormData({...formData, parent_node_id: e.target.value || null})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">无 (根节点)</option>
-                      {nodes.filter(n => n.id !== editingNode?.id).map(n => (
-                        <option key={n.id} value={n.id}>{n.title}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">X 坐标 (0-100%)</label>
-                    <input
-                      type="number"
-                      min="0" max="100"
-                      value={formData.x_pos}
-                      onChange={e => setFormData({...formData, x_pos: Number(e.target.value)})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Y 坐标 (0-100%)</label>
-                    <input
-                      type="number"
-                      min="0" max="100"
-                      value={formData.y_pos}
-                      onChange={e => setFormData({...formData, y_pos: Number(e.target.value)})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-600 transition-colors mt-6"
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="奖励积分">
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.points_reward}
+                  onChange={e => setFormData({...formData, points_reward: Number(e.target.value)})}
+                />
+              </FormField>
+              <FormField label="前置节点">
+                <Select
+                  value={formData.parent_node_id || ''}
+                  onChange={e => setFormData({...formData, parent_node_id: e.target.value || null})}
                 >
-                  保存节点
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                  <option value="">无 (根节点)</option>
+                  {nodes.filter(n => n.id !== editingNode?.id).map(n => (
+                    <option key={n.id} value={n.id}>{n.title}</option>
+                  ))}
+                </Select>
+              </FormField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="X 坐标 (0-100%)">
+                <Input
+                  type="number"
+                  min="0" max="100"
+                  value={formData.x_pos}
+                  onChange={e => setFormData({...formData, x_pos: Number(e.target.value)})}
+                />
+              </FormField>
+              <FormField label="Y 坐标 (0-100%)">
+                <Input
+                  type="number"
+                  min="0" max="100"
+                  value={formData.y_pos}
+                  onChange={e => setFormData({...formData, y_pos: Number(e.target.value)})}
+                />
+              </FormField>
+            </div>
+
+            <DialogFooter>
+              <Button type="submit" className="w-full">
+                保存节点
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="确定要删除此节点吗？"
+        description={deleteTarget ? `节点“${deleteTarget.title}”删除后无法恢复。` : undefined}
+        confirmLabel="删除"
+        pendingLabel="删除中..."
+        destructive
+        isPending={deleteMutation.isPending}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          await handleDelete(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

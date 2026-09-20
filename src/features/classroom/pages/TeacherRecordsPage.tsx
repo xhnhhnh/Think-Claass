@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Clock, CheckCircle2, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Clock } from 'lucide-react';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SectionCard } from '@/components/ui/section-card';
+import { Select } from '@/components/ui/select';
 
-interface Record {
+interface ScoreRecord {
   id: number;
   student_name: string;
   type: string;
@@ -12,8 +17,42 @@ interface Record {
   created_at: string;
 }
 
+/** Filter labels and the values they filter by - the copy is unchanged from the `<select>`. */
+const FILTER_OPTIONS = [
+  { value: 'ALL', label: '全部记录' },
+  { value: 'BUY_ITEM', label: '商城兑换' },
+  { value: 'FEED_PET', label: '宠物互动' },
+  { value: 'TRAIN', label: '宠物训练' },
+  { value: 'SPECIAL_TRAIN', label: '特训' },
+  { value: 'BUY_TOY', label: '购买玩具' },
+  { value: 'ADD_POINTS', label: '表现加分' },
+  { value: 'DEDUCT_POINTS', label: '违规扣分' },
+];
+
+/**
+ * Type → chip. The table used to pick its colours with a nested ternary of four
+ * `bg-*-100 text-*-800` pairs, which is where the page's purple/blue/indigo came from.
+ * The tone now comes from `Badge`'s enum, and the label from one lookup instead of two
+ * parallel chains that had to be kept in the same order by hand.
+ */
+const TYPE_META: Record<string, { label: string; variant: 'info' | 'success' | 'warning' | 'destructive' }> = {
+  BUY_ITEM: { label: '商城兑换', variant: 'info' },
+  FEED_PET: { label: '喂食宠物', variant: 'success' },
+  TRAIN: { label: '基础训练', variant: 'success' },
+  SPECIAL_TRAIN: { label: '高阶特训', variant: 'success' },
+  BUY_TOY: { label: '购买玩具', variant: 'success' },
+  ADD_POINTS: { label: '表现加分', variant: 'success' },
+  DEDUCT_POINTS: { label: '违规扣分', variant: 'destructive' },
+};
+
+/**
+ * 积分与兑换记录.
+ *
+ * `ScoreRecord`, not `Record`: the row interface used to shadow the built-in
+ * utility type, which the generic `DataTableColumn<Record>` cannot tolerate.
+ */
 export default function TeacherRecords() {
-  const [records, setRecords] = useState<Record[]>([]);
+  const [records, setRecords] = useState<ScoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('ALL');
 
@@ -36,87 +75,83 @@ export default function TeacherRecords() {
 
   const filteredRecords = records.filter(record => filterType === 'ALL' || record.type === filterType);
 
+  const columns: Array<DataTableColumn<ScoreRecord>> = [
+    {
+      key: 'created_at',
+      header: '时间',
+      className: 'text-ink-3',
+      render: (record) => new Date(record.created_at).toLocaleString(),
+    },
+    {
+      key: 'student_name',
+      header: '学生',
+      className: 'font-medium text-ink-1',
+    },
+    {
+      key: 'type',
+      header: '类型',
+      render: (record) => {
+        const meta = TYPE_META[record.type];
+        return <Badge variant={meta?.variant ?? 'warning'}>{meta?.label ?? record.type}</Badge>;
+      },
+    },
+    {
+      key: 'description',
+      header: '描述',
+      className: 'text-ink-3',
+    },
+    {
+      key: 'amount',
+      header: '积分变动',
+      render: (record) => (
+        <div className={`flex items-center font-medium ${record.amount > 0 ? 'text-primary' : 'text-destructive'}`}>
+          {record.amount > 0 ? (
+            <ArrowUpRight aria-hidden="true" className="mr-1 h-4 w-4" />
+          ) : (
+            <ArrowDownRight aria-hidden="true" className="mr-1 h-4 w-4" />
+          )}
+          {Math.abs(record.amount)}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden">
-      <div className="px-6 py-5 border-b border-white/60 bg-slate-50/50 flex justify-between items-center">
-        <h3 className="text-lg leading-6 font-semibold text-slate-800 flex items-center">
-          <Clock className="mr-2 h-5 w-5 text-gray-400" />
+    <SectionCard
+      title={
+        <span className="flex items-center">
+          <Clock aria-hidden="true" className="mr-2 h-5 w-5 text-ink-3" />
           近期积分与兑换记录
-        </h3>
-        <select
+        </span>
+      }
+      actions={
+        <Select
+          aria-label="筛选记录类型"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="border border-gray-300 rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          wrapperClassName="w-40"
         >
-          <option value="ALL">全部记录</option>
-          <option value="BUY_ITEM">商城兑换</option>
-          <option value="FEED_PET">宠物互动</option>
-          <option value="TRAIN">宠物训练</option>
-          <option value="SPECIAL_TRAIN">特训</option>
-          <option value="BUY_TOY">购买玩具</option>
-          <option value="ADD_POINTS">表现加分</option>
-          <option value="DEDUCT_POINTS">违规扣分</option>
-        </select>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-slate-50/50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">时间</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">学生</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">类型</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">描述</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">积分变动</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white/80 backdrop-blur-xl divide-y divide-gray-200">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">加载中...</td>
-              </tr>
-            ) : filteredRecords.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">暂无记录</td>
-              </tr>
-            ) : (
-              filteredRecords.map((record) => (
-                <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {new Date(record.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-800">{record.student_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      record.type === 'BUY_ITEM' ? 'bg-purple-100 text-purple-800' :
-                      ['FEED_PET', 'TRAIN', 'SPECIAL_TRAIN', 'BUY_TOY'].includes(record.type) ? 'bg-blue-100 text-blue-800' :
-                      record.type === 'ADD_POINTS' ? 'bg-indigo-100/50 text-indigo-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {record.type === 'BUY_ITEM' ? '商城兑换' :
-                       record.type === 'FEED_PET' ? '喂食宠物' :
-                       record.type === 'TRAIN' ? '基础训练' :
-                       record.type === 'SPECIAL_TRAIN' ? '高阶特训' :
-                       record.type === 'BUY_TOY' ? '购买玩具' :
-                       record.type === 'ADD_POINTS' ? '表现加分' : '违规扣分'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {record.description}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className={`flex items-center ${record.amount > 0 ? 'text-indigo-600' : 'text-red-600'}`}>
-                      {record.amount > 0 ? <ArrowUpRight className="mr-1 h-4 w-4" /> : <ArrowDownRight className="mr-1 h-4 w-4" />}
-                      {Math.abs(record.amount)}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          {FILTER_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
+      }
+    >
+      <DataTable<ScoreRecord>
+        columns={columns}
+        rows={filteredRecords}
+        getRowKey={(record) => record.id}
+        isLoading={loading}
+        rowClassName={() => 'hover:bg-muted/50'}
+        empty={
+          <EmptyState
+            icon={Clock}
+            title="暂无记录"
+            description="当前筛选条件下没有积分或兑换记录"
+            className="bg-paper"
+          />
+        }
+      />
+    </SectionCard>
   );
 }

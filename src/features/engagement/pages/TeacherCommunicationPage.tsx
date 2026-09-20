@@ -2,9 +2,17 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { MessageCircle, Send, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { messagesApi } from '@/features/engagement/api/messagesApi';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
+import { Toolbar } from '@/components/ui/toolbar';
+import { cn } from '@/lib/utils';
 
 interface ClassItem {
   id: number;
@@ -25,6 +33,14 @@ interface Message {
   receiver_name?: string;
 }
 
+/**
+ * 家校与留言.
+ *
+ * The class chips and the message-type switch are two filters over one feed, so they
+ * are one `Toolbar`: the page used to hand-write both rows and colour the active chip
+ * with an indigo-cyan gradient. The feed keeps its bubbles; the reply row keeps its
+ * `animate-slide-in-top` entrance, which is a real keyframe now.
+ */
 export default function TeacherCommunication() {
   const user = useStore((state) => state.user);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -101,139 +117,168 @@ export default function TeacherCommunication() {
   };
 
   if (!classes.length) {
-    return <div className="p-8 text-center text-slate-500">暂无班级数据，请先创建班级。</div>;
+    return (
+      <EmptyState
+        icon={MessageCircle}
+        title="暂无班级数据，请先创建班级。"
+        className="bg-paper"
+      />
+    );
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl space-y-6">
       {/* Class & Type Selector */}
-      <div className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 flex flex-col sm:flex-row gap-4 justify-between items-center">
-        <div className="flex items-center space-x-2 overflow-x-auto w-full sm:w-auto">
-          <span className="text-sm font-bold text-slate-500 mr-2 flex-shrink-0">选择班级:</span>
-          {classes.map((cls) => (
-            <button
-              key={cls.id}
-              onClick={() => setSelectedClassId(cls.id)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedClassId === cls.id
-                  ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-[0_2px_12px_rgba(0,0,0,0.03)]'
-                  : 'bg-slate-50/50 text-slate-600 border border-gray-200 hover:bg-slate-100/50'
-              }`}
-            >
-              {cls.name}
-            </button>
-          ))}
-        </div>
-        <div className="flex bg-slate-100/50 p-1 rounded-xl w-full sm:w-auto">
-          <button
-            onClick={() => setMsgType('HOME_SCHOOL')}
-            className={`flex-1 px-6 py-2 rounded-2xl text-sm font-medium transition-colors ${
-              msgType === 'HOME_SCHOOL' ? 'bg-white/80 backdrop-blur-xl text-indigo-600 shadow-[0_2px_12px_rgba(0,0,0,0.03)]' : 'text-slate-600 hover:bg-slate-50/50'
-            }`}
-          >
-            家校留言
-          </button>
-          <button
-            onClick={() => setMsgType('TREE_HOLE')}
-            className={`flex-1 px-6 py-2 rounded-2xl text-sm font-medium transition-colors ${
-              msgType === 'TREE_HOLE' ? 'bg-white/80 backdrop-blur-xl text-indigo-600 shadow-[0_2px_12px_rgba(0,0,0,0.03)]' : 'text-slate-600 hover:bg-slate-50/50'
-            }`}
-          >
-            树洞心声
-          </button>
-        </div>
-      </div>
+      <Card className="gap-0 rounded-panel border-border bg-paper/80 py-4 backdrop-blur-xl">
+        <Toolbar
+          className="px-4"
+          filters={
+            <>
+              <span className="mr-1 shrink-0 text-sm font-bold text-ink-3">选择班级:</span>
+              {classes.map((cls) => (
+                <Button
+                  key={cls.id}
+                  size="sm"
+                  variant={selectedClassId === cls.id ? 'default' : 'outline'}
+                  className="shrink-0 rounded-pill"
+                  onClick={() => setSelectedClassId(cls.id)}
+                >
+                  {cls.name}
+                </Button>
+              ))}
+            </>
+          }
+          actions={
+            <div className="flex rounded-card bg-muted/50 p-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setMsgType('HOME_SCHOOL')}
+                className={cn(
+                  'px-6',
+                  msgType === 'HOME_SCHOOL' && 'bg-paper text-primary shadow-card hover:bg-paper',
+                )}
+              >
+                家校留言
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setMsgType('TREE_HOLE')}
+                className={cn(
+                  'px-6',
+                  msgType === 'TREE_HOLE' && 'bg-paper text-primary shadow-card hover:bg-paper',
+                )}
+              >
+                树洞心声
+              </Button>
+            </div>
+          }
+        />
+      </Card>
 
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden min-h-[500px] flex flex-col">
-        <div className="p-6 border-b border-white/60 flex items-center justify-between bg-slate-50/50">
-          <h2 className="text-lg font-bold text-slate-800 flex items-center">
-            <MessageCircle className="w-5 h-5 mr-2 text-indigo-500" />
+      <Card className="flex min-h-[500px] flex-col gap-0 overflow-hidden rounded-panel border-border bg-paper/80 backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-border bg-muted/50 p-6">
+          <h2 className="flex items-center text-lg font-bold text-ink-1">
+            <MessageCircle className="mr-2 size-5 text-primary" />
             {msgType === 'HOME_SCHOOL' ? '家校沟通记录' : '学生树洞留言'}
           </h2>
-          <span className="text-sm text-slate-500">共 {messages.length} 条消息</span>
+          <span className="text-sm text-ink-3">共 {messages.length} 条消息</span>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto space-y-6 bg-slate-50">
+        <div className="flex-1 space-y-6 overflow-y-auto bg-muted/50 p-6">
           {loading ? (
-            <div className="text-center py-12 text-slate-500">加载中...</div>
-          ) : messages.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              暂无消息记录
+            <div className="flex items-center justify-center gap-2 py-12 text-ink-3">
+              <Spinner label="正在加载消息" />
+              加载中...
             </div>
+          ) : messages.length === 0 ? (
+            <EmptyState
+              icon={MessageCircle}
+              title="暂无消息记录"
+              className="border-transparent bg-transparent"
+            />
           ) : (
             messages.map((msg) => {
               const isTeacherMessage = msg.sender_role === 'teacher' || (msg.sender_role === 'user' && msg.sender_id === user?.id);
 
               return (
-                <div key={msg.id} className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-                  <div className="flex justify-between items-start mb-3">
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-card border border-border bg-paper p-5 shadow-card"
+                >
+                  <div className="mb-3 flex items-start justify-between">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-indigo-100/50 rounded-full flex items-center justify-center mr-3">
-                        <User className="w-5 h-5 text-indigo-600" />
+                      <div className="mr-3 flex size-10 items-center justify-center rounded-full bg-primary/10">
+                        <User className="size-5 text-primary" />
                       </div>
                       <div>
-                        <div className="font-bold text-slate-800 flex items-center">
+                        <div className="flex items-center font-bold text-ink-1">
                           {isTeacherMessage ? '老师' : (msg.is_anonymous ? `${msg.sender_name} (匿名)` : msg.sender_name)}
                           {!isTeacherMessage && msg.receiver_name && (
-                            <span className="text-sm font-normal text-slate-500 ml-2">
+                            <span className="ml-2 text-sm font-normal text-ink-3">
                               发给 {msg.receiver_name}
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-400 flex items-center mt-0.5">
-                          <Clock className="w-3 h-3 mr-1" />
+                        <div className="mt-0.5 flex items-center text-xs text-ink-3">
+                          <Clock className="mr-1 size-3" />
                           {new Date(msg.created_at).toLocaleString()}
                         </div>
                       </div>
                     </div>
                     {!isTeacherMessage && (
-                      <button
+                      <Button
+                        size="xs"
+                        variant="ghost"
                         onClick={() => setReplyingTo(msg.sender_id)}
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1 bg-blue-50 rounded-2xl"
+                        className="rounded-pill bg-info/10 px-3 text-info hover:bg-info/20 hover:text-info"
                       >
                         回复
-                      </button>
+                      </Button>
                     )}
                   </div>
-                  <div className="pl-13 pr-4 text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  <div className="pl-12 pr-4 leading-relaxed whitespace-pre-wrap text-ink-2">
                     {msg.content}
                   </div>
 
                   {replyingTo === msg.sender_id && (
-                    <div className="mt-4 pl-13 flex space-x-3 animate-slide-in-top">
-                      <input
+                    <div className="mt-4 flex animate-slide-in-top gap-3 pl-12">
+                      <Input
                         type="text"
                         value={replyContent}
                         onChange={(e) => setReplyContent(e.target.value)}
                         placeholder={`回复 ${msg.sender_name}...`}
-                        className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        aria-label={`回复 ${msg.sender_name}`}
+                        className="flex-1"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleReply(msg.sender_id);
                         }}
                       />
-                      <button
+                      <Button
                         onClick={() => handleReply(msg.sender_id)}
-                        className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-4 py-2 rounded-xl flex items-center text-sm font-medium hover:from-indigo-600 hover:to-cyan-600 transition-colors"
+                        className="bg-gradient-to-r from-primary to-info text-primary-foreground hover:from-primary hover:to-info"
                       >
-                        <Send className="w-4 h-4 mr-1" />
+                        <Send className="mr-1 size-4" />
                         发送
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => { setReplyingTo(null); setReplyContent(''); }}
-                        className="bg-slate-100/50 text-slate-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
                       >
                         取消
-                      </button>
+                      </Button>
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -386,6 +386,52 @@ writer owns** - the same rule the migration's own handoff states for its phases.
 and on the kit's `Button`, but still write their own page header and loading states. They are listed
 in §8.
 
+### P6 — the teacher console
+
+Thirty-nine files, 8,294 lines: the largest family in the product. It went from **144 raw buttons to
+1**, from 54 raw inputs to 0, from 22 selects to 0, and from 205 off-brand accent utilities to 0.
+
+| Metric | P5 | P6 |
+| --- | --- | --- |
+| `rawButtons` | 191 | **48** |
+| `rawInputs` | 58 | **4** |
+| `rawSelects` | 22 | **0** |
+| `rawTables` | 5 | **1** |
+| `hexColors` | 28 | **25** |
+| `offBrandAccents` | 557 | **244** |
+| `inlineStyles` | 14 | **11** |
+| `nativeDialogs` | 9 | **2** |
+| built CSS | 170,381 bytes | 168,940 bytes |
+
+Everything left in the table above is the **student area**, which is P7 - except one deliberate
+exception and one class of artwork:
+
+- **The big screen keeps one raw `<button>`.** It is the 3xl countdown readout on a projection
+  surface; the kit's control is 2.25rem tall and cannot carry it. It has an `aria-label`, and the
+  page is documented in §2 as a stage rather than a page.
+- **All 25 remaining hex literals are confetti palettes** (22 in the student area, 3 on the big
+  screen). They belong in `src/lib/celebrationPalette.ts`, which is exempt by name; moving them is
+  P7's first mechanical step.
+
+Two pre-existing defects the console surfaced, both now fixed rather than documented:
+
+- `animate-[slideRight_2s_linear_infinite]` (the big screen's transmission bar) and `.scrollbar-hide`
+  were written in a page and defined **nowhere**, so both compiled to nothing - the bar never moved
+  and the strip never hid its scrollbar. The keyframes and the utility now exist in `index.css`,
+  outside `@layer`, so they are emitted whether or not a utility references them.
+- One more native dialog than the phase brief listed: `TeacherBrawlPage.tsx` also had a
+  `window.confirm`. The writer found it, the audit confirms the teacher area is at 0, and the
+  lesson is recorded with the others - **the brief is a plan, the audit is the measurement.**
+
+Two decisions worth keeping:
+
+- **The brawl page's tug-of-war bar stays two `motion.div`s.** It is one track with two scores
+  pulling against each other; two `Progress` bars would be a redesign of the page's central idea,
+  not a migration of it. Every ordinary width bar in the console *is* `Progress`.
+- **`TeacherShopPage`'s `alert('网络错误，请稍后重试')` became `toast.error`** with the identical
+  message. It is the one behaviour change of the phase, it is user-visible (no more blocking browser
+  dialog), and it is right: the metric only matched `window.alert(` and would have left it behind.
+
 ## 8. Deferred / open
 
 | Item | Phase | Why it is not done |

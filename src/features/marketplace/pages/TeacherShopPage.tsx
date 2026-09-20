@@ -1,7 +1,26 @@
 import { useState } from 'react';
-import { Package, Store, Plus, CheckCircle, XCircle, Search, Edit2 } from 'lucide-react';
+import { CheckCircle, Edit2, Plus, Store, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { useTeacherShopItems, useTeacherShopMutation } from '@/hooks/queries/useTeacherShop';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { Toolbar } from '@/components/ui/toolbar';
+import { cn } from '@/lib/utils';
 
 interface ShopItem {
   id: number;
@@ -12,6 +31,16 @@ interface ShopItem {
   is_active: number;
 }
 
+/**
+ * 商品管理.
+ *
+ * The search/filter/add row is a `Toolbar`, the product tiles are `Card`s, the stock
+ * stepper and the row actions are `Button`s, and the add/edit overlay is a `Dialog`
+ * whose four fields keep their visible labels through `FormField`. The two raw class
+ * strings that chose a colour by ternary are `cn()` calls now, and the fallback error
+ * message is a toast rather than `alert()` - the last blocking browser dialog on this
+ * page.
+ */
 export default function TeacherShop() {
   const { data: items = [], isLoading: loading, refetch } = useTeacherShopItems();
   const shopMutation = useTeacherShopMutation();
@@ -46,7 +75,7 @@ export default function TeacherShop() {
       await refetch();
     } catch (err) {
       console.error(err);
-      alert('网络错误，请稍后重试');
+      toast.error('网络错误，请稍后重试');
     }
   };
 
@@ -100,77 +129,95 @@ export default function TeacherShop() {
   return (
     <div className="space-y-6">
       {/* Top Actions */}
-      <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <div className="flex items-center space-x-4">
-          <div className="relative w-72">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-slate-50/50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
-              placeholder="搜索商品名称..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <select
+      <Toolbar
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: '搜索商品名称...',
+        }}
+        searchLabel="搜索商品名称"
+        filters={
+          <Select
+            aria-label="库存状态"
+            wrapperClassName="w-40"
             value={stockFilter}
             onChange={(e) => setStockFilter(e.target.value)}
-            className="border border-gray-300 rounded-xl px-3 py-2 bg-slate-50/50 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
           >
             <option value="all">全部库存状态</option>
             <option value="in_stock">有货 / 无限</option>
             <option value="out_of_stock">已售罄</option>
-          </select>
-        </div>
-        <button
-          onClick={openAddModal}
-          className="flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white rounded-xl hover:from-indigo-600 hover:to-cyan-600 transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.03)] font-medium"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          添加商品
-        </button>
-      </div>
+          </Select>
+        }
+        actions={
+          <Button onClick={openAddModal}>
+            <Plus data-icon="inline-start" />
+            添加商品
+          </Button>
+        }
+      />
 
       {/* Items Grid */}
       {loading ? (
-        <div className="text-center py-12 text-slate-500">加载中...</div>
+        <div className="flex items-center justify-center gap-3 py-12 text-ink-3">
+          <Spinner label="正在加载商品" />
+          加载中...
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <EmptyState icon={Store} title="未找到商品信息" />
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => (
-            <div key={item.id} className={`bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border overflow-hidden transition-all ${item.is_active === 1 ? 'border-white/60 hover:shadow-md' : 'border-gray-200 opacity-75'}`}>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
+            <Card
+              key={item.id}
+              className={cn('h-full transition-all', item.is_active === 1 ? 'hover:shadow-raised' : 'opacity-75')}
+            >
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="flex items-center">
-                    <div className={`p-2 rounded-2xl ${item.is_active === 1 ? 'bg-orange-50 text-orange-500' : 'bg-slate-100/50 text-gray-400'} mr-3`}>
+                    <div
+                      className={cn(
+                        'mr-3 rounded-card p-2',
+                        item.is_active === 1 ? 'bg-warning/10 text-warning' : 'bg-muted text-ink-3',
+                      )}
+                    >
                       <Store className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-slate-800">{item.name}</h3>
-                      <div className="flex items-center mt-1 space-x-2">
-                        <span className="font-bold text-orange-500">{item.price} 币</span>
-                        <span className="text-xs text-gray-400">|</span>
+                      <h3 className="text-lg font-bold text-ink-1">{item.name}</h3>
+                      <div className="mt-1 flex items-center space-x-2">
+                        <span className="font-bold text-warning">{item.price} 币</span>
+                        <span className="text-xs text-ink-3">|</span>
                         <div className="flex items-center">
-                          <span className={`text-xs ${item.stock === 0 ? 'text-red-500 font-bold' : item.stock > 0 && item.stock <= 5 ? 'text-yellow-600 font-bold' : 'text-slate-500'}`}>
+                          <span
+                            className={cn(
+                              'text-xs',
+                              item.stock === 0
+                                ? 'font-bold text-destructive'
+                                : item.stock > 0 && item.stock <= 5
+                                  ? 'font-bold text-warning'
+                                  : 'text-ink-3',
+                            )}
+                          >
                             库存: {item.stock === -1 ? '无限' : item.stock}
                           </span>
                           {item.stock !== -1 && (
-                            <div className="flex items-center ml-2 border border-gray-200 rounded bg-white/80 backdrop-blur-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-                              <button 
-                                onClick={() => updateStock(item, item.stock - 1)}
+                            <div className="ml-2 flex items-center rounded border border-border bg-paper shadow-card">
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
                                 disabled={item.stock <= 0}
-                                className="px-1.5 py-0.5 text-slate-500 hover:bg-slate-100/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                onClick={() => updateStock(item, item.stock - 1)}
                               >
                                 -
-                              </button>
-                              <div className="w-px h-3 bg-gray-200"></div>
-                              <button 
+                              </Button>
+                              <div className="h-3 w-px bg-border"></div>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
                                 onClick={() => updateStock(item, item.stock + 1)}
-                                className="px-1.5 py-0.5 text-slate-500 hover:bg-slate-100/50 transition-colors"
                               >
                                 +
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -179,153 +226,119 @@ export default function TeacherShop() {
                   </div>
                   
                   {item.is_active === 1 ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100/50 text-indigo-800">
-                      已上架
-                    </span>
+                    <Badge variant="default">已上架</Badge>
                   ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100/50 text-slate-800">
-                      已下架
-                    </span>
+                    <Badge variant="secondary">已下架</Badge>
                   )}
                 </div>
 
-                <p className="text-sm text-slate-600 mb-6 h-10 line-clamp-2">
+                <p className="mb-6 h-10 text-sm text-ink-2 line-clamp-2">
                   {item.description || '暂无描述'}
                 </p>
 
-                <div className="flex space-x-2 border-t border-white/60 pt-4">
-                  <button
+                <div className="flex space-x-2 border-t border-border pt-4">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
                     onClick={() => openEditModal(item)}
-                    className="flex-1 flex justify-center items-center px-3 py-2 border border-gray-200 text-sm font-medium rounded-xl text-slate-700 bg-white/80 backdrop-blur-xl hover:bg-slate-50/50 transition-colors"
                   >
-                    <Edit2 className="h-4 w-4 mr-1" />
+                    <Edit2 data-icon="inline-start" />
                     编辑
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant={item.is_active === 1 ? 'destructive' : 'secondary'}
+                    className="flex-1"
                     onClick={() => toggleStatus(item.id, item.is_active)}
-                    className={`flex-1 flex justify-center items-center px-3 py-2 border border-transparent text-sm font-medium rounded-xl transition-colors ${
-                      item.is_active === 1 
-                        ? 'text-red-700 bg-red-50 hover:bg-red-100' 
-                        : 'text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/50'
-                    }`}
                   >
                     {item.is_active === 1 ? (
                       <>
-                        <XCircle className="h-4 w-4 mr-1" />
+                        <XCircle data-icon="inline-start" />
                         下架
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-4 w-4 mr-1" />
+                        <CheckCircle data-icon="inline-start" />
                         上架
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
-          {filteredItems.length === 0 && (
-            <div className="col-span-full text-center py-12 text-slate-500 bg-white/80 backdrop-blur-xl rounded-2xl border border-dashed border-gray-300">
-              未找到商品信息
-            </div>
-          )}
         </div>
       )}
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-50/500 bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/60 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">
-                {isEditing ? '编辑商品' : '添加新商品'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-slate-500">
-                <XCircle className="h-5 w-5" />
-              </button>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditing ? '编辑商品' : '添加新商品'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSave} className="flex flex-col gap-4">
+            {error && (
+              <Badge variant="destructive">{error}</Badge>
+            )}
+            
+            <FormField label="商品名称" required>
+              <Input
+                type="text"
+                required
+                value={currentItem.name}
+                onChange={(e) => setCurrentItem({ ...currentItem, name: e.target.value })}
+                placeholder="例如: 免值日卡"
+              />
+            </FormField>
+            
+            <FormField label="商品描述">
+              <Textarea
+                value={currentItem.description}
+                onChange={(e) => setCurrentItem({ ...currentItem, description: e.target.value })}
+                rows={3}
+                placeholder="描述该商品的用途..."
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="所需积分" required>
+                <Input
+                  type="number"
+                  required
+                  min="0"
+                  value={currentItem.price}
+                  onChange={(e) => setCurrentItem({ ...currentItem, price: parseInt(e.target.value) || 0 })}
+                />
+              </FormField>
+              <FormField label="库存数量" required hint="填写 -1 表示库存无限">
+                <Input
+                  type="number"
+                  required
+                  min="-1"
+                  value={currentItem.stock === 0 ? 0 : currentItem.stock || -1}
+                  onChange={(e) => setCurrentItem({ ...currentItem, stock: parseInt(e.target.value) })}
+                  placeholder="填-1表示无限库存"
+                />
+              </FormField>
             </div>
             
-            <form onSubmit={handleSave} className="p-6">
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-xl">
-                  {error}
-                </div>
-              )}
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">商品名称 <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    value={currentItem.name}
-                    onChange={(e) => setCurrentItem({ ...currentItem, name: e.target.value })}
-                    className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="例如: 免值日卡"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">商品描述</label>
-                  <textarea
-                    value={currentItem.description}
-                    onChange={(e) => setCurrentItem({ ...currentItem, description: e.target.value })}
-                    rows={3}
-                    className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="描述该商品的用途..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">所需积分 <span className="text-red-500">*</span></label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={currentItem.price}
-                      onChange={(e) => setCurrentItem({ ...currentItem, price: parseInt(e.target.value) || 0 })}
-                      className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">库存数量 <span className="text-red-500">*</span></label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        required
-                        min="-1"
-                        value={currentItem.stock === 0 ? 0 : currentItem.stock || -1}
-                        onChange={(e) => setCurrentItem({ ...currentItem, stock: parseInt(e.target.value) })}
-                        className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="填-1表示无限库存"
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">填写 -1 表示库存无限</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-slate-700 bg-white/80 backdrop-blur-xl hover:bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 border border-transparent rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  保存
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowModal(false)}
+              >
+                取消
+              </Button>
+              <Button type="submit">
+                保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

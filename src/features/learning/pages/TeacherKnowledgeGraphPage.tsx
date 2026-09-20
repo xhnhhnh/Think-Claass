@@ -1,11 +1,39 @@
-import { useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Plus, Trash2, Link2 } from 'lucide-react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link2, Plus, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
 import { useKnowledgeEdges, useKnowledgeNodes, useSubjects } from '@/features/learning/hooks/useKnowledge';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { SectionCard } from '@/components/ui/section-card';
+import { Select } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Toolbar } from '@/components/ui/toolbar';
 
+/**
+ * 知识点图谱.
+ *
+ * The three `confirm()` calls became `ConfirmDialog`s driven by "which row is pending"
+ * state - one for a node, one for an edge, and the `管理学科` prompt became a one-field
+ * `Dialog`, since `prompt()` cannot be styled and jsdom does not implement it. The
+ * destructive callbacks keep their original bodies: same `knowledgeApi` calls, same
+ * invalidation keys, same `已删除` toast.
+ */
 export default function TeacherKnowledgeGraph() {
   const queryClient = useQueryClient();
   const { data: subjects = [], isLoading: isSubjectsLoading } = useSubjects();
@@ -22,13 +50,22 @@ export default function TeacherKnowledgeGraph() {
   const [newNodeState, setNewNodeState] = useState({ name: '', parent_id: null as number | null });
   const [newEdgeState, setNewEdgeState] = useState({ from_node_id: null as number | null, to_node_id: null as number | null, edge_type: 'prerequisite' });
 
-  const handleCreateSubject = async () => {
-    const name = prompt('请输入学科名称（如：数学）');
+  const [showSubjectDialog, setShowSubjectDialog] = useState(false);
+  const [subjectName, setSubjectName] = useState('');
+  const [nodeToDelete, setNodeToDelete] = useState<number | null>(null);
+  const [edgeToDelete, setEdgeToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleCreateSubject = async (event: FormEvent) => {
+    event.preventDefault();
+    const name = subjectName.trim();
     if (!name) return;
     try {
-      await knowledgeApi.createSubject({ name: name.trim() });
+      await knowledgeApi.createSubject({ name });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-subjects'] });
       toast.success('已新增学科');
+      setSubjectName('');
+      setShowSubjectDialog(false);
     } catch (e) {}
   };
 
@@ -50,15 +87,19 @@ export default function TeacherKnowledgeGraph() {
     } catch (e) {}
   };
 
-  const handleDeleteNode = async (id: number) => {
-    if (!selectedSubjectId) return;
-    if (!confirm('确定删除该知识点吗？')) return;
+  const handleDeleteNode = async () => {
+    if (!selectedSubjectId || nodeToDelete === null) return;
+    setIsDeleting(true);
     try {
-      await knowledgeApi.deleteNode(id);
+      await knowledgeApi.deleteNode(nodeToDelete);
       await queryClient.invalidateQueries({ queryKey: ['knowledge-nodes', selectedSubjectId] });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已删除');
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      setIsDeleting(false);
+      setNodeToDelete(null);
+    }
   };
 
   const handleCreateEdge = async () => {
@@ -79,20 +120,24 @@ export default function TeacherKnowledgeGraph() {
     } catch (e) {}
   };
 
-  const handleDeleteEdge = async (id: number) => {
-    if (!selectedSubjectId) return;
-    if (!confirm('确定删除该关系吗？')) return;
+  const handleDeleteEdge = async () => {
+    if (!selectedSubjectId || edgeToDelete === null) return;
+    setIsDeleting(true);
     try {
-      await knowledgeApi.deleteEdge(id);
+      await knowledgeApi.deleteEdge(edgeToDelete);
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已删除');
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      setIsDeleting(false);
+      setEdgeToDelete(null);
+    }
   };
 
   if (isSubjectsLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-500">
-        <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+      <div className="flex items-center justify-center gap-3 py-20 text-ink-3">
+        <Spinner label="正在加载学科" />
         正在加载学科...
       </div>
     );
@@ -100,61 +145,65 @@ export default function TeacherKnowledgeGraph() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <div className="text-lg font-bold text-slate-800">知识点图谱</div>
-            <div className="text-sm text-slate-500">支持层级与前置依赖（prerequisite）</div>
-          </div>
-          <button
-            onClick={handleCreateSubject}
-            className="px-4 py-2 rounded-2xl text-sm font-medium bg-slate-50/50 text-slate-600 border border-gray-200 hover:bg-slate-100/50"
-          >
+      <PageHeader
+        title="知识点图谱"
+        description="支持层级与前置依赖（prerequisite）"
+        icon={Link2}
+        actions={
+          <Button variant="outline" onClick={() => setShowSubjectDialog(true)}>
             新增学科
-          </button>
-        </div>
+          </Button>
+        }
+      />
 
-        <div className="mt-4 flex flex-col md:flex-row gap-3">
-          <select
-            value={selectedSubjectId ?? ''}
-            onChange={(e) => setSelectedSubjectId(e.target.value ? Number(e.target.value) : null)}
-            className="px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
-          >
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          {!subjects.length && <div className="text-sm text-slate-500">请先新增学科</div>}
-        </div>
-      </div>
+      <Card>
+        <CardContent>
+          <Toolbar
+            filters={
+              <>
+                <Select
+                  aria-label="选择学科"
+                  wrapperClassName="w-full sm:w-56"
+                  value={selectedSubjectId ?? ''}
+                  onChange={(e) => setSelectedSubjectId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+                {!subjects.length && <div className="text-sm text-ink-3">请先新增学科</div>}
+              </>
+            }
+          />
+        </CardContent>
+      </Card>
 
       {!!selectedSubjectId && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm font-bold text-slate-800">知识点节点</div>
-              <button
-                onClick={handleCreateNode}
-                className="px-4 py-2 rounded-2xl text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-2" />
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <SectionCard
+            title="知识点节点"
+            actions={
+              <Button variant="outline" size="sm" onClick={handleCreateNode}>
+                <Plus data-icon="inline-start" />
                 添加
-              </button>
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-3 mb-4">
-              <input
+              </Button>
+            }
+          >
+            <div className="mb-4 flex flex-col gap-3 md:flex-row">
+              <Input
+                aria-label="知识点名称"
+                className="flex-1"
                 value={newNodeState.name}
                 onChange={(e) => setNewNodeState((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="知识点名称"
-                className="flex-1 px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
               />
-              <select
+              <Select
+                aria-label="父节点"
+                wrapperClassName="w-full md:w-48"
                 value={newNodeState.parent_id ?? ''}
                 onChange={(e) => setNewNodeState((prev) => ({ ...prev, parent_id: e.target.value ? Number(e.target.value) : null }))}
-                className="px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
               >
                 <option value="">无父节点</option>
                 {nodeOptions.map((n) => (
@@ -162,56 +211,54 @@ export default function TeacherKnowledgeGraph() {
                     {n.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {isNodesLoading ? (
-              <div className="flex items-center justify-center py-10 text-slate-500">
-                <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+              <div className="flex items-center justify-center gap-3 py-10 text-ink-3">
+                <Spinner label="正在加载节点" />
                 正在加载节点...
               </div>
             ) : nodes.length === 0 ? (
-              <div className="py-10 text-center text-slate-500">暂无节点</div>
+              <EmptyState title="暂无节点" />
             ) : (
               <div className="space-y-2">
                 {nodes.map((n) => (
-                  <div key={n.id} className="flex items-center justify-between bg-white/70 border border-white/60 rounded-3xl p-4">
+                  <div key={n.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-muted/50 p-4">
                     <div className="min-w-0">
-                      <div className="font-semibold text-slate-800 truncate">{n.name}</div>
-                      <div className="text-xs text-slate-500">ID: {n.id} {n.parent_id ? `· 父节点: ${n.parent_id}` : ''}</div>
+                      <div className="truncate font-semibold text-ink-1">{n.name}</div>
+                      <div className="text-xs text-ink-3">ID: {n.id} {n.parent_id ? `· 父节点: ${n.parent_id}` : ''}</div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteNode(n.id)}
-                      className="p-2 rounded-2xl border border-slate-200 bg-white/60 text-slate-500 hover:text-red-600"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`删除知识点${n.name}`}
+                      title="删除"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setNodeToDelete(n.id)}
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <Trash2 />
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </SectionCard>
 
-          <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm font-bold text-slate-800 flex items-center">
-                <Link2 className="w-4 h-4 mr-2 text-indigo-500" />
-                依赖关系
-              </div>
-              <button
-                onClick={handleCreateEdge}
-                className="px-4 py-2 rounded-2xl text-sm font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-2" />
+          <SectionCard
+            title="依赖关系"
+            actions={
+              <Button variant="outline" size="sm" onClick={handleCreateEdge}>
+                <Plus data-icon="inline-start" />
                 添加
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <select
+              </Button>
+            }
+          >
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <Select
+                aria-label="起点节点"
                 value={newEdgeState.from_node_id ?? ''}
                 onChange={(e) => setNewEdgeState((prev) => ({ ...prev, from_node_id: e.target.value ? Number(e.target.value) : null }))}
-                className="px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
               >
                 <option value="">起点</option>
                 {nodeOptions.map((n) => (
@@ -219,11 +266,11 @@ export default function TeacherKnowledgeGraph() {
                     {n.label}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
+                aria-label="终点节点"
                 value={newEdgeState.to_node_id ?? ''}
                 onChange={(e) => setNewEdgeState((prev) => ({ ...prev, to_node_id: e.target.value ? Number(e.target.value) : null }))}
-                className="px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
               >
                 <option value="">终点</option>
                 {nodeOptions.map((n) => (
@@ -231,39 +278,92 @@ export default function TeacherKnowledgeGraph() {
                     {n.label}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
+                aria-label="依赖类型"
                 value={newEdgeState.edge_type}
                 onChange={(e) => setNewEdgeState((prev) => ({ ...prev, edge_type: e.target.value }))}
-                className="px-4 py-2 rounded-2xl border border-slate-200 bg-white/60 outline-none"
               >
                 <option value="prerequisite">prerequisite</option>
                 <option value="related">related</option>
-              </select>
+              </Select>
             </div>
 
             {edges.length === 0 ? (
-              <div className="py-10 text-center text-slate-500">暂无依赖关系</div>
+              <EmptyState title="暂无依赖关系" />
             ) : (
               <div className="space-y-2">
                 {edges.map((e) => (
-                  <div key={e.id} className="flex items-center justify-between bg-white/70 border border-white/60 rounded-3xl p-4">
-                    <div className="text-sm text-slate-700">
+                  <div key={e.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-muted/50 p-4">
+                    <div className="text-sm text-ink-2">
                       {e.from_node_id} → {e.to_node_id} · {e.edge_type}
                     </div>
-                    <button
-                      onClick={() => handleDeleteEdge(e.id)}
-                      className="p-2 rounded-2xl border border-slate-200 bg-white/60 text-slate-500 hover:text-red-600"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`删除关系${e.from_node_id}到${e.to_node_id}`}
+                      title="删除"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setEdgeToDelete(e.id)}
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <Trash2 />
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </SectionCard>
         </div>
       )}
+
+      <Dialog open={showSubjectDialog} onOpenChange={setShowSubjectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>新增学科</DialogTitle>
+            <DialogDescription>请输入学科名称（如：数学）</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateSubject} className="flex flex-col gap-4">
+            <FormField label="学科名称" required>
+              <Input
+                required
+                value={subjectName}
+                onChange={(event) => setSubjectName(event.target.value)}
+                placeholder="例如：数学"
+              />
+            </FormField>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowSubjectDialog(false)}>
+                取消
+              </Button>
+              <Button type="submit">确认新增</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={nodeToDelete !== null}
+        onOpenChange={(open) => !open && setNodeToDelete(null)}
+        title="确认删除知识点"
+        description="确定删除该知识点吗？"
+        confirmLabel="删除"
+        pendingLabel="删除中..."
+        destructive
+        isPending={isDeleting}
+        onConfirm={handleDeleteNode}
+      />
+
+      <ConfirmDialog
+        open={edgeToDelete !== null}
+        onOpenChange={(open) => !open && setEdgeToDelete(null)}
+        title="确认删除关系"
+        description="确定删除该关系吗？"
+        confirmLabel="删除"
+        pendingLabel="删除中..."
+        destructive
+        isPending={isDeleting}
+        onConfirm={handleDeleteEdge}
+      />
     </div>
   );
 }

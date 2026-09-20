@@ -1,12 +1,40 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Award, CheckCircle, LoaderCircle, PlusCircle, Target, Trash2, Users, XCircle } from 'lucide-react';
+import { Award, CheckCircle, PlusCircle, Target, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 import { teamQuestsApi, type TeamQuest } from '@/features/collaboration/api/teamQuestsApi';
 import { useTeamQuestGroupProgress, useTeamQuests } from '@/features/collaboration/hooks/useTeamQuests';
 import { useStore } from '@/store/useStore';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
+/**
+ * 团队任务.
+ *
+ * The quest cards keep their red target identity - the token for it is `destructive`,
+ * which is what the page was spelling `red-500`/`red-50`/`red-100`. Both hand-built
+ * overlays became kit dialogs, and the two per-group bars, whose fill used to be a
+ * `style={{ width }}` on a `<div>`, are now `Progress` with a tone instead of a colour
+ * string chosen inline.
+ */
 export default function TeacherTeamQuests() {
   const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
@@ -85,207 +113,200 @@ export default function TeacherTeamQuests() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <div className="flex items-center space-x-2">
-          <Target className="h-6 w-6 text-red-500" />
-          <h2 className="text-lg font-bold text-slate-800">团队任务</h2>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors shadow-[0_2px_12px_rgba(0,0,0,0.03)] font-medium"
-        >
-          <PlusCircle className="h-5 w-5 mr-2" />
-          发布团队任务
-        </button>
-      </div>
+      <PageHeader
+        title="团队任务"
+        icon={Target}
+        actions={
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            <PlusCircle data-icon="inline-start" />
+            发布团队任务
+          </Button>
+        }
+      />
 
       {isLoading && (
-        <div className="flex items-center justify-center rounded-2xl border border-white/60 bg-white/80 py-16 text-slate-500">
-          <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+        <div className="flex items-center justify-center gap-2 rounded-panel border border-border bg-paper/80 py-16 text-ink-3 backdrop-blur-xl">
+          <Spinner label="正在加载团队任务" />
           正在加载团队任务...
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-6 py-10 text-center text-red-600">
+        <div className="rounded-panel border border-destructive/20 bg-destructive/10 px-6 py-10 text-center text-destructive">
           团队任务加载失败，请稍后重试
         </div>
       )}
 
       {!isLoading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {quests.map((quest) => (
-            <div
+            <motion.div
               key={quest.id}
-              className="p-6 bg-white/80 backdrop-blur-xl border border-white/60 rounded-2xl hover:shadow-md transition-shadow relative flex flex-col h-full"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative flex h-full flex-col rounded-panel border border-border bg-paper/80 p-6 backdrop-blur-xl transition-shadow hover:shadow-raised"
             >
-              <div className="flex justify-between items-start mb-4">
+              <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-50 text-red-500 rounded-xl">
-                    <Award className="h-6 w-6" />
+                  <div className="rounded-card bg-destructive/10 p-2 text-destructive">
+                    <Award className="size-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-800 text-lg">{quest.title}</h3>
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        quest.status === 'active' ? 'bg-indigo-100/50 text-indigo-700' : 'bg-slate-100/50 text-slate-700'
-                      }`}
-                    >
+                    <h3 className="text-lg font-bold text-ink-1">{quest.title}</h3>
+                    <Badge variant={quest.status === 'active' ? 'info' : 'secondary'}>
                       {quest.status === 'active' ? '进行中' : '已结束'}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteQuest(quest.id)}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`删除团队任务 ${quest.title}`}
+                  title="删除"
                   disabled={deleteMutation.isPending}
-                  className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-50"
+                  className="text-ink-3 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => handleDeleteQuest(quest.id)}
                 >
-                  <Trash2 className="h-5 w-5" />
-                </button>
+                  <Trash2 />
+                </Button>
               </div>
 
-              <div className="text-sm text-slate-600 mb-6 flex-grow">
+              <div className="mb-6 flex-grow text-sm text-ink-2">
                 <p className="mb-2">{quest.description || '暂无任务描述'}</p>
-                <div className="flex flex-wrap gap-4 mt-4">
-                  <div className="bg-orange-50 px-3 py-1.5 rounded-2xl border border-orange-100">
-                    <span className="text-xs text-orange-600 block">奖励积分</span>
-                    <span className="font-bold text-orange-700">{quest.reward_points} 币/组</span>
-                  </div>
-                  <div className="bg-blue-50 px-3 py-1.5 rounded-2xl border border-blue-100">
-                    <span className="text-xs text-blue-600 block">目标进度</span>
-                    <span className="font-bold text-blue-700">{quest.target_score} 次/组</span>
-                  </div>
+                <div className="mt-4 flex flex-wrap gap-4">
+                  <Badge variant="warning" className="h-auto px-3 py-1.5">
+                    <span className="text-xs">奖励积分</span>
+                    <span className="font-bold">{quest.reward_points} 币/组</span>
+                  </Badge>
+                  <Badge variant="info" className="h-auto px-3 py-1.5">
+                    <span className="text-xs">目标进度</span>
+                    <span className="font-bold">{quest.target_score} 次/组</span>
+                  </Badge>
                 </div>
-                <div className="mt-4 text-xs text-slate-500 space-y-1">
+                <div className="mt-4 space-y-1 text-xs text-ink-3">
                   <p>开始时间：{quest.start_date || '未设置'}</p>
                   <p>截止时间：{quest.end_date || '未设置'}</p>
                 </div>
               </div>
 
-              <button
+              <Button
+                variant="destructive"
+                className="w-full"
                 onClick={() => openProgressModal(quest)}
-                className="w-full flex items-center justify-center px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 font-medium transition-colors border border-red-100"
               >
-                <Users className="h-4 w-4 mr-2" />
+                <Users data-icon="inline-start" />
                 查看各组进度
-              </button>
-            </div>
+              </Button>
+            </motion.div>
           ))}
           {quests.length === 0 && (
-            <div className="col-span-full text-center py-12 text-slate-500 border-2 border-dashed border-gray-200 rounded-2xl bg-white/80 backdrop-blur-xl">
-              暂无发布的团队任务
-            </div>
+            <EmptyState
+              icon={Target}
+              title="暂无发布的团队任务"
+              className="col-span-full bg-paper/80"
+            />
           )}
         </div>
       )}
 
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-50/500 bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-white/60 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">发布团队任务</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-slate-500">
-                <XCircle className="h-5 w-5" />
-              </button>
+      <Dialog open={showCreateModal} onOpenChange={(open) => !open && setShowCreateModal(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>发布团队任务</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateQuest} className="space-y-4">
+            <FormField label="任务名称" required>
+              <Input
+                type="text"
+                required
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="例如：书香班级挑战"
+              />
+            </FormField>
+            <FormField label="任务描述" required>
+              <Textarea
+                required
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                rows={2}
+                placeholder="说明任务内容..."
+              />
+            </FormField>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="每组目标数量" required>
+                <Input
+                  type="number"
+                  required
+                  min="1"
+                  value={newTarget}
+                  onChange={(e) => setNewTarget(e.target.value)}
+                  placeholder="例如: 10"
+                />
+              </FormField>
+              <FormField label="达成奖励(积分)" required>
+                <Input
+                  type="number"
+                  required
+                  min="1"
+                  value={newPoints}
+                  onChange={(e) => setNewPoints(e.target.value)}
+                  placeholder="例如: 50"
+                />
+              </FormField>
             </div>
-            <form onSubmit={handleCreateQuest} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">任务名称</label>
-                <input
-                  type="text"
-                  required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                  placeholder="例如：书香班级挑战"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">任务描述</label>
-                <textarea
-                  required
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  rows={2}
-                  className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                  placeholder="说明任务内容..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">每组目标数量</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={newTarget}
-                    onChange={(e) => setNewTarget(e.target.value)}
-                    className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    placeholder="例如: 10"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">达成奖励(积分)</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={newPoints}
-                    onChange={(e) => setNewPoints(e.target.value)}
-                    className="block w-full border-gray-300 rounded-xl py-2 px-3 border focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    placeholder="例如: 50"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-slate-700 bg-white/80 backdrop-blur-xl hover:bg-slate-50/50"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="px-4 py-2 border border-transparent rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50"
-                >
-                  {createMutation.isPending ? '发布中...' : '确认发布'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateModal(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {createMutation.isPending ? '发布中...' : '确认发布'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {showProgressModal && currentQuest && (
-        <div className="fixed inset-0 bg-slate-50/500 bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-white/60 flex justify-between items-center bg-slate-50/50 shrink-0">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">各组进度</h3>
-                <p className="text-sm text-slate-500">
-                  {currentQuest.title}（目标：{currentQuest.target_score}）
-                </p>
-                <p className="text-xs text-slate-400 mt-1">总体进度：{currentQuestOverallPercent}%</p>
-              </div>
-              <button onClick={() => setShowProgressModal(false)} className="text-gray-400 hover:text-slate-500">
-                <XCircle className="h-5 w-5" />
-              </button>
+      {currentQuest && (
+        <Dialog open={showProgressModal} onOpenChange={(open) => !open && setShowProgressModal(false)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>各组进度</DialogTitle>
+              <DialogDescription>
+                {currentQuest.title}（目标：{currentQuest.target_score}）
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <p className="text-xs text-ink-3">总体进度：{currentQuestOverallPercent}%</p>
+              <Progress value={currentQuestOverallPercent} label="总体进度" />
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 space-y-5">
+            <div className="max-h-[50vh] space-y-5 overflow-y-auto">
               {isProgressLoading && (
-                <div className="flex items-center justify-center py-10 text-slate-500">
-                  <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+                <div className="flex items-center justify-center gap-2 py-10 text-ink-3">
+                  <Spinner label="正在加载进度" />
                   正在加载进度...
                 </div>
               )}
 
               {!isProgressLoading && progressData.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-slate-500">
-                  暂无可展示的分组进度
-                </div>
+                <EmptyState
+                  icon={Users}
+                  title="暂无可展示的分组进度"
+                  className="bg-transparent"
+                />
               )}
 
               {!isProgressLoading &&
@@ -296,37 +317,36 @@ export default function TeacherTeamQuests() {
                   const isCompleted = progress.contribution_score >= currentQuest.target_score;
 
                   return (
-                    <div key={`${progress.group_id ?? 'ungrouped'}-${progress.group_name}`} className="p-4 border border-white/60 rounded-xl bg-slate-50/50">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold text-slate-800 text-lg flex items-center">
+                    <div key={`${progress.group_id ?? 'ungrouped'}-${progress.group_name}`} className="rounded-card border border-border bg-muted/50 p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="flex items-center text-lg font-bold text-ink-1">
                           {progress.group_name}
-                          {isCompleted && <CheckCircle className="w-5 h-5 text-indigo-500 ml-2" />}
+                          {isCompleted && <CheckCircle className="ml-2 size-5 text-success" />}
                         </span>
-                        <span className={`font-bold ${isCompleted ? 'text-indigo-600' : 'text-slate-600'}`}>
+                        <span className={cn('font-bold', isCompleted ? 'text-success' : 'text-ink-2')}>
                           {progress.contribution_score} / {currentQuest.target_score}
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className={`h-3 rounded-full transition-all duration-500 ${isCompleted ? 'bg-gradient-to-r from-indigo-500 to-cyan-500' : 'bg-blue-500'}`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
+                      <Progress
+                        value={percent}
+                        label={`${progress.group_name} 进度`}
+                        tone={isCompleted ? 'success' : 'info'}
+                      />
                     </div>
                   );
                 })}
             </div>
 
-            <div className="px-6 py-4 border-t border-white/60 flex justify-end shrink-0 bg-white/80 backdrop-blur-xl">
-              <button
+            <DialogFooter>
+              <Button
+                variant="outline"
                 onClick={() => setShowProgressModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-slate-700 bg-white/80 backdrop-blur-xl hover:bg-slate-50/50"
               >
                 关闭
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

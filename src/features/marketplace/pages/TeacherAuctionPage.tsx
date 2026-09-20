@@ -53,6 +53,14 @@ function toAuctionPayload(form: AuctionForm): AuctionPayload {
   };
 }
 
+/**
+ * Auction card.
+ *
+ * The page is already a `CrudPage`, so what was left was its own chrome: the amber
+ * `border-amber-200`/`from-amber-400 to-orange-500` hero and the two slate greys are
+ * `warning` tokens now (amber is one of the product's two supporting accents, and it has
+ * a token). The kit's `Badge`, `Button` and `Card` were already carrying the rest.
+ */
 function renderAuctionCard(
   auction: Auction,
   actions: {
@@ -63,9 +71,9 @@ function renderAuctionCard(
   const isEnded = auction.status === 'ended' || (auction.end_time && new Date(auction.end_time) < new Date());
 
   return (
-    <Card className={cn('transition-all hover:shadow-lg', isEnded ? 'opacity-75 grayscale-[0.3]' : 'border-amber-200 shadow-sm')}>
-      <div className={cn('flex h-32 items-center justify-center', isEnded ? 'bg-slate-200' : 'bg-gradient-to-br from-amber-400 to-orange-500')}>
-        <Gavel className={cn('size-16', isEnded ? 'text-slate-400' : 'text-white opacity-90')} />
+    <Card className={cn('transition-all hover:shadow-raised', isEnded ? 'opacity-75 grayscale-[0.3]' : 'border-warning/20 shadow-card')}>
+      <div className={cn('flex h-32 items-center justify-center', isEnded ? 'bg-muted' : 'bg-warning')}>
+        <Gavel className={cn('size-16', isEnded ? 'text-ink-3' : 'text-warning-foreground opacity-90')} />
       </div>
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
@@ -93,11 +101,11 @@ function renderAuctionCard(
             </span>
           </div>
           <div className="flex justify-between border-t pt-2 text-sm">
-            <span className="flex items-center gap-1 font-medium text-amber-600">
+            <span className="flex items-center gap-1 font-medium text-warning">
               <Coins />
               当前最高
             </span>
-            <span className="text-lg font-black text-amber-600">{auction.current_price} 积分</span>
+            <span className="text-lg font-black text-warning">{auction.current_price} 积分</span>
           </div>
         </div>
       </CardContent>

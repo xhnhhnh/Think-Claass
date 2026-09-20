@@ -1,12 +1,40 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { Sparkles, Users, Upload, ImageIcon, XCircle, Plus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Users, Upload, ImageIcon, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useClassPets, useTeacherPetMutation } from '@/features/pet/hooks/usePet';
 import { getDefaultPetStageImage, getEvolutionStage, getPetDisplayImage, getPetElement, PET_ELEMENTS } from '@/features/pet/petConfig';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FileInput } from '@/components/ui/file-input';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 
+/**
+ * 班级精灵管理.
+ *
+ * The element tiles, the stage gallery and the per-element colours are the game feel
+ * of this page, so they stay - what changed is how the selected tile is drawn: the
+ * border used to be assembled at runtime (`border-${el.color.split('-')[1]}-500`, a
+ * class that only exists if Tailwind happened to see it) and is now the static
+ * `border-primary`. The hidden uploader is `FileInput`, which gives it a name, and the
+ * editor is the kit `Dialog` instead of a hand-built overlay with a raw close button.
+ */
 export default function TeacherPets() {
   useStore((state) => state.user);
   const { data: classes = [] } = useClasses();
@@ -72,43 +100,49 @@ export default function TeacherPets() {
   const renderPetImage = (pet: any) => {
     if (!pet) return null;
     const imgUrl = getPetDisplayImage(pet);
-    return <img src={imgUrl ?? ''} alt="Pet" className="w-16 h-16 object-contain rounded-full shadow-sm border-2 border-white" />;
+    return <img src={imgUrl ?? ''} alt="Pet" className="size-16 rounded-full border-2 border-paper object-contain shadow-sm" />;
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/80 backdrop-blur-xl p-6 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60">
-        <div className="flex items-center">
-          <div className="w-12 h-12 bg-indigo-100/50 rounded-2xl flex items-center justify-center mr-4">
-            <Sparkles className="w-6 h-6 text-indigo-600" />
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <PageHeader
+        title="班级精灵管理"
+        description="查看、分配或管理学生的学习精灵及进化外观"
+        icon={Sparkles}
+        actions={
+          <div className="flex items-center gap-3">
+            <Users className="size-5 text-ink-3" />
+            <Select
+              aria-label="选择班级"
+              wrapperClassName="w-40 sm:w-56"
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
+            </Select>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">班级精灵管理</h1>
-            <p className="text-sm text-slate-500 mt-1">查看、分配或管理学生的学习精灵及进化外观</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <Users className="w-5 h-5 text-slate-400" />
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="w-full sm:w-auto pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-          >
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+        }
+      />
 
       {/* Grid */}
       {loading ? (
-        <div className="py-20 text-center text-slate-400">加载中...</div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }, (_, index) => (
+            <Skeleton key={index} className="h-64 rounded-card" />
+          ))}
+        </div>
+      ) : students.length === 0 ? (
+        <EmptyState
+          icon={Sparkles}
+          title="暂无学生数据"
+          className="bg-paper"
+        />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {students.map((student) => {
             const pet = student.pet;
             const element = pet ? getPetElement(pet.element_type) : null;
@@ -118,60 +152,60 @@ export default function TeacherPets() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 key={student.student_id}
-                className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-white/60 p-5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all group flex flex-col"
+                className="group flex flex-col rounded-card border border-border bg-paper/80 p-5 shadow-card backdrop-blur-xl transition-all hover:shadow-raised"
               >
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-bold text-slate-800">{student.student_name}</span>
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="font-bold text-ink-1">{student.student_name}</span>
                   {!student.has_pet && (
-                    <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-500 rounded-lg">
+                    <Badge variant="secondary">
                       未领养
-                    </span>
+                    </Badge>
                   )}
                   {student.has_pet && element && (
-                    <span className={`text-xs font-bold px-2 py-1 rounded-lg ${element.color} text-white shadow-sm`}>
+                    <Badge className={cn('font-bold text-primary-foreground shadow-sm', element.color)}>
                       {element.name}
-                    </span>
+                    </Badge>
                   )}
                 </div>
 
-                <div className="flex-1 flex flex-col items-center justify-center py-4 relative">
+                <div className="relative flex flex-1 flex-col items-center justify-center py-4">
                   {student.has_pet ? (
                     <>
-                      <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-3 shadow-inner ${element?.bg || 'bg-slate-50'}`}>
+                      <div className={cn('mb-3 flex size-24 items-center justify-center rounded-full shadow-inner', element?.bg || 'bg-muted/50')}>
                         {renderPetImage(pet)}
                       </div>
                       <div className="text-center">
-                        <div className="text-sm font-bold text-slate-700">Lv.{pet.level} {getEvolutionStage(pet.level)}</div>
-                        <div className="text-xs text-slate-400 mt-1">攻击力: {pet.attack_power} | 经验: {pet.experience}</div>
+                        <div className="text-sm font-bold text-ink-2">Lv.{pet.level} {getEvolutionStage(pet.level)}</div>
+                        <div className="mt-1 text-xs text-ink-3">攻击力: {pet.attack_power} | 经验: {pet.experience}</div>
                       </div>
                     </>
                   ) : (
-                    <div className="w-24 h-24 rounded-full border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 mb-3 bg-slate-50">
-                      <Sparkles className="w-6 h-6 mb-1 opacity-50" />
+                    <div className="mb-3 flex size-24 flex-col items-center justify-center rounded-full border-2 border-dashed border-border bg-muted/50 text-ink-3">
+                      <Sparkles className="mb-1 size-6 opacity-50" />
                       <span className="text-xs font-medium">无精灵</span>
                     </div>
                   )}
                 </div>
 
                 <div className="mt-4">
-                  <button
+                  <Button
+                    variant={student.has_pet ? 'secondary' : 'outline'}
+                    className={cn(
+                      'w-full',
+                      !student.has_pet && 'border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary',
+                    )}
                     onClick={() => openModal(student)}
-                    className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center shadow-sm ${
-                      student.has_pet 
-                        ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' 
-                        : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100/50'
-                    }`}
                   >
                     {student.has_pet ? (
                       <>
-                        <ImageIcon className="w-4 h-4 mr-2" /> 管理外观与属性
+                        <ImageIcon data-icon="inline-start" /> 管理外观与属性
                       </>
                     ) : (
                       <>
-                        <Plus className="w-4 h-4 mr-2" /> 为其分配精灵
+                        <Plus data-icon="inline-start" /> 为其分配精灵
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </motion.div>
             );
@@ -180,153 +214,141 @@ export default function TeacherPets() {
       )}
 
       {/* Editor Modal */}
-      <AnimatePresence>
-        {isModalOpen && editingStudent && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-            >
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center">
-                  <Sparkles className="w-6 h-6 mr-3 text-indigo-500" />
-                  {editingStudent.has_pet ? `管理 ${editingStudent.student_name} 的精灵` : `为 ${editingStudent.student_name} 分配精灵`}
-                </h2>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
+      {editingStudent && (
+        <Dialog open={isModalOpen} onOpenChange={(open) => !open && setIsModalOpen(false)}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
+                <Sparkles className="mr-3 size-6 text-primary" />
+                {editingStudent.has_pet ? `管理 ${editingStudent.student_name} 的精灵` : `为 ${editingStudent.student_name} 分配精灵`}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-8">
+              {/* Element Selection */}
+              <div>
+                <h3 className="mb-4 flex items-center text-sm font-bold text-ink-2">
+                  1. 选择精灵属性 (Element Type)
+                </h3>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                  {PET_ELEMENTS.map((el) => (
+                    <Button
+                      key={el.id}
+                      type="button"
+                      variant="outline"
+                      aria-pressed={editingImages.element_type === el.id}
+                      onClick={() => setEditingImages({ ...editingImages, element_type: el.id })}
+                      className={cn(
+                        'h-auto flex-col gap-1 rounded-card border-2 p-3',
+                        editingImages.element_type === el.id
+                          ? `border-primary ${el.bg} shadow-card`
+                          : 'border-border bg-muted/50 hover:border-primary/30',
+                      )}
+                    >
+                      <div className="text-2xl">{el.icon}</div>
+                      <div className="text-xs font-bold text-ink-2">{el.name}</div>
+                    </Button>
+                  ))}
+                </div>
               </div>
 
-              <div className="p-6 overflow-y-auto flex-1 space-y-8">
-                {/* Element Selection */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center">
-                    1. 选择精灵属性 (Element Type)
-                  </h3>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                    {PET_ELEMENTS.map((el) => (
-                      <div
-                        key={el.id}
-                        onClick={() => setEditingImages({ ...editingImages, element_type: el.id })}
-                        className={`cursor-pointer rounded-xl border-2 p-3 flex flex-col items-center transition-all ${
-                          editingImages.element_type === el.id
-                            ? `border-${el.color.split('-')[1]}-500 ${el.bg} shadow-md`
-                            : 'border-slate-100 hover:border-slate-300 bg-slate-50'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">{el.icon}</div>
-                        <div className="text-xs font-bold text-slate-700">{el.name}</div>
-                      </div>
-                    ))}
-                  </div>
+              {/* Base Stats Setting */}
+              <div>
+                <h3 className="mb-4 flex items-center text-sm font-bold text-ink-2">
+                  2. 基础数值设置 (Base Stats)
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <FormField label="等级 (Level 1-6)">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="6"
+                      value={editingImages.level || 1}
+                      onChange={(e) => setEditingImages({ ...editingImages, level: Number(e.target.value) })}
+                    />
+                  </FormField>
+                  <FormField label="经验值 (Experience)">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editingImages.experience || 0}
+                      onChange={(e) => setEditingImages({ ...editingImages, experience: Number(e.target.value) })}
+                    />
+                  </FormField>
+                  <FormField label="攻击力 (Attack Power)">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editingImages.attack_power || 10}
+                      onChange={(e) => setEditingImages({ ...editingImages, attack_power: Number(e.target.value) })}
+                    />
+                  </FormField>
                 </div>
+              </div>
 
-                {/* Base Stats Setting */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center">
-                    2. 基础数值设置 (Base Stats)
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">等级 (Level 1-6)</label>
-                      <input 
-                        type="number" 
-                        min="1" 
-                        max="6" 
-                        value={editingImages.level || 1} 
-                        onChange={(e) => setEditingImages({ ...editingImages, level: Number(e.target.value) })}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">经验值 (Experience)</label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        value={editingImages.experience || 0} 
-                        onChange={(e) => setEditingImages({ ...editingImages, experience: Number(e.target.value) })}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">攻击力 (Attack Power)</label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        value={editingImages.attack_power || 10} 
-                        onChange={(e) => setEditingImages({ ...editingImages, attack_power: Number(e.target.value) })}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
+              {/* Stages Selection */}
+              <div>
+                <h3 className="mb-4 flex items-center text-sm font-bold text-ink-2">
+                  3. 配置阶段外观 (可选，支持 JPG/PNG/GIF，最高 5MB)
+                </h3>
+                <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
+                  {[1, 2, 3, 4, 5, 6].map((level) => {
+                    const stageKey = `image_stage${level}`;
+                    const currentImage = editingImages[stageKey] || editingImages.custom_image || getDefaultPetStageImage(level, editingImages.element_type);
 
-                {/* Stages Selection */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center">
-                    3. 配置阶段外观 (可选，支持 JPG/PNG/GIF，最高 5MB)
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    {[1, 2, 3, 4, 5, 6].map((level) => {
-                      const stageKey = `image_stage${level}`;
-                      const currentImage = editingImages[stageKey] || editingImages.custom_image || getDefaultPetStageImage(level, editingImages.element_type);
+                    return (
+                      <div key={level} className="flex flex-col items-center">
+                        <Badge variant="info" className="mb-2">
+                          Lv.{level} {getEvolutionStage(level)}
+                        </Badge>
 
-                      return (
-                        <div key={level} className="flex flex-col items-center">
-                          <div className="text-xs font-bold text-indigo-700 mb-2 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                            Lv.{level} {getEvolutionStage(level)}
+                        <label className="group relative aspect-square w-full max-w-[160px] cursor-pointer">
+                          <div className={cn('flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-card border-2 transition-all', currentImage ? 'border-primary/40 bg-paper shadow-card' : 'border-dashed border-border bg-muted/50 hover:border-primary/40')}>
+                            <img src={currentImage} alt={`Lv.${level}`} className="h-full w-full object-contain" />
                           </div>
 
-                          <label className="cursor-pointer group relative w-full aspect-square max-w-[160px]">
-                            <div className={`w-full h-full rounded-2xl border-2 flex flex-col items-center justify-center overflow-hidden transition-all ${currentImage ? 'border-indigo-400 shadow-sm bg-white' : 'border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50'}`}>
-                              <img src={currentImage} alt={`Lv.${level}`} className="w-full h-full object-contain" />
-                            </div>
+                          <div className="absolute inset-0 flex items-center justify-center rounded-card bg-foreground/40 opacity-0 transition-opacity group-hover:opacity-100">
+                            <span className="flex flex-col items-center text-xs font-bold text-primary-foreground">
+                              <Upload className="mb-1 size-5" />
+                              更换图片
+                            </span>
+                          </div>
 
-                            <div className="absolute inset-0 bg-slate-900/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <span className="text-white text-xs font-bold flex flex-col items-center">
-                                <Upload className="w-5 h-5 mb-1" />
-                                更换图片
-                              </span>
-                            </div>
-
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleStageImageUpload(e, level)}
-                            />
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          <FileInput
+                            label={`Lv.${level} 阶段图片`}
+                            accept="image/*"
+                            onChange={(e) => handleStageImageUpload(e, level)}
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
+            </div>
 
-              <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end space-x-3">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2.5 rounded-xl font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={savingImages}
-                  className="px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50"
-                >
-                  {savingImages ? '保存中...' : '确认保存'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsModalOpen(false)}
+              >
+                取消
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={savingImages}
+              >
+                {savingImages ? (
+                  <>
+                    <Spinner size="sm" label="正在保存" />
+                    保存中...
+                  </>
+                ) : '确认保存'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
