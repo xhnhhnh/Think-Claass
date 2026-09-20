@@ -1,10 +1,11 @@
 # 交接文档 · ThinkClass「最小 Core + 无限 Plugins」重构
 
 > **用途**：在**新对话**中接续本重构。本文档是唯一权威入口。
-> **生成时间**：第 10 轮结束时（P4.3b.15：一次公开仓库的隐私审计与修复 —— 删掉源码里的公开默认密钥、轮换线上密钥、加护栏 G18）
-> **工作区**：`D:\think-class`
-> **分支**：`refactor/plugin-kernel`
-> **HEAD**：以 `git log --oneline -1` 为准。本轮开工时核实到 HEAD 是 `3c88a41`。
+> **最近一轮记录**：§9 的 P4.4（版本管理与发布链路）。「第几轮 / 生成时间」这种写法会过期，
+> 轮次与进度一律以 `git log --oneline -5` 和 §9 各小节末尾的「实测」为准。
+> **工作区**：`D:\think-class`　**分支**：`refactor/plugin-kernel`
+> **HEAD**：**只以 `git log --oneline -1` 为准**，不要往这里填哈希。此前这行写死的 `3c88a41`
+> 在工作区里根本不是一个对象（`git cat-file -t 3c88a41` → `Not a valid object name`）。
 > **目标**：把现有前端、后端、数据库与整体架构重构为真正的 `Core → Plugin Runtime → Plugin API/SDK → Plugins`
 
 ---
@@ -25,7 +26,7 @@
 
 开工前先跑 git log --oneline -3 / git status --short / npm test 核对真实状态，
 不要相信文档的叙述；文档与事实冲突时以事实为准，并顺手把文档改对。
-每轮提交前必须跑通 check + test + api:surface --check + guard。
+每轮提交前必须跑通 check + test + api:surface -- --check + guard（完整命令见 §3）。
 ```
 
 > **上面这段刻意不写任何阶段名和数字。** 早先的版本写死了「完成 P4.3b/P4.3c/P5/P6/P7」
@@ -72,14 +73,41 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 2. **顺手把文档改对** —— 过时的交接文档比没有文档更危险
 3. 把差异写进当轮的提交信息，让下一个人看得到
 
+### 文档地图（1800+ 行怎么定位）
+
+| 想找什么 | 去哪 | 怎么读 |
+|---|---|---|
+| **这一轮该做什么** | **§1.1** | 判据式目标：交付物 + 独占写范围 + 验收命令 + 明确不在范围内的事。**开工先读它** |
+| 现在到哪了 | §1 + §7 | 状态叙述与验证数字；**它们每轮都在变**，以工作区实测为准，冲突就改 |
+| 环境（网络 / 文件策略 / 工具链） | §2 | 同样是**实测结论**，会过期 |
+| 该跑哪些命令 | §3 | check / test / guard / api:surface / measure |
+| 阶段总账 | §4 | P0 → P7 一行一个阶段 + 提交号 + ✅/🔶/⬜ |
+| 已建成的架构、可复用的端口与机制 | §5 | **改代码前先读**，别重造 |
+| **护栏与棘轮数字** | §6 | 只能降不能升；含 G1–G19 与四个已知盲区 |
+| 迁移手册：怎么把一个域搬成插件 | §8 | ⚠️ 标题写的是「下一步：P4.3b」，那已全部完成；当**手册**读，当前目标在 §1.1 |
+| 逐轮账本：为什么这么改、踩过什么坑 | §9 | 每小节末尾有当轮「实测」；标题里的 ✅/🔶 是**当轮**结论，不是现在的状态 |
+| 还没还的债、已知的坑 | §10 | 开工前扫一眼 |
+| 工作方式约定 | §11 | 前几轮有效的做法 |
+| 文件索引：哪个文件是干什么的 | §12 | 按轮次排列，不是字母序 |
+
+**两条检索铁律**：
+
+1. **数字现查**：端点数 / 棘轮额度 / 用例数 / HEAD 一律现场跑命令取（`npm test`、`npm run guard`、
+   `git log --oneline -1`、`tests/guardrails/lib/allowances.json`），不要引用本文档里写死的值 ——
+   本文件头部曾写死过一个不存在的 HEAD 哈希，就是这种烂法。
+2. **✅ 的含义是「当轮已验证」**，不是「现在仍然成立」。判断当下状态只有两个来源：命令输出与工作区。
+
 ---
 
 ## 1. 一句话现状
 
-**P0–P4.3b.14 已完成并全部验证。** 内核、插件运行时、SDK、能力系统、审计下沉、`game` 上帝模块拆分、
-**全部 21 个域的插件化**都已落地。
+**P0–P4.3b.14 已完成并全部验证**（其后的 P4.3b.15 隐私审计、P4.4 版本管理与发布链路也已完成；
+**P4.3c 仍在进行中**，见 §4 与 §1.1）。内核、插件运行时、SDK、能力系统、审计下沉、
+`game` 上帝模块拆分、**全部 20 个插件域**都已落地（`plugins/` 现有 20 个目录、20 份 `plugin.json`，
+以 `ls plugins` 为准）。
 
-**`api/modules/` 现在是空的** —— `admin` 在 P4.3b.14 迁成 `plugins/admin`（28 条路由），
+**`api/modules/` 已经不存在**（P4.3b.14 清空后 git 不再跟踪空目录，`git ls-files api/modules` 为空；
+别把"为空"读成"目录还在"）—— `admin` 在 P4.3b.14 迁成 `plugins/admin`（28 条路由），
 它是最后一个模块，也是唯一一条绕过所有权模型的写路径。legacy 组装仍然服务全部域：
 `createLegacyRootModule()` 把插件模块并进同一个 Nest 根模块，但那条"把域注册成静态模块"的路已经不存在了。
 
@@ -111,7 +139,7 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ### 为什么是它
 
-架构部分已经完成：21 个域全是插件、`api/modules/` 为空、级联删除有了机制。
+架构部分已经完成：20 个插件域全部落地（`plugins/` 20 个目录）、`api/modules/` 已不存在、级联删除有了机制。
 但"**最小** Core"这句话还差一半：`api/schema/legacyBootSchema.ts` 是**一整块 86 张表**的迁移，
 `KERNEL_ENABLED=1` 的部署照样把班级、宠物、地牢、支付全都建出来 —— 一个只跑内核的部署不应该认识 `pets`。
 
@@ -132,9 +160,11 @@ npm test                      # 核对 §7 声称的用例数（那个数字每�
 
 ```bash
 npm run check                 # exit 0
-npm test                      # 全绿；用例数只增不减（本轮基线：121 文件 / 939 用例）
-npm run api:surface -- --check # 必须仍是 297 endpoints
-npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTables ≤ 74、routeCollisions = 0
+npm test                      # 全绿；用例数只增不减（最近一次记录的基线：124 文件 / 955 用例，
+                              #   见 §7 —— 以本次输出为准，不要引用这里的数字）
+npm run api:surface -- --check # 必须仍是 297 endpoints（等价短写：npm run api:surface:check）
+npm run guard                 # 护栏全绿（当前 14 个文件，以输出为准）；deadCode ≤ 55、
+                              #   adoptedTables ≤ 74、routeCollisions = 0
 ```
 
 外加：
@@ -155,10 +185,13 @@ npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTable
 
 它们各自是一轮或几轮。
 
-### 环境约束（见 §2；P4.3b.14 起 GitHub 可达）
+### 环境约束（见 §2；P4.3b.14 起 GitHub 可达 —— 但这条**每会话都可能变**，先实测）
 
-网络：GitHub 与 npm registry 的 443 实测可达（可 `git push`/`fetch`），但**仍然不要加依赖**（未验证过安装的完整性）。
-文件策略 full-access，测试直接跑。团队名额上限 8（含 Lead），名字不可复用。
+网络：GitHub 与 npm registry 的 443 曾实测可达（可 `git push`/`fetch`），但**可达性是会话属性、不是永久事实** ——
+最近一次核对本文档的会话里 TCP 443 通、TLS 却失败（`git ls-remote origin HEAD` 报 schannel `SEC_E_NO_CREDENTIALS`）。
+联网前先自己测一次，别引用本节结论。**但「不要加依赖」这条不变**（未验证过安装的完整性）。
+文件策略同样随会话变化（写过 full-access；最近一次实测 workspace-write，受限沙箱下 vitest 会 `spawn EPERM`）：
+测试默认直接跑，被沙箱拒绝就按宿主提示提权或如实报告。团队名额上限 8（含 Lead），名字不可复用。
 
 ---
 
@@ -166,9 +199,9 @@ npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTable
 
 | 项 | 状态 |
 |---|---|
-| 网络 | **P4.3b.14 实测：GitHub 与 `registry.npmjs.org` 的 443 都可达**，`git ls-remote` / `git fetch` / `git push` 都成功（本文档此前写的"完全不可用（npm registry / github 均 TLS 失败）"已失效，按"以事实为准"改掉）。**但"不要加依赖"这条不变**：没有人验证过 `npm install` 的完整性，而 node_modules 已从源仓库复制、可直接用 |
+| 网络 | **P4.3b.14 实测：GitHub 与 `registry.npmjs.org` 的 443 都可达**，`git ls-remote` / `git fetch` / `git push` 都成功（本文档此前写的"完全不可用（npm registry / github 均 TLS 失败）"已失效，按"以事实为准"改掉）。**⚠️ 这一格也是会过期的实测，不是永久事实**：最近一次核对本文档的会话里 TCP 443 可达、TLS 却失败（`git ls-remote origin HEAD` → schannel `SEC_E_NO_CREDENTIALS`），说明**可达性随会话/沙箱变化，联网前先自己测一次**。**但"不要加依赖"这条不变**：没有人验证过 `npm install` 的完整性，而 node_modules 已从源仓库复制、可直接用 |
 | node_modules | 已从源仓库复制，可用 |
-| 测试 | `npm test` 正常。此前沙箱受限时需要提权，当前文件策略为 full-access，直接跑即可 |
+| 测试 | `npm test` 正常。文件策略**随会话变化**：此前沙箱受限时需要提权，P4.3b.14 时是 full-access 可直接跑，最近一次实测是 workspace-write（受限沙箱下 vitest 会 `spawn EPERM`）。默认直接跑；被拒绝就按宿主提示提权，或如实报告"这一轮没能跑测试"，不要改测试求绿 |
 | 原始仓库 | `D:\ThinkClass\Think-Claass-main`（只读参照，未改动） |
 | 工具链 | node v24.16.0 / npm 12.0.2 / pnpm 11.5.2 |
 
@@ -180,12 +213,13 @@ npm run guard                 # 12 文件全绿；deadCode ≤ 55、adoptedTable
 npm test              # 全部：app + backend + guardrails
 npm run test:app      # 前端 + 遗留 api/** 套件（jsdom + MSW）
 npm run test:backend  # kernel + plugin-runtime + plugins（node）
-npm run guard         # 防伪护栏棘轮（12 文件 / 53 用例；含 G17「schema 只住在迁移里」）
+npm run guard         # 防伪护栏棘轮（当前 14 文件 / 63 用例，以输出为准；含 G17「schema 只住在迁移里」）
 
 npm run class-features:check   # 前端功能开关目录是否与插件 manifest 一致
 npm run check         # tsc --noEmit
 npm run measure       # 基线度量（死代码/重复/schema 漂移）
 npm run api:surface -- --check     # 297 条端点必须零漂移（含 plugins/** 与 packages/kernel/**）
+                                   #   等价短写：npm run api:surface:check（两者都已实测可用）
 ```
 
 ---
@@ -292,10 +326,13 @@ packages/plugin-sdk      P4.3b.14 新增三处：
                         ctx.maintenance：数据库文件级操作（导出/导入/重置）由**宿主注入** ——
                                       它们动的是连接与文件，不是表，插件不该拥有（见 api/maintenance.ts）
 
-api/schema/adoptedTables.ts  adopted 表的**唯一**权威定义（students/classes/records/
-                             bank_accounts/stocks/student_stocks）。api/db.ts 调它、不再自己定义；
-                             测试也调它 —— 两份定义会静默漂移：capability 回落是按列名读
-                             `classes.enable_*` 的，缺列会让每个班都"功能已关闭"而不报错
+api/schema/adoptedTables.ts  **已在 P4.3c.2 删除**（别再去 import 它）。它曾是 adopted 表的"唯一"权威
+                             定义（students/classes/records/bank_accounts/stocks/student_stocks），
+                             但与 boot DDL 重复定义 —— 删掉重复定义时正是这 6 张表静默消失、
+                             测试却全绿（反面教材见 §9 的 P4.3c）。这 6 张表现已并进
+                             `api/schema/legacyBootSchema.ts`。教训保留：**同一件事有两份定义会
+                             静默漂移** —— capability 回落是按列名读 `classes.enable_*` 的，
+                             缺列会让每个班都"功能已关闭"而不报错
 
 api/schema/appMigrations.ts  **两套组装共用的唯一迁移清单**（P4.3c.3a 新增）
                              0000 boot schema → 0000b payment → 0000c 兼容列 → 0000d 兼容索引
@@ -371,7 +408,7 @@ api/maintenance.ts      P4.3b.14 新增：导出/导入/重置的**宿主实现*
 
 注意 `adoptedTables` 的"只降不升"有一条**明示例外**：迁移一个新域会让它上升，因此每次上升都必须在 `allowances.json` 的注释里逐条写清是哪张表、来自哪个域（`routeCollisions` 与 `deadCode` 没有例外，只能降）。
 
-其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；反向：每个 Prisma 模型都要有表；**P4.3b.11 新增：SQLite 有、Prisma 模型没有的列**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）、**G18 静态加密密钥不得有默认值**（P4.3b.15：源码里出现那把公开默认密钥、或任何 `ENCRYPTION_KEY || '…'` / `get('ENCRYPTION_KEY', '…')` 形状的兜底就报错。**它当场抓到了本轮的作者**：`api/db.ts` 的说明注释里引用了那个字面量，只好改成描述而不引用）。
+其余护栏：G1 插件间只经 `public.ts`、G2 内核不 import 插件、G5 内核零业务知识、G6 contracts 纯类型、G7 manifest 合规、G8 端点快照、G9 system settings 双份一致、G10 adopted 表、**G11 路由碰撞**、G13 启动 schema 完整性（正向：manifest 声明的表；反向：每个 Prisma 模型都要有表；**P4.3b.11 新增：SQLite 有、Prisma 模型没有的列**）、**G17 schema 只住在迁移里**（`api/db.ts` 不得再出现 `addColumnIfNotExists` / `ADD COLUMN` / `CREATE INDEX`；允许的剩余 DDL 被逐条枚举，加了就报错）、**G18 静态加密密钥不得有默认值**（P4.3b.15：源码里出现那把公开默认密钥、或任何 `ENCRYPTION_KEY || '…'` / `get('ENCRYPTION_KEY', '…')` 形状的兜底就报错。**它当场抓到了本轮的作者**：`api/db.ts` 的说明注释里引用了那个字面量，只好改成描述而不引用）、**G19 版本一致性**（P4.4 新增：`package.json` / CHANGELOG / tag 的六条断言，见 `tests/guardrails/version-consistency.test.ts`）。
 
 ### ⚠️ schema 的第四个盲区（P4.3c.3a 发现，G13/G17 之前都看不见）
 
@@ -394,7 +431,7 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 
 `api:surface` 原本只扫 `api/**`。域一旦迁进 `plugins/**`，端点会从快照里"消失"而不报错（§7 的陷阱）。P4.3b R1 让 `extractApiSurface` 同时扫 `api` 与 `plugins`，扫完立刻就"凭空"多出 4 条 `plugins/pet` 的端点 —— **这说明原来的 288 是在漏扫，不是真实的 288**。
 
-第二个盲区更隐蔽：快照比较的是 **METHOD+PATH 的集合**，所以"两个控制器声明同一条路由"完全不可见 —— 而半成品迁移产生的正是这个状态（模块还在 `api/`，插件已经在服务同样的路径），只有先注册的那个可达，另一个是没有任何测试会发现的死代码。新增 **G11** 棘轮（`routeCollisions`，当前 1）专治此症；当前那 1 条就是 `plugins/pet` 与 `api/modules/pet` 同时声明了 `GET /api/pet/students/:studentId`。
+第二个盲区更隐蔽：快照比较的是 **METHOD+PATH 的集合**，所以"两个控制器声明同一条路由"完全不可见 —— 而半成品迁移产生的正是这个状态（模块还在 `api/`，插件已经在服务同样的路径），只有先注册的那个可达，另一个是没有任何测试会发现的死代码。新增 **G11** 棘轮（`routeCollisions`）专治此症；它抓到的第一条是 `plugins/pet` 与 `api/modules/pet` 同时声明 `GET /api/pet/students/:studentId` —— **P4.3b.6 已归 0，现在是 0**（见 §6 表格与 §4）。
 
 **第三个盲区（P5.3c 实证）**：扫描器只认 Nest 装饰器，**内核自己的路由一条也没进快照**。P5.3c 把 `GET /api/settings` 从 Nest 搬进 `packages/kernel/src/http/kernelRoutes.ts` 时，`--check` 报的 `ADDED` 里**没有**它（因为去掉的声明和新增的声明互相抵消了，恰好掩盖了搬迁），却冒出 6 条 `GET|POST /api/kernel/*` —— 那些路由**从 P1 起就一直在服务，只是从来没被记录过**。所以：
 
@@ -408,7 +445,7 @@ MISSING INDEXES (19): idx_parent_activity_parent_student（UNIQUE）、idx_class
 
 ## 7. 当前验证状态
 
-**下面是 P4.3b.14 完成时（HEAD 见 `git log -1`）跑出来的数字。**
+**下面这组数字是最近一次记录的实测（P4.4 轮；commit `400771c` 更正过这里的用例数与护栏文件数）。**
 **它一定会随每一轮变化 —— 请用 §0 的三条命令重新跑一遍，把输出当成本节的真实内容。**
 
 ```
@@ -418,10 +455,10 @@ api:surface     unchanged (297 endpoints)   ← 迁移期间端点数必须不�
 guardrails      14 文件 / 63 用例（P4.3b.15 加 G18，P4.4 加 G19）
 ```
 
-**已迁成插件的域（21 个）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace,
+**已迁成插件的域（20 个 —— 与 `plugins/` 目录数一致，以 `ls plugins` 为准）**：economy, dungeon, gacha, slg, battles, challenge, collaboration, marketplace,
 portal, system, assignments, parent-buff, pet, classroom, learning, identity, payment, engagement, insights,
 **admin**（P4.3b.14）。
-**`api/modules/` 为空 —— 没有"未迁移的域"这个类别了。**
+**`api/modules/` 已不存在（P4.3b.14 清空，git 不保留空目录）—— 没有"未迁移的域"这个类别了。**
 （`settings` 已在 P5.3c 并入内核；`platform` 已彻底关闭 —— 业务半边 `parent-buff`、支付半边 `payment`。）
 
 **验收基线**：
@@ -466,6 +503,9 @@ portal, system, assignments, parent-buff, pet, classroom, learning, identity, pa
 ---
 
 ## 8. 下一步：P4.3b —— 把域真正迁成插件
+
+> ℹ️ **这是一节历史方案，不是待办**：P4.3b 已全部完成（逐轮结果见 §4 与 §9），**当前目标在 §1.1**。
+> 保留它是因为它仍然是「把一个域迁成插件」的标准动作清单与踩坑记录 —— 当**手册**读。
 
 ### 8.1 为什么这是关键一步
 
@@ -735,6 +775,9 @@ PLUGINS_ENABLED=1 npx tsx api/server.ts
 ---
 
 ## 9. 后续阶段要点（提前知道，避免走错）
+
+> ℹ️ 本节是**逐轮账本**：小节标题末尾的 ✅/🔶/⬜ 是**当轮**结论，不是现在的状态。当前状态看 §1/§7，
+> 当前目标看 §1.1（P4.3c 仍在进行中）。每小节末尾的「实测」是那一轮跑出来的原始输出。
 
 ### P5.3c · `GET /api/settings` 搬进内核 —— ✅ 已完成
 
@@ -1779,7 +1822,7 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | `api/schema/legacyCompatColumns.ts` | 53 个兼容列的函数迁移（含 checksum 陷阱说明） |
 | `api/schema/legacyCompatIndexes.ts` | 19 个兼容索引（2 个是 UNIQUE 完整性约束） |
 | `scripts/migration/lib/analysis.mjs` | 所有度量的单一实现 |
-| `tests/guardrails/` | 已实现的护栏（G1–G17）+ 棘轮额度 |
+| `tests/guardrails/` | 已实现的护栏（G1–G19）+ 棘轮额度（额度在 `tests/guardrails/lib/allowances.json`） |
 | `tests/guardrails/schema-lives-in-migrations.test.ts` | **G17**：`api/db.ts` 不得再带 schema DDL |
 | `tests/plugins/pet-service.test.ts` | pet 域的语义（死亡时钟/等级上限/端口边界），替代 `api/modules/pet/pet.service.test.ts` |
 | `tests/plugins/pet-controllers.test.ts` | 17 条旧路由的**逐条信封**断言 + 插件自有别名的权限门 |
@@ -1818,3 +1861,8 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | `tests/plugins/identity-controllers.test.ts` | 4 条路由的动词/路径/`@HttpCode`、信封、以及 `ApiError` 与 500 兜底的翻译 |
 | `tests/plugins/legacy-boot-probe.test.ts` | 唯一一条**真启动 + 真 HTTP** 的登录链路断言：登录拿 token → 用 token 打 profile → 200；以及 `/api/kernel/auth/login` 200（holder 接对了才算过） |
 | `scripts/migration/spikes/nest-dynamic-controllers.mjs` | R10 证据（判断 Nest 能否动态装配时先跑它）—— ⚠️ **已随工作区清理删除**（结论已落地并记录在 `01-kernel.md` §3），需要时从 git 历史取回 |
+| `docs/versioning.md` | **版本管理的唯一权威**（P4.4）：版本号规则、发布链路、CI 触发方式 |
+| `scripts/release.mjs` | P4.4 的一条命令发布：脏树拒绝 → 四道验收门 → 改 `package.json` → 插 CHANGELOG → 提交 → 打 tag |
+| `.github/workflows/release.yml` | P4.4：tag 触发的发布流水线（tag 过滤器是 **glob**，不是正则） |
+| `scripts/deploy-common.sh` | P4.4：部署脚本；`download_release_zip` 强制校验 `SHA256SUMS` 后才解压 |
+| `tests/guardrails/version-consistency.test.ts` | P4.4：**G19** 的六条版本一致性断言 |
