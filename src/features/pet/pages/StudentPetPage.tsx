@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { ShieldAlert, Zap, Cookie, Play, Star, Plus, Heart, List, ArrowUpRight, ArrowDownRight, XCircle } from 'lucide-react';
+import { ShieldAlert, Zap, Cookie, Play, Star, Plus, Heart, List, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
@@ -10,7 +10,30 @@ import type { PetDto } from '@/features/pet/types';
 import { usePetActionMutation, useStudentPetData } from '@/features/pet/hooks/usePet';
 import { launchConfetti } from '@/lib/confetti';
 import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 
+/**
+ * 我的学习精灵.
+ *
+ * The creature, its stage art and the adoption tiles are the game feel, so the springs
+ * and the colour wash behind the pet stay. Three things had to change:
+ *
+ *   - The selected element tile assembled its own class at runtime
+ *     (`border-${el.color.split('-')[1]}-600`), which only exists if Tailwind happened to
+ *     see the finished string - it selected the primary ring instead, which is why the
+ *     tile is a kit `Button` with a static state now.
+ *   - The experience bar's width was an inline style; the kit's `Progress` owns it.
+ *   - The points ledger was a hand-built overlay with a raw close button; it is the kit
+ *     `Dialog` now, so the close control has an accessible name.
+ *
+ * The orange family the page was written in is the `warning` token: it is the same
+ * surface, and `--warning` follows the role theme instead of being a fixed palette entry.
+ */
 export default function StudentPet() {
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
@@ -117,55 +140,73 @@ export default function StudentPet() {
     setTimeout(() => setPetMessage(null), 3000);
   };
 
-  if (loading) return <div className="text-center py-20">加载中...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 p-20 text-ink-3">
+        <Spinner size="lg" label="正在加载精灵数据" />
+        加载中...
+      </div>
+    );
+  }
 
   if (!pet) {
     return (
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-[2rem] shadow-2xl overflow-hidden max-w-4xl mx-auto border-8 border-orange-200"
+        className="mx-auto max-w-4xl overflow-hidden rounded-panel border-8 border-warning/20 bg-paper shadow-floating"
       >
-        <div className="bg-orange-400 p-8 text-center text-white border-b-8 border-orange-500">
-          <h2 className="text-4xl font-black mb-2 drop-shadow-md">欢迎来到 Think-Class</h2>
-          <p className="text-orange-100 text-xl font-bold">领养你的专属精灵伙伴，开启学习冒险之旅！</p>
+        <div className="border-b-8 border-warning/70 bg-warning p-8 text-center text-warning-foreground">
+          <h2 className="mb-2 text-4xl font-black drop-shadow-md">欢迎来到 Think-Class</h2>
+          <p className="text-xl font-bold text-warning-foreground/80">领养你的专属精灵伙伴，开启学习冒险之旅！</p>
         </div>
         <div className="p-8">
-          <h3 className="text-2xl font-black text-gray-800 mb-6 text-center">选择精灵属性</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <h3 className="mb-6 text-center text-2xl font-black text-ink-1">选择精灵属性</h3>
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
             {PET_ELEMENTS.map((el) => (
+              /*
+                The tile keeps its spring, but the interactive element is the kit's
+                `Button`: the tile used to be a `div` with `role="button"`, which keyboard
+                users could not reach at all.
+              */
               <motion.div
+                key={el.id}
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
-                key={el.id}
-                onClick={() => setSelectedElement(el.id)}
-                role="button" 
-                className={`cursor-pointer rounded-[2rem] border-b-8 border-r-4 border-l-4 border-t-4 p-6 flex flex-col items-center transition-all ${
-                  selectedElement === el.id 
-                    ? `border-${el.color.split('-')[1]}-600 ${el.bg} shadow-xl ring-4 ring-${el.color.split('-')[1]}-300 ring-offset-4` 
-                    : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300'
-                }`}
               >
-                <div className="text-6xl mb-4 drop-shadow-md">{el.icon}</div>
-                <div className="font-black text-xl text-gray-800">{el.name}</div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={selectedElement === el.id}
+                  onClick={() => setSelectedElement(el.id)}
+                  className={cn(
+                    'h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 p-6',
+                    selectedElement === el.id
+                      ? cn('border-primary shadow-raised ring-4 ring-primary/30 ring-offset-4', el.bg)
+                      : 'border-border bg-muted/50 hover:border-primary/30 hover:bg-muted',
+                  )}
+                >
+                  <div className="mb-4 text-6xl drop-shadow-md">{el.icon}</div>
+                  <div className="text-xl font-black text-ink-1">{el.name}</div>
+                </Button>
               </motion.div>
             ))}
           </div>
 
           <div className="mt-10 text-center">
-            <motion.button
+            <motion.div
               whileHover={selectedElement && !adopting ? { scale: 1.05, y: -5 } : {}}
               whileTap={selectedElement && !adopting ? { scale: 0.95, y: 0 } : {}}
-              onClick={handleAdopt}
-              disabled={!selectedElement || adopting}
-              className={`px-12 py-5 rounded-[2rem] text-2xl font-black text-white shadow-xl border-b-8 transition-all ${
-                selectedElement && !adopting 
-                  ? 'bg-orange-500 border-orange-700 hover:bg-orange-400' 
-                  : 'bg-gray-300 border-gray-400 cursor-not-allowed'
-              }`}
+              className="inline-block"
             >
-              {adopting ? '领养中...' : '确认领养'}
-            </motion.button>
+              <Button
+                onClick={handleAdopt}
+                disabled={!selectedElement || adopting}
+                className="h-auto rounded-panel border-b-8 border-foreground/20 px-12 py-5 text-2xl font-black shadow-raised"
+              >
+                {adopting ? '领养中...' : '确认领养'}
+              </Button>
+            </motion.div>
           </div>
         </div>
       </motion.div>
@@ -181,36 +222,34 @@ export default function StudentPet() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto space-y-6"
+      className="mx-auto max-w-4xl space-y-6"
     >
       {classId && showDanmaku ? <DanmakuOverlay classId={classId} /> : null}
       {/* Top Status */}
-      <div className="bg-white rounded-[2rem] p-6 shadow-xl border-b-8 border-gray-200 flex justify-between items-center">
+      <div className="flex items-center justify-between rounded-panel border-b-8 border-border bg-paper p-6 shadow-card">
         <div className="flex items-center space-x-4">
-          <div className="bg-orange-100 p-4 rounded-[1.5rem] border-b-4 border-orange-200">
-            <Star className="h-8 w-8 text-orange-500 fill-current" />
+          <div className="rounded-card border-b-4 border-warning/20 bg-warning/10 p-4">
+            <Star className="size-8 fill-current text-warning" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-500">当前可用积分</p>
-            <p className="text-3xl font-black text-orange-600">{availablePoints} <span className="text-lg font-bold">币</span></p>
+            <p className="text-sm font-bold text-ink-3">当前可用积分</p>
+            <p className="text-3xl font-black text-warning">{availablePoints} <span className="text-lg font-bold">币</span></p>
           </div>
         </div>
         <div className="flex space-x-4">
-          <motion.button 
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
+          <Button
+            variant="outline"
             onClick={() => setShowRecords(true)}
-            className="flex items-center px-5 py-3 bg-blue-100 text-blue-700 rounded-[1.5rem] font-bold border-b-4 border-blue-300 hover:bg-blue-200 transition-colors"
+            className="h-auto rounded-card border-b-4 border-primary/20 bg-primary/5 px-5 py-3 font-bold text-primary hover:bg-primary/10 hover:text-primary"
           >
-            <List className="mr-2 h-5 w-5" /> 积分明细
-          </motion.button>
-          <motion.button 
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center px-5 py-3 bg-orange-100 text-orange-700 rounded-[1.5rem] font-bold border-b-4 border-orange-300 hover:bg-orange-200 transition-colors"
+            <List className="size-5" /> 积分明细
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto rounded-card border-b-4 border-warning/20 bg-warning/10 px-5 py-3 font-bold text-warning hover:bg-warning/20 hover:text-warning"
           >
-            <Plus className="mr-2 h-5 w-5" /> 去赚积分
-          </motion.button>
+            <Plus className="size-5" /> 去赚积分
+          </Button>
         </div>
       </div>
 
@@ -218,32 +257,35 @@ export default function StudentPet() {
       <motion.div 
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
-        className={`rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-white ${element.bg} relative min-h-[500px] flex flex-col justify-between`}
+        className={cn(
+          'relative flex min-h-[500px] flex-col justify-between overflow-hidden rounded-panel border-8 border-paper shadow-floating',
+          element.bg,
+        )}
       >
-        {/* Environment Background decorative */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #000 3px, transparent 3px)', backgroundSize: '40px 40px' }}></div>
+        {/* Environment Background decorative: a tokenised dot grid, not a page-level style */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,hsl(var(--ink-1))_3px,transparent_3px)] opacity-20 [background-size:40px_40px]" />
         
         {/* Parent Buff Effect */}
         {pet.has_parent_buff && (
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden rounded-[2.5rem]">
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-amber-400/20 to-transparent animate-pulse"></div>
-            <div className="absolute -top-20 -left-20 w-64 h-64 bg-yellow-300 rounded-full mix-blend-screen filter blur-[80px] opacity-60 animate-[pulse_4s_ease-in-out_infinite]"></div>
-            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-orange-400 rounded-full mix-blend-screen filter blur-[80px] opacity-60 animate-[pulse_5s_ease-in-out_infinite]"></div>
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-panel">
+            <div className="absolute left-0 top-0 h-full w-full animate-pulse bg-gradient-to-b from-warning/20 to-transparent" />
+            <div className="absolute -left-20 -top-20 size-64 animate-[pulse_4s_ease-in-out_infinite] rounded-full bg-warning opacity-60 mix-blend-screen blur-[80px] filter" />
+            <div className="absolute -bottom-20 -right-20 size-64 animate-[pulse_5s_ease-in-out_infinite] rounded-full bg-warning opacity-60 mix-blend-screen blur-[80px] filter" />
           </div>
         )}
 
         {/* Status Bar */}
-        <div className="relative z-10 p-6 flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-[2rem] shadow-lg inline-block border-b-4 border-gray-200">
-            <h2 className="text-3xl font-black text-gray-800 flex items-center drop-shadow-sm">
-              <span className="text-4xl mr-3">{element.icon}</span> {element.name}精灵
+        <div className="relative z-10 flex flex-col items-start justify-between gap-4 p-6 sm:flex-row">
+          <div className="inline-block rounded-panel border-b-4 border-border bg-paper/90 px-6 py-4 shadow-card backdrop-blur-sm">
+            <h2 className="flex items-center text-3xl font-black text-ink-1 drop-shadow-sm">
+              <span className="mr-3 text-4xl">{element.icon}</span> {element.name}精灵
             </h2>
-            <div className="flex items-center mt-3 space-x-4 text-sm font-bold text-gray-600">
-              <span className="bg-white px-4 py-2 rounded-full shadow-sm border-b-4 border-gray-100 flex items-center">
+            <div className="mt-3 flex items-center space-x-4 text-sm font-bold text-ink-2">
+              <span className="flex items-center rounded-pill border-b-4 border-border bg-paper px-4 py-2 shadow-card">
                 Lv.{pet.level} {getEvolutionStage(pet.level)}
               </span>
-              <span className="bg-white px-4 py-2 rounded-full shadow-sm border-b-4 border-gray-100 flex items-center">
-                <ShieldAlert className="h-5 w-5 text-red-500 mr-2" /> 攻击力: {pet.attack_power}
+              <span className="flex items-center rounded-pill border-b-4 border-border bg-paper px-4 py-2 shadow-card">
+                <ShieldAlert className="mr-2 size-5 text-destructive" /> 攻击力: {pet.attack_power}
               </span>
             </div>
           </div>
@@ -252,12 +294,11 @@ export default function StudentPet() {
             <motion.div 
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-gradient-to-r from-amber-400 to-orange-500 px-6 py-4 rounded-[2rem] shadow-[0_10px_30px_rgba(245,158,11,0.4)] border-4 border-white text-white font-black flex items-center shrink-0 animate-bounce"
-              style={{ animationDuration: '3s' }}
+              className="flex shrink-0 animate-bounce items-center rounded-panel border-4 border-paper bg-gradient-to-r from-warning to-warning/70 px-6 py-4 font-black text-warning-foreground shadow-glow-primary [animation-duration:3s]"
             >
-              <Heart className="w-6 h-6 mr-2 fill-white" />
+              <Heart className="mr-2 size-6 fill-current" />
               <div>
-                <div className="text-sm text-orange-100 opacity-90">母爱的祝福</div>
+                <div className="text-sm text-warning-foreground/80 opacity-90">母爱的祝福</div>
                 <div className="text-lg">今日全天积分 +20%</div>
               </div>
             </motion.div>
@@ -265,132 +306,138 @@ export default function StudentPet() {
         </div>
 
         {/* Character Center */}
-        <div className="relative z-10 flex-1 flex justify-center items-center cursor-pointer group" onClick={handlePetClick}>
+        <div className="group relative z-10 flex flex-1 cursor-pointer items-center justify-center" onClick={handlePetClick}>
           {petMessage && (
             <motion.div 
               initial={{ opacity: 0, y: 10, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              className="absolute top-4 bg-white px-6 py-3 rounded-[2rem] shadow-xl text-orange-600 font-black text-lg z-30 whitespace-nowrap border-4 border-orange-100"
+              className="absolute top-4 z-30 whitespace-nowrap rounded-panel border-4 border-warning/20 bg-paper px-6 py-3 text-lg font-black text-warning shadow-raised"
             >
               {petMessage}
-              <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-t-[12px] border-t-white border-r-[8px] border-r-transparent drop-shadow-md"></div>
+              <div className="absolute -bottom-3 left-1/2 h-0 w-0 -translate-x-1/2 transform border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-paper drop-shadow-md" />
             </motion.div>
           )}
 
           <motion.div 
             animate={{ y: [0, -15, 0] }}
             transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            className="w-72 h-72 bg-white rounded-full shadow-2xl flex items-center justify-center border-8 border-white relative group-hover:scale-105 transition-transform duration-300"
+            className="group-hover:scale-105 relative flex size-72 items-center justify-center rounded-full border-8 border-paper bg-paper shadow-floating transition-transform duration-300"
           >
-            <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative">
-              <img src={currentPetImage} alt="我的精灵" className="w-full h-full object-contain" />
+            <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full">
+              <img src={currentPetImage} alt="我的精灵" className="h-full w-full object-contain" />
             </div>
             
             {pet.level > 1 && (
-              <div className="absolute -bottom-6 bg-orange-500 text-white text-xl px-6 py-2 rounded-full font-black shadow-xl border-4 border-white z-20">
+              <div className="absolute -bottom-6 z-20 rounded-pill border-4 border-paper bg-warning px-6 py-2 text-xl font-black text-warning-foreground shadow-raised">
                 Lv.{pet.level}
               </div>
             )}
 
             {/* Mood Badge */}
-            <div className="absolute top-0 right-0 w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-xl z-20 border-4 border-gray-100">
+            <div className="absolute right-0 top-0 z-20 flex size-16 items-center justify-center rounded-full border-4 border-border bg-paper text-3xl shadow-raised">
               {(pet as any).mood === 'excited' ? '🤩' : (pet as any).mood === 'sad' ? '😢' : (pet as any).mood === 'dizzy' ? '😵' : '😊'}
             </div>
           </motion.div>
         </div>
 
         {/* Experience Bar & Actions */}
-        <div className="relative z-10 bg-white/95 backdrop-blur-md p-8 border-t-4 border-white">
+        <div className="relative z-10 border-t-4 border-paper bg-paper/95 p-8 backdrop-blur-md">
           <div className="mb-8">
-            <div className="flex justify-between text-base font-black text-gray-700 mb-3">
+            <div className="mb-3 flex justify-between text-base font-black text-ink-2">
               <span>经验值 ({pet.experience} / {pet.level * 100})</span>
               <span>距下一级 {pet.level * 100 - pet.experience}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden shadow-inner border-2 border-gray-100">
-              <div 
-                className={`${element.color} h-full rounded-full transition-all duration-500 ease-out relative`}
-                style={{ width: `${progressPercent}%` }}
-              >
-                <div className="absolute inset-0 bg-white/20 w-full h-1/2"></div>
-              </div>
-            </div>
+            <Progress value={progressPercent} label={`经验值 ${pet.experience} / ${pet.level * 100}`} />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-            <motion.button 
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleInteract('喂食普通食物', 10, 10, 'FEED_PET')}
-              className="flex flex-col items-center justify-center bg-white border-b-8 border-r-4 border-l-4 border-t-4 border-orange-200 rounded-[2rem] p-6 hover:border-orange-500 hover:bg-orange-50 shadow-lg group"
-            >
-              <div className="bg-orange-100 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform shadow-inner">
-                <Cookie className="h-8 w-8 text-orange-500" />
-              </div>
-              <span className="font-black text-lg text-gray-800">喂食</span>
-              <span className="text-sm font-bold text-gray-500 mt-1">(10币)</span>
-              <span className="text-sm text-orange-500 font-black mt-2 bg-orange-100 px-3 py-1 rounded-full">+10 EXP</span>
-            </motion.button>
-            <motion.button 
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleInteract('买玩具', 30, 35, 'BUY_TOY')}
-              className="flex flex-col items-center justify-center bg-white border-b-8 border-r-4 border-l-4 border-t-4 border-blue-200 rounded-[2rem] p-6 hover:border-blue-500 hover:bg-blue-50 shadow-lg group"
-            >
-              <div className="bg-blue-100 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform shadow-inner">
-                <Play className="h-8 w-8 text-blue-500" />
-              </div>
-              <span className="font-black text-lg text-gray-800">玩具</span>
-              <span className="text-sm font-bold text-gray-500 mt-1">(30币)</span>
-              <span className="text-sm text-blue-500 font-black mt-2 bg-blue-100 px-3 py-1 rounded-full">+35 EXP</span>
-            </motion.button>
-            <motion.button 
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleInteract('基础训练', 60, 80, 'TRAIN')}
-              className="flex flex-col items-center justify-center bg-white border-b-8 border-r-4 border-l-4 border-t-4 border-green-200 rounded-[2rem] p-6 hover:border-green-500 hover:bg-green-50 shadow-lg group"
-            >
-              <div className="bg-green-100 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform shadow-inner">
-                <Zap className="h-8 w-8 text-green-500" />
-              </div>
-              <span className="font-black text-lg text-gray-800">训练</span>
-              <span className="text-sm font-bold text-gray-500 mt-1">(60币)</span>
-              <span className="text-sm text-green-500 font-black mt-2 bg-green-100 px-3 py-1 rounded-full">+80 EXP</span>
-            </motion.button>
-            <motion.button 
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleInteract('高阶特训', 150, 220, 'SPECIAL_TRAIN')}
-              className="flex flex-col items-center justify-center bg-white border-b-8 border-r-4 border-l-4 border-t-4 border-purple-200 rounded-[2rem] p-6 hover:border-purple-500 hover:bg-purple-50 shadow-lg group"
-            >
-              <div className="bg-purple-100 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform shadow-inner">
-                <Star className="h-8 w-8 text-purple-500" />
-              </div>
-              <span className="font-black text-lg text-gray-800">特训</span>
-              <span className="text-sm font-bold text-gray-500 mt-1">(150币)</span>
-              <span className="text-sm text-purple-500 font-black mt-2 bg-purple-100 px-3 py-1 rounded-full">+220 EXP</span>
-            </motion.button>
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            <motion.div whileHover={{ scale: 1.05, y: -5 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleInteract('喂食普通食物', 10, 10, 'FEED_PET')}
+                className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-warning/30 bg-paper p-6 shadow-card hover:border-warning hover:bg-warning/5"
+              >
+                <div className="mb-3 rounded-full bg-warning/10 p-4 shadow-inner transition-transform group-hover:scale-110">
+                  <Cookie className="size-8 text-warning" />
+                </div>
+                <span className="text-lg font-black text-ink-1">喂食</span>
+                <span className="mt-1 text-sm font-bold text-ink-3">(10币)</span>
+                <span className="mt-2 rounded-pill bg-warning/10 px-3 py-1 text-sm font-black text-warning">+10 EXP</span>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05, y: -5 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleInteract('买玩具', 30, 35, 'BUY_TOY')}
+                className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-primary/30 bg-paper p-6 shadow-card hover:border-primary hover:bg-primary/5"
+              >
+                <div className="mb-3 rounded-full bg-primary/10 p-4 shadow-inner transition-transform group-hover:scale-110">
+                  <Play className="size-8 text-primary" />
+                </div>
+                <span className="text-lg font-black text-ink-1">玩具</span>
+                <span className="mt-1 text-sm font-bold text-ink-3">(30币)</span>
+                <span className="mt-2 rounded-pill bg-primary/10 px-3 py-1 text-sm font-black text-primary">+35 EXP</span>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05, y: -5 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleInteract('基础训练', 60, 80, 'TRAIN')}
+                className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-success/30 bg-paper p-6 shadow-card hover:border-success hover:bg-success/5"
+              >
+                <div className="mb-3 rounded-full bg-success/10 p-4 shadow-inner transition-transform group-hover:scale-110">
+                  <Zap className="size-8 text-success" />
+                </div>
+                <span className="text-lg font-black text-ink-1">训练</span>
+                <span className="mt-1 text-sm font-bold text-ink-3">(60币)</span>
+                <span className="mt-2 rounded-pill bg-success/10 px-3 py-1 text-sm font-black text-success">+80 EXP</span>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05, y: -5 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleInteract('高阶特训', 150, 220, 'SPECIAL_TRAIN')}
+                className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-accent-foreground/30 bg-paper p-6 shadow-card hover:border-accent-foreground hover:bg-accent"
+              >
+                <div className="mb-3 rounded-full bg-accent p-4 shadow-inner transition-transform group-hover:scale-110">
+                  <Star className="size-8 text-accent-foreground" />
+                </div>
+                <span className="text-lg font-black text-ink-1">特训</span>
+                <span className="mt-1 text-sm font-bold text-ink-3">(150币)</span>
+                <span className="mt-2 rounded-pill bg-accent px-3 py-1 text-sm font-black text-accent-foreground">+220 EXP</span>
+              </Button>
+            </motion.div>
           </div>
         </div>
       </motion.div>
       {/* Praise Wall Area */}
       {praises.length > 0 && (
-        <div className="bg-white rounded-[2rem] p-8 shadow-xl border-b-8 border-gray-200 mt-8">
-          <h3 className="text-2xl font-black text-gray-800 mb-8 flex items-center">
-            <Heart className="text-red-500 mr-3 h-8 w-8 fill-current" /> 
+        <div className="mt-8 rounded-panel border-b-8 border-border bg-paper p-8 shadow-card">
+          <h3 className="mb-8 flex items-center text-2xl font-black text-ink-1">
+            <Heart className="mr-3 size-8 fill-current text-destructive" /> 
             心里话墙 (老师的表扬)
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {praises.map((praise) => (
               <motion.div 
                 whileHover={{ scale: 1.05, rotate: 2 }}
                 key={praise.id} 
-                className={`${praise.color || 'bg-yellow-100'} p-6 rounded-[2rem] shadow-lg border-b-8 border-black/10 transform transition-transform duration-200 relative`}
+                className={cn(
+                  'relative transform rounded-panel border-b-8 border-border p-6 shadow-card transition-transform duration-200',
+                  // The note colour is the teacher's choice and arrives with the record, so
+                  // it stays a value; the fallback is the token for "a sticky note".
+                  praise.color || 'bg-warning/10',
+                )}
               >
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-4 bg-red-400/40 rounded-full shadow-inner"></div>
-                <p className="text-gray-800 font-bold leading-relaxed whitespace-pre-wrap text-base pt-3">
+                <div className="absolute -top-3 left-1/2 h-4 w-12 -translate-x-1/2 rounded-pill bg-destructive/40 shadow-inner" />
+                <p className="whitespace-pre-wrap pt-3 text-base font-bold leading-relaxed text-ink-1">
                   {praise.content}
                 </p>
-                <div className="mt-4 text-right text-sm text-gray-600 font-black">
+                <div className="mt-4 text-right text-sm font-black text-ink-2">
                   — {new Date(praise.created_at).toLocaleDateString()}
                 </div>
               </motion.div>
@@ -400,45 +447,36 @@ export default function StudentPet() {
       )}
 
       {/* Points Detail Modal */}
-      {showRecords && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden border-8 border-gray-100"
-          >
-            <div className="px-8 py-6 border-b-4 border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-2xl font-black text-gray-900 flex items-center">
-                <List className="h-8 w-8 mr-3 text-blue-500" /> 
-                积分明细
-              </h3>
-              <button onClick={() => setShowRecords(false)} className="text-gray-400 hover:text-red-500 transition-colors">
-                <XCircle className="h-8 w-8" />
-              </button>
-            </div>
-            <div className="overflow-y-auto p-8">
-              {records.length === 0 ? (
-                <div className="text-center text-gray-500 py-12 font-bold text-lg">暂无积分记录</div>
-              ) : (
-                <div className="space-y-4">
-                  {records.map((record) => (
-                    <div key={record.id} className="flex justify-between items-center p-5 bg-white rounded-[1.5rem] border-b-4 border-gray-100 shadow-sm">
-                      <div>
-                        <div className="font-black text-lg text-gray-800 mb-1">{record.description}</div>
-                        <div className="text-sm font-bold text-gray-500">{new Date(record.created_at).toLocaleString()}</div>
-                      </div>
-                      <div className={`text-2xl font-black flex items-center px-4 py-2 rounded-xl ${record.amount > 0 ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50'}`}>
-                        {record.amount > 0 ? <ArrowUpRight className="h-6 w-6 mr-1" /> : <ArrowDownRight className="h-6 w-6 mr-1" />}
-                        {Math.abs(record.amount)}
-                      </div>
+      <Dialog open={showRecords} onOpenChange={setShowRecords}>
+        <DialogContent className="flex max-h-[80vh] flex-col overflow-hidden sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-2xl font-black text-ink-1">
+              <List className="mr-3 size-8 text-primary" /> 
+              积分明细
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {records.length === 0 ? (
+              <EmptyState icon={List} title="暂无积分记录" />
+            ) : (
+              <div className="space-y-4">
+                {records.map((record) => (
+                  <div key={record.id} className="flex items-center justify-between rounded-card border-b-4 border-border bg-paper p-5 shadow-card">
+                    <div>
+                      <div className="mb-1 text-lg font-black text-ink-1">{record.description}</div>
+                      <div className="text-sm font-bold text-ink-3">{new Date(record.created_at).toLocaleString()}</div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      )}
+                    <div className={cn('flex items-center rounded-card px-4 py-2 text-2xl font-black', record.amount > 0 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning')}>
+                      {record.amount > 0 ? <ArrowUpRight className="mr-1 size-6" /> : <ArrowDownRight className="mr-1 size-6" />}
+                      {Math.abs(record.amount)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

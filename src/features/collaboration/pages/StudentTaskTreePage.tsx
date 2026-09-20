@@ -1,12 +1,40 @@
 import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
-import { GitBranch, Plus, Lock, CheckCircle2, Unlock } from 'lucide-react';
+import { GitBranch, Lock, CheckCircle2, Unlock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useCompleteTaskNodeMutation, useStudentTaskNodes } from '@/features/collaboration/hooks/useTaskTree';
 import type { StudentTaskNode } from '@/features/collaboration/api/taskTreeApi';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Spinner } from '@/components/ui/spinner';
+import { cn } from '@/lib/utils';
 
+/**
+ * 魔法技能树.
+ *
+ * The starfield canvas is the feature, so it keeps its dark stage, its glowing nodes and
+ * the spring entrance on each one - it now matches the teacher's editor, which P6 moved
+ * onto `bg-secondary-foreground` + `from-primary/30`. Two things had to leave the canvas:
+ * the two hard-coded stroke colours, which are `currentColor` on a `text-*` class now (so
+ * the linked and the locked states survive as tokens), and the inline position that placed
+ * a node - the same coordinates ride on the `motion` element's `animate`, which is where
+ * its scale entrance already lived.
+ *
+ * "可学习" is the `info` token rather than `primary`, deliberately: completed and
+ * unlockable would otherwise both be the brand green on a dark canvas, and telling them
+ * apart is the whole point of the node. Sky is the product's second supporting accent.
+ */
 export default function StudentTaskTree() {
   const user = useStore(state => state.user);
   const studentId = user?.studentId ?? user?.id ?? null;
@@ -26,7 +54,14 @@ export default function StudentTaskTree() {
     }
   };
 
-  if (loading) return <div className="p-12 text-center text-slate-500">加载中...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 p-12 text-ink-3">
+        <Spinner size="lg" label="正在加载技能树" />
+        加载中...
+      </div>
+    );
+  }
 
   // Calculate SVG lines
   const lines = nodes.map(node => {
@@ -43,131 +78,142 @@ export default function StudentTaskTree() {
         y1={`${parent.y_pos}%`}
         x2={`${node.x_pos}%`}
         y2={`${node.y_pos}%`}
-        stroke={isActive ? '#818cf8' : '#334155'}
+        stroke="currentColor"
         strokeWidth="3"
         strokeDasharray={isActive ? "none" : "5,5"}
-        className={isActive ? "animate-pulse" : ""}
+        className={isActive ? "animate-pulse text-primary" : "text-primary-foreground/20"}
       />
     );
   }).filter(Boolean);
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-            <GitBranch className="w-8 h-8 mr-3 text-indigo-500" />
-            魔法技能树
-          </h1>
-          <p className="text-slate-500 mt-1">解锁前置节点，攀登魔法巅峰！</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl p-4 sm:p-8">
+      <PageHeader
+        title="魔法技能树"
+        description="解锁前置节点，攀登魔法巅峰！"
+        icon={GitBranch}
+        className="mb-8"
+      />
 
-      <div className="bg-slate-900 rounded-3xl p-6 shadow-xl relative min-h-[600px] border border-slate-800 overflow-hidden">
+      <div className="relative min-h-[600px] overflow-hidden rounded-panel border border-accent-foreground bg-secondary-foreground p-6 shadow-raised">
         {/* Starry background */}
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/30 via-secondary-foreground to-foreground opacity-60" />
 
         {/* Connections Layer */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full">
           {lines}
         </svg>
 
         {/* Nodes Layer */}
         {nodes.map(node => (
-          <motion.button
+          <motion.div
             key={node.id}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
+            initial={{ scale: 0, opacity: 0, left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
+            animate={{ scale: 1, opacity: 1, left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
+            transition={{ type: 'spring', bounce: 0.35 }}
             whileHover={{ scale: 1.1 }}
-            onClick={() => setSelectedNode(node)}
-            style={{ left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
-            className={`absolute w-16 h-16 rounded-full flex items-center justify-center border-4 shadow-lg transition-colors z-10 ${
-              node.status === 'completed' 
-                ? 'bg-emerald-500 border-emerald-300 text-white shadow-emerald-500/50' 
-                : node.status === 'unlocked'
-                  ? 'bg-indigo-500 border-indigo-300 text-white shadow-indigo-500/50 animate-pulse'
-                  : 'bg-slate-800 border-slate-600 text-slate-500 cursor-not-allowed'
-            }`}
+            className="absolute z-10"
           >
-            {node.status === 'completed' && <CheckCircle2 className="w-8 h-8" />}
-            {node.status === 'unlocked' && <Unlock className="w-8 h-8" />}
-            {node.status === 'locked' && <Lock className="w-6 h-6" />}
-            
+            <Button
+              type="button"
+              variant="outline"
+              aria-label={node.title}
+              onClick={() => setSelectedNode(node)}
+              className={cn(
+                'size-16 rounded-full border-4 p-0',
+                node.status === 'completed'
+                  ? 'border-success/40 bg-success text-success-foreground shadow-glow-primary'
+                  : node.status === 'unlocked'
+                    ? 'animate-pulse border-info/40 bg-info text-info-foreground shadow-glow-primary'
+                    : 'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/40',
+              )}
+            >
+              {node.status === 'completed' && <CheckCircle2 className="size-8" />}
+              {node.status === 'unlocked' && <Unlock className="size-8" />}
+              {node.status === 'locked' && <Lock className="size-6" />}
+            </Button>
+
             {/* Label */}
-            <div className="absolute top-full mt-2 w-32 text-center -translate-x-1/2 left-1/2">
-              <span className={`text-sm font-bold drop-shadow-md ${node.status !== 'locked' ? 'text-indigo-200' : 'text-slate-500'}`}>
+            <div className="absolute left-1/2 top-full mt-2 w-32 -translate-x-1/2 text-center">
+              <span className={cn('text-sm font-bold drop-shadow-md', node.status !== 'locked' ? 'text-primary-foreground/90' : 'text-primary-foreground/40')}>
                 {node.title}
               </span>
             </div>
-          </motion.button>
+          </motion.div>
         ))}
+
+        {nodes.length === 0 && (
+          <EmptyState
+            icon={GitBranch}
+            title="暂无技能节点"
+            description="老师还没有布置技能树"
+            className="absolute inset-0 border-primary-foreground/25 bg-transparent [&_div]:text-primary-foreground"
+          />
+        )}
       </div>
 
       {/* Node Detail Modal */}
-      {selectedNode && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <motion.div 
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl max-w-md w-full border border-indigo-100"
-          >
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex items-center">
-                <div className={`p-3 rounded-2xl mr-4 ${
-                  selectedNode.status === 'completed' ? 'bg-emerald-100 text-emerald-600' :
-                  selectedNode.status === 'unlocked' ? 'bg-indigo-100 text-indigo-600' :
-                  'bg-slate-100 text-slate-500'
-                }`}>
-                  {selectedNode.status === 'completed' && <CheckCircle2 className="w-8 h-8" />}
-                  {selectedNode.status === 'unlocked' && <Unlock className="w-8 h-8" />}
-                  {selectedNode.status === 'locked' && <Lock className="w-8 h-8" />}
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-800">{selectedNode.title}</h3>
-                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                    selectedNode.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                    selectedNode.status === 'unlocked' ? 'bg-indigo-100 text-indigo-700' :
-                    'bg-slate-100 text-slate-600'
-                  }`}>
-                    {selectedNode.status === 'completed' ? '已掌握' :
-                     selectedNode.status === 'unlocked' ? '可学习' : '未解锁'}
+      <Dialog open={Boolean(selectedNode)} onOpenChange={(open) => !open && setSelectedNode(null)}>
+        <DialogContent className="sm:max-w-md">
+          {selectedNode ? (
+            <>
+              <DialogHeader>
+                <div className="flex items-start gap-4">
+                  <span className={cn(
+                    'flex size-12 shrink-0 items-center justify-center rounded-card',
+                    selectedNode.status === 'completed' ? 'bg-success/10 text-success' :
+                    selectedNode.status === 'unlocked' ? 'bg-info/10 text-info' :
+                    'bg-muted/50 text-ink-3',
+                  )}>
+                    {selectedNode.status === 'completed' && <CheckCircle2 className="size-6" />}
+                    {selectedNode.status === 'unlocked' && <Unlock className="size-6" />}
+                    {selectedNode.status === 'locked' && <Lock className="size-6" />}
                   </span>
+                  <div className="space-y-2">
+                    <DialogTitle className="text-xl font-bold text-ink-1">{selectedNode.title}</DialogTitle>
+                    <Badge variant={
+                      selectedNode.status === 'completed' ? 'success' :
+                      selectedNode.status === 'unlocked' ? 'info' : 'secondary'
+                    }>
+                      {selectedNode.status === 'completed' ? '已掌握' :
+                       selectedNode.status === 'unlocked' ? '可学习' : '未解锁'}
+                    </Badge>
+                  </div>
                 </div>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <p className="text-sm leading-relaxed text-ink-2">
+                  {selectedNode.description || '暂无描述'}
+                </p>
+                {selectedNode.points_reward > 0 && (
+                  <div className="flex items-center rounded-card border border-warning/20 bg-warning/10 px-4 py-3 font-bold text-warning">
+                    <span className="mr-2">🎁 完成奖励:</span>
+                    +{selectedNode.points_reward} 积分
+                  </div>
+                )}
               </div>
-            </div>
 
-            <div className="space-y-4 mb-8">
-              <p className="text-slate-600 text-sm leading-relaxed">
-                {selectedNode.description || '暂无描述'}
-              </p>
-              {selectedNode.points_reward > 0 && (
-                <div className="flex items-center text-amber-600 font-bold bg-amber-50 px-4 py-3 rounded-xl border border-amber-100">
-                  <span className="mr-2">🎁 完成奖励:</span>
-                  +{selectedNode.points_reward} 积分
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSelectedNode(null)}
-                className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-              >
-                关闭
-              </button>
-              {selectedNode.status === 'unlocked' && (
-                <button
-                  onClick={handleComplete}
-                  disabled={completing}
-                  className="flex-1 px-4 py-3 rounded-xl font-bold text-white bg-indigo-500 hover:bg-indigo-600 shadow-lg shadow-indigo-200 transition-colors disabled:opacity-50"
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedNode(null)}
                 >
-                  {completing ? '提交中...' : '完成此节点'}
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      )}
+                  关闭
+                </Button>
+                {selectedNode.status === 'unlocked' && (
+                  <Button
+                    onClick={handleComplete}
+                    disabled={completing}
+                  >
+                    {completing ? '提交中...' : '完成此节点'}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

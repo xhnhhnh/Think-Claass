@@ -103,7 +103,7 @@ export default function ParentDashboard() {
 
       {student && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-primary via-primary/85 to-warning rounded-panel p-8 text-white shadow-lg shadow-orange-500/20 relative overflow-hidden">
+          <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-primary via-primary/85 to-warning rounded-panel p-8 text-white shadow-raised shadow-orange-500/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
               <Star className="w-64 h-64" />
             </div>
@@ -163,7 +163,7 @@ export default function ParentDashboard() {
                 className={`w-full flex items-center justify-center space-x-2 py-3.5 rounded-card font-bold transition-all shadow-md ${
                   !parentBuffEnabled || buffActive 
                     ? 'bg-amber-100 text-amber-500 cursor-not-allowed border border-amber-200' 
-                    : 'bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:shadow-lg hover:shadow-orange-400/30'
+                    : 'bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:shadow-raised hover:shadow-orange-400/30'
                 }`}
               >
                 <Wand2 className="w-5 h-5" />

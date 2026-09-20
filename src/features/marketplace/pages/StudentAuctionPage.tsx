@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import { CELEBRATION } from '@/lib/celebrationPalette';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Gavel, Clock, Coins, Flame, AlertCircle, ArrowUpRight, SearchX, Zap, CheckCircle2, Crown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { shopApi, type Auction } from '@/features/marketplace/api/shopApi';
@@ -72,7 +75,7 @@ export default function StudentAuction() {
           particleCount: 50,
           spread: 60,
           origin: { y: 0.8 },
-          colors: ['#f59e0b', '#ef4444']
+          colors: [...CELEBRATION.brand]
         });
         fetchData();
         setBidAmount(prev => ({ ...prev, [auction.id]: 0 }));
@@ -103,7 +106,7 @@ export default function StudentAuction() {
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-orange-500 to-red-500 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden text-white"
+        className="bg-gradient-to-r from-orange-500 to-red-500 rounded-panel p-10 shadow-raised relative overflow-hidden text-white"
       >
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-yellow-400 rounded-full mix-blend-screen filter blur-[80px] opacity-50 animate-pulse"></div>
@@ -119,7 +122,7 @@ export default function StudentAuction() {
               全班竞价，价高者得！被超越会自动全额退款。
             </p>
           </div>
-          <div className="bg-white/20 backdrop-blur-md px-8 py-4 rounded-3xl border border-white/30 text-center shadow-inner">
+          <div className="bg-paper/20 backdrop-blur-md px-8 py-4 rounded-panel border border-white/30 text-center shadow-inner">
             <div className="text-sm font-bold mb-1 text-orange-100">你的可用积分</div>
             <div className="text-4xl font-black flex items-center justify-center text-yellow-300 drop-shadow-sm">
               <Coins className="w-8 h-8 mr-2" />
@@ -131,7 +134,7 @@ export default function StudentAuction() {
 
       {/* Grid */}
       {loading ? (
-        <div className="text-center py-20 font-black text-2xl text-slate-400 animate-pulse flex flex-col items-center">
+        <div className="text-center py-20 font-black text-2xl text-ink-3 animate-pulse flex flex-col items-center">
           <Gavel className="w-12 h-12 mb-4 animate-bounce" />
           正在搜寻稀有拍品...
         </div>
@@ -139,13 +142,13 @@ export default function StudentAuction() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center py-32 bg-white rounded-[3rem] border-8 border-dashed border-orange-100 shadow-sm"
+          className="text-center py-32 bg-paper rounded-[3rem] border-8 border-dashed border-warning/20 shadow-sm"
         >
-          <div className="inline-flex items-center justify-center p-8 bg-orange-50 rounded-full mb-6 shadow-inner">
+          <div className="inline-flex items-center justify-center p-8 bg-warning/10 rounded-full mb-6 shadow-inner">
             <SearchX className="h-16 w-16 text-orange-300" />
           </div>
-          <p className="text-3xl font-black text-slate-500 mb-2">当前没有正在进行的拍卖</p>
-          <p className="text-xl font-bold text-slate-400">请等待老师发布稀有物品，或者去积分商城看看吧！</p>
+          <p className="text-3xl font-black text-ink-3 mb-2">当前没有正在进行的拍卖</p>
+          <p className="text-xl font-bold text-ink-3">请等待老师发布稀有物品，或者去积分商城看看吧！</p>
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -162,8 +165,8 @@ export default function StudentAuction() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 key={auction.id}
-                className={`bg-white rounded-[2rem] shadow-xl overflow-hidden transition-all flex flex-col border-4 ${
-                  isHighestBidder ? 'border-green-400 shadow-green-500/20' : 'border-orange-100 hover:border-orange-300'
+                className={`bg-paper rounded-panel shadow-raised overflow-hidden transition-all flex flex-col border-4 ${
+                  isHighestBidder ? 'border-green-400 shadow-green-500/20' : 'border-warning/20 hover:border-orange-300'
                 }`}
               >
                 {/* Card Header / Image Area */}
@@ -173,43 +176,43 @@ export default function StudentAuction() {
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-noise.png')] opacity-30"></div>
                   
                   <div className="flex justify-between items-start relative z-10">
-                    <div className={`px-3 py-1.5 rounded-xl text-xs font-black shadow-sm flex items-center ${
-                      isHighestBidder ? 'bg-green-500 text-white' : isClosingSoon ? 'bg-red-500 text-white animate-pulse' : 'bg-orange-500 text-white'
+                    <div className={`px-3 py-1.5 rounded-card text-xs font-black shadow-sm flex items-center ${
+                      isHighestBidder ? 'bg-success text-white' : isClosingSoon ? 'bg-destructive text-white animate-pulse' : 'bg-warning text-white'
                     }`}>
                       <Clock className="w-4 h-4 mr-1" />
                       {getTimeRemaining(auction.end_time)}
                     </div>
                     {isHighestBidder && (
-                      <div className="px-3 py-1.5 bg-green-100 text-green-700 border border-green-300 rounded-xl text-xs font-black flex items-center shadow-sm">
+                      <div className="px-3 py-1.5 bg-success/20 text-success border border-green-300 rounded-card text-xs font-black flex items-center shadow-sm">
                         <CheckCircle2 className="w-4 h-4 mr-1" /> 你目前领先
                       </div>
                     )}
                   </div>
 
-                  <h3 className="text-2xl font-black text-slate-800 relative z-10 truncate drop-shadow-sm mt-4">
+                  <h3 className="text-2xl font-black text-ink-1 relative z-10 truncate drop-shadow-sm mt-4">
                     {auction.item_name}
                   </h3>
                 </div>
 
                 {/* Card Body */}
-                <div className="p-6 flex-1 flex flex-col bg-white">
-                  <p className="text-slate-600 font-medium mb-6 flex-1 line-clamp-3">
+                <div className="p-6 flex-1 flex flex-col bg-paper">
+                  <p className="text-ink-2 font-medium mb-6 flex-1 line-clamp-3">
                     {auction.description}
                   </p>
 
                   <div className="space-y-4">
-                    <div className="flex justify-between items-end bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-end bg-muted/50 p-4 rounded-card border border-border">
                       <div>
-                        <div className="text-xs font-bold text-slate-400 mb-1">当前最高价</div>
-                        <div className={`text-3xl font-black flex items-baseline ${isHighestBidder ? 'text-green-500' : 'text-orange-500'}`}>
+                        <div className="text-xs font-bold text-ink-3 mb-1">当前最高价</div>
+                        <div className={`text-3xl font-black flex items-baseline ${isHighestBidder ? 'text-success' : 'text-warning'}`}>
                           <Coins className="w-6 h-6 mr-1.5" />
                           {auction.current_price}
-                          <span className="text-sm font-bold text-slate-400 ml-1">分</span>
+                          <span className="text-sm font-bold text-ink-3 ml-1">分</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-400 mb-1">起拍价</div>
-                        <div className="text-sm font-bold text-slate-500">{auction.starting_price} 分</div>
+                        <div className="text-xs font-bold text-ink-3 mb-1">起拍价</div>
+                        <div className="text-sm font-bold text-ink-3">{auction.starting_price} 分</div>
                       </div>
                     </div>
 
@@ -218,31 +221,31 @@ export default function StudentAuction() {
                       <div className="pt-2">
                         <div className="flex items-center space-x-3 mb-3">
                           <div className="relative flex-1">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">出价</span>
-                            <input 
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-ink-3">出价</span>
+                            <Input 
                               type="number" 
                               min={minBid}
                               step="10"
                               value={currentBidInput}
                               onChange={(e) => handleBidChange(auction.id, Number(e.target.value))}
-                              className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 pl-16 pr-4 font-black text-xl text-orange-600 outline-none focus:border-orange-400 focus:bg-white transition-all"
+                              className="w-full bg-muted/50 border-2 border-border rounded-card py-3 pl-16 pr-4 font-black text-xl text-warning outline-none focus:border-orange-400 focus:bg-paper transition-all"
                             />
                           </div>
-                          <button
+                          <Button variant="ghost"
                             onClick={() => handleBidChange(auction.id, currentBidInput + 50)}
-                            className="px-4 py-3 bg-orange-100 text-orange-600 hover:bg-orange-200 font-black rounded-xl transition-colors border border-orange-200"
+                            className="px-4 py-3 bg-warning/20 text-warning hover:bg-orange-200 font-black rounded-card transition-colors border border-orange-200"
                           >
                             +50
-                          </button>
+                          </Button>
                         </div>
                         
-                        <button
+                        <Button variant="ghost"
                           onClick={() => handleBid(auction)}
                           disabled={bidding === auction.id || !canAfford}
-                          className={`w-full py-4 rounded-2xl font-black text-lg transition-all shadow-md flex items-center justify-center ${
+                          className={`w-full py-4 rounded-card font-black text-lg transition-all shadow-md flex items-center justify-center ${
                             canAfford 
-                              ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:shadow-lg hover:-translate-y-1 hover:shadow-orange-500/30' 
-                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                              ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:shadow-raised hover:-translate-y-1 hover:shadow-orange-500/30' 
+                              : 'bg-slate-200 text-ink-3 cursor-not-allowed'
                           }`}
                         >
                           {bidding === auction.id ? (
@@ -255,7 +258,7 @@ export default function StudentAuction() {
                               参与竞拍
                             </>
                           )}
-                        </button>
+                        </Button>
                         {!canAfford && (
                           <p className="text-center text-xs text-red-400 mt-2 font-bold flex items-center justify-center">
                             <AlertCircle className="w-3 h-3 mr-1" />
@@ -267,7 +270,7 @@ export default function StudentAuction() {
 
                     {isHighestBidder && (
                       <div className="pt-2">
-                        <div className="w-full py-4 rounded-2xl font-black text-lg bg-green-50 text-green-600 border-2 border-green-200 flex items-center justify-center">
+                        <div className="w-full py-4 rounded-card font-black text-lg bg-success/10 text-success border-2 border-green-200 flex items-center justify-center">
                           <Crown className="w-6 h-6 mr-2" />
                           你目前是最高出价者！稳住！
                         </div>

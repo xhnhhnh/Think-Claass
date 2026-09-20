@@ -34,7 +34,7 @@ interface LeaveRequest {
  * here calls an API. It is `PageHeader` + `SectionCard` + `Badge` now, with the form moved
  * into a `Dialog` behind `FormField` - the four controls were hand-styled with an indigo
  * focus ring, their labels were never associated with them, and the modal was a fixed
- * overlay with a `shadow-2xl` and a blurred decoration behind it.
+ * overlay with a `shadow-raised` and a blurred decoration behind it.
  *
  * `老师查看中` is `info` rather than the amber it was written in: the row is with the
  * teacher, and `warning` is what the rejected state means here.

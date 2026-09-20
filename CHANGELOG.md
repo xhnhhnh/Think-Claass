@@ -37,6 +37,25 @@
 2. 若库里已有加密的姓名，先用 `node scripts/rotate-encryption-key.mjs --db <库> --old-key <旧密钥> --new-key <新密钥> --yes` 迁移。
 3. 数据库迁移只前进：不要修改已应用的迁移。
 
+### UI 重构（前端表现层）
+- **一套令牌、一套组件、四端外壳。** 颜色、圆角、阴影、动效全部收进 `src/index.css` 并由
+  `tailwind.config.js` 暴露；`!important` 覆盖 14 处 → **0**，页面不再被外部 CSS 改写。
+- **组件层真正被用起来**：裸 `<button>` 263 → 1（唯一保留的是大屏 3xl 倒计时读数，投影舞台特例）、
+  裸 `<input>` 96 → 0、`<select>` 27 → 0、`<table>` 13 → 0、原生 `confirm()/prompt()` 19 → 0。
+  新增组件：DataTable、Toolbar、StatCard、SectionCard、FormField、EmptyState、PageHeader、
+  ConfirmDialog、Spinner/Skeleton、Progress、FileInput、Select/Textarea。
+- **修掉一批"写了等于没写"的样式**：`ring-3`、`has-data-*`、`animate-in/fade-in`、`font-heading`
+  等 126 处在 Tailwind 3.4 下编译为空（焦点环、弹窗动画、卡片标题字体从未生效）；另有
+  `bg-card`/`bg-popover` 这类"令牌存在但没注册进调色板"8 处、**根本不存在的 `coral-*` 调色板**
+  74 处（家长端主按钮因此没有背景色），以及 `animate-blob`、`scrollbar-hide`、`slideRight`
+  等同样从未生效的类。
+- **统一强调色**：非品牌色 utilities（indigo/violet/purple/fuchsia/pink/rose）790 → 0；
+  十六进制色值 67 → 0（品牌标记与庆祝色板按名豁免，后者集中到 `src/lib/celebrationPalette.ts`）。
+- **护栏**：新增 `scripts/migration/ui-audit.mjs`（15 个指标、`npm run ui:audit`）与 **G20**
+  （`tests/guardrails/ui-design-system.test.ts`：棘轮 + 用项目自己的 Tailwind 配置编译组件契约类），
+  详见 [docs/design-system.md](docs/design-system.md)。
+- 构建产物 CSS 188,058 → 161,412 字节；前端测试 65 文件/157 用例 → 67/176；护栏 15 文件/85 用例。
+
 ## [1.7.0] - 2026-06-28
 
 > 这一版当时只写了 `release-notes-v1.7.0.md`，没有 CHANGELOG 条目；本条目是补记，内容以那份文件为准。

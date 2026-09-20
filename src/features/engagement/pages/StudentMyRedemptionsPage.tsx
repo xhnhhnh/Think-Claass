@@ -55,7 +55,7 @@ export default function StudentMyRedemptions() {
       <motion.div 
         initial={{ y: -20 }}
         animate={{ y: 0 }}
-        className="bg-white rounded-[2rem] p-10 shadow-xl border-b-8 border-teal-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
+        className="bg-paper rounded-panel p-10 shadow-raised border-b-8 border-teal-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-teal-400 to-emerald-400 opacity-10 pointer-events-none"></div>
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
@@ -74,7 +74,7 @@ export default function StudentMyRedemptions() {
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-white rounded-[3rem] p-16 text-center border-8 border-dashed border-gray-200 shadow-sm"
+          className="bg-paper rounded-[3rem] p-16 text-center border-8 border-dashed border-gray-200 shadow-sm"
         >
           <div className="inline-flex items-center justify-center p-8 bg-gray-100 rounded-full mb-6 shadow-inner">
             <Ticket className="h-16 w-16 text-gray-400" />
@@ -91,15 +91,15 @@ export default function StudentMyRedemptions() {
               transition={{ delay: index * 0.1 }}
               key={ticket.id} 
               whileHover={ticket.status === 'pending' ? { scale: 1.02, y: -5 } : {}}
-              className={`relative bg-white rounded-[2rem] p-8 border-b-8 border-r-4 border-l-4 border-t-4 transition-all shadow-lg flex flex-col ${
+              className={`relative bg-paper rounded-panel p-8 border-b-8 border-r-4 border-l-4 border-t-4 transition-all shadow-raised flex flex-col ${
                 ticket.status === 'used' 
                   ? 'border-gray-200 opacity-80 grayscale-[0.3]' 
-                  : 'border-teal-300 hover:border-teal-500 hover:shadow-2xl'
+                  : 'border-teal-300 hover:border-teal-500 hover:shadow-raised'
               }`}
             >
               {/* Decorative ticket cutout */}
-              <div className="absolute top-1/2 -left-4 w-8 h-8 bg-[#F0FDF4] rounded-full transform -translate-y-1/2 border-r-4 border-t-4 border-b-4 border-teal-300"></div>
-              <div className="absolute top-1/2 -right-4 w-8 h-8 bg-[#F0FDF4] rounded-full transform -translate-y-1/2 border-l-4 border-t-4 border-b-4 border-teal-300"></div>
+              <div className="absolute top-1/2 -left-4 w-8 h-8 bg-success/5 rounded-full transform -translate-y-1/2 border-r-4 border-t-4 border-b-4 border-teal-300"></div>
+              <div className="absolute top-1/2 -right-4 w-8 h-8 bg-success/5 rounded-full transform -translate-y-1/2 border-l-4 border-t-4 border-b-4 border-teal-300"></div>
               
               <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center">
@@ -121,19 +121,19 @@ export default function StudentMyRedemptions() {
                 )}
               </div>
               
-              <div className={`mt-auto p-6 rounded-[1.5rem] text-center border-4 border-dashed relative overflow-hidden ${
-                ticket.status === 'used' ? 'bg-gray-50 border-gray-300' : 'bg-teal-50 border-teal-300'
+              <div className={`mt-auto p-6 rounded-card text-center border-4 border-dashed relative overflow-hidden ${
+                ticket.status === 'used' ? 'bg-gray-50 border-gray-300' : 'bg-info/10 border-teal-300'
               }`}>
                 {ticket.status === 'used' && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                    <div className="border-4 border-red-500/50 text-red-500/50 text-4xl font-black px-6 py-2 rounded-2xl transform -rotate-12 select-none">
+                    <div className="border-4 border-red-500/50 text-destructive/50 text-4xl font-black px-6 py-2 rounded-card transform -rotate-12 select-none">
                       已使用
                     </div>
                   </div>
                 )}
                 <p className="text-base text-gray-500 font-bold mb-2">向老师出示此核销码</p>
                 <p className={`text-4xl font-black font-mono tracking-[0.25em] ${
-                  ticket.status === 'used' ? 'text-gray-400 line-through decoration-red-500/50 decoration-4' : 'text-teal-600 drop-shadow-sm'
+                  ticket.status === 'used' ? 'text-gray-400 line-through decoration-red-500/50 decoration-4' : 'text-info drop-shadow-sm'
                 }`}>
                   {ticket.code}
                 </p>

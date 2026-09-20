@@ -432,6 +432,55 @@ Two decisions worth keeping:
   message. It is the one behaviour change of the phase, it is user-visible (no more blocking browser
   dialog), and it is right: the metric only matched `window.alert(` and would have left it behind.
 
+### P7 — the student area
+
+Twenty-three pages, the most playful family in the product: pet evolution, dungeon runs, the
+interactive wall's danmaku, the skill tree's starfield, the territory map, gacha pulls, the bank's
+sparkline.
+
+All of it is on the tokens now, and **the game feel was the constraint rather than the casualty**:
+`framer-motion` entrances, gradients, glows and full-bleed dark canvases survive, because they are
+the product's idea. What changed is where their colours come from - a starfield is
+`bg-secondary-foreground`, a glow is `shadow-glow-primary`, a completed node is `success` and an
+unlockable one is `info` (mapping both to `primary` would have made two different states the same
+green on a dark canvas, which is the kind of "consistency" that destroys meaning).
+
+| Metric | P6 | P7 |
+| --- | --- | --- |
+| `rawButtons` | 48 | **1** |
+| `rawInputs` | 4 | **0** |
+| `rawSelects` | 0 | 0 |
+| `rawTables` | 1 | **0** |
+| `hexColors` | 25 | **0** |
+| `offBrandAccents` | 244 | **0** |
+| `inlineStyles` | 11 | **3** |
+| `nativeDialogs` | 2 | **0** |
+| `importantOverrides` | 3 | 3 |
+| built CSS | 168,940 bytes | **161,412 bytes** |
+
+Two more classes that were written and never defined, both now real: `animate-blob` (six student
+pages carried it, so their decorative blobs never moved) and `animate-spin-slow`/
+`animation-delay-*`. This is the fourth instance of the same defect - a class name that looks like a
+style and compiles to nothing - and it is why G20's contract list has grown with every phase.
+
+### P8 — cleanup
+
+The last override block is gone: the radius and shadow flattening, which forced `rounded-3xl`,
+`rounded-2xl` and every `shadow-lg|xl|2xl|[…]` to the campus scale. The classes were rewritten to
+the tokens they were being forced to (`rounded-panel`, `rounded-card`, `shadow-raised`) - which is
+the same value written where it belongs - so deleting the block moved nothing on screen.
+`importantOverrides` is **0**, and a new override block fails G20 instead of being reviewed.
+
+The three blocks that lived in that section are now a comment recording what each was compensating
+for. That comment is the most useful thing in this document: every one of them existed because a
+page's markup said one thing and the product needed another, and the fix was always to change the
+page.
+
+**Not done, and deliberately:** `HomePage.tsx` is still one ~700-line file, and `Report.tsx` /
+`ParentCommunicationPage.tsx` still write their own headers. Both are maintainability rather than
+design-system work; both are colour-migrated, on the kit's controls and measured at 0 on every
+metric. They are listed in §8.
+
 ## 8. Deferred / open
 
 | Item | Phase | Why it is not done |

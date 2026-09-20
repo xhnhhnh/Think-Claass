@@ -154,13 +154,13 @@ export default function TeacherBrawl() {
                   {activeBattle.initiator_class_id === classId ? '本班 (红方)' : '敌班 (红方)'}
                 </div>
                 <div className="text-3xl font-black text-primary-foreground">{activeBattle.initiator_class_name}</div>
-                <div className="mt-4 text-5xl font-black text-destructive drop-shadow-lg">
+                <div className="mt-4 text-5xl font-black text-destructive drop-shadow-raised">
                   {activeStats.initiatorScore}
                 </div>
               </div>
 
               <div className="w-1/3 text-center">
-                <div className="text-6xl font-black italic text-warning drop-shadow-lg">VS</div>
+                <div className="text-6xl font-black italic text-warning drop-shadow-raised">VS</div>
                 <div className="mt-4 flex items-center justify-center font-mono text-sm text-primary-foreground/70">
                   <RefreshCw className="mr-2 size-4 animate-spin" /> 战况实时同步中
                 </div>
@@ -171,7 +171,7 @@ export default function TeacherBrawl() {
                   {activeBattle.target_class_id === classId ? '本班 (蓝方)' : '敌班 (蓝方)'}
                 </div>
                 <div className="text-3xl font-black text-primary-foreground">{activeBattle.target_class_name}</div>
-                <div className="mt-4 text-5xl font-black text-info drop-shadow-lg">
+                <div className="mt-4 text-5xl font-black text-info drop-shadow-raised">
                   {activeStats.targetScore}
                 </div>
               </div>

@@ -41,7 +41,7 @@ export const PET_ELEMENTS = [
   { id: 'grass', name: '草系', color: 'bg-green-500', bg: 'bg-green-50', icon: '🌿' },
   { id: 'electric', name: '电系', color: 'bg-yellow-400', bg: 'bg-yellow-50', icon: '⚡' },
   { id: 'ice', name: '冰系', color: 'bg-cyan-300', bg: 'bg-cyan-50', icon: '❄️' },
-  { id: 'dragon', name: '龙系', color: 'bg-purple-500', bg: 'bg-purple-50', icon: '🐉' },
+  { id: 'dragon', name: '龙系', color: 'bg-accent-foreground', bg: 'bg-accent/40', icon: '🐉' },
 ] as const;
 
 export type PetElementId = (typeof PET_ELEMENTS)[number]['id'];

@@ -124,6 +124,8 @@ const CONTRACT_UTILITIES = [
   'animate-slide-in-bottom',
   'animate-slide-in-left',
   'animate-slide-in-right',
+  // written in six student pages before it existed anywhere; P8 made it real
+  'animate-blob',
   // type and layout values the kit's sizes rely on
   'font-semibold',
   'whitespace-nowrap',

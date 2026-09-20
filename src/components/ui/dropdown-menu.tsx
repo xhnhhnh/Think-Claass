@@ -133,7 +133,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuContent
       data-slot="dropdown-menu-sub-content"
-      className={cn("w-auto min-w-[96px] rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-100 data-[side=bottom]:animate-slide-in-top data-[side=left]:animate-slide-in-right data-[side=right]:animate-slide-in-left data-[side=top]:animate-slide-in-bottom data-[open]:animate-fade-in data-[closed]:animate-fade-out", className )}
+      className={cn("w-auto min-w-[96px] rounded-lg bg-popover p-1 text-popover-foreground shadow-raised ring-1 ring-foreground/10 duration-100 data-[side=bottom]:animate-slide-in-top data-[side=left]:animate-slide-in-right data-[side=right]:animate-slide-in-left data-[side=top]:animate-slide-in-bottom data-[open]:animate-fade-in data-[closed]:animate-fade-out", className )}
       align={align}
       alignOffset={alignOffset}
       side={side}

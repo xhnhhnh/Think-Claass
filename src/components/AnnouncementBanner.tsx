@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Megaphone, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 import { useActiveAnnouncement } from '@/features/engagement/hooks/useAnnouncements';
 
@@ -23,10 +24,10 @@ export default function AnnouncementBanner() {
   if (!announcement || !isVisible) return null;
 
   return (
-    <div className="relative z-50 border-b border-emerald-100 bg-emerald-50 px-4 py-3 text-emerald-900">
+    <div className="relative z-50 border-b border-success/20 bg-success/10 px-4 py-3 text-emerald-900">
       <div className="max-w-7xl mx-auto flex items-start sm:items-center justify-between">
         <div className="flex items-start sm:items-center flex-1 pr-8">
-          <div className="mr-3 flex-shrink-0 rounded-lg bg-white p-1.5 text-emerald-600 shadow-sm">
+          <div className="mr-3 flex-shrink-0 rounded-lg bg-paper p-1.5 text-success shadow-sm">
             <Megaphone className="h-5 w-5" />
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
@@ -34,13 +35,13 @@ export default function AnnouncementBanner() {
             <span className="line-clamp-2 text-sm text-emerald-800/80 sm:line-clamp-1 sm:text-base">{announcement.content}</span>
           </div>
         </div>
-        <button 
+        <Button 
           onClick={handleDismiss}
-          className="ml-4 flex-shrink-0 rounded-lg p-1.5 text-emerald-700 transition-colors hover:bg-white"
+          className="ml-4 flex-shrink-0 rounded-lg p-1.5 text-success transition-colors hover:bg-paper"
           aria-label="关闭"
         >
           <X className="h-5 w-5" />
-        </button>
+        </Button>
       </div>
     </div>
   );

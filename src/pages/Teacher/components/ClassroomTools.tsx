@@ -82,7 +82,7 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
           className={`px-6 py-2 rounded-card text-sm font-bold transition-all relative z-10 shadow-card ${
             rollCallState.isRolling 
               ? 'bg-warning/20 text-warning hover:bg-amber-200' 
-              : 'bg-primary text-white hover:bg-primary/90 hover:shadow-lg'
+              : 'bg-primary text-white hover:bg-primary/90 hover:shadow-raised'
           }`}
         >
           {rollCallState.isRolling ? '停！' : '开始抽取'}
@@ -117,7 +117,7 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
                 handleStartTimer();
               }
             }}
-            className="px-5 py-2 bg-cyan-600 text-white rounded-card text-sm font-bold hover:bg-cyan-700 transition-colors shadow-md hover:shadow-lg"
+            className="px-5 py-2 bg-cyan-600 text-white rounded-card text-sm font-bold hover:bg-cyan-700 transition-colors shadow-md hover:shadow-raised"
           >
             {timerState.isActive ? '暂停' : (timerState.timeLeft > 0 ? '继续' : '开始')}
           </Button>

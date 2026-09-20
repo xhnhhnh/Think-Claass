@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { Gift, Star, Loader2, Sparkles } from 'lucide-react';
+import { Gift, Star, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,6 +9,11 @@ import { useQuery } from '@tanstack/react-query';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { teacherApi } from '@/features/classroom/api/classesApi';
 import { useLuckyDrawConfig, useLuckyDrawMutation } from '@/hooks/queries/useLuckyDraw';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Spinner } from '@/components/ui/spinner';
+import { StatCard } from '@/components/ui/stat-card';
 
 interface PrizeConfig {
   prize_name: string;
@@ -82,105 +87,126 @@ export default function StudentLuckyDraw() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+      <div className="flex items-center justify-center py-20">
+        <Spinner size="lg" label="正在加载抽奖配置" />
       </div>
     );
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-5xl mx-auto space-y-8"
+      className="mx-auto max-w-5xl space-y-8"
     >
       {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ y: -20 }}
         animate={{ y: 0 }}
-        className="bg-white rounded-[2rem] p-10 shadow-xl border-b-8 border-purple-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
+        className="relative overflow-hidden rounded-panel border-b-8 border-primary/30 bg-paper p-10 shadow-card"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-fuchsia-400 opacity-10 pointer-events-none"></div>
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-fuchsia-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
-        
-        <div className="relative z-10 mb-6 md:mb-0 text-center md:text-left">
-          <h2 className="text-5xl font-black text-gray-900 mb-4 drop-shadow-sm flex items-center justify-center md:justify-start">
-            <Gift className="w-12 h-12 text-purple-500 mr-4" />
-            幸运翻牌
-          </h2>
-          <p className="text-xl text-gray-600 font-bold">试试你的手气，看看能翻出什么大奖！</p>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary to-accent-foreground opacity-10" />
+        {/* Two slow drifting washes: `animate-blob` was defined nowhere, so these
+            replace classes that compiled to nothing with animation that plays. */}
+        <motion.div
+          aria-hidden="true"
+          animate={{ scale: [1, 1.18, 1] }}
+          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+          className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-primary/30 mix-blend-multiply blur-3xl"
+        />
+        <motion.div
+          aria-hidden="true"
+          animate={{ scale: [1.18, 1, 1.18] }}
+          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+          className="pointer-events-none absolute -bottom-20 -left-20 size-64 rounded-full bg-accent-foreground/20 mix-blend-multiply blur-3xl"
+        />
+
+        <div className="relative z-10 flex flex-col items-center justify-between gap-6 md:flex-row">
+          <PageHeader
+            title="幸运翻牌"
+            description="试试你的手气，看看能翻出什么大奖！"
+            icon={Gift}
+            className="flex-1"
+          />
+          <StatCard
+            label="我的可用积分"
+            icon={Star}
+            tone="warning"
+            value={
+              <span className="text-4xl font-black text-primary">
+                {availablePoints} <span className="text-xl font-bold">币</span>
+              </span>
+            }
+            className="shrink-0 border-b-8 border-r-4 border-l-4 border-t-4 border-primary/30 shadow-raised"
+          />
         </div>
-        
-        <motion.div 
-          whileHover={{ scale: 1.05, rotate: -2 }}
-          className="relative z-10 flex items-center bg-white p-6 rounded-[2rem] shadow-2xl border-b-8 border-r-4 border-l-4 border-t-4 border-purple-300"
-        >
-          <div className="bg-purple-100 p-4 rounded-full mr-5 shadow-inner">
-            <Star className="h-10 w-10 text-purple-500 fill-current" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-1">我的可用积分</p>
-            <p className="text-4xl font-black text-purple-600 leading-none">
-              {availablePoints} <span className="text-xl font-bold">币</span>
-            </p>
-          </div>
-        </motion.div>
       </motion.div>
 
       {configs.length === 0 ? (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-white rounded-[3rem] p-16 text-center border-8 border-dashed border-gray-200 shadow-sm"
         >
-          <div className="inline-flex items-center justify-center p-8 bg-gray-100 rounded-full mb-6 shadow-inner">
-            <Gift className="h-16 w-16 text-gray-400" />
-          </div>
-          <h3 className="text-3xl font-black text-gray-600">暂未配置抽奖</h3>
-          <p className="text-xl font-bold text-gray-400 mt-4">老师还没有配置抽奖奖品哦</p>
+          <EmptyState
+            icon={Gift}
+            title="暂未配置抽奖"
+            description="老师还没有配置抽奖奖品哦"
+            className="min-h-60 border-4 border-dashed bg-paper"
+          />
         </motion.div>
       ) : (
-        <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border-8 border-purple-100">
-          <div className="text-center mb-10">
-            <span className="inline-flex items-center px-6 py-3 rounded-[1.5rem] bg-purple-100 text-purple-800 font-black text-xl border-b-4 border-purple-300 shadow-sm">
+        <div className="rounded-panel border-8 border-primary/20 bg-paper p-10 shadow-raised">
+          <div className="mb-10 text-center">
+            <span className="inline-flex items-center rounded-card border-b-4 border-primary/30 bg-primary/5 px-6 py-3 text-xl font-black text-primary shadow-card">
               每次抽奖消耗 {costPoints} 积分
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 md:gap-8 max-w-3xl mx-auto perspective-1000">
+          <div className="mx-auto grid max-w-3xl grid-cols-3 gap-6 md:gap-8">
             {Array.from({ length: 9 }).map((_, index) => (
               <motion.div
                 key={index}
                 whileHover={flippedIndex === null ? { scale: 1.05, y: -5 } : {}}
                 whileTap={flippedIndex === null ? { scale: 0.95 } : {}}
                 onClick={() => handleDraw(index)}
-                className={`relative w-full aspect-[3/4] cursor-pointer transition-transform duration-700 transform-style-3d ${
-                  flippedIndex === index ? 'rotate-y-180' : ''
-                } ${flippedIndex !== null && flippedIndex !== index ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void handleDraw(index);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-disabled={flippedIndex !== null && flippedIndex !== index}
+                aria-label={`翻开第 ${index + 1} 张牌`}
+                className={`relative aspect-[3/4] w-full cursor-pointer [perspective:1000px] [transform-style:preserve-3d] transition-transform duration-700 ${
+                  flippedIndex === index ? '[transform:rotateY(180deg)]' : ''
+                } ${flippedIndex !== null && flippedIndex !== index ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 {/* Front of card */}
-                <div className="absolute inset-0 backface-hidden bg-gradient-to-br from-purple-500 to-fuchsia-500 rounded-[2rem] shadow-xl border-b-8 border-r-4 border-l-4 border-t-4 border-purple-700 flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-panel border-4 border-b-8 border-accent-foreground bg-gradient-to-br from-accent-foreground to-info shadow-raised [backface-visibility:hidden]">
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
-                  <Sparkles className="w-16 h-16 text-white/80 drop-shadow-md animate-pulse" />
+                  <Sparkles className="size-16 animate-pulse text-paper/80 drop-shadow-md" />
                 </div>
                 
                 {/* Back of card */}
-                <div className="absolute inset-0 backface-hidden rotate-y-180 bg-white rounded-[2rem] shadow-2xl border-8 border-yellow-400 flex flex-col items-center justify-center p-6 text-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-panel border-8 border-warning bg-paper p-6 text-center shadow-raised [backface-visibility:hidden] [transform:rotateY(180deg)]">
                   {flippedIndex === index && result ? (
                     <motion.div
                       initial={{ scale: 0.5, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 0.3, type: "spring" }}
                     >
-                      <Gift className="w-16 h-16 text-yellow-500 mb-4 mx-auto drop-shadow-md" />
-                      <p className="font-black text-gray-800 text-2xl leading-tight">
+                      <Gift className="mx-auto mb-4 size-16 text-warning drop-shadow-md" />
+                      <p className="text-2xl font-black leading-tight text-ink-1">
                         {result.prize_name}
                       </p>
                     </motion.div>
-                  ) : (
-                    <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
-                  )}
+                  ) : flippedIndex === index ? (
+                    /* Only the flipped card needs the pending state: the other eight backs
+                       are turned away, and nine live `role="status"` regions would be noise. */
+                    <Spinner size="lg" label="抽奖中" className="text-primary" />
+                  ) : null}
                 </div>
               </motion.div>
             ))}
@@ -188,36 +214,27 @@ export default function StudentLuckyDraw() {
 
           <AnimatePresence>
             {result && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="mt-16 text-center"
               >
-                <div className="inline-block p-8 bg-yellow-50 border-8 border-yellow-300 rounded-[2.5rem] shadow-2xl">
-                  <h3 className="text-4xl font-black text-yellow-600 mb-4 drop-shadow-sm">翻牌结果</h3>
-                  <p className="text-2xl text-gray-800 font-bold mb-8">{result.message}</p>
-                  <motion.button
-                    whileHover={{ scale: 1.05, y: -4 }}
-                    whileTap={{ scale: 0.95 }}
+                <div className="inline-block rounded-panel border-8 border-warning/40 bg-warning/10 p-8 shadow-raised">
+                  <h3 className="mb-4 text-4xl font-black text-warning drop-shadow-sm">翻牌结果</h3>
+                  <p className="mb-8 text-2xl font-bold text-ink-1">{result.message}</p>
+                  <Button
                     onClick={resetDraw}
-                    className="px-12 py-4 bg-purple-500 text-white rounded-[2rem] font-black text-2xl hover:bg-purple-400 transition-colors shadow-xl border-b-8 border-purple-700"
+                    className="h-auto rounded-panel border-b-8 border-accent-foreground bg-gradient-to-r from-primary to-accent-foreground px-12 py-4 text-2xl font-black hover:-translate-y-1"
                   >
                     再翻一次
-                  </motion.button>
+                  </Button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       )}
-
-      <style>{`
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
-      `}</style>
     </motion.div>
   );
 }

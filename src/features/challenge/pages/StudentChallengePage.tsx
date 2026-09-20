@@ -107,10 +107,10 @@ export default function StudentChallenge() {
           whileHover={{ y: -4 }}
           whileTap={{ y: 0 }}
           onClick={() => setActiveTab('questions')}
-          className={`flex items-center px-8 py-4 rounded-[2rem] font-black text-xl transition-all border-b-8 ${
+          className={`flex items-center px-8 py-4 rounded-panel font-black text-xl transition-all border-b-8 ${
             activeTab === 'questions'
-              ? 'bg-blue-500 text-white border-blue-700 shadow-xl'
-              : 'bg-white text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600'
+              ? 'bg-blue-500 text-white border-blue-700 shadow-raised'
+              : 'bg-paper text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600'
           }`}
         >
           <Swords className="mr-3 h-8 w-8" />
@@ -120,10 +120,10 @@ export default function StudentChallenge() {
           whileHover={{ y: -4 }}
           whileTap={{ y: 0 }}
           onClick={() => setActiveTab('boss')}
-          className={`flex items-center px-8 py-4 rounded-[2rem] font-black text-xl transition-all border-b-8 ${
+          className={`flex items-center px-8 py-4 rounded-panel font-black text-xl transition-all border-b-8 ${
             activeTab === 'boss'
-              ? 'bg-red-500 text-white border-red-700 shadow-xl'
-              : 'bg-white text-gray-500 border-gray-200 hover:bg-red-50 hover:text-red-600'
+              ? 'bg-destructive text-white border-red-700 shadow-raised'
+              : 'bg-paper text-gray-500 border-gray-200 hover:bg-destructive/10 hover:text-destructive'
           }`}
         >
           <Flame className="mr-3 h-8 w-8" />
@@ -139,7 +139,7 @@ export default function StudentChallenge() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
-          className="bg-white rounded-[2.5rem] p-10 shadow-2xl border-8 border-blue-100"
+          className="bg-paper rounded-panel p-10 shadow-raised border-8 border-blue-100"
         >
           {result ? (
             <motion.div 
@@ -147,18 +147,18 @@ export default function StudentChallenge() {
               animate={{ scale: 1 }}
               className="text-center space-y-8"
             >
-              <Trophy className="mx-auto h-32 w-32 text-yellow-400 drop-shadow-xl" />
+              <Trophy className="mx-auto h-32 w-32 text-yellow-400 drop-shadow-raised" />
               <h2 className="text-5xl font-black text-gray-900 drop-shadow-sm">挑战结果</h2>
               <div className="flex justify-center space-x-8 text-xl">
-                <div className="p-6 bg-green-100 text-green-800 rounded-[2rem] border-b-8 border-green-300 min-w-[140px]">
+                <div className="p-6 bg-success/20 text-green-800 rounded-panel border-b-8 border-green-300 min-w-[140px]">
                   <p className="text-base font-bold mb-2">正确</p>
                   <p className="text-5xl font-black">{result.correctCount}</p>
                 </div>
-                <div className="p-6 bg-red-100 text-red-800 rounded-[2rem] border-b-8 border-red-300 min-w-[140px]">
+                <div className="p-6 bg-destructive/20 text-destructive rounded-panel border-b-8 border-red-300 min-w-[140px]">
                   <p className="text-base font-bold mb-2">错误</p>
                   <p className="text-5xl font-black">{result.wrongCount}</p>
                 </div>
-                <div className="p-6 bg-blue-100 text-blue-800 rounded-[2rem] border-b-8 border-blue-300 min-w-[140px] shadow-lg">
+                <div className="p-6 bg-blue-100 text-blue-800 rounded-panel border-b-8 border-blue-300 min-w-[140px] shadow-raised">
                   <p className="text-base font-bold mb-2">得分</p>
                   <p className="text-6xl font-black text-blue-600">{result.score}</p>
                 </div>
@@ -167,7 +167,7 @@ export default function StudentChallenge() {
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={fetchQuestions}
-                className="mt-10 px-12 py-5 bg-blue-500 text-white rounded-[2rem] font-black text-2xl border-b-8 border-blue-700 shadow-xl hover:bg-blue-400"
+                className="mt-10 px-12 py-5 bg-blue-500 text-white rounded-panel font-black text-2xl border-b-8 border-blue-700 shadow-raised hover:bg-blue-400"
               >
                 再来一次
               </motion.button>
@@ -180,7 +180,7 @@ export default function StudentChallenge() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <div className="flex justify-between items-center mb-8 bg-gray-50 p-4 rounded-[1.5rem] border-4 border-gray-100">
+                <div className="flex justify-between items-center mb-8 bg-gray-50 p-4 rounded-card border-4 border-gray-100">
                   <h3 className="text-2xl font-black text-gray-800 flex items-center">
                     <span className="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full mr-3 shadow-md">
                       {currentQIndex + 1}
@@ -203,7 +203,7 @@ export default function StudentChallenge() {
                           whileTap={{ scale: 0.98 }}
                           key={opt}
                           onClick={() => handleAnswer(questions[currentQIndex].id, opt)}
-                          className={`w-full text-left p-6 rounded-[1.5rem] border-4 transition-all text-xl font-bold ${
+                          className={`w-full text-left p-6 rounded-card border-4 transition-all text-xl font-bold ${
                             answers[questions[currentQIndex].id] === opt
                               ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md'
                               : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
@@ -236,13 +236,13 @@ export default function StudentChallenge() {
                                 handleAnswer(questions[currentQIndex].id, opt);
                               }
                             }}
-                            className={`w-full text-left p-6 rounded-[1.5rem] border-4 transition-all text-xl font-bold flex items-center ${
+                            className={`w-full text-left p-6 rounded-card border-4 transition-all text-xl font-bold flex items-center ${
                               isSelected
                                 ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md'
                                 : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
                             }`}
                           >
-                            <span className={`w-10 h-10 flex items-center justify-center rounded-xl mr-4 ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                            <span className={`w-10 h-10 flex items-center justify-center rounded-card mr-4 ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
                               {labels[idx]}
                             </span>
                             {opt}
@@ -259,7 +259,7 @@ export default function StudentChallenge() {
                     whileTap={currentQIndex !== 0 ? { scale: 0.95 } : {}}
                     disabled={currentQIndex === 0}
                     onClick={() => setCurrentQIndex(i => i - 1)}
-                    className="px-8 py-4 rounded-[1.5rem] font-black text-lg bg-gray-100 text-gray-500 border-b-4 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-4 rounded-card font-black text-lg bg-gray-100 text-gray-500 border-b-4 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     上一题
                   </motion.button>
@@ -269,7 +269,7 @@ export default function StudentChallenge() {
                       whileTap={!submitMutation.isPending ? { scale: 0.95 } : {}}
                       onClick={handleSubmit}
                       disabled={submitMutation.isPending}
-                      className="px-10 py-4 rounded-[1.5rem] font-black text-lg bg-green-500 text-white border-b-8 border-green-700 hover:bg-green-400 disabled:opacity-50 shadow-lg"
+                      className="px-10 py-4 rounded-card font-black text-lg bg-success text-white border-b-8 border-green-700 hover:bg-green-400 disabled:opacity-50 shadow-raised"
                     >
                       {submitMutation.isPending ? '提交中...' : '提交试卷'}
                     </motion.button>
@@ -278,7 +278,7 @@ export default function StudentChallenge() {
                       whileHover={{ scale: 1.05, y: -4 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setCurrentQIndex(i => i + 1)}
-                      className="px-10 py-4 rounded-[1.5rem] font-black text-lg bg-blue-500 text-white border-b-8 border-blue-700 hover:bg-blue-400 shadow-lg"
+                      className="px-10 py-4 rounded-card font-black text-lg bg-blue-500 text-white border-b-8 border-blue-700 hover:bg-blue-400 shadow-raised"
                     >
                       下一题
                     </motion.button>
@@ -304,28 +304,28 @@ export default function StudentChallenge() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="bg-white rounded-[2.5rem] p-10 shadow-2xl border-8 border-red-200 text-center relative overflow-hidden"
+          className="bg-paper rounded-panel p-10 shadow-raised border-8 border-destructive/30 text-center relative overflow-hidden"
         >
           {boss ? (
             <div className="space-y-8 relative z-10">
               <motion.div 
                 animate={{ y: [0, -20, 0] }}
                 transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                className="mx-auto w-48 h-48 bg-red-100 rounded-full flex items-center justify-center mb-8 border-8 border-red-300 shadow-xl"
+                className="mx-auto w-48 h-48 bg-destructive/20 rounded-full flex items-center justify-center mb-8 border-8 border-red-300 shadow-raised"
               >
-                <Flame className="w-24 h-24 text-red-500 drop-shadow-lg" />
+                <Flame className="w-24 h-24 text-destructive drop-shadow-raised" />
               </motion.div>
               <h2 className="text-5xl font-black text-gray-900 drop-shadow-sm">{boss.name}</h2>
               <p className="text-xl font-bold text-gray-500 max-w-lg mx-auto">{boss.description}</p>
               
-              <div className="bg-gray-200 rounded-[2rem] h-10 w-full max-w-2xl mx-auto overflow-hidden relative border-4 border-gray-300 shadow-inner mt-8">
+              <div className="bg-gray-200 rounded-panel h-10 w-full max-w-2xl mx-auto overflow-hidden relative border-4 border-gray-300 shadow-inner mt-8">
                 <motion.div 
                   className="bg-gradient-to-r from-red-500 to-red-400 h-full relative"
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.max(0, (boss.hp / boss.max_hp) * 100)}%` }}
                   transition={{ type: "spring", bounce: 0.5 }}
                 >
-                  <div className="absolute inset-0 bg-white/20 w-full h-1/2"></div>
+                  <div className="absolute inset-0 bg-paper/20 w-full h-1/2"></div>
                 </motion.div>
                 <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-white drop-shadow-md">
                   HP: {boss.hp} / {boss.max_hp}
@@ -337,7 +337,7 @@ export default function StudentChallenge() {
                 whileTap={!attackMutation.isPending && boss.hp > 0 ? { scale: 0.9 } : {}}
                 onClick={handleAttackBoss}
                 disabled={attackMutation.isPending || boss.hp <= 0}
-                className="mt-12 px-16 py-6 bg-red-500 text-white rounded-[2rem] font-black text-3xl border-b-8 border-red-700 hover:bg-red-400 disabled:opacity-50 shadow-2xl shadow-red-500/40"
+                className="mt-12 px-16 py-6 bg-destructive text-white rounded-panel font-black text-3xl border-b-8 border-red-700 hover:bg-red-400 disabled:opacity-50 shadow-raised shadow-red-500/40"
               >
                 {attackMutation.isPending ? '攻击中...' : boss.hp <= 0 ? 'Boss已被击败' : '发起攻击！'}
               </motion.button>

@@ -197,6 +197,12 @@ export default {
         'slide-in-bottom': 'slide-in-bottom var(--motion-base) var(--ease-out-soft) both',
         'slide-in-left': 'slide-in-left var(--motion-base) var(--ease-out-soft) both',
         'slide-in-right': 'slide-in-right var(--motion-base) var(--ease-out-soft) both',
+        /*
+         * `animate-blob` is written in six student pages and was defined nowhere - the
+         * keyframes now live in index.css and this is what makes the utility compile.
+         * Its `animation-delay-*` partners are plain classes in the same file.
+         */
+        blob: 'blob 7s infinite',
       },
     },
   },

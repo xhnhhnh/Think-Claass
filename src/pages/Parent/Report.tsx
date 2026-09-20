@@ -130,7 +130,7 @@ export default function ParentReport() {
                   { label: '平均考试分', value: summary?.average_exam_score ?? 0, valueClassName: 'text-primary' },
                   { label: '作业完成率', value: `${summary?.assignment_completion_rate ?? 0}%`, valueClassName: 'text-emerald-600' },
                   { label: '出勤率', value: `${summary?.attendance_rate ?? 0}%`, valueClassName: 'text-orange-600' },
-                  { label: '获得表扬', value: `${summary?.praise_count ?? 0} 次`, valueClassName: 'text-pink-500' },
+                  { label: '获得表扬', value: `${summary?.praise_count ?? 0} 次`, valueClassName: 'text-destructive' },
                 ]}
               />
             </DataPanel>

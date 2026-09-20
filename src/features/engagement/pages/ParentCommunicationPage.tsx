@@ -178,7 +178,7 @@ export default function ParentCommunication() {
           <Button
             type="submit"
             disabled={!newMessage.trim() || sendMutation.isPending}
-            className="flex-shrink-0 h-14 w-14 flex items-center justify-center bg-primary text-primary-foreground rounded-[1.25rem] hover:bg-primary/90 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/30 disabled:opacity-50 disabled:hover:bg-primary disabled:hover:translate-y-0 disabled:hover:shadow-none transition-all duration-300 shadow-md"
+            className="flex-shrink-0 h-14 w-14 flex items-center justify-center bg-primary text-primary-foreground rounded-[1.25rem] hover:bg-primary/90 hover:-translate-y-1 hover:shadow-raised hover:shadow-primary/30 disabled:opacity-50 disabled:hover:bg-primary disabled:hover:translate-y-0 disabled:hover:shadow-none transition-all duration-300 shadow-md"
           >
             {sendMutation.isPending ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6 ml-1" />}
           </Button>

@@ -85,7 +85,7 @@ export default function TypewriterText({
           );
         })}
         {hasStarted && isTyping && (
-          <span className="ml-0.5 inline-block text-indigo-400 animate-pulse">
+          <span className="ml-0.5 inline-block text-primary/70 animate-pulse">
             |
           </span>
         )}

@@ -260,66 +260,49 @@
 
 /*
  * ---------------------------------------------------------------------------
- * Overrides still in force.
+ * No override blocks remain.
  *
- * Each block here rewrites page styles from outside the page, and each is on its
- * way out: the phase that migrates the pages making a block redundant deletes it
- * (see docs/design-system.md). Nothing new may be added to this section - the
- * `importantOverrides` and `recolorRules` ratchets in G20 only count down.
+ * Three used to live here, and each was a page being corrected from outside:
+ *
+ *   - the portal's force-recolour block (nine rules repainting indigo/violet green),
+ *     deleted in P3 when the public surface moved onto the tokens;
+ *   - the admin repaint block (four `!important`s making the console's dark panels
+ *     white), deleted in P4 with the dashboard's dark language;
+ *   - the radius and shadow flattening, deleted here in P8. It forced `rounded-3xl`,
+ *     `rounded-2xl` and every `shadow-lg|xl|2xl|[…]` to the campus scale; those classes
+ *     are now the tokens themselves (`rounded-panel`, `rounded-card`, `shadow-raised`),
+ *     which is the same value written where it belongs.
+ *
+ * G20 counts `!important` in this file and the `.public-campus-page` rules, and both
+ * are at 0 - so a new override block fails the build rather than being reviewed.
  * ---------------------------------------------------------------------------
  */
 
 /*
- * The admin repaint block used to live here: three rules that turned the console's
- * dark "editorial" panels white, and repainted `text-slate-100/200/300/400/500` inside
- * `.theme-admin .campus-content`. The dashboard was the last page written in that
- * language - `glass-dark` panels, `bg-slate-800/50` wells, neon icon colours - and P4
- * moved it onto the tokens, so the block has nothing left to correct.
- *
- * It was also quietly harmful: the rule that darkened `text-slate-400` applied to the
- * update log panel as well, a `bg-slate-950` terminal where a mid grey is nearly
- * invisible. Deleting it improved the page it was meant to be fixing.
- *
- * The portal's force-recolour block lived below it, and P3 deleted the same way.
+ * `animate-blob` was another class written in pages and defined nowhere - five student
+ * pages carried it, so their decorative blobs never moved. The keyframes and the
+ * `animation-delay-*` helpers they pair with are real now. Two of those pages replaced
+ * their blobs with motion loops instead, which is why this is keyframes only.
  */
-
-/*
- * What remains: the radius and shadow flattening. Every page family that relies on it
- * still has the arbitrary values it compensates for, and each phase deletes the subset
- * its own pages made redundant (see docs/design-system.md).
- */
-
-.campus-shell .rounded-3xl,
-.campus-shell .rounded-\[2rem\] {
-  border-radius: 0.75rem !important;
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
 }
 
-.campus-shell .rounded-2xl {
-  border-radius: 0.625rem !important;
+.animation-delay-2000 {
+  animation-delay: 2s;
 }
 
-/* Shadow flattening: every elevation inside a shell becomes the campus soft shadow. */
-.campus-shell .shadow-lg,
-.campus-shell .shadow-xl,
-.campus-shell .shadow-2xl,
-.campus-shell [class*="shadow-["] {
-  box-shadow: var(--campus-soft-shadow) !important;
-}
-
-.campus-shell .campus-content table {
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.campus-shell .campus-content th {
-  color: rgb(71 85 105);
-  font-weight: 700;
-}
-
-.campus-shell .campus-content input,
-.campus-shell .campus-content textarea,
-.campus-shell .campus-content select {
-  border-radius: 0.5rem;
+.animation-delay-4000 {
+  animation-delay: 4s;
 }
 
 :root {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CELEBRATION } from '@/lib/celebrationPalette';
 import { useStore } from '@/store/useStore';
 import { Maximize, Users, Award, Star, TrendingUp, ShieldAlert, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -68,7 +69,7 @@ export default function TeacherBigscreen() {
           particleCount: 200,
           spread: 160,
           origin: { y: 0.3 },
-          colors: ['#ff0000', '#ff7700', '#ffff00']
+          colors: [...CELEBRATION.blaze]
         });
       }
       setPrevBossHp(bigscreenData.activeBoss.hp);
@@ -207,7 +208,7 @@ export default function TeacherBigscreen() {
 
       {isFullscreen && (
         <div className="relative z-10 mb-8 flex items-center justify-between">
-          <h1 className="bg-gradient-to-r from-primary to-cyan-500 bg-clip-text text-5xl font-black tracking-tight text-transparent drop-shadow-lg">
+          <h1 className="bg-gradient-to-r from-primary to-cyan-500 bg-clip-text text-5xl font-black tracking-tight text-transparent drop-shadow-raised">
             {bigscreenData?.class?.name} <span className="font-normal text-gray-400">|</span> 光荣榜
           </h1>
           <div className="flex items-center space-x-4">
@@ -320,7 +321,7 @@ export default function TeacherBigscreen() {
                 <div className="w-full flex-1">
                   <div className="mb-2 flex items-end justify-between">
                     <div>
-                      <h2 className={`text-3xl font-black tracking-tight ${isFullscreen ? 'text-red-400 drop-shadow-lg' : 'text-destructive'}`}>
+                      <h2 className={`text-3xl font-black tracking-tight ${isFullscreen ? 'text-red-400 drop-shadow-raised' : 'text-destructive'}`}>
                         ⚠️ 世界BOSS降临: {bigscreenData.activeBoss.name}
                       </h2>
                       <p className={`mt-1 text-sm font-medium ${isFullscreen ? 'text-red-300/80' : 'text-destructive/80'}`}>

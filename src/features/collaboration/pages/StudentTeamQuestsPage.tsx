@@ -92,15 +92,15 @@ export default function StudentTeamQuests() {
       <motion.div
         initial={{ y: -20 }}
         animate={{ y: 0 }}
-        className="bg-white rounded-[2rem] p-10 shadow-xl border-b-8 border-orange-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
+        className="bg-paper rounded-panel p-10 shadow-raised border-b-8 border-orange-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-400 opacity-10 pointer-events-none" />
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-red-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob" />
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000" />
 
         <div className="relative z-10 flex items-center space-x-6">
-          <div className="p-5 bg-orange-100 rounded-[1.5rem] shadow-inner border-b-4 border-orange-300">
-            <Users className="w-12 h-12 text-orange-500" />
+          <div className="p-5 bg-warning/20 rounded-card shadow-inner border-b-4 border-orange-300">
+            <Users className="w-12 h-12 text-warning" />
           </div>
           <div>
             <h1 className="text-5xl font-black mb-2 text-gray-900 drop-shadow-sm">团队任务</h1>
@@ -110,20 +110,20 @@ export default function StudentTeamQuests() {
       </motion.div>
 
       {isLoading && (
-        <div className="bg-white rounded-[2rem] p-10 shadow-xl border border-white/60 flex items-center justify-center text-slate-500">
+        <div className="bg-paper rounded-panel p-10 shadow-raised border border-white/60 flex items-center justify-center text-ink-3">
           <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
           正在加载团队任务...
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="bg-red-50 text-red-600 rounded-[2rem] p-10 shadow-xl border border-red-100 text-center">
+        <div className="bg-destructive/10 text-destructive rounded-panel p-10 shadow-raised border border-destructive/20 text-center">
           团队任务加载失败，请稍后重试
         </div>
       )}
 
       {!isLoading && !error && !quest && (
-        <div className="bg-white rounded-[2rem] p-10 shadow-xl border border-white/60 text-center text-slate-500">
+        <div className="bg-paper rounded-panel p-10 shadow-raised border border-white/60 text-center text-ink-3">
           当前没有进行中的团队任务
         </div>
       )}
@@ -134,7 +134,7 @@ export default function StudentTeamQuests() {
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl border-8 border-blue-100"
+              className="bg-paper rounded-panel p-8 md:p-10 shadow-raised border-8 border-blue-100"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                 <h2 className="text-3xl font-black flex items-center text-gray-900">
@@ -143,19 +143,19 @@ export default function StudentTeamQuests() {
                 </h2>
                 <span
                   className={`px-6 py-2 rounded-full text-lg font-black border-b-4 shadow-sm self-start sm:self-auto ${
-                    quest.status === 'active' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-700 border-gray-300'
+                    quest.status === 'active' ? 'bg-success/20 text-success border-green-300' : 'bg-gray-100 text-gray-700 border-gray-300'
                   }`}
                 >
                   {quest.status === 'active' ? '进行中' : '已完成'}
                 </span>
               </div>
 
-              <p className="text-gray-700 mb-10 text-xl font-medium leading-relaxed bg-blue-50/50 p-6 rounded-[1.5rem] border-2 border-blue-100">
+              <p className="text-gray-700 mb-10 text-xl font-medium leading-relaxed bg-blue-50/50 p-6 rounded-card border-2 border-blue-100">
                 {quest.description || '暂无任务描述'}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                <div className="rounded-[1.5rem] border-2 border-blue-100 bg-blue-50/50 p-6">
+                <div className="rounded-card border-2 border-blue-100 bg-blue-50/50 p-6">
                   <div className="flex justify-between text-lg font-black text-gray-700 mb-3">
                     <span>团队进度</span>
                     <span className="text-blue-600">{teamProgressPercent}%</span>
@@ -167,7 +167,7 @@ export default function StudentTeamQuests() {
                       transition={{ duration: 1, type: 'spring' }}
                       className="bg-blue-500 h-full rounded-full relative"
                     >
-                      <div className="absolute inset-0 bg-white/20 w-full h-1/2" />
+                      <div className="absolute inset-0 bg-paper/20 w-full h-1/2" />
                     </motion.div>
                   </div>
                   <p className="mt-3 text-sm font-bold text-blue-700">
@@ -175,19 +175,19 @@ export default function StudentTeamQuests() {
                   </p>
                 </div>
 
-                <div className="rounded-[1.5rem] border-2 border-emerald-100 bg-emerald-50/50 p-6">
-                  <p className="text-sm font-bold text-emerald-600 mb-2">我的贡献</p>
-                  <p className="text-4xl font-black text-emerald-700">
+                <div className="rounded-card border-2 border-success/20 bg-success/10 p-6">
+                  <p className="text-sm font-bold text-success mb-2">我的贡献</p>
+                  <p className="text-4xl font-black text-success">
                     {data?.progress?.my_contribution_score ?? 0}
                   </p>
-                  <p className="mt-3 text-sm text-emerald-700">
+                  <p className="mt-3 text-sm text-success">
                     完成团队目标后，每组可获得 {quest.reward_points} 积分
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center text-lg font-bold text-orange-700 bg-orange-100 p-5 rounded-[1.5rem] border-b-4 border-orange-300 shadow-sm">
-                <ShieldAlert className="w-8 h-8 mr-3 text-orange-500" />
+              <div className="flex items-center text-lg font-bold text-orange-700 bg-warning/20 p-5 rounded-card border-b-4 border-orange-300 shadow-sm">
+                <ShieldAlert className="w-8 h-8 mr-3 text-warning" />
                 截止日期: {quest.end_date || '未设置'}
               </div>
             </motion.div>
@@ -195,10 +195,10 @@ export default function StudentTeamQuests() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl border-8 border-purple-100"
+              className="bg-paper rounded-panel p-8 md:p-10 shadow-raised border-8 border-accent"
             >
               <h2 className="text-3xl font-black flex items-center text-gray-900 mb-4">
-                <CheckSquare className="w-10 h-10 mr-4 text-purple-500" />
+                <CheckSquare className="w-10 h-10 mr-4 text-accent-foreground" />
                 组内互评
               </h2>
               <p className="text-lg font-bold text-gray-500 mb-8">
@@ -212,11 +212,11 @@ export default function StudentTeamQuests() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.1 }}
                     key={member.id}
-                    className="p-6 rounded-[2rem] border-4 border-gray-100 bg-gray-50 hover:bg-white hover:border-purple-200 hover:shadow-lg transition-all"
+                    className="p-6 rounded-panel border-4 border-border bg-muted/50 hover:bg-paper hover:border-accent hover:shadow-raised transition-all"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                       <div className="flex items-center space-x-4">
-                        <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-[1.2rem] border-b-4 border-indigo-200 flex items-center justify-center font-black text-2xl shadow-sm">
+                        <div className="w-14 h-14 bg-primary/10 text-primary rounded-[1.2rem] border-b-4 border-primary/20 flex items-center justify-center font-black text-2xl shadow-sm">
                           {member.name[0]}
                         </div>
                         <div>
@@ -226,7 +226,7 @@ export default function StudentTeamQuests() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex space-x-2 bg-white p-3 rounded-2xl shadow-sm border-2 border-gray-100">
+                      <div className="flex space-x-2 bg-paper p-3 rounded-card shadow-sm border-2 border-gray-100">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <motion.button
                             whileHover={{ scale: 1.2, rotate: 10 }}
@@ -250,7 +250,7 @@ export default function StudentTeamQuests() {
                       value={reviewComments[member.id] || ''}
                       onChange={(e) => handleCommentChange(member.id, e.target.value)}
                       placeholder="写下对该组员的评价或建议（选填）..."
-                      className="w-full p-5 text-lg font-medium rounded-[1.5rem] border-4 border-gray-200 focus:ring-0 focus:border-purple-400 outline-none resize-none bg-white shadow-inner transition-colors"
+                      className="w-full p-5 text-lg font-medium rounded-card border-4 border-border focus:ring-0 focus:border-ring outline-none resize-none bg-paper shadow-inner transition-colors"
                       rows={2}
                     />
                   </motion.div>
@@ -262,7 +262,7 @@ export default function StudentTeamQuests() {
                 whileTap={{ scale: 0.98 }}
                 onClick={submitPeerReview}
                 disabled={reviewMutation.isPending}
-                className="mt-8 w-full py-5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-[2rem] font-black text-2xl border-b-8 border-indigo-700 shadow-xl flex items-center justify-center transition-all disabled:opacity-50"
+                className="mt-8 w-full py-5 bg-primary hover:bg-primary/80 text-white rounded-panel font-black text-2xl border-b-8 border-primary/70 shadow-raised flex items-center justify-center transition-all disabled:opacity-50"
               >
                 <MessageCircle className="w-8 h-8 mr-3" />
                 {reviewMutation.isPending ? '提交中...' : '提交互评'}
@@ -275,10 +275,10 @@ export default function StudentTeamQuests() {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-6"
           >
-            <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-8 border-green-100 sticky top-8">
+            <div className="bg-paper rounded-panel p-8 shadow-raised border-8 border-success/20 sticky top-8">
               <h3 className="text-2xl font-black text-gray-900 mb-6 flex items-center">
-                <div className="bg-green-100 p-3 rounded-xl mr-3 shadow-inner">
-                  <Users className="w-8 h-8 text-green-500" />
+                <div className="bg-success/20 p-3 rounded-card mr-3 shadow-inner">
+                  <Users className="w-8 h-8 text-success" />
                 </div>
                 我的团队
               </h3>
@@ -289,14 +289,14 @@ export default function StudentTeamQuests() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
                     key={member.id}
-                    className="flex items-center justify-between p-4 rounded-[1.5rem] bg-gray-50 border-4 border-gray-100 hover:bg-white hover:border-green-200 hover:shadow-md transition-all"
+                    className="flex items-center justify-between p-4 rounded-card bg-gray-50 border-4 border-gray-100 hover:bg-paper hover:border-green-200 hover:shadow-md transition-all"
                   >
                     <div className="flex items-center space-x-4">
                       <div
                         className={`w-12 h-12 rounded-[1rem] border-b-4 flex items-center justify-center font-black text-xl shadow-sm ${
                           member.id === myStudentId
                             ? 'bg-blue-100 text-blue-600 border-blue-200'
-                            : 'bg-white text-gray-600 border-gray-200'
+                            : 'bg-paper text-gray-600 border-gray-200'
                         }`}
                       >
                         {member.name[0]}

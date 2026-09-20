@@ -55,16 +55,16 @@ export default function StudentGuildPK() {
     fetchRankings();
   }, [studentClassId]);
 
-  if (loading) return <div className="text-center py-20 font-black text-2xl text-slate-400 animate-pulse">魔法雷达扫描中...</div>;
+  if (loading) return <div className="text-center py-20 font-black text-2xl text-ink-3 animate-pulse">魔法雷达扫描中...</div>;
 
   if (!isEnabled) {
     return (
-      <div className="max-w-4xl mx-auto text-center py-32 bg-white rounded-[3rem] border-8 border-dashed border-slate-200 shadow-sm">
-        <div className="inline-flex items-center justify-center p-8 bg-slate-100 rounded-full mb-6 shadow-inner">
-          <ShieldAlert className="h-16 w-16 text-slate-400" />
+      <div className="max-w-4xl mx-auto text-center py-32 bg-paper rounded-[3rem] border-8 border-dashed border-border shadow-sm">
+        <div className="inline-flex items-center justify-center p-8 bg-muted rounded-full mb-6 shadow-inner">
+          <ShieldAlert className="h-16 w-16 text-ink-3" />
         </div>
-        <p className="text-3xl font-black text-slate-500">魔法小队 PK 暂未开启</p>
-        <p className="text-xl font-bold text-slate-400 mt-4">请等待老师开启全班公会战</p>
+        <p className="text-3xl font-black text-ink-3">魔法小队 PK 暂未开启</p>
+        <p className="text-xl font-bold text-ink-3 mt-4">请等待老师开启全班公会战</p>
       </div>
     );
   }
@@ -77,7 +77,7 @@ export default function StudentGuildPK() {
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-gradient-to-r from-red-600 to-orange-600 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden text-white"
+        className="bg-gradient-to-r from-red-600 to-orange-600 rounded-panel p-10 shadow-raised relative overflow-hidden text-white"
       >
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-30 mix-blend-overlay"></div>
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-yellow-400 rounded-full mix-blend-screen filter blur-[80px] opacity-40"></div>
@@ -90,7 +90,7 @@ export default function StudentGuildPK() {
             </h2>
             <p className="text-lg text-red-100 font-medium">全班小队集结！谁将夺得最强公会的荣耀？</p>
           </div>
-          <div className="mt-6 md:mt-0 bg-white/20 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/30 text-center">
+          <div className="mt-6 md:mt-0 bg-paper/20 backdrop-blur-md px-6 py-4 rounded-card border border-white/30 text-center">
             <div className="text-sm font-bold mb-1 opacity-90">参战小队</div>
             <div className="text-4xl font-black flex items-center justify-center">
               {rankings.length}
@@ -100,9 +100,9 @@ export default function StudentGuildPK() {
       </motion.div>
 
       {/* Rankings */}
-      <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border-4 border-slate-50">
+      <div className="bg-paper rounded-panel p-8 shadow-raised border-4 border-slate-50">
         {rankings.length === 0 ? (
-          <div className="text-center py-16 text-slate-400 flex flex-col items-center">
+          <div className="text-center py-16 text-ink-3 flex flex-col items-center">
             <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
             <p className="text-xl font-bold">班级还没有创建任何魔法小队哦！</p>
           </div>
@@ -120,10 +120,10 @@ export default function StudentGuildPK() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
                   key={rank.id}
-                  className={`relative p-6 rounded-2xl border-2 transition-all flex items-center gap-6 ${
+                  className={`relative p-6 rounded-card border-2 transition-all flex items-center gap-6 ${
                     isFirst 
                       ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-300 shadow-[0_0_20px_rgba(253,224,71,0.3)]' 
-                      : 'bg-white border-slate-100 hover:border-slate-200'
+                      : 'bg-paper border-border hover:border-border'
                   }`}
                 >
                   {/* Rank Number */}
@@ -131,28 +131,28 @@ export default function StudentGuildPK() {
                     {isFirst ? (
                       <Crown className="w-12 h-12 text-yellow-500 drop-shadow-md animate-bounce" />
                     ) : isSecond ? (
-                      <Medal className="w-10 h-10 text-slate-300 drop-shadow-sm" />
+                      <Medal className="w-10 h-10 text-ink-3/70 drop-shadow-sm" />
                     ) : isThird ? (
                       <Medal className="w-10 h-10 text-orange-400 drop-shadow-sm" />
                     ) : (
-                      <span className="text-2xl font-black text-slate-300">{index + 1}</span>
+                      <span className="text-2xl font-black text-ink-3/70">{index + 1}</span>
                     )}
                   </div>
 
                   {/* Name and Progress */}
                   <div className="flex-1">
                     <div className="flex justify-between items-end mb-2">
-                      <h3 className={`text-xl font-black ${isFirst ? 'text-yellow-700' : 'text-slate-700'}`}>
+                      <h3 className={`text-xl font-black ${isFirst ? 'text-yellow-700' : 'text-ink-2'}`}>
                         {rank.name}
                       </h3>
-                      <div className={`text-2xl font-black flex items-baseline ${isFirst ? 'text-amber-600' : 'text-slate-600'}`}>
-                        <Flame className={`w-5 h-5 mr-1 ${isFirst ? 'text-red-500 animate-pulse' : 'text-orange-400'}`} />
+                      <div className={`text-2xl font-black flex items-baseline ${isFirst ? 'text-warning' : 'text-ink-2'}`}>
+                        <Flame className={`w-5 h-5 mr-1 ${isFirst ? 'text-destructive animate-pulse' : 'text-orange-400'}`} />
                         {rank.total_score}
-                        <span className="text-sm font-bold text-slate-400 ml-1">战力</span>
+                        <span className="text-sm font-bold text-ink-3 ml-1">战力</span>
                       </div>
                     </div>
 
-                    <div className={`h-4 w-full rounded-full overflow-hidden shadow-inner ${isFirst ? 'bg-yellow-200/50' : 'bg-slate-100'}`}>
+                    <div className={`h-4 w-full rounded-full overflow-hidden shadow-inner ${isFirst ? 'bg-yellow-200/50' : 'bg-muted'}`}>
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
@@ -161,7 +161,7 @@ export default function StudentGuildPK() {
                           isFirst ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 
                           isSecond ? 'bg-gradient-to-r from-slate-300 to-slate-400' :
                           isThird ? 'bg-gradient-to-r from-orange-300 to-orange-400' :
-                          'bg-gradient-to-r from-blue-400 to-indigo-400'
+                          'bg-gradient-to-r from-info to-primary'
                         }`}
                       >
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-20"></div>

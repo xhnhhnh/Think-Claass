@@ -9,7 +9,7 @@ export function DroppableGroup({ groupId, groupName, count, average, children }:
   return (
     <div 
       ref={setNodeRef} 
-      className={`p-6 rounded-3xl border border-white/50 backdrop-blur-md transition-all duration-300 ${
+      className={`p-6 rounded-panel border border-white/50 backdrop-blur-md transition-all duration-300 ${
         isOver ? 'bg-primary/5 border-primary/30 shadow-inner' : 'bg-paper/80 backdrop-blur-xl/40 shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:bg-paper/80 backdrop-blur-xl/60'
       }`}
     >

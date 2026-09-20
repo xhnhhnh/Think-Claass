@@ -56,7 +56,7 @@ export default function StudentCertificates() {
       <motion.div 
         initial={{ y: -20 }}
         animate={{ y: 0 }}
-        className="bg-white rounded-[2rem] p-10 shadow-xl border-b-8 border-yellow-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
+        className="bg-paper rounded-panel p-10 shadow-raised border-b-8 border-yellow-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-400 opacity-10 pointer-events-none"></div>
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
@@ -76,7 +76,7 @@ export default function StudentCertificates() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="col-span-full bg-white rounded-[3rem] p-16 text-center border-8 border-dashed border-gray-200 shadow-sm"
+            className="col-span-full bg-paper rounded-[3rem] p-16 text-center border-8 border-dashed border-gray-200 shadow-sm"
           >
             <div className="inline-flex items-center justify-center p-8 bg-gray-100 rounded-full mb-6 shadow-inner">
               <Trophy className="h-16 w-16 text-gray-400" />
@@ -92,13 +92,13 @@ export default function StudentCertificates() {
               transition={{ delay: index * 0.1, type: "spring", stiffness: 200 }}
               whileHover={{ scale: 1.05, rotate: index % 2 === 0 ? 2 : -2 }}
               key={cert.id} 
-              className="bg-white rounded-[2rem] shadow-2xl overflow-hidden relative group border-4 border-yellow-300 transform transition-transform"
+              className="bg-paper rounded-panel shadow-raised overflow-hidden relative group border-4 border-yellow-300 transform transition-transform"
             >
               {/* 金边质感背景 */}
               <div className="absolute inset-0 bg-gradient-to-br from-yellow-100 via-orange-50 to-yellow-200 opacity-80"></div>
               
               <div className="relative z-10 p-8 flex flex-col h-full items-center text-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-6 shadow-lg border-4 border-white">
+                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-6 shadow-raised border-4 border-white">
                   <Award className="w-12 h-12 text-white" />
                 </div>
                 

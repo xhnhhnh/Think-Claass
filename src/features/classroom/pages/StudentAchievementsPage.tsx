@@ -20,9 +20,9 @@ const ACHIEVEMENT_ICONS: Record<string, any> = {
 };
 
 const ACHIEVEMENT_COLORS: Record<string, string> = {
-  '初出茅庐': 'from-blue-400 to-indigo-500',
+  '初出茅庐': 'from-info to-primary',
   '自律骑士': 'from-green-400 to-emerald-600',
-  '非酋附体': 'from-purple-400 to-fuchsia-600',
+  '非酋附体': 'from-accent-foreground to-destructive',
   'DEFAULT': 'from-amber-400 to-orange-500'
 };
 
@@ -69,10 +69,10 @@ export default function StudentAchievements() {
       <motion.div 
         initial={{ y: -20 }}
         animate={{ y: 0 }}
-        className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden border border-slate-700"
+        className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-panel p-10 shadow-raised relative overflow-hidden border border-slate-700"
       >
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 mix-blend-overlay"></div>
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-amber-500 rounded-full mix-blend-screen filter blur-[100px] opacity-40"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-warning rounded-full mix-blend-screen filter blur-[100px] opacity-40"></div>
         
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between text-center md:text-left">
           <div>
@@ -80,12 +80,12 @@ export default function StudentAchievements() {
               <Trophy className="h-10 w-10 mr-4 text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
               我的荣誉墙
             </h2>
-            <p className="text-lg text-slate-300 font-medium">收集所有专属徽章，见证你的成长足迹</p>
+            <p className="text-lg text-ink-3/70 font-medium">收集所有专属徽章，见证你的成长足迹</p>
           </div>
-          <div className="mt-6 md:mt-0 bg-slate-800/50 backdrop-blur-md px-6 py-4 rounded-2xl border border-slate-600/50">
-            <div className="text-sm text-slate-400 font-bold mb-1">已解锁成就</div>
+          <div className="mt-6 md:mt-0 bg-muted/50 backdrop-blur-md px-6 py-4 rounded-card border border-slate-600/50">
+            <div className="text-sm text-ink-3 font-bold mb-1">已解锁成就</div>
             <div className="text-3xl font-black text-amber-400">
-              {achievements.length} <span className="text-lg text-slate-500">/ {KNOWN_ACHIEVEMENTS.length}</span>
+              {achievements.length} <span className="text-lg text-ink-3">/ {KNOWN_ACHIEVEMENTS.length}</span>
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function StudentAchievements() {
 
       {/* Grid */}
       {loading ? (
-        <div className="text-center py-20 font-black text-2xl text-slate-400 animate-pulse">加载中...</div>
+        <div className="text-center py-20 font-black text-2xl text-ink-3 animate-pulse">加载中...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {KNOWN_ACHIEVEMENTS.map((known, index) => {
@@ -108,10 +108,10 @@ export default function StudentAchievements() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1, type: "spring", bounce: 0.4 }}
                 key={known.name}
-                className={`relative rounded-[2rem] p-6 overflow-hidden transition-all duration-500 border-2 ${
+                className={`relative rounded-panel p-6 overflow-hidden transition-all duration-500 border-2 ${
                   isUnlocked 
-                    ? 'bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)] hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] border-slate-100' 
-                    : 'bg-slate-50 shadow-inner border-slate-200/50 grayscale opacity-60'
+                    ? 'bg-paper shadow-[0_10px_40px_rgba(0,0,0,0.08)] hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] border-border' 
+                    : 'bg-muted/50 shadow-inner border-border/50 grayscale opacity-60'
                 }`}
               >
                 {/* Shine effect for unlocked */}
@@ -124,27 +124,27 @@ export default function StudentAchievements() {
                     isUnlocked ? 'shadow-[0_10px_20px_rgba(0,0,0,0.1)]' : 'shadow-inner bg-slate-200'
                   }`}>
                     {isUnlocked && (
-                      <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${colorGradient} animate-spin-slow`} style={{ animationDuration: '10s' }}></div>
+                      <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${colorGradient} animate-[spin_10s_linear_infinite]`}></div>
                     )}
-                    <div className={`absolute inset-1 rounded-full flex items-center justify-center ${isUnlocked ? 'bg-white' : 'bg-transparent'}`}>
-                      <Icon className={`w-12 h-12 ${isUnlocked ? 'text-slate-800' : 'text-slate-400'}`} />
+                    <div className={`absolute inset-1 rounded-full flex items-center justify-center ${isUnlocked ? 'bg-paper' : 'bg-transparent'}`}>
+                      <Icon className={`w-12 h-12 ${isUnlocked ? 'text-ink-1' : 'text-ink-3'}`} />
                     </div>
                   </div>
                   
-                  <h3 className={`text-2xl font-black mb-2 ${isUnlocked ? 'text-slate-800' : 'text-slate-500'}`}>
+                  <h3 className={`text-2xl font-black mb-2 ${isUnlocked ? 'text-ink-1' : 'text-ink-3'}`}>
                     {known.name}
                   </h3>
-                  <p className={`text-sm font-medium leading-relaxed ${isUnlocked ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <p className={`text-sm font-medium leading-relaxed ${isUnlocked ? 'text-ink-3' : 'text-ink-3'}`}>
                     {known.description}
                   </p>
 
                   {isUnlocked && unlockedData && (
-                    <div className="mt-6 px-4 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-400 border border-slate-100">
+                    <div className="mt-6 px-4 py-2 bg-muted/50 rounded-card text-xs font-bold text-ink-3 border border-border">
                       解锁于: {new Date(unlockedData.unlocked_at).toLocaleDateString()}
                     </div>
                   )}
                   {!isUnlocked && (
-                    <div className="mt-6 px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-400 border border-slate-200/50 flex items-center">
+                    <div className="mt-6 px-4 py-2 bg-muted rounded-card text-xs font-bold text-ink-3 border border-border/50 flex items-center">
                       未解锁
                     </div>
                   )}

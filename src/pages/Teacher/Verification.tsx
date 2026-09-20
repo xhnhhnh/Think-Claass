@@ -75,7 +75,7 @@ export default function TeacherVerification() {
       </div>
 
       {result && (
-        <div className="bg-primary/5 border-2 border-primary/20 p-8 rounded-3xl shadow-card animate-slide-in-bottom">
+        <div className="bg-primary/5 border-2 border-primary/20 p-8 rounded-panel shadow-card animate-slide-in-bottom">
           <div className="flex items-center justify-center mb-6">
             <div className="bg-gradient-to-r from-primary to-cyan-500 rounded-full p-2 mr-3">
               <CheckCircle className="w-6 h-6 text-white" />

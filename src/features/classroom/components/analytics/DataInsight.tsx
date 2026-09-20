@@ -77,7 +77,7 @@ function MetricCard({ item, surface }: { item: MetricCardItem; surface: InsightS
 
   return (
     <div className={cn('flex items-center', metricSurfaceClasses[surface])}>
-      <div className={cn('mr-4 flex size-12 shrink-0 items-center justify-center rounded-2xl shadow-inner', tone.icon)}>
+      <div className={cn('mr-4 flex size-12 shrink-0 items-center justify-center rounded-card shadow-inner', tone.icon)}>
         <Icon className="size-6" />
       </div>
       <div className="min-w-0">
@@ -130,7 +130,7 @@ export function DataPanel({
 }
 
 export function EmptyData({ text }: { text: ReactNode }) {
-  return <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 p-6 text-center text-sm text-slate-500">{text}</div>;
+  return <div className="rounded-card border border-dashed border-slate-200 bg-white/50 p-6 text-center text-sm text-slate-500">{text}</div>;
 }
 
 export function HorizontalBarList({
@@ -155,7 +155,7 @@ export function HorizontalBarList({
             <div className="truncate text-right text-sm font-medium text-slate-600">{item.label}</div>
             <div className="flex min-w-0 items-center gap-3">
               <div
-                className={cn('h-6 rounded-2xl bg-gradient-to-r shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all duration-500 ease-out', toneClass.bar)}
+                className={cn('h-6 rounded-card bg-gradient-to-r shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all duration-500 ease-out', toneClass.bar)}
                 style={{ width, minWidth: item.value > 0 ? '2rem' : '0' }}
                 aria-label={`${item.label}: ${item.value}${unit ?? ''}`}
               />
@@ -194,7 +194,7 @@ export function KeyValueRows({
       {rows.map((row) => (
         <div key={String(row.label)} className="flex items-center justify-between gap-4">
           <span>{row.label}</span>
-          <span className={cn('font-bold text-indigo-600', row.valueClassName)}>{row.value}</span>
+          <span className={cn('font-bold text-primary', row.valueClassName)}>{row.value}</span>
         </div>
       ))}
     </div>
