@@ -205,7 +205,10 @@ export function initDb() {
   const titleExists = db.prepare("SELECT key FROM settings WHERE key = 'site_title'").get();
   if (!titleExists) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('site_title', 'Think-Class')").run();
-    db.prepare("INSERT INTO settings (key, value) VALUES ('site_favicon', '/favicon.svg')").run();
+    // `site_favicon` is deliberately empty: an empty value means "use the built-in mark", which
+    // `SiteSettingsBootstrap` renders from `src/lib/brandIcon.ts`. It used to seed '/favicon.svg',
+    // a file that no longer exists.
+    db.prepare("INSERT INTO settings (key, value) VALUES ('site_favicon', '')").run();
   }
 
   // Add allowTeacherRegExists

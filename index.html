@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      No <link rel="icon"> here on purpose: the mark is defined once, in src/lib/brandIcon.ts, and
+      SiteSettingsBootstrap points the tab at it (or at the superadmin's uploaded site_favicon).
+      A static link would be a second copy of the same artwork.
+    -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Think-Class</title>
     <script type="module">

@@ -37,7 +37,7 @@ describe('AdminSettings', () => {
   const baseSettings = {
     ...DEFAULT_SYSTEM_SETTINGS,
     site_title: 'Think-Class',
-    site_favicon: '/favicon.svg',
+    site_favicon: '',
     allow_teacher_registration: '1',
     revenue_enabled: '0',
     revenue_mode: 'activation_code',
