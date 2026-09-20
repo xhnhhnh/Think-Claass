@@ -272,6 +272,46 @@ download_release_zip() {
 
     log "下载部署包..."
     curl -fL --retry 3 --retry-delay 2 -o "$output" "$url"
+
+    verify_release_zip "$url" "$output"
+}
+
+# Verify the archive against the SHA256SUMS published beside it, and refuse to continue without a
+# match.
+#
+# Until the version-management round this function did not exist: `update.sh` downloaded a bare zip
+# from `releases/latest` and unpacked it, then ran the scripts inside it - on a deployment, as root,
+# with no way to tell a tampered or truncated download from a good one (docs/versioning.md section 6).
+# The release pipeline now publishes `SHA256SUMS` next to `think-class-release.zip`, and a missing
+# checksum file is a hard failure rather than a warning: an unverifiable update is not an update.
+verify_release_zip() {
+    local url="$1"
+    local archive="$2"
+    local sums_url="${url%/*}/SHA256SUMS"
+    local sums_file="${archive}.SHA256SUMS"
+    local expected actual
+
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        die "缺少 sha256sum：无法校验发布包完整性，已中止更新。"
+    fi
+
+    log "校验发布包完整性..."
+    if ! curl -fsSL --retry 3 --retry-delay 2 -o "$sums_file" "$sums_url"; then
+        die "发布包缺少 SHA256SUMS（${sums_url}）：拒绝在无法校验完整性的情况下更新。"
+    fi
+
+    expected=$(awk -v name="$(basename "$archive")" '$2 == name || $2 == "*" name { print $1 }' "$sums_file" | head -n 1)
+    if [ -z "$expected" ]; then
+        die "SHA256SUMS 中没有 $(basename "$archive") 的条目：拒绝更新。"
+    fi
+
+    actual=$(sha256sum "$archive" | awk '{ print $1 }')
+    if [ "$expected" != "$actual" ]; then
+        die "发布包校验失败：期望 ${expected}，实际 ${actual}。已中止更新，现场未被改动。"
+    fi
+
+    rm -f "$sums_file"
+    log "校验通过（sha256 ${actual}）"
 }
 
 restart_pm2_service() {

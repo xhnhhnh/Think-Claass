@@ -24,6 +24,14 @@ prepare_release_dir() {
 
     cp -r dist "$RELEASE_DIR/"
     cp -r api "$RELEASE_DIR/"
+    # The plugin architecture is runtime data, not build output: `api/server.ts` resolves
+    # `@thinkclass/*` through tsconfig paths, and the host discovers plugins by reading
+    # `plugins/<slug>/plugin.json` at boot. A package without these two directories boots a server
+    # with no kernel and no domains - which is exactly what this script shipped until the
+    # version-management round caught it (docs/versioning.md section 9). Guardrail G19 asserts both
+    # stay in this list, because "the release is missing the architecture" is not a subtle failure.
+    cp -r packages "$RELEASE_DIR/"
+    cp -r plugins "$RELEASE_DIR/"
     [ -d prisma ] && cp -r prisma "$RELEASE_DIR/"
     cp package.json package-lock.json tsconfig.json "$RELEASE_DIR/"
     cp install.sh update.sh "$RELEASE_DIR/"

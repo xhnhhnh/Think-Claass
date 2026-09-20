@@ -1,0 +1,118 @@
+# Release pipeline: a tag becomes a downloadable, verifiable artifact.
+#
+# Why this file exists at all: before the version-management round the repository had no workflow,
+# every GitHub Release had an empty `assets` array, and the deployed instances' updater downloaded
+# `releases/latest/download/think-class-release.zip` - which therefore 404'd on every attempt. The
+# auto-update feature had never once worked, and nothing failed when it didn't (docs/versioning.md
+# section 9). A tag push is now the single release event, and this workflow is what turns it into
+# something a deployment can actually install.
+#
+# The gates run here rather than only on the developer's machine because the artifact must be built
+# from a commit that passed them: hand-packaging cannot promise that, which is how pack.sh managed to
+# ship a package that omitted `packages/` and `plugins/` altogether.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          # The version gate below inspects tags, and `gh release create` needs the full history.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      - name: API surface must not drift
+        run: npm run api:surface -- --check
+
+      - name: Guardrails
+        run: npm run guard
+
+      # The full suite, including the suites that boot a real plugin host and a real server.
+      - name: Test
+        run: npm test
+
+      # `pack.sh` builds the frontend itself (`npm run build`) and then assembles the release tree.
+      # It is the same script a maintainer runs locally, so there is one definition of "what a
+      # release contains" - including `packages/` and `plugins/`, which G19 keeps in the list.
+      - name: Build the release archive
+        run: bash pack.sh
+
+      - name: Checksums
+        run: sha256sum think-class-release.zip > SHA256SUMS
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          prerelease=""
+          case "$tag" in
+            *-rc.*) prerelease="--prerelease" ;;
+          esac
+
+          # Release notes: the CHANGELOG section for this version when it exists, otherwise a
+          # pointer to it. An empty release body is worse than a short one.
+          notes_file="$(mktemp)"
+          node - "$tag" > "$notes_file" <<'NODE'
+          const fs = require('node:fs');
+          const tag = process.argv[2];
+          const version = tag.replace(/^v/, '');
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const start = changelog.indexOf(`## [${version}]`);
+          if (start === -1) {
+            console.log(`Release ${version}. See CHANGELOG.md for what changed.`);
+            process.exit(0);
+          }
+          const rest = changelog.slice(start);
+          const next = rest.indexOf('\n## [', 1);
+          console.log(next === -1 ? rest.trim() : rest.slice(0, next).trim());
+          NODE
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" think-class-release.zip SHA256SUMS --clobber
+            gh release edit "$tag" --notes-file "$notes_file" $prerelease
+          else
+            gh release create "$tag" think-class-release.zip SHA256SUMS \
+              --title "Think-Class $tag" \
+              --notes-file "$notes_file" \
+              $prerelease
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "### Release ${GITHUB_REF_NAME}"
+            echo
+            echo "| artifact | bytes |"
+            echo "| --- | --- |"
+            echo "| think-class-release.zip | $(stat -c %s think-class-release.zip) |"
+            echo "| SHA256SUMS | $(stat -c %s SHA256SUMS) |"
+            echo
+            cat SHA256SUMS
+          } >> "$GITHUB_STEP_SUMMARY"
