@@ -17,7 +17,7 @@
 | 项 | 说明 |
 | --- | --- |
 | 小程序主体 | 已注册小程序并拿到 AppID。**个人主体也可以走这条路**：官方 FAQ 明确「微信云托管面向全用户，业务项目有前后端分离场景需求，都可以使用」，同时「必须先有微信小程序/公众号才可以开通微信云托管」——所以注册小程序账号是这条路的第一步（[云托管常见问题](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/info/faq.html)）。注意主体影响的是**类目**而不是云托管：个人主体可选类目更窄，见 [00 竞赛清单](00-competition-checklist.md) |
-| 微信云托管 | 用同一个微信账号/主体开通云托管，创建（或复用）一个**环境** |
+| 微信云托管 | 用同一个微信账号/主体开通云托管，创建（或复用）一个**环境**。开通这一步要求小程序**已绑定手机号**，否则报 `-601009` —— 补填路径见 [40 文档 0.1](40-troubleshooting.md#01-云托管开不了-601009-该小程序没有绑定手机号) |
 | 本地 Docker | **不是必须的**：没有本地 Docker 就走「绑定 Git 仓库」，见步骤 1 的 5 种来源对比 |
 | `ENCRYPTION_KEY` | 32 字节，先生成并**离线备份**：`node -e "process.stdout.write(require('node:crypto').randomBytes(16).toString('hex'))"` |
 | 超管账号 | `SUPERADMIN_USERNAME` / `SUPERADMIN_PASSWORD`：应用没有默认账号，缺一个就拒绝启动 |
