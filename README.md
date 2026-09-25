@@ -333,6 +333,7 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 
 | Document | What it is |
 | --- | --- |
+| [README.zh-CN.md](README.zh-CN.md) | This entry document in Chinese — same sections, same technical detail; the two are kept in step |
 | [docs/migration/HANDOFF.md](docs/migration/HANDOFF.md) | The authoritative entry point for the architecture refactor: current state, the next objective as acceptance criteria, guardrails, known debt |
 | [docs/migration/BOOTSTRAP_PROMPT.md](docs/migration/BOOTSTRAP_PROMPT.md) | The prompt to paste into a fresh session to continue that refactor |
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | Phase-by-phase records: baseline freeze, kernel, contracts and auth, plugin runtime, capabilities and domains |

@@ -308,6 +308,7 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 
 | 文档 | 它是什么 |
 | --- | --- |
+| [README.md](README.md) | 本文档的英文原版 —— 同结构、同技术细节，两份保持同步 |
 | [docs/migration/HANDOFF.md](docs/migration/HANDOFF.md) | 架构重构的权威入口：当前状态、作为验收标准的下一轮目标、护栏、已知债务 |
 | [docs/migration/BOOTSTRAP_PROMPT.md](docs/migration/BOOTSTRAP_PROMPT.md) | 粘进新会话以继续该重构的提示词 |
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | 逐阶段记录：基线冻结、内核、契约与认证、插件运行时、能力与域 |
