@@ -7,9 +7,10 @@
 
 | 文档 | 用途 | 什么时候读 |
 | --- | --- | --- |
+| **[05-action-plan.md](05-action-plan.md)** | **行动手册**：个人主体 / 未成年（家长做主体）/ 无服务器 / 云托管这条路线的逐步清单，含一页速查与红线 | **从这里开始**（如果你就是这种情况） |
 | 本文档 | 两条部署路线的决策、共同前置条件 | 动手之前 |
 | [00-competition-checklist.md](00-competition-checklist.md) | 竞赛硬约束、时间线、需要准备的材料（主体/类目/隐私指引） | 决定参赛的第一天 |
-| [10-deploy-cloudrun.md](10-deploy-cloudrun.md) | **Track A（推荐）**：微信云托管部署，无服务器、无域名、免备案 | 没有已备案域名，或想最快跑通 |
+| [10-deploy-cloudrun.md](10-deploy-cloudrun.md) | **Track A（推荐）**：微信云托管部署，无服务器、无域名、免**域名**备案 | 没有已备案域名，或想最快跑通 |
 | [20-deploy-selfhosted.md](20-deploy-selfhosted.md) | **Track B**：自有服务器（`install.sh` + Nginx + certbot HTTPS） | 已有服务器和备案域名 |
 | [30-release-miniprogram.md](30-release-miniprogram.md) | 小程序后台配置、真机预览、上传、提交审核、发布、回滚 | 后端已经能被小程序访问之后 |
 | [40-troubleshooting.md](40-troubleshooting.md) | 排错清单：域名/证书/TLS/并发/会话/存储，每条给症状→原因→命令 | 出问题的时候 |
