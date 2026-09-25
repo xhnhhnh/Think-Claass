@@ -5,6 +5,12 @@ import { defineConfig } from 'vitest/config';
  * Backend test project: the kernel, the plugin runtime, and the plugins themselves.
  * Node environment, no DOM, no MSW.
  *
+ * `tests/miniprogram/**` rides along rather than becoming a fifth project: the mini program client
+ * is TypeScript whose only platform dependency is a handful of `wx` globals (`tests/miniprogram/
+ * helpers/fake-wx.ts` fakes exactly those), so it needs the same node environment and nothing else.
+ * That keeps `npm test` at four projects - the count `README.md` documents - while still running the
+ * client's envelope, 401-recovery and tab-gating logic in CI.
+ *
  * Aliases mirror the root tsconfig `paths` so tests resolve workspace packages
  * exactly as the runtime does (`tsx` honours tsconfig paths, and the production
  * esbuild bundle resolves them too).
@@ -26,7 +32,7 @@ export default defineConfig({
   test: {
     name: 'backend',
     environment: 'node',
-    include: ['tests/kernel/**/*.test.ts', 'tests/plugins/**/*.test.ts'],
+    include: ['tests/kernel/**/*.test.ts', 'tests/plugins/**/*.test.ts', 'tests/miniprogram/**/*.test.ts'],
     globals: false,
     testTimeout: 30_000,
     /**
