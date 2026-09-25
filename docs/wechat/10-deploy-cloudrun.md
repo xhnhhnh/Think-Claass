@@ -118,8 +118,10 @@ curl -s http://127.0.0.1:3001/api/health
    - **目标目录**：留空（根目录）。构建上下文必须是仓库根，`COPY package.json …` 才找得到。
 2. **拉取镜像**：如果你（或队友）本地有 Docker，`docker build` 后推到镜像仓库再拉取。
    注意：这一路**不产生构建用量**，但要在本地编译，镜像约几百 MB。
-3. **手动上传代码包**：**不要选**。官方限制「大小不能超过 2 MiB」，而本仓库的源码包远超这个数
-   （只算 `changes.patch` 就 445 KB，加上 `miniprogram/`、`docs/`、`后端接口说明/` 轻松过 10 MB）。
+3. **手动上传代码包**：**不要选**。官方限制「大小不能超过 2 MiB」，而本仓库源码包**实测 86.86 MiB**
+   （`Get-ChildItem` + `Compress-Archive` 排除 `node_modules/.git/dist/.tmp` 后压出来），是上限的 **43 倍**。
+   大头是 `src/assets/pets/**`：6 只宠物 × 6 个成长阶段 = 36 张 PNG，单张最大 4 MB，合计约 85 MB，
+   由 `src/features/pet/petConfig.ts` 引用，构建前端时必需，不能删。
 
 > 官方建议先在本地 Docker 跑通再上线。没有本地 Docker 时，第一次云端构建就是你的调试环节 ——
 > 构建日志会实时显示在控制台，失败时先看日志里最后几行（最常见是 `npm ci` 或 `tsx: not found`）。
