@@ -32,16 +32,25 @@ export const CLOUD_SERVICE = 'think-class'   // 服务名称，作为 X-WX-SERVI
 - 详细说明见 [10-deploy-cloudrun.md 第 8 节](10-deploy-cloudrun.md#8-小程序侧wxcloudcallcontainer无需配置通讯域名)（Track A）
   或 [20-deploy-selfhosted.md](20-deploy-selfhosted.md)（Track B）。
 
-### 0.2 `miniprogram/project.config.json` —— AppID
+### 0.2 `miniprogram/project.config.json` —— AppID 与 AppSecret
 
-仓库里的值是占位符：
+仓库里已经填入本项目的 AppID：
 
 ```json
-"appid": "touristappid"
+"appid": "wx89082e6534447585"
 ```
 
-导入开发者工具时填你自己的 AppID，或直接把这一行改掉。用「游客 AppID」跑不出真实登录
-（`wx.login` 拿不到有意义的 code）。
+服务端要同一对凭据：`WECHAT_APPID=wx89082e6534447585`，`WECHAT_SECRET=` 取该 AppID 的 AppSecret
+（公众平台 → 开发 → 开发设置 → 小程序代码上传 / 开发者 ID）。三个边界说清楚：
+
+- **AppID 不是密钥**，它可以出现在前端、请求 referer 和本仓库里（上面这一行就是）。
+- **AppSecret 是密钥**：只填在云托管的环境变量或服务器 `.env`。不要贴进聊天、issue、文档或仓库；
+  一旦贴过就当它已泄露，去后台重置。
+- **上传密钥**（`miniprogram-ci` 用的 `.key` 文件）同样是密钥，放在仓库外，见
+  [`scripts/wechat/upload.mjs`](../../scripts/wechat/upload.mjs) 的说明。
+
+用「游客 AppID / 测试号」跑不出真实登录：`wx.login` 换到的 openid 属于另一个小程序，服务端
+`code2session` 也换不出你这个 AppID 下的 openid。
 
 同一个文件里还有 `"urlCheck": false`：它和工具里那个「不校验合法域名」勾选是同一件事，
 **只影响开发者工具**，真机与线上版本一律按真实规则校验（见
@@ -124,8 +133,8 @@ export const CLOUD_SERVICE = 'think-class'   // 服务名称，作为 X-WX-SERVI
 
 ## 2. 微信开发者工具
 
-1. **导入项目**：目录选仓库里的 `miniprogram/`，AppID 填你自己的（工程里现在是占位符 `touristappid`，
-   见第 0.2 节）。工程用 TypeScript 编译插件（`useCompilerPlugins: ["typescript"]`），
+1. **导入项目**：目录选仓库里的 `miniprogram/`，AppID 用工程里已填的 `wx89082e6534447585`
+   （见第 0.2 节）。工程用 TypeScript 编译插件（`useCompilerPlugins: ["typescript"]`），
    首次编译会慢一点，属于正常。
 2. **本地调试**：详情 → 本地设置里可以勾选「不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书」。
    这个勾**只对开发者工具有效**，真机与线上版本一律按真实规则校验 —— 这也是"打开调试能请求、关掉就失败"的原因，
@@ -287,7 +296,7 @@ curl -s https://<你的域名>/api/health        # Track B
 
 - [ ] 后端 `/api/health` 正常，且重启后数据仍在（[10](10-deploy-cloudrun.md) / [20](20-deploy-selfhosted.md) 的验证步骤）
 - [ ] `miniprogram/config/index.ts` 的 `BASE_URL` / `TRANSPORT` / `CLOUD_ENV` / `CLOUD_SERVICE` 指向正确的后端，`MOCK.enabled` 为 `false`
-- [ ] `project.config.json` 的 `appid` 是自己的 AppID（不是 `touristappid`）
+- [ ] `project.config.json` 的 `appid` 是本项目的 AppID `wx89082e6534447585`（不是 `touristappid`／测试号）
 - [ ] 服务器域名（Track B）已包含 `request`，或已改用 `callContainer`（Track A）
 - [ ] 生产环境已设 `NODE_ENV=production`，且**没有**设 `WECHAT_ALLOW_DEV_LOGIN`
 - [ ] 隐私保护指引与类目已就绪

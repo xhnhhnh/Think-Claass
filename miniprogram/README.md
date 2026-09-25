@@ -10,11 +10,11 @@
 
 1. 打开「微信开发者工具」→ **导入项目**。
 2. **目录**选择本仓库的 `miniprogram/` 目录（不是仓库根目录）。
-3. AppID：
-   - 只想看界面/本地联调：选择 **测试号**，或直接使用 `project.config.json` 里的
-     `"appid": "touristappid"`（游客模式）。
-   - 要真机预览或上传：填自己的小程序 AppID，并把服务端环境变量 `WECHAT_APPID` /
-     `WECHAT_SECRET` 配成同一个 AppID 的 AppID 与 AppSecret。
+3. AppID：工程里已经填好本项目的 AppID（`project.config.json` 的 `"appid": "wx89082e6534447585"`）。
+   - 只想看界面/本地联调：直接用即可；也可以换成**测试号**，但测试号的 openid 与正式 AppID 是两套。
+   - 要真机预览或上传：用这个 AppID 登录开发者工具，并把服务端环境变量 `WECHAT_APPID` 设为同一个
+     AppID、`WECHAT_SECRET` 设为它的 AppSecret。**AppSecret 是密钥**：只填在云托管环境变量或服务器
+     `.env` 里，不要贴进聊天、issue、文档或仓库（AppID 本身不是密钥，可以入库）。
 4. 工具会自动读取 `project.config.json`（`miniprogramRoot: "./"`、`libVersion: latest`）。
    TS 由开发者工具内置的编译插件处理（`setting.useCompilerPlugins: ["typescript"]`），不需要
    额外跑构建。
