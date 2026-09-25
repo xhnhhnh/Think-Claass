@@ -4,6 +4,10 @@
   A full-stack classroom gamification platform for teachers, students, parents and administrators.
 </p>
 
+<p align="center">
+  <b>English</b> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 Think-Class pairs the day-to-day work of running a classroom with RPG-style motivation: points,
 pets, quests, auctions, banking, challenges, territory building, papers, analytics, messaging,
 certificates, and public school/site management.
