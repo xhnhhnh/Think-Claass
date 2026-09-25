@@ -34,6 +34,7 @@ import process from 'node:process';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const PACKAGE_JSON = path.join(ROOT, 'package.json');
+const PACKAGE_LOCK = path.join(ROOT, 'package-lock.json');
 const CHANGELOG = path.join(ROOT, 'CHANGELOG.md');
 
 const GATES = [
@@ -181,9 +182,19 @@ function main() {
     run(command);
   }
 
-  // 4. Version, in one place.
+  // 4. Version, in one place - and its mirror in the lockfile, in the same commit.
+  //
+  //    `package-lock.json` records the root version twice (top level and `packages[""]`), and it
+  //    drifts silently: `npm ci` does not compare it, so CI stayed green while the manifest and the
+  //    lock disagreed for two releases (1.7.0 vs 2.1.0, then 2.1.0 vs 2.1.1). Writing it here keeps
+  //    "one source of truth" true for the tree a deployment actually receives.
   pkg.version = version;
   fs.writeFileSync(PACKAGE_JSON, JSON.stringify(pkg, null, 2) + '\n');
+
+  const lock = JSON.parse(fs.readFileSync(PACKAGE_LOCK, 'utf8'));
+  lock.version = version;
+  if (lock.packages?.['']) lock.packages[''].version = version;
+  fs.writeFileSync(PACKAGE_LOCK, JSON.stringify(lock, null, 2) + '\n');
 
   // 5. Changelog skeleton, so "no entry" cannot happen silently - G19 fails if the top section
   //    stops matching package.json.
@@ -191,7 +202,7 @@ function main() {
   fs.writeFileSync(CHANGELOG, insertChangelog(changelogSection(version, date)));
 
   // 6. Commit and tag, in that order: the tag must point at the release commit.
-  git(['add', 'package.json', 'CHANGELOG.md']);
+  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md']);
   git(['commit', '-m', `release: ${tag}`]);
   git(['tag', '-a', tag, '-m', `Think-Class ${tag}`]);
 
