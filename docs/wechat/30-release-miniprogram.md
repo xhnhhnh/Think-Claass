@@ -37,10 +37,13 @@ export const CLOUD_SERVICE = 'think-class'   // 服务名称，作为 X-WX-SERVI
 仓库里已经填入本项目的 AppID：
 
 ```json
-"appid": "wx89082e6534447585"
+"appid": "wx73e483f48fcae045"
 ```
 
-服务端要同一对凭据：`WECHAT_APPID=wx89082e6534447585`，`WECHAT_SECRET=` 取该 AppID 的 AppSecret
+> 这是**本项目唯一有效的 AppID**（家长主体那个账号）。早期注册流程里出现过另一个 `wx89082e…`，
+> 那个账号卡在未完成注册、已被放弃 —— 如果你在别处看到它，忽略即可，不要用它配置任何东西。
+
+服务端要同一对凭据：`WECHAT_APPID=wx73e483f48fcae045`，`WECHAT_SECRET=` 取该 AppID 的 AppSecret
 （公众平台 → 开发 → 开发设置 → 小程序代码上传 / 开发者 ID）。三个边界说清楚：
 
 - **AppID 不是密钥**，它可以出现在前端、请求 referer 和本仓库里（上面这一行就是）。
@@ -133,7 +136,7 @@ export const CLOUD_SERVICE = 'think-class'   // 服务名称，作为 X-WX-SERVI
 
 ## 2. 微信开发者工具
 
-1. **导入项目**：目录选仓库里的 `miniprogram/`，AppID 用工程里已填的 `wx89082e6534447585`
+1. **导入项目**：目录选仓库里的 `miniprogram/`，AppID 用工程里已填的 `wx73e483f48fcae045`
    （见第 0.2 节）。工程用 TypeScript 编译插件（`useCompilerPlugins: ["typescript"]`），
    首次编译会慢一点，属于正常。
 2. **本地调试**：详情 → 本地设置里可以勾选「不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书」。
@@ -296,7 +299,7 @@ curl -s https://<你的域名>/api/health        # Track B
 
 - [ ] 后端 `/api/health` 正常，且重启后数据仍在（[10](10-deploy-cloudrun.md) / [20](20-deploy-selfhosted.md) 的验证步骤）
 - [ ] `miniprogram/config/index.ts` 的 `BASE_URL` / `TRANSPORT` / `CLOUD_ENV` / `CLOUD_SERVICE` 指向正确的后端，`MOCK.enabled` 为 `false`
-- [ ] `project.config.json` 的 `appid` 是本项目的 AppID `wx89082e6534447585`（不是 `touristappid`／测试号）
+- [ ] `project.config.json` 的 `appid` 是本项目的 AppID `wx73e483f48fcae045`（不是 `touristappid`／测试号）
 - [ ] 服务器域名（Track B）已包含 `request`，或已改用 `callContainer`（Track A）
 - [ ] 生产环境已设 `NODE_ENV=production`，且**没有**设 `WECHAT_ALLOW_DEV_LOGIN`
 - [ ] 隐私保护指引与类目已就绪

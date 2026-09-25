@@ -10,7 +10,7 @@
 
 1. 打开「微信开发者工具」→ **导入项目**。
 2. **目录**选择本仓库的 `miniprogram/` 目录（不是仓库根目录）。
-3. AppID：工程里已经填好本项目的 AppID（`project.config.json` 的 `"appid": "wx89082e6534447585"`）。
+3. AppID：工程里已经填好本项目的 AppID（`project.config.json` 的 `"appid": "wx73e483f48fcae045"`）。
    - 只想看界面/本地联调：直接用即可；也可以换成**测试号**，但测试号的 openid 与正式 AppID 是两套。
    - 要真机预览或上传：用这个 AppID 登录开发者工具，并把服务端环境变量 `WECHAT_APPID` 设为同一个
      AppID、`WECHAT_SECRET` 设为它的 AppSecret。**AppSecret 是密钥**：只填在云托管环境变量或服务器

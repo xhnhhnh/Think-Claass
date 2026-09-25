@@ -1,6 +1,6 @@
 {
   "description": "Think-Class 微信小程序客户端（原生小程序 + TypeScript，无 npm 运行时依赖）",
-  "appid": "wx89082e6534447585",
+  "appid": "wx73e483f48fcae045",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
   "projectname": "think-class-miniprogram",
