@@ -1853,7 +1853,7 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 |---|---|
 | 1 | ~~`getActiveKernel()` 是**服务定位器**~~ → **P4.3b.7 少了一个消费者**：`POST /api/auth/login` 改用 `ctx.sessions`，`legacyAuthProvider` 也删了。但 `getActiveKernel()` 本身还在（`api/utils/classFeatures.ts`、admin 侧仍在用），要等那些调用点迁移完才能删 |
 | 2 | ~~`api/modules/auth/legacyAuthProvider.ts` 是临时 `AuthProvider` 实现~~ → **P4.3b.7 已删**：改由 `plugins/identity` 在 `setup()` 里通过 **`ctx.auth.registerProvider`** 注册凭据校验器。`createKernel`/`createPluginHost` 的 `authProvider` 参数现在是**一个可变 holder**（`{current: AuthProvider|null}`），因为内核路由器在插件挂载之前就建好了 —— 值形态会让内核在启动时捕获 `undefined`，`/api/kernel/auth/login` 永远 503 |
-| 3 | 只有调用 `requireActorRole` 的路由受保护；多数路由直接读 `actor.id`。系统性授权随插件权限声明落地 |
+| 3 | ~~只有调用 `requireActorRole` 的路由受保护；多数路由直接读 `actor.id`~~ → **已完成（2.0.1）**：20 个插件全部按 `docs/security/route-authorization-matrix.md` 逐条加了 401/403，身份一律取自 actor；`npm run auth:audit` 对账 297 条端点、`tests/e2e/authorization/routes.test.ts` 真启动逐条验证。**这条随后又暴露出一个更深的洞**：`Actor.studentId`/`classId` 在内核里从未被填充过（`ScopeResolver` 类型定义了却没人调用），而 legacy 组装在 `mountKernelInfrastructure` 里又装了一个不带 resolver 的 request-context 中间件、且它最后执行 —— 于是 `api/app.ts` 的 `scopeResolver` 被整个覆盖，`plugins/pet` 的权限门把所有学生都拒了。两处中间件都要传 resolver，`tests/e2e` 就是为此加的 |
 | 4 | ~~G8 端点快照只扫 `api/**`~~ → **P4.3b.0 已修**：扫描范围已含 `plugins/**`；快照从 288 更正为 292（原数字是漏扫） |
 | 5 | kernel 模式下未匹配的 `/api` 路径由 Nest 的 not-found 应答，不是内核信封 |
 | 6 | `system_settings` 默认值在前后端各一份（G9 强制一致），P4/P5 应合为插件声明 |

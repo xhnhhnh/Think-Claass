@@ -1,6 +1,7 @@
 export function getRankTier(points: number) {
-  const level = Math.floor(points / 100) + 1;
-  const tiers = ['青铜', '白银', '黄金', '铂金', '钻石', '战神'];
-  const tierIndex = Math.min(Math.floor((level - 1) / 5), 5);
-  return `${tiers[tierIndex]} Lv.${level}`;
+  if (points >= 500) return '远航';
+  if (points >= 300) return '领航';
+  if (points >= 150) return '探索';
+  if (points >= 50) return '启程';
+  return '萌芽';
 }

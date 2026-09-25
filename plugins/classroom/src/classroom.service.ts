@@ -163,7 +163,8 @@ export class ClassroomService {
 
     const student = this.getStudentOrThrow(studentId);
     const newTotal = amount > 0 ? (student.total_points as number) + amount : (student.total_points as number);
-    const newAvailable = Math.max(0, (student.available_points as number) + amount);
+    const newAvailable = (student.available_points as number) + amount;
+    if (newAvailable < 0) throw new ApiError(400, '可用积分不足，不能扣分');
 
     this.repository.setStudentPoints(student.id, newTotal, newAvailable);
     this.repository.insertRecord(
@@ -178,6 +179,43 @@ export class ClassroomService {
     }
 
     return { total_points: newTotal, available_points: newAvailable };
+  }
+
+  /** Teacher scoring is a single transaction: balance, ledger and rule event agree. */
+  private scoreStudent(studentId: number, requested: number, reason: string, requestId?: string) {
+    if (!Number.isInteger(requested) || requested === 0 || requested < -5 || requested > 5) {
+      throw new ApiError(400, '每次评分须为 −5 至 +5 的非零整数');
+    }
+    if (requestId && (typeof requestId !== 'string' || requestId.length > 100)) {
+      throw new ApiError(400, '无效请求标识');
+    }
+    const prior = requestId ? this.repository.findPointEvent(studentId, requestId) : undefined;
+    if (prior) {
+      if (prior.source !== 'teacher_score' || Number(prior.requested_delta) !== requested) {
+        throw new ApiError(409, '请求标识已用于另一项评分');
+      }
+      const applied = Number(prior.credits_delta);
+      const bonus = Math.max(0, applied - Number(prior.growth_delta));
+      return { studentId, applied, bonus, total_points: Number(prior.growth_balance), available_points: Number(prior.credits_balance), replayed: true };
+    }
+
+    const student = this.getStudentOrThrow(studentId);
+    const today = this.repository.teacherPositiveToday(studentId);
+    const base = requested > 0 ? Math.min(requested, Math.max(0, 20 - today.base)) : requested;
+    if (base === 0) throw new ApiError(400, '该学生今日教师正向评分已达 20 分上限');
+    const policy = this.repository.incentivePolicy(student.class_id);
+    const hasBlessing = requested > 0 && this.features.getClassFeaturesByClassId(student.class_id).enable_parent_buff
+      && this.repository.hasParentActivityShanghaiToday(studentId);
+    const bonus = hasBlessing ? Math.min(Math.ceil(base * policy.parent_bonus_percent / 100), Math.max(0, 2 - today.bonus)) : 0;
+    const applied = base + bonus;
+    const total = (student.total_points ?? 0) + Math.max(0, base);
+    const available = (student.available_points ?? 0) + applied;
+    if (available < 0) throw new ApiError(400, '可用积分不足，不能扣分');
+    this.repository.setStudentPoints(studentId, total, available);
+    const recordId = this.repository.insertRecord(studentId, applied > 0 ? 'ADD_POINTS' : 'DEDUCT_POINTS', applied, reason);
+    this.repository.insertPointEvent({ studentId, recordId, requestId, source: 'teacher_score', category: 'growth', growth: Math.max(0, base), credits: applied, requested, total, available });
+    if (applied > 0) this.revivePetIfPresent(studentId);
+    return { studentId, applied, bonus, total_points: total, available_points: available, replayed: false };
   }
 
   /** `addStudentPoints` from `api/services/pointsService.ts`. */
@@ -448,17 +486,20 @@ export class ClassroomService {
 
     const result = this.repository.tx(() => {
       const student = this.getStudentOrThrow(studentId);
-      const today = new Date().toISOString().split('T')[0];
+      const dateParts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+      const datePart = (type: 'year' | 'month' | 'day') => dateParts.find((part) => part.type === type)?.value;
+      const today = `${datePart('year')}-${datePart('month')}-${datePart('day')}`;
       if (student.last_checkin_date === today) {
         throw new ApiError(400, 'Already checked in today');
       }
 
-      const amount = 5;
-      const newTotal = (student.total_points as number) + amount;
-      const newAvailable = (student.available_points as number) + amount;
+      const amount = 1;
+      const newTotal = (student.total_points ?? 0) + amount;
+      const newAvailable = student.available_points ?? 0;
 
       this.repository.setStudentCheckin(student.id, today, newTotal, newAvailable);
-      this.repository.insertRecord(student.id, 'ADD_POINTS', amount, '每日签到奖励');
+      const recordId = this.repository.insertRecord(student.id, 'CHECKIN', amount, '每日签到：成长 +1，参与 +1');
+      this.repository.insertPointEvent({ studentId: student.id, recordId, requestId: `checkin:${today}`, source: 'daily_checkin', category: 'participation', growth: 1, credits: 0, participation: 1, total: newTotal, available: newAvailable });
 
       try {
         this.repository.touchPetFedAt(student.id, 'datetime-now');
@@ -469,7 +510,7 @@ export class ClassroomService {
       return { total_points: newTotal, available_points: newAvailable };
     });
 
-    return { student: result, message: '签到成功，获得 5 积分' };
+    return { student: result, message: '签到成功，成长值 +1、参与 +1' };
   }
 
   gift(req: ServiceRequest, input: Record<string, any>) {
@@ -498,9 +539,12 @@ export class ClassroomService {
       if ((sender.available_points as number) < amount) throw new ApiError(400, 'Insufficient points');
 
       this.repository.subtractStudentAvailable(sender.id, amount);
-      this.repository.insertRecord(sender.id, 'DEDUCT_POINTS', amount, '赠送积分给同学');
+      const sentRecord = this.repository.insertRecord(sender.id, 'DEDUCT_POINTS', -amount, '赠送积分给同学');
+      this.repository.insertPointEvent({ studentId: sender.id, recordId: sentRecord, source: 'gift', category: 'balance', growth: 0, credits: -amount, total: sender.total_points ?? 0, available: (sender.available_points ?? 0) - amount });
 
-      this.addStudentPoints(receiver.id, amount, 'ADD_POINTS', '收到同学赠送积分');
+      this.repository.addStudentAvailable(receiver.id, amount);
+      const receivedRecord = this.repository.insertRecord(receiver.id, 'ADD_POINTS', amount, '收到同学赠送积分');
+      this.repository.insertPointEvent({ studentId: receiver.id, recordId: receivedRecord, source: 'gift', category: 'balance', growth: 0, credits: amount, total: receiver.total_points ?? 0, available: (receiver.available_points ?? 0) + amount });
 
       const fullMessage = `[附赠 ${amount} 积分] ${message}`;
       // `type: 'PEER_REVIEW'` for a gift is a legacy quirk that the message list depends
@@ -582,9 +626,9 @@ export class ClassroomService {
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
       throw new ApiError(400, 'No students selected');
     }
-    if (typeof amount !== 'number' || isNaN(amount)) {
-      throw new ApiError(400, 'Invalid amount');
-    }
+    if (!Number.isInteger(amount) || amount === 0 || amount < -5 || amount > 5) throw new ApiError(400, '每次评分须为 −5 至 +5 的非零整数');
+    const requestId = input?.requestId;
+    if (new Set(studentIds.map(String)).size !== studentIds.length) throw new ApiError(400, '学生列表中有重复项');
 
     // Every id in the batch has to be in a class the teacher owns; one foreign id refuses the
     // whole batch rather than silently scoring the subset that happens to be theirs.
@@ -592,13 +636,8 @@ export class ClassroomService {
       this.ensureStudentAction(actor, this.normalizeId(studentId, 'student'), ['teacher'], '无权限修改该学生的积分');
     }
 
-    this.repository.tx(() => {
-      for (const studentId of studentIds) {
-        this.adjustStudentPoints(studentId, amount, reason, { revivePetOnPositive: true });
-      }
-    });
-
-    return { message: 'Points updated successfully' };
+    const results = this.repository.tx(() => studentIds.map((studentId) => this.scoreStudent(Number(studentId), amount, String(reason ?? ''), requestId)));
+    return { message: 'Points updated successfully', results };
   }
 
   updateStudentClass(req: ServiceRequest, idInput: string, input: Record<string, any>) {
@@ -672,12 +711,17 @@ export class ClassroomService {
         if (action === 'change_class') {
           // The target class has to be the teacher's too, or a batch edit becomes a way to move
           // students into another teacher's roster.
-          this.ensureClassAccess(actor, this.normalizeId(value, 'class'), ['teacher'], '无权限把学生移到该班级');
-          this.repository.setStudentClassId(student.id, value);
+          const targetClassId = this.normalizeId(value, 'class');
+          this.ensureClassAccess(actor, targetClassId, ['teacher'], '无权限把学生移到该班级');
+          if (!this.repository.findClassRow(targetClassId)) throw new ApiError(404, '目标班级不存在');
+          this.repository.setStudentClassId(student.id, targetClassId);
         } else if (action === 'change_group') {
-          this.repository.setStudentGroup(student.id, value || null);
+          const groupId = value === 'ungrouped' || value === null || value === '' ? null : this.normalizeId(value, 'group');
+          if (groupId !== null && !this.repository.groupBelongsToStudentClass(student.id, groupId)) throw new ApiError(400, '小组不属于该学生所在班级');
+          this.repository.setStudentGroup(student.id, groupId);
         } else if (action === 'reset_password') {
-          this.repository.updateUserPassword(student.user_id, hashPassword(value || '123456'));
+          if (typeof value !== 'string' || value.length < 6) throw new ApiError(400, '新密码至少 6 位');
+          this.repository.updateUserPassword(student.user_id, hashPassword(value));
         } else {
           throw new ApiError(400, 'Invalid batch action');
         }
@@ -700,33 +744,25 @@ export class ClassroomService {
     );
 
     const { amount: rawAmount, reason } = input ?? {};
-    if (typeof rawAmount !== 'number' || isNaN(rawAmount)) {
-      throw new ApiError(400, 'Invalid amount');
-    }
-
-    const transaction = () =>
-      this.repository.tx(() => {
-        const student = this.getStudentOrThrow(idInput);
-        let amount = rawAmount;
-        let finalReason = reason;
-
-        if (amount > 0) {
-          const classFeatures = this.features.getClassFeaturesByClassId(student.class_id);
-          if (classFeatures.enable_parent_buff) {
-            const today = new Date().toISOString().split('T')[0];
-            const hasBuff = this.repository.hasParentActivityToday(student.id, today);
-
-            if (hasBuff) {
-              amount = Math.ceil(amount * 1.2);
-              finalReason = `${reason} (含20%家长增益)`;
-            }
-          }
-        }
-
-        return this.adjustStudentPoints(student.id, amount, finalReason, { revivePetOnPositive: true });
+    if (actor.role === 'parent') {
+      const match = /^family-task:(\d+)$/.exec(String(input?.requestId ?? ''));
+      if (!match || !Number.isInteger(rawAmount) || rawAmount <= 0) throw new ApiError(403, '家长奖励须来自已完成的家庭任务');
+      const task = this.repository.approvedFamilyTask(Number(match[1]));
+      if (!task || task.student_id !== Number(idInput) || task.points !== rawAmount) throw new ApiError(403, '家庭任务奖励不匹配');
+      return this.repository.tx(() => {
+        const prior = this.repository.findPointEvent(task.student_id, input.requestId);
+        if (prior) return { studentId: task.student_id, applied: Number(prior.credits_delta), bonus: 0, total_points: Number(prior.growth_balance), available_points: Number(prior.credits_balance), replayed: true };
+        const student = this.getStudentOrThrow(task.student_id);
+        const total = (student.total_points ?? 0) + rawAmount;
+        const available = (student.available_points ?? 0) + rawAmount;
+        this.repository.setStudentPoints(student.id, total, available);
+        const recordId = this.repository.insertRecord(student.id, 'FAMILY_TASK_REWARD', rawAmount, `完成家庭约定: ${task.title}`);
+        this.repository.insertPointEvent({ studentId: student.id, recordId, requestId: input.requestId, source: 'family_task', category: 'participation', growth: rawAmount, credits: rawAmount, participation: 1, requested: rawAmount, total, available });
+        return { studentId: student.id, applied: rawAmount, bonus: 0, total_points: total, available_points: available, replayed: false };
       });
-
-    return transaction();
+    }
+    if (actor.role !== 'teacher' && !this.isStaffAdmin(actor)) throw new ApiError(403, '仅教师可进行课堂评分');
+    return this.repository.tx(() => this.scoreStudent(Number(idInput), rawAmount, String(reason ?? ''), input?.requestId));
   }
 
   getRecords(req: ServiceRequest, query: Record<string, any>) {
@@ -892,20 +928,23 @@ export class ClassroomService {
 
     this.features.assertStudentFeatureEnabled(Number(id), 'enable_peer_review');
 
-    this.repository.insertPeerReview(id, reviewee_id, score, comment || '');
-
     const reviewerReward = 10;
     const revieweeReward = score * 2;
 
     this.repository.tx(() => {
+      this.repository.insertPeerReview(id, reviewee_id, score, comment || '');
       this.repository.addStudentPointsPair(id as never, reviewerReward);
-      this.repository.insertRecord(id, 'ADD_POINTS', reviewerReward, '完成本周同伴互评奖励');
+      const reviewer = this.repository.findStudentRow(Number(id));
+      const reviewerRecord = this.repository.insertRecord(id, 'ADD_POINTS', reviewerReward, '完成本周同伴互评奖励');
+      this.repository.insertPointEvent({ studentId: Number(id), recordId: reviewerRecord, source: 'peer_review', category: 'collaboration', growth: reviewerReward, credits: reviewerReward, total: reviewer?.total_points ?? 0, available: reviewer?.available_points ?? 0 });
 
       this.repository.addStudentPointsPair(reviewee_id, revieweeReward);
-      this.repository.insertRecord(reviewee_id, 'ADD_POINTS', revieweeReward, `收到同伴互评奖励 (${score}星)`);
+      const reviewee = this.repository.findStudentRow(Number(reviewee_id));
+      const revieweeRecord = this.repository.insertRecord(reviewee_id, 'ADD_POINTS', revieweeReward, `收到同伴互评奖励 (${score}星)`);
+      this.repository.insertPointEvent({ studentId: Number(reviewee_id), recordId: revieweeRecord, source: 'peer_review', category: 'collaboration', growth: revieweeReward, credits: revieweeReward, total: reviewee?.total_points ?? 0, available: reviewee?.available_points ?? 0 });
 
-      const reviewer = this.repository.studentName(id);
-      const senderName = is_anonymous ? '一位匿名的魔法师' : this.cipher.decrypt(reviewer?.name as string);
+      const reviewerName = this.repository.studentName(id);
+      const senderName = is_anonymous ? '一位匿名的魔法师' : this.cipher.decrypt(reviewerName?.name as string);
       const messageContent = `你收到了一份同伴评价！\n评分：${'⭐'.repeat(score)}\n评语：${comment || '无'}`;
       this.repository.insertPeerReviewMessage(reviewee_id, senderName, messageContent, is_anonymous);
     });
@@ -1003,6 +1042,62 @@ export class ClassroomService {
       features: this.features.getClassFeaturesByClassId(Number(id)),
       pet_selection_mode: cls.pet_selection_mode ?? 'random',
     };
+  }
+
+  getIncentivePolicy(req: ServiceRequest, id: string) {
+    const actor = this.requireActor(req);
+    const classId = this.normalizeId(id, 'class');
+    this.ensureClassAccess(actor, classId, ['teacher', 'student', 'parent'], '无权限查看该班级');
+    if (!this.repository.findClassRow(classId)) throw new ApiError(404, '班级不存在');
+    const policy = this.repository.incentivePolicy(classId);
+    return { classId, schoolStage: policy.school_stage, parentBonusPercent: policy.parent_bonus_percent, teamRankingsVisible: !!policy.team_rankings_visible };
+  }
+
+  updateIncentivePolicy(req: ServiceRequest, id: string, input: Record<string, any>) {
+    const actor = this.requireActor(req);
+    const classId = this.normalizeId(id, 'class');
+    this.ensureClassAccess(actor, classId, ['teacher'], '无权限修改该班级');
+    if (!this.repository.findClassRow(classId)) throw new ApiError(404, '班级不存在');
+    const current = this.repository.incentivePolicy(classId);
+    const stage = input?.schoolStage ?? current.school_stage;
+    const bonus = input?.parentBonusPercent ?? current.parent_bonus_percent;
+    const rankings = input?.teamRankingsVisible ?? !!current.team_rankings_visible;
+    if (!['general', 'primary', 'middle', 'high'].includes(stage)) throw new ApiError(400, '无效学段');
+    if (!Number.isInteger(bonus) || bonus < 0 || bonus > 20 || bonus % 5 !== 0) throw new ApiError(400, '家长加成须为 0% 至 20%，每次递增 5%');
+    if (typeof rankings !== 'boolean') throw new ApiError(400, '团队榜可见性须为布尔值');
+    this.repository.setIncentivePolicy(classId, stage, bonus, rankings);
+    return this.getIncentivePolicy(req, id);
+  }
+
+  getStudentSummary(req: ServiceRequest, id: string) {
+    const actor = this.requireActor(req);
+    const studentId = this.normalizeId(id, 'student');
+    this.ensureStudentAction(actor, studentId, ['teacher', 'student', 'parent'], '无权限查看该学生');
+    const student = this.getStudentOrThrow(studentId);
+    const rows = this.repository.pointSummary(studentId);
+    const byCategory = Object.fromEntries(rows.map((row) => [row.category, row]));
+    const policy = this.repository.incentivePolicy(student.class_id);
+    return {
+      studentId,
+      growth: student.total_points ?? 0,
+      collaboration: byCategory.collaboration?.score ?? 0,
+      competition: byCategory.competition?.score ?? 0,
+      participation: byCategory.participation?.participation ?? 0,
+      availableCredits: student.available_points ?? 0,
+      level: (student.total_points ?? 0) >= 500 ? '远航' : (student.total_points ?? 0) >= 300 ? '领航' : (student.total_points ?? 0) >= 150 ? '探索' : (student.total_points ?? 0) >= 50 ? '启程' : '萌芽',
+      schoolStage: policy.school_stage,
+      parentBonusPercent: policy.parent_bonus_percent,
+      parentBlessingActive: this.repository.hasParentActivityShanghaiToday(studentId),
+    };
+  }
+
+  getWeeklyTeamScores(req: ServiceRequest, id: string, category: string) {
+    const actor = this.requireActor(req);
+    const classId = this.normalizeId(id, 'class');
+    this.ensureClassAccess(actor, classId, ['teacher', 'student', 'parent'], '无权限查看该班级');
+    if (category !== 'collaboration' && category !== 'competition') throw new ApiError(400, '无效榜单类型');
+    if (!this.repository.incentivePolicy(classId).team_rankings_visible && actor.role !== 'teacher' && !this.isStaffAdmin(actor)) throw new ApiError(403, '该班级未公开团队榜');
+    return this.repository.weeklyTeamScores(classId, category);
   }
 
   getBigscreen(req: ServiceRequest, id: string) {

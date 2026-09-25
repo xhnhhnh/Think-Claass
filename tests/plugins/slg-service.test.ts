@@ -126,7 +126,7 @@ class FakeClassroom implements ClassroomPort {
   async adjustPoints() {
     throw new Error('not used by slg');
   }
-  async transferStudentCredits(input: { studentId: number; delta: number }) {
+  async transferStudentCredits(input: { studentId: number; delta: number; ledger?: { type: string; description: string } }) {
     if (this.failCredits) return { refusal: this.failCredits };
     const student = this.students.get(input.studentId);
     if (!student) return { refusal: { code: 'student-not-found' as const, message: '学生未找到' } };
@@ -135,6 +135,7 @@ class FakeClassroom implements ClassroomPort {
       return { refusal: { code: 'insufficient-credits' as const, message: '积分不足' } };
     }
     this.students.set(input.studentId, { ...student, availablePoints });
+    if (input.ledger) this.ledger.push({ studentId: input.studentId, type: input.ledger.type, amount: input.delta, description: input.ledger.description });
     return { value: { availablePoints } };
   }
   async recordStudentLedgerEntry(entry: { studentId: number; type: string; amount: number; description: string }) {

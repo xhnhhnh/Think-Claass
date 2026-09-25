@@ -134,12 +134,13 @@ class FakeClassroom implements ClassroomPort {
   async adjustPoints() {
     throw new Error('not used by pet');
   }
-  async transferStudentCredits(input: { studentId: number; delta: number }) {
+  async transferStudentCredits(input: { studentId: number; delta: number; ledger?: { type: string; description: string } }) {
     const student = this.students.get(input.studentId);
     if (!student) return { refusal: { code: 'student-not-found' as const, message: '学生未找到' } };
     const available = student.availablePoints + input.delta;
     if (available < 0) return { refusal: { code: 'insufficient-credits' as const, message: '积分不足' } };
     this.students.set(input.studentId, { ...student, availablePoints: available });
+    if (input.ledger) this.ledger.push({ studentId: input.studentId, type: input.ledger.type, amount: input.delta, description: input.ledger.description });
     return { value: { availablePoints: available } };
   }
   async recordStudentLedgerEntry(entry: { studentId: number; type: string; amount: number; description: string }) {

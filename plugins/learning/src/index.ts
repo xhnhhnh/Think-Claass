@@ -14,9 +14,12 @@
  * `students`), which is what makes the ownership check the proof that this plugin never
  * touches another domain's table.
  *
- * Ports: it publishes none. Nothing consumes learning data yet; `insights` reads these
- * tables directly today (recorded in `_known_debt`) and should get a reporting port when
- * that domain migrates.
+ * Ports: it publishes `learning.public` - the question bank, the knowledge graph and the
+ * wrong-question book, for a consumer that must not read them directly. That consumer is
+ * `plugins/ai-study`, whose engine ranks practice candidates and writes mastery back through
+ * `recordPracticeOutcome` (so the mastery arithmetic stays in this plugin, where the number the
+ * student sees in 错题本 is computed). `insights` still reads some of these tables directly today
+ * (recorded in `_known_debt`) and should get a reporting port of its own when that domain migrates.
  */
 
 import type { Provider } from '@nestjs/common';
@@ -63,9 +66,16 @@ export default definePlugin({
     service = new LearningService(createLearningRepository(ctx.db), classroom);
     providers.push({ provide: LearningService, useValue: service });
 
+    // The port is the service's own methods, handed over verbatim: `learning.public` exists so
+    // `plugins/ai-study` can pick practice questions and write mastery back without reading these
+    // eighteen tables, and a port that re-implemented any of it would be a second copy of the
+    // mastery arithmetic - the thing the wrong-question book must never disagree with.
+    ctx.provide('learning.public', service.toPort());
+
     ctx.log.info('learning service ready', {
       owns: 'papers, questions, knowledge graph, wrong questions, study plans',
       studentsVia: 'classroom.public',
+      port: 'learning.public',
     });
 
     // Account deletion: this plugin deletes its own rows when a teacher account is erased

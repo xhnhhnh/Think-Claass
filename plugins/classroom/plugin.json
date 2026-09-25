@@ -37,12 +37,14 @@
       { "key": "classroom.enable_slg", "scope": "class", "default": true, "label": "版图玩法" },
       { "key": "classroom.enable_gacha", "scope": "class", "default": true, "label": "召唤法阵" },
       { "key": "classroom.enable_economy", "scope": "class", "default": true, "label": "经济系统" },
-      { "key": "classroom.enable_dungeon", "scope": "class", "default": true, "label": "无尽塔" }
+      { "key": "classroom.enable_dungeon", "scope": "class", "default": true, "label": "无尽塔" },
+      { "key": "classroom.enable_ai_study", "scope": "class", "default": true, "label": "AI 智学" }
     ],
     "routes": [
       { "method": "GET", "base": "/api/students", "handler": "StudentsController.listStudents", "auth": "actor" },
       { "method": "GET", "base": "/api/students/records", "handler": "StudentsController.getRecords", "auth": "actor" },
       { "method": "GET", "base": "/api/students/progress-star", "handler": "StudentsController.getProgressStar", "auth": "actor" },
+      { "method": "GET", "base": "/api/students/:id/summary", "handler": "StudentsController.getStudentSummary", "auth": "actor" },
       { "method": "POST", "base": "/api/students/checkin", "handler": "StudentsController.checkin", "auth": "actor" },
       { "method": "POST", "base": "/api/students/gift", "handler": "StudentsController.gift", "auth": "actor" },
       { "method": "POST", "base": "/api/students/batch-import", "handler": "StudentsController.batchImport", "auth": "actor" },
@@ -64,6 +66,9 @@
       { "method": "POST", "base": "/api/classes", "compat": ["/api/class"], "handler": "ClassesController.createClass", "auth": "actor" },
       { "method": "GET", "base": "/api/classes/:id", "compat": ["/api/class/:id"], "handler": "ClassesController.getClass", "auth": "actor" },
       { "method": "GET", "base": "/api/classes/:id/features", "compat": ["/api/class/:id/features"], "handler": "ClassesController.getClassFeatures", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/:id/incentive-policy", "compat": ["/api/class/:id/incentive-policy"], "handler": "ClassesController.getIncentivePolicy", "auth": "actor" },
+      { "method": "PUT", "base": "/api/classes/:id/incentive-policy", "compat": ["/api/class/:id/incentive-policy"], "handler": "ClassesController.updateIncentivePolicy", "auth": "actor" },
+      { "method": "GET", "base": "/api/classes/:id/team-ranking", "compat": ["/api/class/:id/team-ranking"], "handler": "ClassesController.getWeeklyTeamScores", "auth": "actor" },
       { "method": "GET", "base": "/api/classes/:id/bigscreen", "compat": ["/api/class/:id/bigscreen"], "handler": "ClassesController.getBigscreen", "auth": "actor" },
       { "method": "GET", "base": "/api/classes/:id/guild-ranking", "compat": ["/api/class/:id/guild-ranking"], "handler": "ClassesController.getGuildRanking", "auth": "actor" },
       { "method": "PUT", "base": "/api/classes/:id/settings", "compat": ["/api/class/:id/settings", "/api/classes/:id/features", "/api/class/:id/features"], "handler": "ClassesController.updateClassSettings", "auth": "actor" },
@@ -89,7 +94,7 @@
     }
   },
   "data": {
-    "tables": [],
+    "tables": ["p_classroom_point_events", "p_classroom_incentive_policies"],
     "adopted": [
       "students",
       "classes",

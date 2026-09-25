@@ -1,7 +1,7 @@
 {
   "name": "workspace",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -18,7 +18,10 @@
     "test": "vitest run",
     "test:app": "vitest run --config vitest.app.config.ts",
     "test:backend": "vitest run --config vitest.backend.config.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "guard": "vitest run --config vitest.guardrails.config.ts",
+    "auth:audit": "node scripts/security/route-authorization-audit.mjs",
+    "auth:audit:check": "node scripts/security/route-authorization-audit.mjs --check",
     "measure": "node scripts/migration/measure.mjs",
     "measure:json": "node scripts/migration/measure.mjs --json",
     "baseline": "node scripts/migration/measure.mjs --write",
@@ -32,7 +35,13 @@
     "route-modules:check": "node scripts/migration/route-modules.mjs --check",
     "ui:audit": "node scripts/migration/ui-audit.mjs",
     "ui:audit:json": "node scripts/migration/ui-audit.mjs --json",
-    "ui:audit:check": "node scripts/migration/ui-audit.mjs --check"
+    "ui:audit:check": "node scripts/migration/ui-audit.mjs --check",
+    "tour:verify": "node scripts/verification/guided-tour-browser.mjs",
+    "shell:verify": "node scripts/verification/shell-browser.mjs",
+    "local:reinitialize": "tsx scripts/local-reinitialize.mjs",
+    "homework:migrate": "node scripts/migration/homework-migrate.mjs",
+    "homework:migrate:dry": "node scripts/migration/homework-migrate.mjs --dry-run",
+    "sweep:verify": "node scripts/verification/sweep-browser.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

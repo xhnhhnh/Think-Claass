@@ -75,7 +75,13 @@ import type { ClassroomPort, ClassroomRefusal, StudentSnapshot } from '@thinkcla
 import type { Auction, BlindBox, ShopItem } from '@thinkclass/contracts/domains/marketplace';
 import { ApiError } from '@thinkclass/kernel';
 
+import type { RequestActor } from './marketplace.authorization.js';
 import type { MarketplaceRepository } from './marketplace.types.js';
+
+/** Admin/superadmin own every shop row, so the scope checks below always let them through. */
+function isStaffAdmin(actor: RequestActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
+}
 
 /** The legacy `ensureValidShopItemInput` helper, unchanged. */
 function ensureValidShopItemInput(input: { name?: unknown; price?: unknown; stock?: unknown }): void {
@@ -155,7 +161,7 @@ export class MarketplaceService {
   // -- shop items ---------------------------------------------------------
 
   /**
-   * List the items a student can buy.
+   * List the items a caller may buy, narrowed to the caller's own scope.
    *
    * The pre-migration query joined `shop_items` to `classes` and `students` to find the
    * student's teacher. Both of those tables are classroom-owned, so the join is now
@@ -165,32 +171,56 @@ export class MarketplaceService {
    * student's class" - and a student with no class row produced no rows there while a
    * `teacher_id IS NULL` class produces none here either.
    *
-   * The actor gate still runs first, and still only for a student actor.
+   * What is *not* preserved is the old "no `?studentId=` means the whole table" branch,
+   * which is the defect the authorization round closed: the scope now comes from the
+   * actor, so a student sees their own teacher's shelf, a teacher sees the items they
+   * sell, and only admin/superadmin see every active item.
+   *
+   * The actor feature gate still runs first, and still only for a student actor.
    */
-  async listItems(studentIdInput: unknown, actorUserId: number | null): Promise<ShopItem[]> {
-    if (actorUserId) await this.assertActorFeatureEnabled(actorUserId, 'enable_shop');
+  async listItems(actor: RequestActor): Promise<ShopItem[]> {
+    if (actor.role === 'student') {
+      await this.assertActorFeatureEnabled(actor.userId, 'enable_shop');
 
-    // The legacy branch was a truthy test on the raw query value, not a numeric one.
-    if (!studentIdInput) return this.repository.listActiveShopItems();
+      // No student row behind the login is an empty scope, not the global list. (In practice
+      // the gate above already answers 404 for that login; this keeps the fallback honest.)
+      if (actor.studentId === null) return [];
 
-    const studentId = Number(studentIdInput);
-    if (!Number.isFinite(studentId)) return [];
+      const student = await this.classroom.getStudentById(actor.studentId);
+      if (!student) return [];
 
-    const student = await this.classroom.getStudentById(studentId);
-    if (!student) return [];
+      const classRow = await this.classroom.getClassById(student.classId);
+      if (!classRow) return [];
 
-    const classRow = await this.classroom.getClassById(student.classId);
-    if (!classRow) return [];
+      return this.repository.listShopItemsByTeacher(classRow.teacherId);
+    }
 
-    return this.repository.listShopItemsByTeacher(classRow.teacherId);
+    if (actor.role === 'teacher') return this.repository.listShopItemsByTeacher(actor.userId);
+
+    return this.repository.listActiveShopItems();
   }
 
-  listAllItems(query: Record<string, any>): ShopItem[] {
+  /**
+   * The management view: every item, including deactivated ones.
+   *
+   * A teacher's `teacherId` is forced to their own login id - the `?teacherId=` filter used
+   * to be trusted, which let anyone read (and, with the write routes open, edit) another
+   * teacher's shelf. Admin/superadmin may still narrow by any teacher.
+   */
+  listAllItems(actor: RequestActor, query: Record<string, any>): ShopItem[] {
+    if (!isStaffAdmin(actor)) return this.repository.listAllShopItems(actor.userId);
     const { teacherId } = query ?? {};
     return this.repository.listAllShopItems(teacherId ?? undefined);
   }
 
-  createItem(input: Record<string, any>) {
+  /**
+   * Create an item on the *caller's* shelf.
+   *
+   * A teacher always sells their own items, so `teacher_id` is the actor - the body may no
+   * longer hand the row to somebody else (the legacy fallback, "no `teacher_id` means the
+   * first teacher in the database", only remains for admin/superadmin, who have no shelf).
+   */
+  createItem(actor: RequestActor, input: Record<string, any>) {
     const {
       name,
       description,
@@ -204,11 +234,12 @@ export class MarketplaceService {
     } = input ?? {};
     ensureValidShopItemInput({ name, price, stock });
 
-    let teacherId = teacher_id;
+    let teacherId = actor.role === 'teacher' ? actor.userId : teacher_id;
     if (!teacherId) {
-      // `users` has no plugin yet (auth is not migrated), so this stays a declared
-      // `data.reads` entry. That is also why the host has to create the table: a
-      // `data.reads` declaration grants no creation right, so in the kernel
+      // Reached only by admin/superadmin creating an item without naming a seller; a teacher
+      // always lands on their own id above. `users` has no plugin yet (auth is not migrated),
+      // so this stays a declared `data.reads` entry. That is also why the host has to create
+      // the table: a `data.reads` declaration grants no creation right, so in the kernel
       // composition (which never runs api/db.ts) this read needs `users` added to
       // `ensureReadOnlyLegacyTables`. Reported to the Lead.
       teacherId = this.repository.findFirstTeacherId() ?? 1;
@@ -229,11 +260,14 @@ export class MarketplaceService {
     return { id };
   }
 
-  updateItemStatus(id: string, input: Record<string, any>): void {
+  updateItemStatus(actor: RequestActor, id: string, input: Record<string, any>): void {
+    this.assertItemOwner(actor, id);
     this.repository.updateShopItemStatus(id, input?.is_active ? 1 : 0);
   }
 
-  updateItem(id: string, input: Record<string, any>): void {
+  updateItem(actor: RequestActor, id: string, input: Record<string, any>): void {
+    this.assertItemOwner(actor, id);
+
     const { name, description, price, stock, is_holiday_limited, holiday_start_time, holiday_end_time } =
       input ?? {};
 
@@ -251,12 +285,14 @@ export class MarketplaceService {
   /**
    * Buy a shop item: debit the available balance, decrement stock, issue a ticket.
    *
-   * The returned `points` is the student's available balance *after* the spend - the
-   * exact number the pre-migration `spendStudentPoints(...).available_points` produced.
+   * `studentId` is the *actor's* student row, resolved by the controller; the request body is
+   * no longer a source of identity (it may only confirm the same id). The returned `points` is
+   * the student's available balance *after* the spend - the exact number the pre-migration
+   * `spendStudentPoints(...).available_points` produced.
    */
-  async buyItem(input: Record<string, any>) {
-    const { studentId, itemId } = input ?? {};
-    const student = await this.requireStudentWithFeature(Number(studentId), 'enable_shop');
+  async buyItem(studentId: number, input: Record<string, any>) {
+    const { itemId } = input ?? {};
+    const student = await this.requireStudentWithFeature(studentId, 'enable_shop');
 
     const item = this.repository.getShopItem(itemId);
     if (!item || (item.stock <= 0 && item.stock !== -1)) throw new ApiError(400, 'Item out of stock');
@@ -285,6 +321,7 @@ export class MarketplaceService {
       // The legacy endpoints carry no actor into the money path; 0 is the same
       // placeholder economy and gacha pass for the same reason.
       actorId: 0,
+      ledger: { type: 'BUY_ITEM', description: `Bought item: ${item.name}` },
     });
     if (spent.refusal) throw creditsApiError(spent.refusal);
 
@@ -309,15 +346,24 @@ export class MarketplaceService {
 
     // Appended after the platform writes so a rolled-back purchase leaves no ledger
     // row - the visible history matches what actually happened.
-    await this.ledger(student.id, 'BUY_ITEM', -item.price, `Bought item: ${item.name}`);
 
     return { points: spent.value.availablePoints };
   }
 
   // -- auctions -----------------------------------------------------------
 
-  async listAuctions(actorUserId: number | null): Promise<Auction[]> {
-    if (actorUserId) await this.assertActorFeatureEnabled(actorUserId, 'enable_auction_blind_box');
+  /**
+   * The auction board.
+   *
+   * `auctions` carries no class column (the legacy table shape the frontend reads), so a
+   * "student/teacher of this class" filter cannot be expressed in a query. What the round can
+   * enforce - and does - is that the caller is one of those roles rather than anonymous; the
+   * student feature gate still runs for a student actor.
+   */
+  async listAuctions(actor: RequestActor): Promise<Auction[]> {
+    if (actor.role === 'student') {
+      await this.assertActorFeatureEnabled(actor.userId, 'enable_auction_blind_box');
+    }
     return this.repository.listAuctions();
   }
 
@@ -335,10 +381,14 @@ export class MarketplaceService {
    * student credited while their bid still stands - and the next bid would refund the
    * same bid again. Debiting first makes the common refusal a no-op, and a refused
    * refund is compensated by crediting the debit back.
+   *
+   * `studentId` is the actor's own student row; the body's `studentId` is only allowed to
+   * confirm it (the controller refuses a mismatch), so a bid can no longer be placed out of
+   * somebody else's balance.
    */
-  async bidAuction(id: string, input: Record<string, any>) {
-    const { studentId, bid_amount } = input ?? {};
-    const student = await this.requireStudentWithFeature(Number(studentId), 'enable_auction_blind_box');
+  async bidAuction(studentId: number, id: string, input: Record<string, any>) {
+    const { bid_amount } = input ?? {};
+    const student = await this.requireStudentWithFeature(studentId, 'enable_auction_blind_box');
 
     const auction = this.repository.getAuction(id);
     if (!auction) throw new ApiError(404, 'Auction not found');
@@ -357,6 +407,7 @@ export class MarketplaceService {
       delta: -bid_amount,
       reason: 'marketplace.auction_bid',
       actorId: 0,
+      ledger: { type: 'AUCTION_BID', description: `Placed bid on auction: ${auction.item_name}` },
     });
     if (spent.refusal) throw creditsApiError(spent.refusal);
 
@@ -369,6 +420,7 @@ export class MarketplaceService {
           delta: currentPrice,
           reason: 'marketplace.auction_refund',
           actorId: 0,
+          ledger: { type: 'AUCTION_REFUND', description: `Refund for outbid on auction: ${auction.item_name}` },
         });
         if (refunded.refusal) {
           // Undo the debit: nothing else has been written, so the request can fail
@@ -382,26 +434,37 @@ export class MarketplaceService {
           throw creditsApiError(refunded.refusal);
         }
 
-        await this.ledger(
-          auction.highest_bidder_id,
-          'AUCTION_REFUND',
-          currentPrice,
-          `Refund for outbid on auction: ${auction.item_name}`,
-        );
       }
     }
 
     this.repository.setAuctionLeader(id, bid_amount, student.id);
-    await this.ledger(student.id, 'AUCTION_BID', -bid_amount, `Placed bid on auction: ${auction.item_name}`);
 
     return { points: spent.value.availablePoints };
   }
 
   // -- blind boxes --------------------------------------------------------
 
-  async listBlindBoxes(actorUserId: number | null): Promise<BlindBox[]> {
-    if (actorUserId) await this.assertActorFeatureEnabled(actorUserId, 'enable_auction_blind_box');
-    return this.repository.listBlindBoxes();
+  /**
+   * The blind-box list, with a different *view* per role.
+   *
+   * Teacher/admin get the management listing - every box, active or not, which is what the
+   * matrix's role column describes (its note for this route is that an anonymous caller saw
+   * every row "including the ended ones"). A student gets the shop listing: the active boxes
+   * they can buy, and nothing else.
+   *
+   * Deliberate deviation from the literal role column: the route is only teacher/admin on
+   * paper because it was grouped with the auction/blind-box CRUD, but the deployed student shop
+   * page reads it (`useStudentShopData` -> `getStudentItems()` + `getBlindBoxes()` in one
+   * `Promise.all`), so refusing the student role would break that page rather than narrow it.
+   * The scope filter closes the same hole the role gate would have: no anonymous caller, no
+   * inactive/ended rows, and the student feature gate still runs first.
+   */
+  async listBlindBoxes(actor: RequestActor): Promise<BlindBox[]> {
+    const boxes = this.repository.listBlindBoxes();
+    if (actor.role !== 'student') return boxes;
+
+    await this.assertActorFeatureEnabled(actor.userId, 'enable_auction_blind_box');
+    return boxes.filter((box) => box.is_active === 1);
   }
 
   /**
@@ -411,10 +474,12 @@ export class MarketplaceService {
    * balances, because it is a *prize* - the legacy line called `addStudentPoints`, which
    * incremented `total_points` as well as `available_points`. That asymmetry is the
    * single easiest thing to get wrong here.
+   *
+   * `studentId` is the actor's own student row, exactly as in `buyItem`.
    */
-  async buyBlindBox(input: Record<string, any>) {
-    const { studentId, boxId, blindBoxId } = input ?? {};
-    const student = await this.requireStudentWithFeature(Number(studentId), 'enable_auction_blind_box');
+  async buyBlindBox(studentId: number, input: Record<string, any>) {
+    const { boxId, blindBoxId } = input ?? {};
+    const student = await this.requireStudentWithFeature(studentId, 'enable_auction_blind_box');
 
     let price = 100;
     let boxName = '神秘盲盒';
@@ -435,10 +500,10 @@ export class MarketplaceService {
       delta: -price,
       reason: 'marketplace.blind_box',
       actorId: 0,
+      ledger: { type: 'BUY_BLIND_BOX', description: `Bought blind box: ${boxName}` },
     });
     if (spent.refusal) throw creditsApiError(spent.refusal);
 
-    await this.ledger(student.id, 'BUY_BLIND_BOX', -price, `Bought blind box: ${boxName}`);
 
     const randomValue = this.random();
     let reward = '';
@@ -454,14 +519,14 @@ export class MarketplaceService {
       // `adjustPoints`, not `transferStudentCredits`: the legacy `addStudentPoints`
       // moved `total_points` too, and dropping that would stop counting consolation
       // prizes as earned points.
-      const granted = await this.classroom.adjustPoints({
+      const granted = await this.classroom.awardStudentPoints({
         studentId: student.id,
-        delta: 10,
-        reason: 'marketplace.blind_box_consolation',
+        amount: 10,
+        type: 'BLIND_BOX_CONSOLATION',
+        description: 'Blind box consolation prize',
         actorId: 0,
       });
       points = granted.availablePoints;
-      await this.ledger(student.id, 'BLIND_BOX_CONSOLATION', 10, 'Blind box consolation prize');
     }
 
     return { points, reward };
@@ -471,6 +536,18 @@ export class MarketplaceService {
 
   createAuction(input: Record<string, any>) {
     const { item_name, description, starting_price, end_time } = input ?? {};
+
+    /**
+     * An auction needs a name.
+     *
+     * `item_name` is NOT NULL on the table, so without this guard the insert throws and the
+     * handler answers 500 服务器内部错误 - which is not a contract, it is the store announcing a
+     * server fault for a request the caller got wrong. `createBlindBox` immediately below has had
+     * this check all along; the auction path was simply missing it. Found by the e2e sweep, which
+     * probes every endpoint with a deliberately empty body and fails on any 5xx.
+     */
+    if (!item_name || typeof item_name !== 'string') throw new ApiError(400, 'item_name is required');
+
     const id = this.repository.createAuction({
       item_name,
       description: description || '',
@@ -520,6 +597,21 @@ export class MarketplaceService {
   }
 
   // -- internals ----------------------------------------------------------
+
+  /**
+   * 403 unless the actor may edit this item: the owning teacher, or the admin console.
+   *
+   * Item ownership is a row property (`shop_items.teacher_id`), so it is read here rather
+   * than trusted from the request. A missing row is a 404 - the legacy update silently
+   * matched nothing, which told a teacher nothing about whether the id was theirs.
+   */
+  private assertItemOwner(actor: RequestActor, id: string): void {
+    if (isStaffAdmin(actor)) return;
+
+    const item = this.repository.getShopItem(id);
+    if (!item) throw new ApiError(404, 'Item not found');
+    if (item.teacher_id !== actor.userId) throw new ApiError(403, '无权限执行该操作');
+  }
 
   /**
    * The per-student feature gate, in the pre-migration order: resolve the student

@@ -17,6 +17,9 @@ import { Spinner } from '@/components/ui/spinner';
  * Composed from the kit, so the card, the field and the button come from the same
  * tokens as the login page next door - and dropping `public-campus-page` here is
  * what lets P3 delete the recolour block that block was compensating for.
+ *
+ * Public site, so it wears no console page scaffold; the gradient band and the card are
+ * `surface` / `success-soft` / `warning-soft` and the accent is `role` now.
  */
 export default function Activate() {
   const [code, setCode] = useState('');
@@ -59,18 +62,18 @@ export default function Activate() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas p-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface-1 p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md overflow-hidden rounded-panel border border-border bg-paper shadow-sm"
+        className="w-full max-w-md overflow-hidden rounded-panel border border-line-1 bg-surface-2 shadow-card"
       >
-        <div className="bg-gradient-to-r from-emerald-50 via-white to-orange-50 p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-paper text-primary shadow-sm">
+        <div className="border-b border-line-1 bg-brand-soft p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-surface-2 text-role shadow-card">
             <Key className="h-8 w-8" />
           </div>
-          <h2 className="mb-2 text-2xl font-bold text-ink-1">输入激活码</h2>
-          <p className="text-sm text-ink-3">此账号需要激活后才能使用系统的全部功能</p>
+          <h2 className="mb-2 text-2xl font-bold text-fg-1">输入激活码</h2>
+          <p className="text-sm text-fg-3">此账号需要激活后才能使用系统的全部功能</p>
         </div>
 
         <form onSubmit={handleActivate} className="space-y-6 p-8">
@@ -92,7 +95,7 @@ export default function Activate() {
             className="h-12 w-full font-bold"
           >
             {loading ? (
-              <Spinner label="正在激活" className="text-primary-foreground" />
+              <Spinner label="正在激活" className="text-role-contrast" />
             ) : (
               <>
                 立即激活 <ArrowRight data-icon="inline-end" />
@@ -103,7 +106,7 @@ export default function Activate() {
           <Button
             type="button"
             variant="ghost"
-            className="w-full text-ink-3 hover:text-ink-1"
+            className="w-full text-fg-3 hover:text-fg-1"
             onClick={() => {
               useStore.getState().logout();
               navigate('/login');

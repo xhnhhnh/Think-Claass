@@ -20,6 +20,12 @@
  *
  * Asserting the *set* rather than "at least" is the point: an extra table would mean a plugin
  * claiming rows it has no business deleting with the account.
+ *
+ * The one addition since the baseline measurement is the homework domain's six `p_homework_*`
+ * tables, which did not exist when the cascade was measured. They are appended to `CASCADE_TABLES`
+ * with their own note rather than excluded, because the coverage question ("does every table with
+ * account-scoped rows have exactly one owner?") is exactly the question that must still be asked of
+ * a brand-new domain.
  */
 
 import path from 'node:path';
@@ -98,6 +104,36 @@ const CASCADE_TABLES = [
   'users',
   'wrong_question_attempts',
   'wrong_questions',
+  /*
+   * The six homework tables, which the pre-migration cascade never saw because the domain did not
+   * exist then. They are listed here rather than exempted from the check for the reason this file
+   * exists: the registry is only trustworthy if its table set is compared against a list kept
+   * *somewhere else*. Leaving them out would make "every table has exactly one owner" silently
+   * false for the newest domain - and these are the tables the check matters most for, because
+   * homework rows carry a pupil's work and their photographs, so a missed table is data left behind
+   * after an account is erased.
+   *
+   * Keep sorted; a duplicate or a typo fails the set comparison by name.
+   */
+  'p_homework_answers',
+  'p_homework_assignments',
+  'p_homework_photos',
+  'p_homework_qa_messages',
+  'p_homework_questions',
+  'p_homework_submissions',
+
+  /*
+   * The AI 智学 domain's three `p_ai_study_*` tables, appended for the same reason as homework's.
+   * A practice set reaches an account three ways - the student whose set it is, the teacher who
+   * dispatched it, and the class it was dispatched into - so a rule that missed any of them would
+   * leave rows naming a deleted user. They are the newest domain and therefore the ones the question
+   * "does every account-scoped table have exactly one owner?" most needs to be asked of.
+   *
+   * Keep sorted; a duplicate or a typo fails the set comparison by name.
+   */
+  'p_ai_study_answers',
+  'p_ai_study_items',
+  'p_ai_study_sets',
 ];
 
 /** `operation_logs` is the kernel's; see the header. */

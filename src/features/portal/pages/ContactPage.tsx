@@ -18,6 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
  * focus ring and labels that were not associated with their controls; they are
  * `Input`/`Textarea` behind `FormField` now, so clicking a label focuses its field
  * and the focus ring follows the theme.
+ *
+ * Public site, so it wears no console page scaffold: these routes have no console shell
+ * and the page keeps its own `PortalShell` chrome. Only the vocabulary moved - the tiles,
+ * the card and the header are `bg-surface-*` / `text-fg-*` / `border-line-*` and the
+ * accent is `role` now.
  */
 /**
  * Contact channels rendered above the message form.
@@ -29,7 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
  * read them from the site settings) when the deployment has them.
  */
 const CONTACT_ITEMS = [
-  { icon: Mail, label: "邮箱", value: "contact@thinkclass.cn", tone: "bg-primary" },
+  { icon: Mail, label: "邮箱", value: "contact@thinkclass.cn", tone: "bg-role" },
 ];
 
 export default function ContactPage() {
@@ -61,8 +66,8 @@ export default function ContactPage() {
   return (
     <PortalShell title="联系我们" icon={MessageSquare} mainClassName="max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-3xl font-bold text-ink-1 md:text-4xl">与我们取得联系</h1>
-        <p className="mx-auto max-w-xl text-base text-ink-3">
+        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-4xl">与我们取得联系</h1>
+        <p className="mx-auto max-w-xl text-base text-fg-3">
           如果您有任何问题、建议或合作意向，欢迎随时与我们联系。
         </p>
       </motion.div>
@@ -75,22 +80,22 @@ export default function ContactPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
-              className="flex flex-col items-center gap-1.5 rounded-panel border border-border bg-paper p-5 text-center shadow-sm"
+              className="flex flex-col items-center gap-1.5 rounded-panel border border-line-1 bg-surface-2 p-5 text-center shadow-card"
             >
               <div
-                className={`mb-1 flex size-10 items-center justify-center rounded-card text-primary-foreground ${item.tone}`}
+                className={`mb-1 flex size-10 items-center justify-center rounded-card text-role-contrast ${item.tone}`}
               >
                 <item.icon className="size-5" />
               </div>
-              <span className="text-xs text-ink-3">{item.label}</span>
-              <span className="text-sm font-medium text-ink-2">{item.value}</span>
+              <span className="text-xs text-fg-3">{item.label}</span>
+              <span className="text-sm font-medium text-fg-2">{item.value}</span>
             </motion.div>
           ))}
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <div className="rounded-panel border border-border bg-paper p-8 shadow-card md:p-10">
-            <h2 className="mb-6 text-xl font-semibold text-ink-1">在线留言</h2>
+          <div className="rounded-panel border border-line-1 bg-surface-2 p-8 shadow-card md:p-10">
+            <h2 className="mb-6 text-xl font-semibold text-fg-1">在线留言</h2>
             <form onSubmit={handleSubmit} className="space-y-5">
               <FormField label="您的姓名" required>
                 <Input
@@ -125,7 +130,7 @@ export default function ContactPage() {
               <Button type="submit" size="lg" disabled={loading} className="mt-2 w-full">
                 {loading ? (
                   <>
-                    <Spinner label="正在提交留言" className="text-primary-foreground" />
+                    <Spinner label="正在提交留言" className="text-role-contrast" />
                     提交中...
                   </>
                 ) : (

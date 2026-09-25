@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
-import { Send, MessageSquare, AlertCircle, RefreshCw, Heart } from 'lucide-react';
+import { Send, MessageSquare, RefreshCw, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Textarea } from '@/components/ui/textarea';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { toast } from 'sonner';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
@@ -21,6 +24,20 @@ interface Message {
   sender_name?: string;
 }
 
+/**
+ * 家校信箱.
+ *
+ * The page is a two-pane letter thread rather than a form, so it takes
+ * `PageScaffold variant="detail"` and keeps its own panel composition inside the
+ * scaffold's measure. The heading and the refresh control used to be a `PageHeader`
+ * plus a second button in a hand-built bar; both are the scaffold's now - the title is
+ * suppressed while the shell renders the route's `h1`, and 刷新信箱 went to the context
+ * bar (the same button, same `title`, same disabled state).
+ *
+ * Layout, message filtering, the reverse(), the scroll-to-end effect and the send
+ * payload are unchanged: the panel is the same flex column at the same
+ * `calc(100vh - 8rem)` height, only its colours are tokens now.
+ */
 export default function ParentCommunication() {
   const user = useStore(state => state.user);
   const [newMessage, setNewMessage] = useState('');
@@ -77,112 +94,124 @@ export default function ParentCommunication() {
     }
   };
 
+  // Registered before the early return below so the hook order is stable.
+  useRegisterPageCommands([
+    {
+      id: 'parent-communication:refresh',
+      label: '刷新信箱',
+      icon: RefreshCw,
+      keywords: ['家校信箱', '刷新', '留言'],
+      run: () => {
+        if (classId) void refetch();
+      },
+      disabled: loading,
+    },
+  ]);
+
   if (!user?.studentId) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 bg-paper rounded-panel shadow-raised border border-warning p-8 text-center max-w-4xl mx-auto">
-        <div className="w-20 h-20 bg-warning/10 rounded-full flex items-center justify-center mb-6">
-          <Heart className="w-10 h-10 text-primary/80" />
-        </div>
-        <h2 className="text-2xl font-bold text-ink-1 mb-3">等待宝贝加入</h2>
-        <p className="text-ink-3 max-w-md">
-          您的账号尚未绑定宝贝信息，请联系老师获取邀请码进行绑定，开启温馨的家校之旅。
-        </p>
-      </div>
+      <PageScaffold variant="detail" title="家校信箱" description="记录与老师的每一次温暖交流">
+        <EmptyState
+          icon={Heart}
+          className="mx-auto h-80 max-w-4xl"
+          title="等待宝贝加入"
+          description="您的账号尚未绑定宝贝信息，请联系老师获取邀请码进行绑定，开启温馨的家校之旅。"
+        />
+      </PageScaffold>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col bg-paper-warm rounded-panel shadow-raised border border-warning overflow-hidden relative">
-      {/* Header */}
-      <div className="px-8 py-6 border-b border-warning bg-paper/50 backdrop-blur-sm flex justify-between items-center relative z-10">
-        <PageHeader
-          title="家校信箱"
-          description="记录与老师的每一次温暖交流"
-          icon={MessageSquare}
-          className="min-w-0"
-        />
-        <Button 
+    <PageScaffold
+      variant="detail"
+      title="家校信箱"
+      description="记录与老师的每一次温暖交流"
+      actions={
+        <Button
+          type="button"
           onClick={() => classId && refetch()}
           disabled={loading}
-          className="p-2.5 text-ink-3 hover:text-primary hover:bg-primary/5 rounded-xl transition-all duration-300 disabled:opacity-50"
+          className="rounded-xl bg-role-soft p-2.5 text-role-ink transition-all duration-300 hover:bg-role/20 disabled:opacity-50"
           title="刷新信箱"
         >
-          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`size-5 ${loading ? 'animate-spin' : ''}`} />
         </Button>
-      </div>
+      }
+    >
+      <div className="relative mx-auto flex h-[calc(100vh-8rem)] max-w-4xl flex-col overflow-hidden rounded-panel border border-line-1 bg-surface-3 shadow-raised">
+        {/* Messages Area */}
+        <div className="relative flex-1 overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] p-8">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-3/80 to-surface-3/40"></div>
 
-      {/* Messages Area */}
-      <div className="flex-1 p-8 overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-paper-warm/80 to-paper-warm/40 pointer-events-none"></div>
-        
-        <div className="relative z-10 h-full">
-          {messages.length === 0 && !loading ? (
-            <div className="h-full flex flex-col items-center justify-center text-ink-3">
-              <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mb-4">
-                <MessageSquare className="w-8 h-8 opacity-50" />
+          <div className="relative z-10 h-full">
+            {messages.length === 0 && !loading ? (
+              <div className="flex h-full flex-col items-center justify-center text-fg-3">
+                <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-surface-2/60">
+                  <MessageSquare className="size-8 opacity-50" />
+                </div>
+                <p className="font-medium tracking-wide">信箱空空如也，写下第一封信吧</p>
               </div>
-              <p className="font-medium tracking-wide">信箱空空如也，写下第一封信吧</p>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {messages.map((msg) => {
-                const isMine = (msg.sender_role === 'parent' || msg.sender_role === 'user') && msg.sender_id === user.id;
-                
-                return (
-                  <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                      <span className="text-xs text-ink-3 mb-1.5 px-2 font-medium tracking-wider">
-                        {isMine ? '我' : msg.sender_name || '老师'} • {new Date(msg.created_at).toLocaleString([], {
-                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                        })}
-                      </span>
-                      <div 
-                        className={`px-6 py-4 rounded-panel shadow-[0_4px_20px_rgb(0,0,0,0.03)] ${
-                          isMine 
-                            ? 'bg-primary text-primary-foreground rounded-tr-sm' 
-                            : 'bg-paper border border-warning/10 text-ink-1 rounded-tl-sm'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{msg.content}</p>
+            ) : (
+              <div className="space-y-8">
+                {messages.map((msg) => {
+                  const isMine = (msg.sender_role === 'parent' || msg.sender_role === 'user') && msg.sender_id === user.id;
+
+                  return (
+                    <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`flex max-w-[75%] flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                        <span className="mb-1.5 px-2 text-xs font-medium tracking-wider text-fg-3">
+                          {isMine ? '我' : msg.sender_name || '老师'} • {new Date(msg.created_at).toLocaleString([], {
+                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                        <div
+                          className={`rounded-panel px-6 py-4 shadow-card ${
+                            isMine
+                              ? 'rounded-tr-sm bg-role text-role-contrast'
+                              : 'rounded-tl-sm border border-line-1 bg-surface-2 text-fg-1'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{msg.content}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} className="h-4" />
+                  );
+                })}
+                <div ref={messagesEndRef} className="h-4" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="relative z-10 border-t border-line-1 bg-surface-2/80 p-6 backdrop-blur-md">
+          <form onSubmit={handleSend} className="mx-auto flex max-w-4xl items-end space-x-4">
+            <div className="flex-1 rounded-card border border-line-1 bg-surface-2/80 p-2.5 shadow-inset transition-all duration-300 focus-within:border-role/30 focus-within:ring-4 focus-within:ring-role/10">
+              <Textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="写下想对老师说的话..."
+                className="max-h-32 min-h-[44px] w-full resize-none border-none bg-transparent px-4 py-2 text-[15px] tracking-wide text-fg-2 placeholder:text-fg-3 focus:ring-0"
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  }
+                }}
+              />
             </div>
-          )}
+            <Button
+              type="submit"
+              disabled={!newMessage.trim() || sendMutation.isPending}
+              className="h-14 w-14 flex-shrink-0 rounded-sheet bg-role text-role-contrast shadow-card transition-all duration-300 hover:-translate-y-1 hover:bg-role/90 hover:shadow-raised hover:shadow-role/30 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-role disabled:hover:shadow-card"
+            >
+              {sendMutation.isPending ? <RefreshCw className="size-6 animate-spin" /> : <Send className="ml-1 size-6" />}
+            </Button>
+          </form>
+          <p className="mt-4 text-center text-xs font-medium tracking-widest text-fg-3">按 Enter 发出信件，Shift + Enter 换行</p>
         </div>
       </div>
-
-      {/* Input Area */}
-      <div className="p-6 bg-paper/80 backdrop-blur-md border-t border-warning relative z-10">
-        <form onSubmit={handleSend} className="flex items-end space-x-4 max-w-4xl mx-auto">
-          <div className="flex-1 bg-muted/80 rounded-card border border-border focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-300 p-2.5 shadow-inner">
-            <textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="写下想对老师说的话..."
-              className="w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[44px] text-[15px] py-2 px-4 text-ink-2 placeholder:text-ink-3 tracking-wide"
-              rows={1}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend(e);
-                }
-              }}
-            />
-          </div>
-          <Button
-            type="submit"
-            disabled={!newMessage.trim() || sendMutation.isPending}
-            className="flex-shrink-0 h-14 w-14 flex items-center justify-center bg-primary text-primary-foreground rounded-[1.25rem] hover:bg-primary/90 hover:-translate-y-1 hover:shadow-raised hover:shadow-primary/30 disabled:opacity-50 disabled:hover:bg-primary disabled:hover:translate-y-0 disabled:hover:shadow-none transition-all duration-300 shadow-md"
-          >
-            {sendMutation.isPending ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6 ml-1" />}
-          </Button>
-        </form>
-        <p className="text-center text-xs text-ink-3 mt-4 tracking-widest font-medium">按 Enter 发出信件，Shift + Enter 换行</p>
-      </div>
-    </div>
+    </PageScaffold>
   );
 }

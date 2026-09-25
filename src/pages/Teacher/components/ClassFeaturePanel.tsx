@@ -43,12 +43,12 @@ export default function ClassFeaturePanel({ classId, compact = false }: { classI
   const content = useMemo(() => groups, []);
 
   if (!classId) {
-    return <div className="rounded-card border border-dashed border-border p-8 text-center text-ink-3">请先选择班级</div>;
+    return <div className="rounded-card border border-dashed border-line-1 p-8 text-center text-fg-3">请先选择班级</div>;
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 text-ink-3">
+      <div className="flex items-center justify-center py-12 text-fg-3">
         <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
         正在加载课堂功能...
       </div>
@@ -67,25 +67,25 @@ export default function ClassFeaturePanel({ classId, compact = false }: { classI
   };
 
   return (
-    <div className={`space-y-5 ${compact ? '' : 'bg-paper/80 backdrop-blur-xl p-6 rounded-card shadow-card border border-white/60'}`}>
-      {!compact && <h2 className="text-xl font-bold text-ink-1">课堂功能开关</h2>}
+    <div className={`space-y-5 ${compact ? '' : 'bg-surface-2/80 backdrop-blur-xl p-6 rounded-card shadow-card border border-line-1'}`}>
+      {!compact && <h2 className="text-xl font-bold text-fg-1">课堂功能开关</h2>}
       {content.map((group) => (
         <div key={group.title} className="space-y-3">
-          <h3 className="text-sm font-bold text-ink-3">{group.title}</h3>
+          <h3 className="text-sm font-bold text-fg-3">{group.title}</h3>
           <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
             {group.items.map((key) => (
-              <div key={key} className="flex items-center justify-between rounded-card border border-border bg-paper/70 px-4 py-3">
+              <div key={key} className="flex items-center justify-between rounded-card border border-line-1 bg-surface-2/70 px-4 py-3">
                 <div className="pr-4">
-                  <div className="font-semibold text-ink-1">{classFeatureLabels[key]}</div>
-                  <div className="text-xs text-ink-3">{features[key] ? '当前已开启' : '当前已关闭'}</div>
+                  <div className="font-semibold text-fg-1">{classFeatureLabels[key]}</div>
+                  <div className="text-xs text-fg-3">{features[key] ? '当前已开启' : '当前已关闭'}</div>
                 </div>
                 <Button variant="ghost"
                   onClick={() => toggleFeature(key)}
                   disabled={mutation.isPending}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${features[key] ? 'bg-gradient-to-r from-primary to-cyan-500' : 'bg-slate-300'} disabled:opacity-50`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${features[key] ? 'bg-gradient-to-r from-role to-role-ink' : 'bg-line-strong'} disabled:opacity-50`}
                 >
                   <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-paper transition-transform ${features[key] ? 'translate-x-5' : 'translate-x-1'}`}
+                    className={`inline-block h-5 w-5 transform rounded-full bg-surface-2 transition-transform ${features[key] ? 'translate-x-5' : 'translate-x-1'}`}
                   />
                 </Button>
               </div>

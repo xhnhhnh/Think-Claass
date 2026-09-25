@@ -22,7 +22,7 @@ contains no business table names, and plugins never import each other directly.
 | Frontend | React 18, TypeScript, Vite 6, Tailwind CSS 3, TanStack Query 5, Zustand |
 | Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
 | Database | SQLite via `better-sqlite3`; migrations are forward-only and checksummed |
-| Plugins | 20 under [`plugins/`](plugins) — see the list below |
+| Plugins | 22 under [`plugins/`](plugins) — see the list below |
 
 The README deliberately does not repeat the version number: it said `1.6.7` for two major
 releases after the project had moved on. That is what `package.json` is for.
@@ -51,15 +51,20 @@ tests/              Vitest suites: app, backend, guardrails
 docs/               Design records and the migration archive
 ```
 
-The 20 plugin domains:
+The 22 plugin domains:
 
 ```text
-admin  assignments  battles  challenge  classroom  collaboration  dungeon  economy
-engagement  gacha  identity  insights  learning  marketplace  parent-buff  payment
+admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
+engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
 pet  portal  slg  system
 ```
 
 `api/modules/` no longer exists — every domain is a plugin now.
+
+`ai-study` (AI 智学) is the personalisation engine: a deterministic rule picks a student's practice set
+from the question bank and states why each question is there, the student answers it in the page, and
+submitting writes mastery back through `learning.public`. A configured model may re-rank the rule's
+choices and rewrite their reasons; the default deployment has none and the rule stands alone.
 
 ### The rules the architecture is held to
 
@@ -95,13 +100,13 @@ npm install
 Create a `.env` in the repository root:
 
 ```env
-# Which SQLite file to open, relative to the repository root. Default: database.sqlite
-DATABASE_FILE="database.sqlite"
+# Which SQLite file to open, relative to the repository root.
+DATABASE_URL="file:./database.sqlite"
 
 # Required on the first boot: they create the superadmin account, and there is no default.
-# Change them before the instance is reachable from a network.
-SUPERADMIN_USERNAME="superadmin"
-SUPERADMIN_PASSWORD="superadmin"
+# Choose unique values; the placeholders below must be replaced before boot.
+SUPERADMIN_USERNAME="<your-admin-name>"
+SUPERADMIN_PASSWORD="<unique-strong-password>"
 
 # Required. Exactly 32 bytes, and every instance of this deployment must use the same value.
 ENCRYPTION_KEY="<32 characters>"
@@ -112,6 +117,10 @@ Generate a key:
 ```bash
 node -e "console.log(require('node:crypto').randomBytes(16).toString('hex'))"
 ```
+
+To rebuild an unpublished local instance after a verified backup, use
+[`docs/local-reinitialize.md`](docs/local-reinitialize.md). The command can prompt for new
+credentials or generate unique random ones in a user-restricted local file.
 
 > **`ENCRYPTION_KEY` is not optional.** Student names are encrypted at rest, and since 2.0.0 the
 > application refuses to fall back to a default — a missing or wrong-length key is an error at the
@@ -200,10 +209,12 @@ and `api/prismaClient.ts` passes that same file to Prisma explicitly so the two 
 | `npm run preview` | Serve the built frontend |
 | `npm run check` | TypeScript, no emit |
 | `npm run lint` | ESLint |
-| `npm test` | Full Vitest suite: app + backend + guardrails |
+| `npm test` | Full Vitest suite: app + backend + guardrails + e2e |
 | `npm run test:app` | Frontend and legacy `api/**` suites (jsdom + MSW) |
 | `npm run test:backend` | Kernel and server-side suites (node), including a real plugin host |
+| `npm run test:e2e` | The composed application over real HTTP: every endpoint, by role |
 | `npm run guard` | Guardrail suite only |
+| `npm run auth:audit` | Per-controller authorization inventory, reconciled against the endpoint snapshot |
 | `npm run api:surface:check` | Fail if the HTTP surface drifted |
 | `npm run measure` | Migration ratchets: endpoints, dead code, adopted tables |
 | `npm run release` | Cut a version — dry-run unless `--push` |
@@ -218,9 +229,37 @@ Run this before publishing changes. The first four are the gates CI enforces, in
 npm run check
 npm run api:surface:check
 npm run guard
-npm test
+npm test                # now includes the e2e project
 npm run lint            # local only; not part of the release workflow
 ```
+
+### The four test projects
+
+`npm test` runs all of them; each is also runnable alone.
+
+| Project | What it covers | The blind spot it exists for |
+| --- | --- | --- |
+| `test:app` | The React pages, in jsdom, against MSW | — |
+| `test:backend` | The kernel, the runtime and each plugin, over real databases | only the routes a suite is about |
+| `guard` | The migration ratchets and design-system audit | — |
+| `test:e2e` | The composed application (`api/app.ts`), over real HTTP | **the only layer that checks the contract between the other two** |
+
+That last one is not belt-and-braces. `test:app` runs the real pages against MSW handlers that
+answer **200 for everything**, and `test:backend` boots real kernels but touches a handful of routes
+each — so a client and a server that disagree about a role, a status or a shape are green in both.
+The e2e project boots the composition that ships, seeds four roles through the application's own
+routes, and asserts per endpoint: anonymous gets no success status, no role gets a 500, and the
+paths the frontend actually calls answer without a 5xx.
+
+It earned its place immediately: the first run found that the actor scope was never resolved in the
+legacy composition at all (`mountKernelInfrastructure` installed a second request-context middleware
+without the resolver, and it ran last), which is why every student got 403 from the pet routes in a
+deployed instance while the 1128-test suite stayed green.
+
+`npm run auth:audit` prints the per-controller inventory behind
+[`docs/security/route-authorization-matrix.md`](docs/security/route-authorization-matrix.md) and fails
+on any endpoint the tree cannot attribute. It says plainly what it is: a checklist, not a proof —
+the per-route, per-role assertions live in `tests/e2e/authorization/routes.test.ts`.
 
 The default composition (no composition variables set) must serve business routes. Nothing in the
 repository sets `PLUGINS_ENABLED`, so the default is what actually ships, and the failure mode when it

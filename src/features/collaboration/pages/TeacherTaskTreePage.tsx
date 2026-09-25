@@ -11,6 +11,7 @@ import {
   useUpdateTaskNodeMutation,
 } from '@/features/collaboration/hooks/useTaskTree';
 import { useClasses } from '@/hooks/queries/useClasses';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +24,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -42,7 +43,7 @@ interface TaskNode {
  *
  * The canvas is the feature, so it keeps its dark starry stage, its glowing nodes and
  * the spring entrance on each one. Two things had to leave it: the `stroke="#6366f1"`
- * literal (the connection lines are `currentColor` on `text-primary` now) and the
+ * literal (the connection lines are `currentColor` on `text-role` now) and the
  * `style={{ left, top }}` that positioned a node - the same coordinates ride on the
  * `motion.div`'s `animate` instead, which is where the rest of its animation already
  * lived. Deleting a node asks through `ConfirmDialog` rather than `window.confirm`.
@@ -147,37 +148,49 @@ export default function TeacherTaskTree() {
     setIsModalOpen(true);
   };
 
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-task-tree:create-node',
+      label: '新建节点',
+      icon: Plus,
+      keywords: ['任务树', '节点', '新建'],
+      run: openCreateModal,
+    },
+  ]);
+
   if (!classId) {
     return (
-      <EmptyState
-        icon={GitBranch}
-        title="请先创建或选择一个班级"
-        className="bg-paper"
-      />
+      <PageScaffold variant="dashboard">
+        <EmptyState
+          icon={GitBranch}
+          title="请先创建或选择一个班级"
+          className="bg-surface-2"
+        />
+      </PageScaffold>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
-      <PageHeader
-        title="多维任务树管理"
-        description="构建知识图谱与成长路线，学生需按顺序解锁节点。"
-        icon={GitBranch}
-        actions={
-          <Button onClick={openCreateModal}>
-            <Plus data-icon="inline-start" />
-            新建节点
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="dashboard"
+      title="多维任务树管理"
+      description="构建知识图谱与成长路线，学生需按顺序解锁节点。"
+      actions={
+        <Button onClick={openCreateModal}>
+          <Plus data-icon="inline-start" />
+          新建节点
+        </Button>
+      }
+    >
 
       {/* Visual Tree Editor/Viewer */}
-      <div className="relative min-h-[600px] overflow-hidden rounded-panel border border-accent-foreground bg-secondary-foreground p-6 shadow-raised">
+      <div className="relative min-h-[600px] overflow-hidden rounded-panel border border-role-ink bg-fg-1 p-6 shadow-raised">
         {/* Starry background */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/30 via-secondary-foreground to-foreground opacity-60" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-role/30 via-fg-1 to-fg-1 opacity-60" />
 
         {/* Connections Layer */}
-        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-primary">
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full text-role">
           {nodes.map(node => {
             if (!node.parent_node_id) return null;
             const parent = nodes.find(n => n.id === node.parent_node_id);
@@ -208,11 +221,11 @@ export default function TeacherTaskTree() {
             transition={{ type: 'spring', bounce: 0.35 }}
             className="group absolute z-10 flex flex-col items-center"
           >
-            <div className="relative flex size-16 items-center justify-center rounded-full border-4 border-primary/40 bg-primary font-bold text-primary-foreground shadow-glow-primary transition-transform group-hover:scale-110">
+            <div className="relative flex size-16 items-center justify-center rounded-full border-4 border-role/40 bg-role font-bold text-role-contrast shadow-glow-primary transition-transform group-hover:scale-110">
               {node.id}
 
               {/* Quick Actions */}
-              <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 gap-2 rounded-card bg-secondary-foreground/95 p-2 shadow-raised group-hover:flex">
+              <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 gap-2 rounded-card bg-fg-1/95 p-2 shadow-raised group-hover:flex">
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -228,7 +241,7 @@ export default function TeacherTaskTree() {
                   size="icon-xs"
                   aria-label={`删除 ${node.title}`}
                   title="删除节点"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-danger hover:bg-danger/10 hover:text-danger"
                   onClick={() => setDeleteTarget(node)}
                 >
                   <Trash2 />
@@ -238,10 +251,10 @@ export default function TeacherTaskTree() {
 
             {/* Label */}
             <div className="mt-2 w-32 text-center">
-              <span className="text-sm font-bold text-primary-foreground/90 drop-shadow-md">
+              <span className="text-sm font-bold text-role-contrast/90 drop-shadow-md">
                 {node.title}
               </span>
-              <div className="text-xs text-primary-foreground/60">{node.points_reward} 积分</div>
+              <div className="text-xs text-role-contrast/60">{node.points_reward} 积分</div>
             </div>
           </motion.div>
         ))}
@@ -250,7 +263,7 @@ export default function TeacherTaskTree() {
           <EmptyState
             icon={GitBranch}
             title="暂无节点，点击右上角新建根节点开始构建任务树"
-            className="absolute inset-0 border-primary-foreground/25 bg-transparent [&_div]:text-primary-foreground"
+            className="absolute inset-0 border-role-contrast/25 bg-transparent [&_div]:text-role-contrast"
           />
         )}
       </div>
@@ -346,6 +359,6 @@ export default function TeacherTaskTree() {
           setDeleteTarget(null);
         }}
       />
-    </div>
+    </PageScaffold>
   );
 }

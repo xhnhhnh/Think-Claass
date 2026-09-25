@@ -1167,3 +1167,139 @@ model knowledge_products {
 
   @@index([knowledge_node_id], map: "idx_knowledge_products_node_id")
 }
+
+// ---------------------------------------------------------------------------
+// plugins/homework - the homework system.
+//
+// Six namespaced tables, created by `0001_homework_tables` from
+// `plugins/homework/migrations/0001_init.sql`. They are modelled here because guardrail G13
+// checks the schema in both directions: every Prisma model must have a table, AND every column
+// SQLite owns must be modelled - otherwise the Prisma client and `ctx.db` disagree about what a
+// row is.
+//
+// These models deliberately declare NO relation to `classes` or `students`. Those tables belong
+// to the classroom plugin, and the foreign keys in the DDL point only at `p_homework_*` tables
+// for the same reason.
+//
+// `created_at` / `submitted_at` / etc. are `DateTime?` over SQLite TEXT, matching
+// `note_assets.created_at` and the rest of this schema. The plugin writes ISO strings; nothing
+// in the homework code reads them through the Prisma client.
+
+model p_homework_assignments {
+  id            Int       @id @default(autoincrement())
+  class_id      Int
+  teacher_id    Int
+  title         String
+  description   String?
+  due_at        DateTime?
+  status        String    @default("draft")
+  total_points  Int       @default(0)
+  reward_points Int       @default(0)
+  legacy_id     Int?
+  created_at    DateTime? @default(now())
+  updated_at    DateTime?
+
+  p_homework_questions   p_homework_questions[]
+  p_homework_submissions p_homework_submissions[]
+  p_homework_qa_messages p_homework_qa_messages[]
+
+  @@unique([legacy_id], map: "idx_p_homework_assignments_legacy")
+}
+
+model p_homework_questions {
+  id            Int       @id @default(autoincrement())
+  assignment_id Int
+  order_no      Int
+  type          String
+  stem          String
+  options_json  String?
+  answer_json   String?
+  explanation   String?
+  points        Int       @default(0)
+  created_at    DateTime? @default(now())
+
+  p_homework_assignments p_homework_assignments @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  p_homework_answers     p_homework_answers[]
+
+  @@index([assignment_id], map: "idx_p_homework_questions_assignment")
+}
+
+model p_homework_submissions {
+  id               Int       @id @default(autoincrement())
+  assignment_id    Int
+  student_id       Int
+  status           String    @default("draft")
+  submitted_at     DateTime?
+  score            Int?
+  total_points     Int       @default(0)
+  teacher_feedback String?
+  ai_feedback      String?
+  ai_confidence    Float?
+  graded_by        String?
+  legacy_id        Int?
+  created_at       DateTime? @default(now())
+  updated_at       DateTime?
+
+  p_homework_assignments p_homework_assignments @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  p_homework_answers     p_homework_answers[]
+  p_homework_photos      p_homework_photos[]
+
+  @@unique([assignment_id, student_id], map: "sqlite_autoindex_p_homework_submissions_1")
+  @@unique([legacy_id], map: "idx_p_homework_submissions_legacy")
+  @@index([assignment_id], map: "idx_p_homework_submissions_assignment")
+  @@index([student_id], map: "idx_p_homework_submissions_student")
+}
+
+model p_homework_answers {
+  id              Int       @id @default(autoincrement())
+  submission_id   Int
+  question_id     Int
+  answer_json     String?
+  score           Int?
+  is_correct      Int?
+  auto_score      Int?
+  auto_source     String?
+  ai_score        Int?
+  ai_comment      String?
+  ai_confidence   Float?
+  ai_source       String?
+  teacher_score   Int?
+  teacher_comment String?
+  updated_at      DateTime?
+
+  p_homework_submissions p_homework_submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  p_homework_questions   p_homework_questions   @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([submission_id, question_id], map: "sqlite_autoindex_p_homework_answers_1")
+  @@index([submission_id], map: "idx_p_homework_answers_submission")
+  @@index([question_id], map: "idx_p_homework_answers_question")
+}
+
+model p_homework_photos {
+  id            Int       @id @default(autoincrement())
+  submission_id Int
+  storage_path  String
+  mime          String
+  size          Int
+  sha256        String
+  uploaded_by   Int?
+  created_at    DateTime? @default(now())
+
+  p_homework_submissions p_homework_submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([submission_id], map: "idx_p_homework_photos_submission")
+}
+
+model p_homework_qa_messages {
+  id            Int       @id @default(autoincrement())
+  assignment_id Int
+  student_id    Int
+  role          String
+  content       String
+  ai_source     String?
+  created_at    DateTime? @default(now())
+
+  p_homework_assignments p_homework_assignments @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([assignment_id, student_id], map: "idx_p_homework_qa_assignment")
+}

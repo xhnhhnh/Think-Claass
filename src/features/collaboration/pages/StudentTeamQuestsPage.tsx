@@ -1,19 +1,47 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { CheckSquare, LoaderCircle, MessageCircle, ShieldAlert, Star, Target, Users } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { CheckSquare, MessageCircle, ShieldAlert, Star, Target, Users } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
+
+import { useRegisterPageCommands } from '@/app/commands/registry';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 import { teamQuestsApi } from '@/features/collaboration/api/teamQuestsApi';
 import { useStudentCurrentTeamQuest } from '@/features/collaboration/hooks/useTeamQuests';
 import { useStore } from '@/store/useStore';
 
+/**
+ * 团队任务.
+ *
+ * A `list` page: the orange banner that repeated the page title is gone - the shell's
+ * context bar prints it - and its line of copy is the scaffold's description. The
+ * quest summary, the hand-built progress bar (now the kit's `Progress`, which owns
+ * the one value a page cannot write as a class) and the peer-review form keep their
+ * place, their entrance and their copy.
+ *
+ * The review form is deliberately unchanged in structure: the star buttons are the
+ * first five controls inside a member's card, in order, because that is what the
+ * page's test drives (`within(card).getAllByRole('button')[3]` is the fourth star).
+ * The mutation, the per-member scoring, the comment trim and the refetch are
+ * untouched; 提交互评 is also registered as a palette command, and it runs through a
+ * ref holding the latest handler because it reads the rating/comment state that the
+ * registry's `id`+`disabled` key does not track.
+ */
 export default function StudentTeamQuests() {
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
   const { data, isLoading, error, refetch } = useStudentCurrentTeamQuest(studentId);
   const [reviewForm, setReviewForm] = useState<Record<number, number>>({});
   const [reviewComments, setReviewComments] = useState<Record<number, string>>({});
+  const shouldReduceMotion = useReducedMotion();
 
   const quest = data?.quest ?? null;
   const members = data?.team?.members ?? [];
@@ -83,235 +111,235 @@ export default function StudentTeamQuests() {
     }
   };
 
+  // The latest handler, so a palette submit sends the ratings and comments as they are
+  // now rather than as they were when the command was registered.
+  const submitRef = useRef(submitPeerReview);
+  useEffect(() => {
+    submitRef.current = submitPeerReview;
+  });
+
+  useRegisterPageCommands([
+    {
+      id: 'team-quests:submit-peer-review',
+      label: '提交互评',
+      icon: MessageCircle,
+      disabled: reviewMutation.isPending || !quest || otherMembers.length === 0,
+      run: () => void submitRef.current(),
+    },
+  ]);
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-6xl mx-auto space-y-8"
-    >
-      <motion.div
-        initial={{ y: -20 }}
-        animate={{ y: 0 }}
-        className="bg-paper rounded-panel p-10 shadow-raised border-b-8 border-orange-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-400 opacity-10 pointer-events-none" />
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-red-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob" />
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000" />
-
-        <div className="relative z-10 flex items-center space-x-6">
-          <div className="p-5 bg-warning/20 rounded-card shadow-inner border-b-4 border-orange-300">
-            <Users className="w-12 h-12 text-warning" />
-          </div>
-          <div>
-            <h1 className="text-5xl font-black mb-2 text-gray-900 drop-shadow-sm">团队任务</h1>
-            <p className="text-xl font-bold text-gray-600">协作完成挑战，共同成长！</p>
-          </div>
-        </div>
-      </motion.div>
-
+    <PageScaffold variant="list" title="团队任务" description="协作完成挑战，共同成长！">
       {isLoading && (
-        <div className="bg-paper rounded-panel p-10 shadow-raised border border-white/60 flex items-center justify-center text-ink-3">
-          <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
+        <div className="flex items-center justify-center gap-3 rounded-panel border border-line-1 bg-surface-2 p-10 text-fg-3 shadow-card">
+          <Spinner label="正在加载团队任务" />
           正在加载团队任务...
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="bg-destructive/10 text-destructive rounded-panel p-10 shadow-raised border border-destructive/20 text-center">
+        <div className="rounded-panel border border-danger/20 bg-danger-soft p-10 text-center text-danger-ink">
           团队任务加载失败，请稍后重试
         </div>
       )}
 
       {!isLoading && !error && !quest && (
-        <div className="bg-paper rounded-panel p-10 shadow-raised border border-white/60 text-center text-ink-3">
-          当前没有进行中的团队任务
-        </div>
+        <EmptyState icon={Users} title="当前没有进行中的团队任务" />
       )}
 
       {!isLoading && !error && quest && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-paper rounded-panel p-8 md:p-10 shadow-raised border-8 border-blue-100"
+              initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: -16 }) }}
+              animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
+              className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card md:p-8"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-                <h2 className="text-3xl font-black flex items-center text-gray-900">
-                  <Target className="w-10 h-10 mr-4 text-blue-500" />
+              <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <h2 className="flex items-center text-2xl font-black text-fg-1">
+                  <Target aria-hidden="true" className="mr-3 size-8 text-info" />
                   当前任务: {quest.title}
                 </h2>
-                <span
-                  className={`px-6 py-2 rounded-full text-lg font-black border-b-4 shadow-sm self-start sm:self-auto ${
-                    quest.status === 'active' ? 'bg-success/20 text-success border-green-300' : 'bg-gray-100 text-gray-700 border-gray-300'
-                  }`}
+                <Badge
+                  variant={quest.status === 'active' ? 'success' : 'secondary'}
+                  className="h-auto self-start px-4 py-1.5 text-base font-black sm:self-auto"
                 >
                   {quest.status === 'active' ? '进行中' : '已完成'}
-                </span>
+                </Badge>
               </div>
 
-              <p className="text-gray-700 mb-10 text-xl font-medium leading-relaxed bg-blue-50/50 p-6 rounded-card border-2 border-blue-100">
+              <p className="mb-6 rounded-card border border-info/20 bg-info-soft/60 p-5 text-lg font-medium leading-relaxed text-fg-2">
                 {quest.description || '暂无任务描述'}
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                <div className="rounded-card border-2 border-blue-100 bg-blue-50/50 p-6">
-                  <div className="flex justify-between text-lg font-black text-gray-700 mb-3">
+              <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-card border border-info/20 bg-info-soft/50 p-5">
+                  <div className="mb-3 flex justify-between text-base font-black text-fg-2">
                     <span>团队进度</span>
-                    <span className="text-blue-600">{teamProgressPercent}%</span>
+                    <span className="text-info-ink">{teamProgressPercent}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden border-2 border-gray-300 shadow-inner">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${teamProgressPercent}%` }}
-                      transition={{ duration: 1, type: 'spring' }}
-                      className="bg-blue-500 h-full rounded-full relative"
-                    >
-                      <div className="absolute inset-0 bg-paper/20 w-full h-1/2" />
-                    </motion.div>
-                  </div>
-                  <p className="mt-3 text-sm font-bold text-blue-700">
+                  <Progress
+                    value={teamProgressPercent}
+                    label={`团队进度 ${teamProgressPercent}%`}
+                    tone="info"
+                  />
+                  <p className="mt-3 text-sm font-bold text-info-ink">
                     {data?.progress?.team_contribution_score ?? 0} / {quest.target_score}
                   </p>
                 </div>
 
-                <div className="rounded-card border-2 border-success/20 bg-success/10 p-6">
-                  <p className="text-sm font-bold text-success mb-2">我的贡献</p>
-                  <p className="text-4xl font-black text-success">
+                <div className="rounded-card border border-success/20 bg-success-soft/60 p-5">
+                  <p className="mb-2 text-sm font-bold text-success-ink">我的贡献</p>
+                  <p className="text-3xl font-black text-success-ink">
                     {data?.progress?.my_contribution_score ?? 0}
                   </p>
-                  <p className="mt-3 text-sm text-success">
+                  <p className="mt-3 text-sm text-success-ink">
                     完成团队目标后，每组可获得 {quest.reward_points} 积分
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center text-lg font-bold text-orange-700 bg-warning/20 p-5 rounded-card border-b-4 border-orange-300 shadow-sm">
-                <ShieldAlert className="w-8 h-8 mr-3 text-warning" />
+              <div className="flex items-center gap-3 rounded-card border border-warning/30 bg-warning-soft p-4 text-base font-bold text-warning-ink">
+                <ShieldAlert aria-hidden="true" className="size-6 text-warning" />
                 截止日期: {quest.end_date || '未设置'}
               </div>
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-paper rounded-panel p-8 md:p-10 shadow-raised border-8 border-accent"
+              initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: 16 }) }}
+              animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
+              className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card md:p-8"
             >
-              <h2 className="text-3xl font-black flex items-center text-gray-900 mb-4">
-                <CheckSquare className="w-10 h-10 mr-4 text-accent-foreground" />
+              <h2 className="mb-3 flex items-center text-2xl font-black text-fg-1">
+                <CheckSquare aria-hidden="true" className="mr-3 size-7 text-role-ink" />
                 组内互评
               </h2>
-              <p className="text-lg font-bold text-gray-500 mb-8">
+              <p className="mb-6 text-base font-bold text-fg-3">
                 请根据组员在任务中的表现给予客观评价。你的评价会真实写入系统。
               </p>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {otherMembers.map((member, idx) => (
                   <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
+                    initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: -16 }) }}
+                    animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
+                    transition={{ delay: idx * 0.06 }}
                     key={member.id}
-                    className="p-6 rounded-panel border-4 border-border bg-muted/50 hover:bg-paper hover:border-accent hover:shadow-raised transition-all"
+                    className="rounded-panel border-2 border-line-1 bg-surface-3/50 p-5 transition-colors hover:border-role/40 hover:bg-surface-2"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-14 h-14 bg-primary/10 text-primary rounded-[1.2rem] border-b-4 border-primary/20 flex items-center justify-center font-black text-2xl shadow-sm">
+                    <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-card border-b-2 border-role/20 bg-role-soft text-xl font-black text-role-ink">
                           {member.name[0]}
                         </div>
                         <div>
-                          <span className="font-black text-xl text-gray-900 block">{member.name}</span>
-                          <span className="text-sm font-bold text-gray-500 bg-gray-200 px-3 py-1 rounded-full mt-1 inline-block">
+                          <span className="block text-lg font-black text-fg-1">{member.name}</span>
+                          <span className="mt-1 inline-block rounded-pill bg-surface-3 px-3 py-1 text-xs font-bold text-fg-3">
                             👤 组员
                           </span>
                         </div>
                       </div>
-                      <div className="flex space-x-2 bg-paper p-3 rounded-card shadow-sm border-2 border-gray-100">
+                      <div className="flex gap-1 rounded-card border border-line-1 bg-surface-2 p-2 shadow-card">
                         {[1, 2, 3, 4, 5].map((star) => (
-                          <motion.button
-                            whileHover={{ scale: 1.2, rotate: 10 }}
-                            whileTap={{ scale: 0.9 }}
+                          <motion.div
                             key={star}
-                            onClick={() => handleRatingChange(member.id, star)}
-                            className="focus:outline-none"
+                            whileHover={shouldReduceMotion ? undefined : { scale: 1.15, rotate: 8 }}
+                            whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
                           >
-                            <Star
-                              className={`w-8 h-8 ${
-                                (reviewForm[member.id] || 0) >= star
-                                  ? 'text-yellow-400 fill-current drop-shadow-sm'
-                                  : 'text-gray-200'
-                              }`}
-                            />
-                          </motion.button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`给${member.name}打${star}分`}
+                              onClick={() => handleRatingChange(member.id, star)}
+                              className="rounded-full hover:bg-transparent"
+                            >
+                              <Star
+                                aria-hidden="true"
+                                className={cn(
+                                  'size-6',
+                                  (reviewForm[member.id] || 0) >= star
+                                    ? 'fill-warning text-warning'
+                                    : 'fill-surface-3 text-line-strong',
+                                )}
+                              />
+                            </Button>
+                          </motion.div>
                         ))}
                       </div>
                     </div>
-                    <textarea
+                    <Textarea
                       value={reviewComments[member.id] || ''}
                       onChange={(e) => handleCommentChange(member.id, e.target.value)}
                       placeholder="写下对该组员的评价或建议（选填）..."
-                      className="w-full p-5 text-lg font-medium rounded-card border-4 border-border focus:ring-0 focus:border-ring outline-none resize-none bg-paper shadow-inner transition-colors"
                       rows={2}
+                      className="resize-none"
                     />
                   </motion.div>
                 ))}
               </div>
 
-              <motion.button
-                whileHover={{ scale: 1.02, y: -4 }}
-                whileTap={{ scale: 0.98 }}
+              <Button
                 onClick={submitPeerReview}
                 disabled={reviewMutation.isPending}
-                className="mt-8 w-full py-5 bg-primary hover:bg-primary/80 text-white rounded-panel font-black text-2xl border-b-8 border-primary/70 shadow-raised flex items-center justify-center transition-all disabled:opacity-50"
+                className="mt-6 w-full py-4 text-lg font-black"
               >
-                <MessageCircle className="w-8 h-8 mr-3" />
+                <MessageCircle aria-hidden="true" className="mr-2 size-5" />
                 {reviewMutation.isPending ? '提交中...' : '提交互评'}
-              </motion.button>
+              </Button>
             </motion.div>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
-          >
-            <div className="bg-paper rounded-panel p-8 shadow-raised border-8 border-success/20 sticky top-8">
-              <h3 className="text-2xl font-black text-gray-900 mb-6 flex items-center">
-                <div className="bg-success/20 p-3 rounded-card mr-3 shadow-inner">
-                  <Users className="w-8 h-8 text-success" />
-                </div>
+          <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: 16 }) }}
+              animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
+              className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card lg:sticky lg:top-4 lg:self-start"
+            >
+              <h3 className="mb-4 flex items-center text-xl font-black text-fg-1">
+                <span className="mr-3 flex size-9 shrink-0 items-center justify-center rounded-card bg-success-soft text-success-ink">
+                  <Users aria-hidden="true" className="size-5" />
+                </span>
                 我的团队
               </h3>
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {members.map((member, idx) => (
                   <motion.li
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1 }}
+                    initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: 8 }) }}
+                    animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
+                    transition={{ delay: idx * 0.06 }}
                     key={member.id}
-                    className="flex items-center justify-between p-4 rounded-card bg-gray-50 border-4 border-gray-100 hover:bg-paper hover:border-green-200 hover:shadow-md transition-all"
+                    className="flex items-center justify-between rounded-card border border-line-1 bg-surface-3/50 p-3 transition-colors hover:border-role/30 hover:bg-surface-2"
                   >
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center gap-3">
                       <div
-                        className={`w-12 h-12 rounded-[1rem] border-b-4 flex items-center justify-center font-black text-xl shadow-sm ${
+                        className={cn(
+                          'flex size-10 shrink-0 items-center justify-center rounded-card border-b-2 text-lg font-black',
                           member.id === myStudentId
-                            ? 'bg-blue-100 text-blue-600 border-blue-200'
-                            : 'bg-paper text-gray-600 border-gray-200'
-                        }`}
+                            ? 'border-role/30 bg-role-soft text-role-ink'
+                            : 'border-line-1 bg-surface-2 text-fg-2',
+                        )}
                       >
                         {member.name[0]}
                       </div>
-                      <span className={`font-black text-lg ${member.id === myStudentId ? 'text-blue-600' : 'text-gray-800'}`}>
-                        {member.name} {member.id === myStudentId && <span className="text-sm font-bold text-gray-400 ml-1">(我)</span>}
+                      <span
+                        className={cn(
+                          'text-base font-black',
+                          member.id === myStudentId ? 'text-role-ink' : 'text-fg-1',
+                        )}
+                      >
+                        {member.name}{' '}
+                        {member.id === myStudentId && (
+                          <span className="ml-1 text-xs font-bold text-fg-3">(我)</span>
+                        )}
                       </span>
                     </div>
                   </motion.li>
                 ))}
               </ul>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       )}
-    </motion.div>
+    </PageScaffold>
   );
 }

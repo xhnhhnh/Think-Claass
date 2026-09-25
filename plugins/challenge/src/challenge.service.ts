@@ -41,6 +41,7 @@ import type { PetPort } from '@thinkclass/contracts/domains/pet';
 import { ApiError } from '@thinkclass/kernel';
 
 import { isAnswerCorrect, mapQuestionRow, parseMaybeJson, toAnswerList } from './challenge.mappers.js';
+import type { RequestActor } from './challenge.authorization.js';
 import type { ChallengeAnswersInput, ChallengeRepository, WorldBossPayload } from './challenge.types.js';
 
 function positiveInteger(value: unknown, label: string) {
@@ -72,6 +73,11 @@ function toApiError(refusal: ClassroomRefusal): ApiError {
   }
 }
 
+/** The roles that reach every class and student: the admin console. */
+function isStaffAdmin(actor: RequestActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
+}
+
 export class ChallengeService {
   constructor(
     private readonly repository: ChallengeRepository,
@@ -92,6 +98,73 @@ export class ChallengeService {
      */
     private readonly resolvePets: () => PetPort | null = () => null,
   ) {}
+
+  /**
+   * The actor-scope half of authorization for a student-scoped route: 403 unless `actor` is that
+   * student, or a teacher of the class that student is in (staff admin passes).
+   *
+   * The claim comes from the actor - its `studentId` when the host's scope resolver filled it in,
+   * otherwise the student bound to the login's `userId` through `classroom.public` - so a caller
+   * cannot answer, or attack a boss, on another student's behalf.
+   */
+  async assertStudentAction(actor: RequestActor, studentIdInput: unknown): Promise<void> {
+    const studentId = positiveInteger(studentIdInput, 'Student id');
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'student') {
+      if ((await this.ownStudentId(actor)) !== studentId) throw new ApiError(403, '无权限使用该学生账号');
+      return;
+    }
+
+    if (actor.role === 'teacher') {
+      const student = await this.classroom.getStudentById(studentId);
+      if (!student) throw new ApiError(404, 'Student not found');
+      const klass = await this.classroom.getClassById(student.classId);
+      if (!klass || klass.teacherId !== actor.id) throw new ApiError(403, '无权限使用该学生账号');
+      return;
+    }
+
+    throw new ApiError(403, '无权限使用该学生账号');
+  }
+
+  /**
+   * The actor-scope half of authorization for a class-scoped route: the class's teacher, a student
+   * in that class, or staff admin. The class comes from `classroom.public`, never from the request.
+   */
+  async assertClassAccess(actor: RequestActor, classIdInput: unknown): Promise<void> {
+    const classId = positiveInteger(classIdInput, 'Class id');
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      const klass = await this.classroom.getClassById(classId);
+      if (!klass) throw new ApiError(404, '班级未找到');
+      if (klass.teacherId !== actor.id) throw new ApiError(403, '无权限查看该班级');
+      return;
+    }
+
+    if (actor.role === 'student') {
+      if ((await this.ownClassId(actor)) !== classId) throw new ApiError(403, '无权限查看该班级');
+      return;
+    }
+
+    throw new ApiError(403, '无权限查看该班级');
+  }
+
+  /** The student row this login owns, or `null` when the account is unbound. */
+  private async ownStudentId(actor: RequestActor): Promise<number | null> {
+    if (actor.studentId) return actor.studentId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.id ?? null;
+  }
+
+  /** The class the actor's own student row is in, or `null` when it cannot be resolved. */
+  private async ownClassId(actor: RequestActor): Promise<number | null> {
+    if (actor.classId) return actor.classId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.classId ?? null;
+  }
 
   /**
    * Questions for the quiz.
@@ -176,13 +249,13 @@ export class ChallengeService {
     if (score > 0) {
       // `adjustPoints` moves total_points and available_points together - the same
       // both-columns update the pre-migration `addStudentPoints` performed.
-      await this.classroom.adjustPoints({
+      await this.classroom.awardStudentPoints({
         studentId,
-        delta: score,
-        reason: 'challenge.reward',
+        amount: score,
+        type: 'CHALLENGE_REWARD',
+        description: '挑战模式加分',
         actorId: 0,
       });
-      await this.ledger(studentId, 'CHALLENGE_REWARD', score, '挑战模式加分');
     }
 
     this.repository.insertChallengeRecord(studentId, score, correctCount, wrongCount);
@@ -258,13 +331,14 @@ export class ChallengeService {
 
     if (defeated) {
       for (const classStudent of await this.classroom.listClassStudents(student.classId)) {
-        await this.classroom.adjustPoints({
+        await this.classroom.awardStudentPoints({
           studentId: classStudent.id,
-          delta: rewardPoints,
-          reason: 'world_boss.reward',
+          amount: rewardPoints,
+          type: 'BOSS_REWARD',
+          description: '世界Boss被击败奖励',
           actorId: 0,
+          requestId: `boss-defeat:${bossId}:${classStudent.id}`,
         });
-        await this.ledger(classStudent.id, 'BOSS_REWARD', rewardPoints, '世界Boss被击败奖励');
       }
     }
 

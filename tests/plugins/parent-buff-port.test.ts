@@ -61,7 +61,12 @@ beforeEach(async () => {
     strict: true,
   });
 
-  service = new ParentBuffService(createParentBuffRepository(api));
+  // The blessing's own guard is exercised in `parent-buff-service.test.ts`; this file drives the
+  // port (the login upsert) and the daily limit through SQLite, so the classroom port the
+  // authorization check needs is a stub that is never asked a question here.
+  service = new ParentBuffService(createParentBuffRepository(api), {
+    listStudentsByParent: async () => [],
+  } as never);
   kernel.db.exec(`
     INSERT INTO users (id, role, username, password_hash) VALUES (5, 'parent', 'parent5', 'x');
     INSERT INTO users (id, role, username, password_hash) VALUES (6, 'parent', 'parent6', 'x');
@@ -133,25 +138,12 @@ describe('touchParentLogin', () => {
     });
   });
 
-  it('documents a pre-existing collision: a login today blocks today blessing', () => {
-    // NOT a behaviour this round introduced, and not one it may quietly change.
-    //
-    // The blessing's guard is `SELECT id FROM parent_activity WHERE student_id = ? AND
-    // date(created_at) = ?` with **no `activity_type` filter**, so *any* row for that student
-    // written today counts as "already blessed". The parent-login upsert writes exactly such a row.
-    // Verified against git rather than assumed: the pre-migration implementation
-    // (`api/modules/platform/platform.service.ts` at 05817b8~1) ran the identical query, and the
-    // old `auth.service` parent path wrote the login row that trips it - so a parent who logged in
-    // before casting the day's blessing was already refused with 今日已经施放过祝福了.
-    //
-    // This test pins the current behaviour so the fix is a deliberate act. The fix itself is one
-    // predicate (`AND activity_type = 'PARENT_BUFF'`) and it changes what the blessing route
-    // answers, so it belongs in a round that owns that decision - recorded in the manifest's
-    // `_known_debt`.
-    const today = new Date().toISOString().split('T')[0];
+  it('allows blessing after parent login and limits the blessing itself to once per Shanghai day', () => {
+    const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
     service.touchParentLogin(5, 20, today);
 
+    expect(() => service.createParentBuff({ studentId: 20 })).not.toThrow();
     expect(() => service.createParentBuff({ studentId: 20 })).toThrow(/今日已经施放过祝福了/);
-    expect(rowsFor(20).map((row) => row.activity_type)).toEqual(['login']);
+    expect(rowsFor(20).map((row) => row.activity_type).sort()).toEqual(['PARENT_BUFF', 'login']);
   });
 });

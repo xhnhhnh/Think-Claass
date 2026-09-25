@@ -136,14 +136,34 @@ async function probe(base: string, pathname: string): Promise<{ status: number; 
   return { status: response.status, body: await response.text() };
 }
 
+/**
+ * A superadmin session for the probes that reach an actor-scoped plugin route.
+ *
+ * Needed since the authorization round: `/api/pets/:studentId` is ruled
+ * `student（本人）/ parent（孩子）/ teacher（本班）` in `docs/security/route-authorization-matrix.md`, so
+ * an anonymous caller is refused with 401 *before* the service can answer its own 404 - and this
+ * test exists precisely to tell those two apart. The credentials are the ones the boot above pins.
+ */
+async function superadminToken(base: string): Promise<string> {
+  const response = await fetch(`${base}/api/admin/session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'probe-root', password: 'probe-secret' }),
+  });
+  const payload = (await response.json()) as { data?: { token?: string } };
+  if (!payload.data?.token) throw new Error(`admin login failed: ${JSON.stringify(payload)}`);
+  return payload.data.token;
+}
+
 function stop(probe: BootedProbe | null): void {
   if (probe && probe.child.exitCode === null) probe.child.kill();
 }
 
-/** The 20 in-repo plugin ids the default composition must activate. */
+/** The 21 in-repo plugin ids the default composition must activate. */
 const PLUGIN_IDS = [
-  'admin', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon',
-  'economy', 'engagement', 'gacha', 'identity', 'insights', 'learning', 'marketplace',
+  'admin',
+  'ai-study', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon',
+  'economy', 'engagement', 'gacha', 'homework', 'identity', 'insights', 'learning', 'marketplace',
   'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system',
 ].sort();
 
@@ -203,10 +223,19 @@ describe('the default composition serves business routes', () => {
     // `/api/pets/:studentId` is served by `plugins/pet` and answers the plugin's own 404 for a student
     // that does not exist in a fresh database. A route that was never mounted answers the catch-all
     // instead - same status, different body - so the body is the assertion.
-    const response = await probe(defaultProbe!.base, '/api/pets/999');
+    //
+    // The request carries a staff session because the route is scoped now: an anonymous caller is
+    // refused with 401, which would be indistinguishable from a missing route in exactly the way
+    // this test exists to rule out.
+    const token = await superadminToken(defaultProbe!.base);
+    const response = await fetch(`${defaultProbe!.base}/api/pets/999`, {
+      redirect: 'manual',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.text();
 
-    expect(response.body).toContain('Student not found');
-    expect(response.body).not.toContain('Cannot GET');
+    expect(body).toContain('Student not found');
+    expect(body).not.toContain('Cannot GET');
   });
 
   it('serves the migrated classroom surface from its plugin', async () => {

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Edit, Megaphone, Plus, Trash2 } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Textarea } from '@/components/ui/textarea';
 
 interface Announcement {
@@ -32,11 +33,11 @@ interface Announcement {
 /**
  * 公告管理.
  *
- * The same shape as `AdminTeachersPage`: `PageHeader` + `DataTable` (which owns the
- * loading skeleton and the empty state) + `Dialog` for the form + `ConfirmDialog` for
- * the delete. Before, this file hand-wrote a `<table>` with its own thead, its own
- * `animate-spin` div, its own "暂无公告" block, a fixed-overlay modal and a blocking
- * `confirm()`.
+ * The same shape as `AdminTeachersPage`: `PageScaffold variant="list"` + `DataTable`
+ * (which owns the loading skeleton and the empty state) + `Dialog` for the form +
+ * `ConfirmDialog` for the delete. Before, this file hand-wrote a `<table>` with its own
+ * thead, its own `animate-spin` div, its own "暂无公告" block, a fixed-overlay modal and
+ * a blocking `confirm()`.
  *
  * There is no `Toolbar` here on purpose: this list has never had a search box or a
  * filter, and adding one would be new behaviour rather than a restyle.
@@ -150,24 +151,32 @@ export default function AdminAnnouncements() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="公告管理"
-        description="管理系统中展示给所有用户的全局公告"
-        icon={Megaphone}
-        actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus data-icon="inline-start" />
-            发布新公告
-          </Button>
-        }
-      />
+  useRegisterPageCommands([
+    {
+      id: 'admin-announcements:create',
+      label: '发布新公告',
+      icon: Plus,
+      keywords: ['公告', '新增'],
+      run: () => handleOpenModal(),
+    },
+  ]);
 
+  return (
+    <PageScaffold
+      variant="list"
+      title="公告管理"
+      description="管理系统中展示给所有用户的全局公告"
+      actions={
+        <Button onClick={() => handleOpenModal()}>
+          <Plus data-icon="inline-start" />
+          发布新公告
+        </Button>
+      }
+    >
       <DataTable<Announcement>
         columns={[
-          { key: 'title', header: '标题', className: 'font-medium text-ink-1' },
-          { key: 'content', header: '内容摘要', className: 'max-w-xs truncate text-ink-2' },
+          { key: 'title', header: '标题', className: 'font-medium text-fg-1' },
+          { key: 'content', header: '内容摘要', className: 'max-w-xs truncate text-fg-2' },
           {
             key: 'is_active',
             header: '状态',
@@ -183,7 +192,7 @@ export default function AdminAnnouncements() {
           {
             key: 'created_at',
             header: '创建时间',
-            className: 'text-ink-3',
+            className: 'text-fg-3',
             render: (announcement) => new Date(announcement.created_at).toLocaleString(),
           },
           {
@@ -206,7 +215,7 @@ export default function AdminAnnouncements() {
                   size="icon-sm"
                   aria-label={`删除${announcement.title}`}
                   title="删除"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-danger hover:bg-danger-soft hover:text-danger"
                   onClick={() => setDeleteTarget(announcement)}
                 >
                   <Trash2 />
@@ -223,7 +232,7 @@ export default function AdminAnnouncements() {
             icon={Megaphone}
             title="暂无公告"
             description="点击上方按钮发布第一条公告"
-            className="bg-card"
+            className="bg-surface-2"
           />
         }
       />
@@ -287,6 +296,6 @@ export default function AdminAnnouncements() {
         isPending={isDeleting}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageScaffold>
   );
 }

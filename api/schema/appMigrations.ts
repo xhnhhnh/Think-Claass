@@ -23,7 +23,9 @@
  *   0000b_payment_tables        two tables that only ever existed in Prisma
  *   0000c_legacy_compat_columns columns `CREATE TABLE` never declared
  *   0000d_legacy_compat_indexes indexes only the legacy composition used to create
+ *   0000h_ai_study_feature_...  the `classes.enable_ai_study` column the AI 智学 switch needs
  *   0001_kernel_settings ...    the kernel's own migrations
+ *   0001_homework_tables        the homework plugin's six tables
  */
 
 import type { Migration } from '@thinkclass/kernel';
@@ -32,16 +34,25 @@ import { bootSchemaMigration, BOOT_SCHEMA_MIGRATION_ID } from './legacyBootSchem
 import { legacyCompatColumnsMigration, LEGACY_COMPAT_COLUMNS_MIGRATION_ID } from './legacyCompatColumns.js';
 import { legacyCompatIndexesMigration, LEGACY_COMPAT_INDEXES_MIGRATION_ID } from './legacyCompatIndexes.js';
 import { paymentTablesMigration, PAYMENT_TABLES_MIGRATION_ID } from './paymentTables.js';
+import { incentivePolicyMigration } from './incentivePolicy.js';
+import { incentiveEventReceiptMigration } from './incentiveEventReceipt.js';
+import { incentiveNamespaceMigration } from './incentiveNamespace.js';
+import { homeworkTablesMigration, HOMEWORK_TABLES_MIGRATION_ID } from './homeworkTables.js';
+import { aiStudyFeatureColumnMigration, AI_STUDY_FEATURE_MIGRATION_ID } from './aiStudyFeature.js';
 
 export {
   BOOT_SCHEMA_MIGRATION_ID,
   LEGACY_COMPAT_COLUMNS_MIGRATION_ID,
   LEGACY_COMPAT_INDEXES_MIGRATION_ID,
   PAYMENT_TABLES_MIGRATION_ID,
+  HOMEWORK_TABLES_MIGRATION_ID,
+  AI_STUDY_FEATURE_MIGRATION_ID,
   bootSchemaMigration,
   legacyCompatColumnsMigration,
   legacyCompatIndexesMigration,
   paymentTablesMigration,
+  homeworkTablesMigration,
+  aiStudyFeatureColumnMigration,
 };
 
 export const APP_MIGRATIONS: Migration[] = [
@@ -49,4 +60,9 @@ export const APP_MIGRATIONS: Migration[] = [
   paymentTablesMigration,
   legacyCompatColumnsMigration,
   legacyCompatIndexesMigration,
+  incentivePolicyMigration,
+  incentiveEventReceiptMigration,
+  incentiveNamespaceMigration,
+  aiStudyFeatureColumnMigration,
+  homeworkTablesMigration,
 ];

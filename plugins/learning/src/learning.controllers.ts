@@ -26,6 +26,12 @@
  * Authorization is unchanged in *position*: the legacy service called `requireActorRole`
  * first thing, and here the controller gates the route before delegating, so a request
  * still gets 401/403 ahead of every validation message.
+ *
+ * The three knowledge-graph reads (`GET /api/knowledge/subjects|nodes|edges`) were the
+ * domain's last open routes: the matrix (`docs/security/route-authorization-matrix.md`)
+ * rules the graph 登录用户（teacher/student/admin）, so they now carry the same
+ * `requireActorRole` gate as the writes. It is a login gate and not a scope filter on
+ * purpose - the graph is course content with no user data, so there is nothing to narrow.
  */
 
 import {
@@ -79,6 +85,14 @@ function requireActorRole(req: Request, allowedRoles: string[]): Actor {
 
 const STAFF = ['teacher', 'admin', 'superadmin'];
 const STUDENT = ['student'];
+
+/**
+ * The knowledge graph is course content with no user data, so the matrix's ruling for its three
+ * reads is 登录用户（teacher/student/admin） - a login gate, not an ownership filter (there is
+ * nothing to narrow). `parent` is deliberately absent: it is not one of the listed roles, and no
+ * parent surface in the frontend calls these routes.
+ */
+const KNOWLEDGE_READERS = ['teacher', 'admin', 'superadmin', 'student'];
 
 @Controller('api/papers')
 export class PapersController {
@@ -153,7 +167,9 @@ export class KnowledgeController {
   constructor(@Inject(LearningService) private readonly learningService: LearningService) {}
 
   @Get('subjects')
-  async getSubjects() {
+  async getSubjects(@Req() req: Request) {
+    // Login gate only: the service needs no actor because the subject list is global content.
+    requireActorRole(req, KNOWLEDGE_READERS);
     return ok(await this.learningService.listSubjects());
   }
 
@@ -164,7 +180,8 @@ export class KnowledgeController {
   }
 
   @Get('nodes')
-  async getNodes(@Query('subject_id') subjectId?: string) {
+  async getNodes(@Req() req: Request, @Query('subject_id') subjectId?: string) {
+    requireActorRole(req, KNOWLEDGE_READERS);
     return ok(this.learningService.listKnowledgeNodes(subjectId));
   }
 
@@ -188,7 +205,8 @@ export class KnowledgeController {
   }
 
   @Get('edges')
-  async getEdges(@Query('subject_id') subjectId?: string) {
+  async getEdges(@Req() req: Request, @Query('subject_id') subjectId?: string) {
+    requireActorRole(req, KNOWLEDGE_READERS);
     return ok(this.learningService.listKnowledgeEdges(subjectId));
   }
 

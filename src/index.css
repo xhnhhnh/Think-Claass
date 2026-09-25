@@ -5,233 +5,373 @@
 @tailwind utilities;
 
 /**
- * Design tokens.
+ * Design tokens - the UI-R layer.
  *
- * Three layers, in this order, and nothing else may define a colour:
+ * Three tiers, and the tiers are the point:
  *
- *   1. **Primitives** - `--background`, `--primary`, `--border`, ... HSL triplets
- *      consumed as `hsl(var(--x))`. These are what `tailwind.config.js` maps into
- *      utility names (`bg-primary`, `border-border`).
- *   2. **Semantic** - `--canvas`, `--paper`, `--ink-1..3`, the radius/elevation/motion
- *      scale. Named for the role they play, not for the colour they currently are,
- *      so a page asks for "the paper surface" instead of "the beige one".
- *   3. **Compatibility aliases** (`--campus-*`) - the names the pre-refactor pages
- *      use (`border-[var(--campus-border)]`, ~100 call sites). They resolve to layer 2,
- *      so pages can migrate one phase at a time without a flag day.
+ *   1. **Product** (`--brand-*`, `--fg-*`, `--surface-*`, `--line-*`, status).
+ *      One palette for the whole product. A student does not get a different
+ *      idea of what "a green button" means than an administrator does.
+ *   2. **Role accent** (`data-role="teacher|student|parent|admin"`).
+ *      Changes ONLY `--role*`. It is an accent, not a skin: the sidebar marks
+ *      the active section, the context bar carries a rule, a badge tints. The
+ *      previous design swapped the entire palette per role, which is why the
+ *      same "success" badge was three different greens and why a dialog in the
+ *      parent area could come out green (portals render outside the shell).
+ *   3. **Density / shape / motion** (`--radius*`, `--elev-*`, `--motion-*`,
+ *      `--control-h*`, `--rail-*`, `--bar-h`).
  *
- * Two things were removed here rather than migrated, because they never did anything:
+ * The old campus-prefixed compatibility aliases and the `.theme-*` classes are
+ * gone; `--canvas`/`--paper`/`--ink-*`/`--card*` survive as aliases of the
+ * surface and text tiers purely so the pre-UI-R pages keep rendering while
+ * they are migrated family by family. They are deleted when the last page
+ * moves, and `legacyTokenAliases` in the UI audit counts what is left.
  *
- *   - `@import "shadcn/tailwind.css"` - `node_modules/shadcn/tailwind.css` does not
- *     exist, so the line contributed nothing (G20 still measures it as the last
- *     unresolved import).
- *   - `@import "tw-animate-css"` - a Tailwind **v4** package in a v3 project. Its
- *     `@theme`/`@utility` at-rules were emitted verbatim into the production bundle
- *     where no v3 build reads them, and the v4 animation names it implies
- *     (`animate-in`, `fade-in`, `slide-in-from-*`) compile to nothing. The animations
- *     the pages actually reference are now defined as real keyframes in
- *     `tailwind.config.js`.
- *
- * `.dark` is deliberately untouched: it is defined, nothing wires a theme switch, and
- * this refactor neither enables it nor deletes it.
+ * Dark mode is a `.dark` class on `<html>` and is OFF by this file: the app
+ * decides (system preference by default, `localStorage` override) and
+ * `RoleTheme.tsx` is the only writer of both the class and `data-role`.
  */
 
 @layer base {
   :root {
-    /* --- primitives: surfaces, text, brand ------------------------------------ */
-    --background: 42 43% 98%;
-    --foreground: 222 37% 16%;
-    --primary: 145 45% 34%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 39 58% 94%;
-    --secondary-foreground: 222 37% 18%;
-    --muted: 43 30% 94%;
-    --muted-foreground: 218 12% 44%;
-    --accent: 197 64% 92%;
-    --accent-foreground: 205 55% 28%;
-    --destructive: 2 72% 54%;
-    --destructive-foreground: 0 0% 100%;
-    --ring: 145 45% 34%;
-    --glow-primary: 145 45% 34%;
-    --glow-secondary: 39 58% 94%;
+    /* --- tier 1: product palette ------------------------------------------- */
+    --brand: 155 58% 22%;
+    --brand-strong: 155 61% 17%;
+    --brand-soft: 155 40% 94%;
+    --brand-contrast: 0 0% 100%;
 
-    /*
-     * One line colour. `--border` and `--input` used to be two nearly-identical
-     * values (41 25% 86% and the campus paper line) for the same job; the campus
-     * value wins because it is what ~100 call sites already use, and the difference
-     * was under two percent of lightness.
-     */
-    --border: 38.2 33.3% 87.1%;
-    --input: 38.2 33.3% 87.1%;
+    --fg-1: 222 47% 11%;
+    --fg-2: 215 22% 32%;
+    --fg-3: 215 14% 50%;
+    --fg-inverse: 42 33% 98%;
 
-    /* --- primitives: status --------------------------------------------------- */
+    --surface-1: 48 38.5% 97.5%;
+    --surface-2: 0 0% 100%;
+    --surface-3: 42 43% 96%;
+    --surface-4: 0 0% 100%;
+    --surface-steel: 214 28% 96%;
+
+    --line-1: 38 33% 87%;
+    --line-2: 38 24% 92%;
+    --line-strong: 32 14% 74%;
+
     --success: 145 45% 34%;
+    --success-soft: 145 42% 94%;
+    --success-ink: 145 52% 24%;
     --warning: 32 88% 45%;
+    --warning-soft: 38 92% 94%;
+    --warning-ink: 28 74% 30%;
     --info: 199 71% 45%;
+    --info-soft: 197 74% 94%;
+    --info-ink: 205 62% 28%;
+    --danger: 2 72% 54%;
+    --danger-soft: 2 78% 96%;
+    --danger-ink: 2 62% 38%;
+    --participation: 264 48% 40%;
+    --participation-soft: 260 52% 96%;
 
-    /* --- primitives: card / popover / sidebar / charts ------------------------ */
-    --card: 0 0% 100%;
-    --card-foreground: 222 37% 16%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 37% 16%;
+    /* --- tier 1: data series ---------------------------------------------- */
     --chart-1: 145 45% 40%;
     --chart-2: 199 71% 45%;
     --chart-3: 32 88% 56%;
     --chart-4: 262 60% 62%;
     --chart-5: 2 72% 58%;
-    --sidebar: 0 0% 100%;
-    --sidebar-foreground: 222 37% 16%;
-    --sidebar-primary: 145 45% 34%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 145 45% 94%;
-    --sidebar-accent-foreground: 145 45% 25%;
-    --sidebar-border: 38.2 33.3% 87.1%;
-    --sidebar-ring: 145 45% 34%;
 
-    /* --- semantic: the campus surfaces and text steps ------------------------- */
-    --canvas: 48 38.5% 97.5%;
-    --paper: 0 0% 100%;
-    --paper-warm: 42.9 100% 98.6%;
-    --ink-1: 222 47% 11%;
-    --ink-2: 215 25% 27%;
-    --ink-3: 215 16% 47%;
+    /* --- tier 2: role accent (teacher is the product default) ------------- */
+    --role: 155 58% 22%;
+    --role-soft: 150 16% 96%;
+    --role-ink: 155 58% 22%;
+    --role-contrast: 0 0% 100%;
 
-    /* --- semantic: shape ------------------------------------------------------ */
-    /*
-     * The radius scale the campus look actually uses. `--radius-card` (0.625rem) and
-     * `--radius-panel` (0.75rem) are the values the shell-wide `!important`
-     * overrides currently force onto `rounded-2xl`/`rounded-3xl`; naming them here
-     * is what lets a page drop the arbitrary value and still look the same.
-     */
+    /* --- tier 3: shape ----------------------------------------------------- */
     --radius: 0.5rem;
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 3px);
+    --radius-md: calc(var(--radius) - 1px);
     --radius-lg: var(--radius);
-    --radius-card: 0.625rem;
-    --radius-panel: 0.75rem;
+    --radius-xl: 0.875rem;
+    --radius-card: 0.75rem;
+    --radius-panel: 1rem;
+    --radius-sheet: 1.25rem;
     --radius-pill: 9999px;
 
-    /* --- semantic: elevation -------------------------------------------------- */
-    --elev-1: 0 1px 2px rgba(15, 23, 42, 0.04);
-    --elev-2: 0 12px 32px rgba(72, 58, 38, 0.07);
-    --elev-3: 0 20px 48px rgba(72, 58, 38, 0.12);
+    /* --- tier 3: elevation ------------------------------------------------- */
+    /* Cool, low-contrast shadows: this interface is dense, and a warm blurred
+       shadow under every card reads as noise at this density. */
+    --elev-1: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --elev-2: 0 1px 3px rgba(15, 23, 42, 0.07), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+    --elev-3: 0 2px 6px rgba(15, 23, 42, 0.08), 0 24px 48px -20px rgba(15, 23, 42, 0.22);
+    --elev-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
-    /* --- semantic: control sizing -------------------------------------------- */
+    /* --- tier 3: shell geometry ------------------------------------------- */
+    --bar-h: 3.5rem;
+    --rail-w: 15rem;
+    --rail-w-collapsed: 4rem;
+    --dock-h: 3.75rem;
+    --page-max: 96rem;
+
+    /* --- tier 3: control sizing ------------------------------------------- */
+    --control-h-xs: 1.5rem;
     --control-h-sm: 1.75rem;
     --control-h: 2.25rem;
     --control-h-lg: 2.75rem;
 
-    /* --- semantic: motion ---------------------------------------------------- */
-    --motion-fast: 150ms;
+    /* --- tier 3: motion --------------------------------------------------- */
+    --motion-fast: 120ms;
     --motion-base: 200ms;
     --motion-slow: 320ms;
     --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-soft: cubic-bezier(0.64, 0, 0.78, 0);
 
-    /* --- compatibility aliases (pre-refactor class names) --------------------- */
-    --campus-canvas: hsl(var(--canvas));
-    --campus-paper: hsl(var(--paper));
-    --campus-paper-warm: hsl(var(--paper-warm));
-    --campus-border: hsl(var(--border));
-    --campus-soft-shadow: var(--elev-2);
+    /* --- focus ------------------------------------------------------------- */
+    --focus: 145 45% 34%;
   }
 
+  /* ==== role accents ===================================================== */
+  /* Each role only names an accent. Everything else - surfaces, text,
+     status - stays the product's, which is what makes four consoles feel
+     like one application. */
+  [data-role='teacher'] {
+    --role: 155 58% 22%;
+    --role-soft: 150 16% 96%;
+    --role-ink: 155 58% 22%;
+    --focus: 155 58% 22%;
+  }
+
+  [data-role='student'] {
+    --role: 204 66% 32%;
+    --role-soft: 205 40% 95%;
+    --role-ink: 204 66% 30%;
+    --focus: 204 66% 32%;
+  }
+
+  [data-role='parent'] {
+    --role: 32 74% 35%;
+    --role-soft: 38 54% 95%;
+    --role-ink: 32 74% 30%;
+    --focus: 32 74% 35%;
+  }
+
+  [data-role='admin'] {
+    --role: 215 26% 28%;
+    --role-soft: 214 20% 95%;
+    --role-ink: 215 26% 28%;
+    --focus: 215 26% 28%;
+  }
+
+  /* ==== dark ============================================================= */
+  /* Written as a full second palette rather than a filter. The gap this
+     closes: `.dark` existed before but nothing ever set it, so the whole
+     product shipped light-only. */
   .dark {
-    --background: 222 28% 12%;
-    --foreground: 42 43% 96%;
-    --primary: 145 42% 48%;
-    --primary-foreground: 222 37% 12%;
-    --secondary: 222 22% 18%;
-    --secondary-foreground: 42 43% 96%;
-    --muted: 222 20% 18%;
-    --muted-foreground: 215 16% 74%;
-    --accent: 197 44% 26%;
-    --accent-foreground: 42 43% 96%;
-    --border: 222 20% 25%;
-    --input: 222 20% 25%;
-    --ring: 145 42% 48%;
-    --card: 222 24% 15%;
-    --card-foreground: 42 43% 96%;
-    --popover: 222 24% 15%;
-    --popover-foreground: 42 43% 96%;
+    --brand: 145 42% 48%;
+    --brand-strong: 145 46% 60%;
+    --brand-soft: 145 26% 20%;
+    --brand-contrast: 146 60% 8%;
+
+    --fg-1: 40 30% 96%;
+    --fg-2: 214 16% 80%;
+    --fg-3: 214 12% 62%;
+    --fg-inverse: 222 40% 10%;
+
+    --surface-1: 222 24% 11%;
+    --surface-2: 222 22% 14%;
+    --surface-3: 222 20% 18%;
+    --surface-4: 222 22% 16%;
+    --surface-steel: 220 20% 20%;
+
+    --line-1: 220 16% 26%;
+    --line-2: 220 14% 21%;
+    --line-strong: 220 12% 38%;
+
+    --success: 145 42% 50%;
+    --success-soft: 145 26% 18%;
+    --success-ink: 145 48% 72%;
+    --warning: 36 84% 56%;
+    --warning-soft: 30 40% 18%;
+    --warning-ink: 36 84% 76%;
+    --info: 199 66% 56%;
+    --info-soft: 202 36% 18%;
+    --info-ink: 199 70% 78%;
+    --danger: 2 66% 60%;
+    --danger-soft: 2 32% 18%;
+    --danger-ink: 2 82% 80%;
+    --participation: 265 65% 73%;
+    --participation-soft: 263 27% 21%;
+    --role-contrast: 222 40% 10%;
+
+    --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --elev-2: 0 1px 3px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+    --elev-3: 0 2px 6px rgba(0, 0, 0, 0.5), 0 24px 48px -20px rgba(0, 0, 0, 0.7);
+    --elev-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
-  .theme-student {
-    --primary: 151 52% 38%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 43 92% 94%;
-    --secondary-foreground: 32 70% 28%;
-    --accent: 198 78% 93%;
-    --accent-foreground: 201 62% 30%;
-    --ring: 151 52% 38%;
-    --glow-primary: 151 52% 38%;
-    --glow-secondary: 43 92% 94%;
+  /* Role accents that survive dark mode: the same hue, lifted in lightness so
+     an accent chip is legible on a dark surface. */
+  .dark[data-role='teacher'] {
+    --role: 145 42% 52%;
+    --role-soft: 145 26% 19%;
+    --role-ink: 145 46% 76%;
+  }
+  .dark[data-role='student'] {
+    --role: 203 70% 67%;
+    --role-soft: 204 28% 20%;
+    --role-ink: 202 76% 78%;
+  }
+  .dark[data-role='parent'] {
+    --role: 37 82% 68%;
+    --role-soft: 33 28% 20%;
+    --role-ink: 38 88% 79%;
+  }
+  .dark[data-role='admin'] {
+    --role: 214 42% 72%;
+    --role-soft: 217 24% 22%;
+    --role-ink: 214 50% 82%;
   }
 
-  .theme-admin {
-    --primary: 209 36% 34%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 32% 94%;
-    --secondary-foreground: 209 36% 24%;
-    --accent: 145 33% 93%;
-    --accent-foreground: 145 38% 28%;
-    --ring: 209 36% 34%;
-    --glow-primary: 209 36% 34%;
-    --glow-secondary: 210 32% 94%;
-  }
-
-  .theme-parent {
-    --primary: 25 78% 54%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 35 86% 94%;
-    --secondary-foreground: 25 68% 28%;
-    --accent: 143 38% 92%;
-    --accent-foreground: 143 45% 27%;
-    --ring: 25 78% 54%;
-    --glow-primary: 25 78% 54%;
-    --glow-secondary: 35 86% 94%;
-  }
-
-  /*
-   * Teacher is the default theme: these values are identical to `:root`'s. It exists
-   * so that the four role shells are described the same way (rather than three
-   * themes and one absence), and it was a dead rule until `ThemeWrapper` started
-   * applying it for `/teacher`.
-   */
-  .theme-teacher {
-    --primary: 145 45% 34%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 145 38% 94%;
-    --secondary-foreground: 145 45% 24%;
-    --accent: 197 64% 92%;
-    --accent-foreground: 205 55% 28%;
-    --ring: 145 45% 34%;
+  /* ==== pre-UI-R aliases ================================================= */
+  /* Kept only so pages that have not been migrated yet still render. Named
+     here rather than duplicated at ~100 call sites; `ui:audit` counts their
+     remaining uses. */
+  :root {
+    --background: var(--surface-1);
+    --foreground: var(--fg-1);
+    --primary: var(--role);
+    --primary-foreground: var(--role-contrast);
+    --secondary: var(--surface-3);
+    --secondary-foreground: var(--fg-1);
+    --muted: var(--surface-3);
+    --muted-foreground: var(--fg-3);
+    --accent: var(--role-soft);
+    --accent-foreground: var(--role-ink);
+    --destructive: var(--danger);
+    --destructive-foreground: 0 0% 100%;
+    --ring: var(--focus);
+    --glow-primary: var(--role);
+    --glow-secondary: var(--role-soft);
+    --border: var(--line-1);
+    --input: var(--line-1);
+    --card: var(--surface-2);
+    --card-foreground: var(--fg-1);
+    --popover: var(--surface-4);
+    --popover-foreground: var(--fg-1);
+    --canvas: var(--surface-1);
+    --paper: var(--surface-2);
+    --paper-warm: var(--surface-3);
+    --ink-1: var(--fg-1);
+    --ink-2: var(--fg-2);
+    --ink-3: var(--fg-3);
+    --sidebar: var(--surface-2);
+    --sidebar-foreground: var(--fg-1);
+    --sidebar-primary: var(--role);
+    --sidebar-primary-foreground: var(--role-contrast);
+    --sidebar-accent: var(--role-soft);
+    --sidebar-accent-foreground: var(--role-ink);
+    --sidebar-border: var(--line-1);
+    --sidebar-ring: var(--focus);
   }
 
   * {
-    @apply border-border outline-ring/50;
+    /*
+     * Raw declarations rather than `@apply`, and that is not a style preference.
+     *
+     * An `@apply` inside `@layer base` is resolved by PostCSS *before* Tailwind has
+     * published `theme.extend`, so a theme colour is not known yet and Vite's dev
+     * pipeline fails with "the `bg-surface-1` class does not exist". The production
+     * build tolerated it and the dev server did not - which is the worse of the two
+     * ways round: `npm run build` was green while the app served a blank `#root` on
+     * every route in development.
+     *
+     * Every colour below is therefore `hsl(var(--token))` spelled out. The one `@apply`
+     * that stays is `.glass`, in `@layer components` further down, where the utilities
+     * layer has already been built.
+     */
+    border-color: hsl(var(--line-1));
   }
-  body {
-    @apply bg-background text-foreground;
-    min-width: 320px;
-  }
+
   html {
-    @apply font-sans;
+    font-family: "Geist Variable", system-ui, sans-serif;
+    /* The shell owns scrolling; a document-level scrollbar next to the rail's
+       own scroll container produces two scrollbars on every console route. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: hsl(var(--surface-1));
+    color: hsl(var(--fg-1));
+    min-width: 320px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* One focus treatment for the whole product. `:focus-visible` only, so a
+     mouse click never draws a ring, and `outline` rather than `ring`, so the
+     indicator survives being inside `overflow: hidden` surfaces. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--focus));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: hsl(var(--role) / 0.24);
+  }
+
+  /* Reduced motion removes travel, never feedback: the opacity half of every
+     entrance stays, which is the rule the guided tour learned the hard way. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* The shell's grid.
+     Tailwind's JIT only emits a `@layer components` rule when the class name
+     appears in the files it scans, so `AppShell.tsx` writes the `app-shell`
+     class as a literal (never composed from a variable) - see the note there.
+     `--rail-current` is what makes collapsing the sidebar a variable change
+     rather than a second set of classes, so the collapse animates without the
+     rail's contents re-laying out at an intermediate width. */
+  .app-shell {
+    --rail-current: var(--rail-w);
+    display: grid;
+    grid-template-columns: var(--rail-current) minmax(0, 1fr);
+    min-height: 100dvh;
+  }
+
+  .app-shell[data-collapsed='true'] {
+    --rail-current: var(--rail-w-collapsed);
+  }
+
+  .app-shell[data-mode='mobile'],
+  .app-shell[data-mode='immersive'] {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @layer utilities {
-  .glass {
-    @apply border border-[var(--campus-border)] bg-white/90 shadow-sm backdrop-blur-xl;
-  }
-
-  .glass-dark {
-    @apply border border-[var(--campus-border)] bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl;
-  }
-
   /*
-   * Hidden scrollbar, for a horizontally scrolling strip (the big screen's danmaku and
-   * podium rows). `.scrollbar-hide` was written in the page and defined nowhere, so it
-   * compiled to nothing - the class is real now.
+   * The frosted surface the rail, the mobile bar and the projected overlays sit on.
+   *
+   * Spelled out rather than `@apply`ed, like everything else in this file: in this
+   * project's PostCSS order an `@apply` runs before the theme is published, so it
+   * resolves against the default palette only and a project colour family fails the
+   * whole stylesheet in development. One `@apply` was enough to blank every route.
    */
+  .glass {
+    border: 1px solid hsl(var(--line-1));
+    background-color: hsl(var(--surface-2) / 0.85);
+    box-shadow: var(--elev-1);
+    backdrop-filter: blur(24px);
+  }
+
+  /* Horizontal strips (the big screen's transmission bar, the mobile dock's
+     overflow list) hide their scrollbar but stay scrollable. */
   .scrollbar-hide {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -240,14 +380,28 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* The safe-area insets the mobile dock and sheet have to respect on a
+     notched phone. Previously hard-coded nowhere, so the dock sat under the
+     home indicator. */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0rem);
+  }
+
+  .pb-dock {
+    padding-bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + 0.5rem);
+  }
 }
 
 /*
- * `@keyframes` live outside `@layer` so they are emitted whenever the stylesheet is,
- * not only when a `animate-*` utility references them: the big screen drives its
- * transmission bar with the arbitrary value `animate-[slideRight_2s_linear_infinite]`,
+ * `@keyframes` live outside `@layer` so they are emitted whenever the
+ * stylesheet is, not only when an `animate-*` utility references them: the big
+ * screen drives its transmission bar with `animate-[slideRight_2s_linear_infinite]`,
  * which Tailwind emits as `animation: slideRight 2s linear infinite` and nothing else.
- * Without these keyframes that bar never moved.
  */
 @keyframes slideRight {
   from {
@@ -258,32 +412,6 @@
   }
 }
 
-/*
- * ---------------------------------------------------------------------------
- * No override blocks remain.
- *
- * Three used to live here, and each was a page being corrected from outside:
- *
- *   - the portal's force-recolour block (nine rules repainting indigo/violet green),
- *     deleted in P3 when the public surface moved onto the tokens;
- *   - the admin repaint block (four `!important`s making the console's dark panels
- *     white), deleted in P4 with the dashboard's dark language;
- *   - the radius and shadow flattening, deleted here in P8. It forced `rounded-3xl`,
- *     `rounded-2xl` and every `shadow-lg|xl|2xl|[…]` to the campus scale; those classes
- *     are now the tokens themselves (`rounded-panel`, `rounded-card`, `shadow-raised`),
- *     which is the same value written where it belongs.
- *
- * G20 counts `!important` in this file and the `.public-campus-page` rules, and both
- * are at 0 - so a new override block fails the build rather than being reviewed.
- * ---------------------------------------------------------------------------
- */
-
-/*
- * `animate-blob` was another class written in pages and defined nowhere - five student
- * pages carried it, so their decorative blobs never moved. The keyframes and the
- * `animation-delay-*` helpers they pair with are real now. Two of those pages replaced
- * their blobs with motion loops instead, which is why this is keyframes only.
- */
 @keyframes blob {
   0%,
   100% {
@@ -303,6 +431,18 @@
 
 .animation-delay-4000 {
   animation-delay: 4s;
+}
+
+/* The shell's own entrance: the rail and the context bar arrive, they do not
+   slide in from off-screen on every route change. */
+@keyframes shell-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
 }
 
 :root {

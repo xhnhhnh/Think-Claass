@@ -77,10 +77,22 @@ describe('SystemController envelope shapes', () => {
   it('returns the created question under `question`', () => {
     (repository.createQuestion as Mocked).mockReturnValue({ id: 9, title: 'New' });
 
-    expect(controller.createQuestion(adminRequest(), { title: 'New' } as QuestionInput)).toEqual({
+    // `answer` as well as `title`: the service gained a guard for both, because they are NOT NULL
+    // on `question_bank` and an empty body used to reach the insert and answer
+    // `500 服务器内部错误` instead of naming the missing field. The e2e sweep - which probes every
+    // endpoint with a deliberately empty body and fails on any 5xx - is what found it.
+    expect(controller.createQuestion(adminRequest(), { title: 'New', answer: 'A' } as QuestionInput)).toEqual({
       success: true,
       question: { id: 9, title: 'New' },
     });
+  });
+
+  it('refuses a question with no answer instead of letting the insert throw', () => {
+    // The other half of the guard: this is a client mistake, so the store must not report a server
+    // fault. Asserted because a 500 for a bad request is indistinguishable from a real outage to
+    // whoever reads the log.
+    expect(() => controller.createQuestion(adminRequest(), { title: 'New' } as QuestionInput)).toThrow();
+    expect(repository.createQuestion).not.toHaveBeenCalled();
   });
 
   it('acknowledges updates and deletes with a bare success', () => {

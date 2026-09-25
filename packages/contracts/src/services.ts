@@ -18,7 +18,9 @@
 
 import type { ClassroomPort } from './domains/classroom.js';
 import type { EngagementPort } from './domains/engagement.js';
+import type { HomeworkAiPort } from './domains/homework.js';
 import type { IdentityPort } from './domains/identity.js';
+import type { LearningPort } from './domains/learning.js';
 import type { ParentActivityRecorder } from './domains/parent-buff.js';
 import type { PetPort } from './domains/pet.js';
 
@@ -60,6 +62,32 @@ export interface ServiceContracts {
    * where the engagement domain is disabled, with the praise half showing zero.
    */
   'engagement.public': EngagementPort;
+  /**
+   * Supplied by the `homework` feature plugin.
+   *
+   * The console's AI status and "test connection" action. `plugins/admin` owns the five `ai_*`
+   * settings, `plugins/homework` owns the provider those settings configure, and this port is the
+   * one question that crosses between them - so the console does not have to know what a provider
+   * is, and the homework plugin does not have to expose its settings vocabulary.
+   *
+   * Optional in the strongest sense: homework is `required: false` and sorts *after* admin, so a
+   * consumer must resolve it per call (`ctx.tryUse`) and treat `null` as "the AI surfaces are not
+   * installed", never as an error.
+   */
+  'homework.public': HomeworkAiPort;
+  /**
+   * Supplied by the `learning` feature plugin.
+   *
+   * The question bank, the knowledge graph and the wrong-question book - eighteen tables that
+   * `plugins/learning` owns and that no other plugin may read directly (guardrail G1). The first
+   * consumer is `plugins/ai-study`, which picks practice questions from that bank and writes the
+   * student's mastery back through it.
+   *
+   * Hard rather than optional, and deliberately so: there is no personalisation to compute without a
+   * question bank, so a deployment that disabled `learning` should not activate its consumers at all
+   * - `dependsOn` expresses that, and a `ctx.use` that throws is the honest outcome.
+   */
+  'learning.public': LearningPort;
 }
 
 export type ServiceName = keyof ServiceContracts & string;

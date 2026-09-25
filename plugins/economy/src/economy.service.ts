@@ -26,12 +26,25 @@
  * student short. The remaining exposure is a process death between two steps, which
  * the `records` ledger makes visible. Restoring true cross-plugin atomicity needs a
  * kernel-level unit of work, which is P6/P7 work.
+ *
+ * Authorization is the second thing this round changed here. Every public method now takes the
+ * resolved actor (`./economy.authorization.js`) and answers two questions before it touches
+ * money: which roles may reach the route at all (the controller's `requireActorRole`: 401/403)
+ * and whether *this* actor owns the student or class the path names (the "actor scope" section
+ * below, resolved through the classroom port). The asset-write family is student-self only, so
+ * `studentId` stops being a claim the request can simply assert.
  */
 
 import type { ClassroomPort, ClassroomRefusal } from '@thinkclass/contracts/domains/classroom';
 import { ApiError } from '@thinkclass/kernel';
 
+import type { RequestActor } from './economy.authorization.js';
 import type { EconomyRepository, StockPayload, StockPricePayload, StockTradeInput } from './economy.types.js';
+
+/** Admin/superadmin own every student and class, so the scope checks below let them through. */
+function isStaffAdmin(actor: RequestActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
+}
 
 function positiveInteger(value: unknown, label: string): number {
   const number = Number(value);
@@ -94,8 +107,10 @@ export class EconomyService {
     return { classId: student.classId, availablePoints: student.availablePoints };
   }
 
-  async getStudentOverview(studentIdInput: unknown, classIdInput?: unknown) {
+  async getStudentOverview(actor: RequestActor, studentIdInput: unknown, classIdInput?: unknown) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    await this.assertCanReadStudent(actor, studentId);
+
     const student = await this.requireEconomyStudent(studentId);
     const classId = classIdInput ? positiveInteger(classIdInput, 'Class id') : student.classId;
 
@@ -106,30 +121,35 @@ export class EconomyService {
     };
   }
 
-  async getBankAccount(studentIdInput: unknown) {
+  async getBankAccount(actor: RequestActor, studentIdInput: unknown) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    await this.assertCanReadStudent(actor, studentId);
     await this.requireEconomyStudent(studentId);
     return this.repository.getOrCreateBankAccount(studentId);
   }
 
-  async listStocks(classIdInput: unknown) {
+  async listStocks(actor: RequestActor, classIdInput: unknown) {
     const classId = positiveInteger(classIdInput, 'Class id');
     const classRow = await this.classroom.getClassById(classId);
     if (!classRow) throw new ApiError(404, '班级未找到');
+
+    await this.assertCanReadClass(actor, classId);
 
     // `enable_economy` is a class-scope flag, so the class itself is the subject.
     await this.assertClassFeatureEnabled(classId);
     return this.repository.listStocks(classId);
   }
 
-  async listPortfolio(studentIdInput: unknown) {
+  async listPortfolio(actor: RequestActor, studentIdInput: unknown) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    await this.assertCanReadStudent(actor, studentId);
     await this.requireEconomyStudent(studentId);
     return this.repository.listPortfolio(studentId);
   }
 
-  async deposit(studentIdInput: unknown, input: { amount?: unknown }) {
+  async deposit(actor: RequestActor, studentIdInput: unknown, input: { amount?: unknown }) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    this.assertOwnStudent(actor, studentId);
     const amount = positiveInteger(input.amount, 'Amount');
     const student = await this.requireEconomyStudent(studentId);
 
@@ -145,6 +165,7 @@ export class EconomyService {
       delta: -amount,
       reason: 'bank.deposit',
       actorId: 0,
+      ledger: { type: 'BANK_DEPOSIT', description: 'Deposited into Bank' },
     });
     if (moved.refusal) {
       // The bank write is already committed; undo it so the two sides agree again.
@@ -152,12 +173,12 @@ export class EconomyService {
       throw toApiError(moved.refusal);
     }
 
-    await this.ledger(studentId, 'BANK_DEPOSIT', -amount, 'Deposited into Bank');
     return { account: this.repository.getOrCreateBankAccount(studentId) };
   }
 
-  async withdraw(studentIdInput: unknown, input: { amount?: unknown }) {
+  async withdraw(actor: RequestActor, studentIdInput: unknown, input: { amount?: unknown }) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    this.assertOwnStudent(actor, studentId);
     const amount = positiveInteger(input.amount, 'Amount');
     await this.requireEconomyStudent(studentId);
 
@@ -173,18 +194,19 @@ export class EconomyService {
       delta: amount,
       reason: 'bank.withdraw',
       actorId: 0,
+      ledger: { type: 'BANK_WITHDRAW', description: 'Withdrew from Bank' },
     });
     if (moved.refusal) {
       this.repository.updateBankDeposit(studentId, account.deposit_amount);
       throw toApiError(moved.refusal);
     }
 
-    await this.ledger(studentId, 'BANK_WITHDRAW', amount, 'Withdrew from Bank');
     return { account: this.repository.getOrCreateBankAccount(studentId) };
   }
 
-  async buyStock(studentIdInput: unknown, input: StockTradeInput) {
+  async buyStock(actor: RequestActor, studentIdInput: unknown, input: StockTradeInput) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    this.assertOwnStudent(actor, studentId);
     const stockId = positiveInteger(input.stockId, 'Stock id');
     const shares = positiveInteger(input.shares, 'Shares');
     const student = await this.requireEconomyStudent(studentId);
@@ -209,6 +231,7 @@ export class EconomyService {
       delta: -totalCost,
       reason: 'stocks.buy',
       actorId: 0,
+      ledger: { type: 'STOCK_BUY', description: `Bought ${shares} shares of ${stock.symbol}` },
     });
     if (moved.refusal) {
       // Restore the previous holding rather than guessing at a partial state. A
@@ -222,12 +245,12 @@ export class EconomyService {
       throw toApiError(moved.refusal);
     }
 
-    await this.ledger(studentId, 'STOCK_BUY', -totalCost, `Bought ${shares} shares of ${stock.symbol}`);
     return { portfolio: this.repository.listPortfolio(studentId) };
   }
 
-  async sellStock(studentIdInput: unknown, input: StockTradeInput) {
+  async sellStock(actor: RequestActor, studentIdInput: unknown, input: StockTradeInput) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    this.assertOwnStudent(actor, studentId);
     const stockId = positiveInteger(input.stockId, 'Stock id');
     const shares = positiveInteger(input.shares, 'Shares');
     await this.requireEconomyStudent(studentId);
@@ -246,13 +269,13 @@ export class EconomyService {
       delta: totalValue,
       reason: 'stocks.sell',
       actorId: 0,
+      ledger: { type: 'STOCK_SELL', description: `Sold ${shares} shares of ${stock.symbol}` },
     });
     if (moved.refusal) {
       this.repository.updateHoldingShares(holding.id, holding.shares);
       throw toApiError(moved.refusal);
     }
 
-    await this.ledger(studentId, 'STOCK_SELL', totalValue, `Sold ${shares} shares of ${stock.symbol}`);
     return { portfolio: this.repository.listPortfolio(studentId) };
   }
 
@@ -261,13 +284,14 @@ export class EconomyService {
     return { applied: true };
   }
 
-  async createStock(input: StockPayload) {
+  async createStock(actor: RequestActor, input: StockPayload) {
     const classId = positiveInteger(input.class_id, 'Class id');
     const currentPrice = positiveNumber(input.current_price, 'Current price');
     if (!String(input.name || '').trim() || !String(input.symbol || '').trim()) {
       throw new ApiError(400, 'Stock name and symbol are required');
     }
 
+    await this.assertClassWritable(actor, classId);
     await this.assertClassFeatureEnabled(classId);
     const id = this.repository.createStock({
       class_id: classId,
@@ -278,9 +302,10 @@ export class EconomyService {
     return { id };
   }
 
-  async updateStock(stockIdInput: unknown, input: Partial<StockPayload> | StockPricePayload) {
+  async updateStock(actor: RequestActor, stockIdInput: unknown, input: Partial<StockPayload> | StockPricePayload) {
     const stockId = positiveInteger(stockIdInput, 'Stock id');
     const stock = this.getStockOrThrow(stockId);
+    await this.assertClassWritable(actor, stock.class_id);
     await this.assertClassFeatureEnabled(stock.class_id);
 
     if ('new_price' in input) {
@@ -293,12 +318,90 @@ export class EconomyService {
     return { stock: this.getStockOrThrow(stockId) };
   }
 
-  async deleteStock(stockIdInput: unknown) {
+  async deleteStock(actor: RequestActor, stockIdInput: unknown) {
     const stockId = positiveInteger(stockIdInput, 'Stock id');
     const stock = this.getStockOrThrow(stockId);
+    await this.assertClassWritable(actor, stock.class_id);
     await this.assertClassFeatureEnabled(stock.class_id);
     this.repository.deleteStock(stockId);
     return { deleted: true };
+  }
+
+  // -- actor scope ----------------------------------------------------------
+  //
+  // "May this caller touch this student / this class" is answered here and only here, from
+  // the actor plus the roster. The identity of the *subject* never comes from the request
+  // body, and the id in the path is treated as a claim to be checked rather than a fact.
+
+  /** 403 unless the actor *is* this student. Writes fail closed when the scope is missing. */
+  private assertOwnStudent(actor: RequestActor, studentId: number): void {
+    if (actor.role !== 'student' || actor.studentId === null || actor.studentId !== studentId) {
+      throw new ApiError(403, '无权限执行该操作');
+    }
+  }
+
+  /** 403 unless the actor may read this student: own row, linked child, or own class. */
+  private async assertCanReadStudent(actor: RequestActor, studentId: number): Promise<void> {
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'student') {
+      if (actor.studentId !== null && actor.studentId === studentId) return;
+      throw new ApiError(403, '无权限查看该学生');
+    }
+
+    if (actor.role === 'parent') {
+      const children = await this.classroom.listStudentsByParent(actor.userId);
+      if (children.some((child) => child.id === studentId)) return;
+      throw new ApiError(403, '无权限查看该学生');
+    }
+
+    if (actor.role === 'teacher') {
+      const student = await this.classroom.getStudentById(studentId);
+      const classRow = student ? await this.classroom.getClassById(student.classId) : null;
+      if (classRow && classRow.teacherId === actor.userId) return;
+      throw new ApiError(403, '无权限查看该学生');
+    }
+
+    throw new ApiError(403, '无权限查看该学生');
+  }
+
+  /** 403 unless the actor may read this class: the owning teacher, or one of its students. */
+  private async assertCanReadClass(actor: RequestActor, classId: number): Promise<void> {
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      const classRow = await this.classroom.getClassById(classId);
+      if (classRow && classRow.teacherId === actor.userId) return;
+      throw new ApiError(403, '无权限查看该班级');
+    }
+
+    if (actor.role === 'student' && actor.studentId !== null) {
+      const student = await this.classroom.getStudentById(actor.studentId);
+      if (student && student.classId === classId) return;
+      throw new ApiError(403, '无权限查看该班级');
+    }
+
+    throw new ApiError(403, '无权限查看该班级');
+  }
+
+  /**
+   * 403 unless the actor may administer this class's stock board.
+   *
+   * Teachers write their own class's market, admins any. The legacy endpoints took
+   * `class_id` straight from the body, so a teacher could open a market inside another
+   * teacher's class; the check is the same one `assertCanReadClass` makes for teachers,
+   * named separately because it is a write.
+   */
+  private async assertClassWritable(actor: RequestActor, classId: number): Promise<void> {
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      const classRow = await this.classroom.getClassById(classId);
+      if (classRow && classRow.teacherId === actor.userId) return;
+      throw new ApiError(403, '无权限管理该班级的股票');
+    }
+
+    throw new ApiError(403, '无权限管理该班级的股票');
   }
 
   /**

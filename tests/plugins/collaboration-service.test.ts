@@ -313,6 +313,11 @@ class FakeClassroom implements ClassroomPort {
     this.adjustments.push({ ...input });
     return { totalPoints: next.totalPoints, availablePoints: next.availablePoints };
   }
+  async awardStudentPoints(input: { studentId: number; amount: number; type: string; description: string; actorId: number }) {
+    const result = await this.adjustPoints({ studentId: input.studentId, delta: input.amount, reason: 'task_tree.reward', actorId: input.actorId });
+    await this.recordStudentLedgerEntry({ studentId: input.studentId, type: input.type, amount: input.amount, description: input.description });
+    return result;
+  }
   async transferStudentCredits() {
     // collaboration awards task-tree points; it never spends credits. If this is ever
     // called the migration has changed the balance semantics, so fail loudly.

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { defaultClassFeatures, type ClassFeatures } from '@/lib/classFeatures';
+import { revokeSession } from '@/lib/session';
 
 export interface User {
   id: number;
@@ -31,6 +32,13 @@ interface AppState {
   token: string | null;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
+  /**
+   * Sign out: revoke the server session, then forget it locally.
+   *
+   * Clearing the store was the whole of it, which left the kernel session valid for its full TTL -
+   * a copied token kept working after a logout. `revokeSession()` is fire-and-forget so the UI
+   * never waits on the network to sign somebody out.
+   */
   logout: () => void;
 }
 
@@ -41,7 +49,10 @@ export const useStore = create<AppState>()(
       token: null,
       setUser: (user) => set({ user: user ? { ...user, classFeatures: user.classFeatures ?? defaultClassFeatures } : null }),
       setToken: (token) => set({ token }),
-      logout: () => set({ user: null, token: null }),
+      logout: () => {
+        void revokeSession();
+        set({ user: null, token: null });
+      },
     }),
     {
       name: 'thinkclass-user',

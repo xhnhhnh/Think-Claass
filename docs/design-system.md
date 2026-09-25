@@ -1,501 +1,384 @@
-# Design system and UI refactor
+# Design system and the UI-R shell
 
-> **What this document is for**: it is the entry point for the front-end presentation layer the
-> same way [`docs/migration/HANDOFF.md`](migration/HANDOFF.md) is the entry point for the
-> backend architecture. It records the tokens, the component contract, the debt the refactor is
-> removing, and the commands that keep it removed.
+> **What this document is for**: the entry point for the front-end presentation layer, the
+> way [`docs/migration/HANDOFF.md`](migration/HANDOFF.md) is the entry point for the backend
+> architecture. It records the tokens, the shell's contract, the interaction model, the debt
+> this refactor removed, and the commands that keep it removed.
 >
-> **Verify before believing**: every number here was measured with
-> `npm run ui:audit`, and the guardrail that enforces them is
-> [`tests/guardrails/ui-design-system.test.ts`](../tests/guardrails/ui-design-system.test.ts)
-> (G20). When this document and the command disagree, the command is right — fix the document.
+> **Verify before believing**: the numbers here were measured with `npm run ui:audit`, and
+> the guardrails that enforce them are
+> [`ui-token-contract.test.ts`](../tests/guardrails/ui-token-contract.test.ts) and
+> [`ui-route-coverage.test.ts`](../tests/guardrails/ui-route-coverage.test.ts). When this
+> document and a command disagree, the command is right — fix the document.
 
 ---
 
-## 1. The problem this refactor exists to remove
+## 1. What UI-R replaced
 
-The front end has three copies of one design language, and only the third one is authoritative:
+The previous round (P0–P8, still recorded in §9) removed the *debt*: raw controls, hex
+literals, `!important` overrides, off-brand accents. It reached zero on all fourteen of its
+metrics. What it did not change was the **shape**:
 
-| Where | What it says | Who reads it |
-| --- | --- | --- |
-| `src/index.css` tokens (`--primary`, `.theme-student`, …) | the intended palette | almost nobody |
-| `!important` overrides in the same file | flatten radii/shadows app-wide, repaint `indigo-*`/`violet-*` green | every page, by force |
-| `src/components/ui/**` | a component layer pages barely import | 11 `Button` imports against 263 raw `<button>` |
+| The old shape | What it cost |
+| --- | --- |
+| Four layout components rendering one `CampusShell` with a `role` prop that replaced the *entire* palette | a "success" chip was three different greens; a dialog portalled to `<body>` missed the scope and came out green in the parent area |
+| A sidebar of 25 flat entries in the teacher console | a console you scroll to navigate, ordered by nothing a reader could perceive |
+| An `h1` in the shell plus a page header in each of 76 pages | the title printed twice, and the primary action in the middle of the page |
+| A 96-pixel hero banner with a stock illustration and a product sentence above every page | on a 13-inch laptop the first real control was below the fold |
+| `pathname === item.path` for the active state | no rail entry highlighted on any parameterised route, and a hard-coded page title |
+| No navigation on a phone except a horizontally scrolling strip of the *same* 25 entries | reachable, unusable |
+| Marketing-style page structure everywhere | a console that reads as a brochure |
 
-Measured at the P0 baseline (`npm run ui:audit`, before any change):
+UI-R replaces the shape. It is not a reskin: the tokens, the shell, the navigation model, the
+page template and the measurement all changed identity at once, and the 76 pages are being
+migrated onto the new template in batches (§8).
 
-```text
-rawButtons                263   raw <button> elements
-rawInputs                  96   raw <input> elements
-rawSelects                 27   raw <select> elements
-rawTables                  13   raw <table> elements
-hexColors                  67   hex colour literals
-inlineStyles               18   inline style={{ }} props
-nativeDialogs              14   confirm()/prompt()/alert() calls
-importantOverrides         14   !important overrides in index.css
-recolorRules                9   .public-campus-page recolour rules
-inertTokens                74   Tailwind v4-only (inert) tokens
-unresolvedTokenUtilities    8   colour utilities for tokens Tailwind cannot resolve
-deadUtilities               6   unused utilities declared in index.css
-unresolvedCssImports        1   unresolvable @import specifiers
-v4OnlyCssImports            1   v4-only @import specifiers
+## 2. Tokens: three tiers
+
+Everything lives in `src/index.css` and is registered in `tailwind.config.js`. **A page
+never writes a colour literal, and never writes `!important`.**
+
+| Tier | Names | Consumed as | Changes per… |
+| --- | --- | --- | --- |
+| **Product** | `--brand*`, `--fg-1/2/3`, `--surface-1..4`, `--surface-steel`, `--line-1/2/strong`, `--success/warning/info/danger/participation` (+ soft variants), `--chart-1..5` | `bg-surface-2`, `text-fg-3`, `border-line-1` | never |
+| **Role accent** | `--role`, `--role-soft`, `--role-ink`, `--role-contrast`, `--focus` | `bg-role`, `text-role-ink`, `outline-role` | `data-role` on `<html>` |
+| **Density / shape / motion** | `--radius*`, `--elev-1/2/3`, `--bar-h`, `--rail-w`, `--dock-h`, `--control-h*`, `--motion-*` | `rounded-card`, `shadow-raised`, `h-bar`, `h-control` | never |
+
+Two decisions inside that table are load-bearing:
+
+- **The role is an accent, not a skin.** `data-role` re-points four variables. Nothing else.
+  A "success" badge is the product's green in all four consoles, so colour keeps meaning; a
+  dropdown portalled out of the shell still inherits the reader's accent; and there is no
+  second palette that can drift out of sync with the first.
+- **Colour distinguishes purpose.** Green marks the brand, teacher actions and growth;
+  collaboration uses blue, competition amber, and participation violet. Student, parent and
+  administrator navigation accents are blue, amber and slate. Large surfaces stay paper or
+  neutral so accents remain easy to scan.
+- **Status has three steps, not one.** `--success`, `--success-soft`, `--success-ink`. Before,
+  every caller built a chip from one colour plus an opacity, which produced the same chip in
+  nine shades. Three named steps is what makes "a badge looks like this" a fact.
+
+**Dark mode is real.** `.dark` on `<html>` is a full second product palette plus four lifted
+role accents. It existed in the stylesheet before and nothing ever set it; `RoleTheme` now
+owns it, defaults to the OS preference, and can be overridden by the reader.
+
+**The pre-UI-R aliases still resolve**, as aliases rather than a second palette:
+`--background`, `--primary`, `--canvas`, `--paper`, `--ink-*`, `--card*`, `--sidebar*` all
+forward to a tier above. They exist so an unmigrated page keeps rendering, and they are
+counted by `ui:audit` so the count can only fall. `--campus-*` and the `.theme-*` classes
+are **deleted**, not aliased: keeping them would have kept the palette-swapping alive.
+
+### A defect worth recording, because the build could not see it
+
+`@apply` inside `@layer base` is resolved by PostCSS *before* Tailwind publishes
+`theme.extend`, so a theme colour is unknown and the dev pipeline fails with
+``The `bg-surface-1` class does not exist``. The production build tolerated the same source
+and emitted correct CSS, so `npm run build` was green while `npm run dev` served a blank
+`#root` on every route. Every colour in `index.css` is therefore written as
+`hsl(var(--token))` by hand. **If you add an `@apply` there, check the dev server, not just
+the build.**
+
+## 3. The shell
+
+One component, `src/app/layouts/AppShell.tsx`, draws all four consoles. A console differs in
+three ways only: which destinations the route table gives it, what the brand says, and which
+feature flags gate the menu. The four `*Layout.tsx` files are thin adapters that supply those.
+
+```
+┌───────────┬──────────────────────────────────────────────┐
+│           │  ContextBar   breadcrumb · h1 · actions · ⌘K  │  h-bar
+│ SidebarNav├──────────────────────────────────────────────┤
+│  groups   │  ContentArea                                 │
+│  collapse │   └ PageScaffold (variant)                   │
+│  footer   │                                              │
+└───────────┴──────────────────────────────────────────────┘
+     ▲ on a phone: MobileBar on top, MobileTabBar pinned at the bottom
 ```
 
-Two of those need more than a sentence, because they are invisible in review:
+### The layout modes
 
-**The component layer was generated for Tailwind v4 while the project runs 3.4.19.** Constructs
-such as `ring-3`, `not-aria-[…]`, `*:[…]`, `has-data-*`, `@container/x`, `animate-in`,
-`fade-in`, `slide-in-from-*` compile to nothing — the focus rings, the dialog entrances and the
-card title font (`font-heading`) have never rendered. G20 compiles each construct through the
-project's own Tailwind config and asserts it stays inert, so the claim is a test result rather
-than a reading. The same test corrected this document once: the named-group form
-`group-data-[size=sm]/card:px-3` **does** compile in v3.4, and was removed from the metric.
+| Mode | When | What it looks like |
+| --- | --- | --- |
+| `workbench` | every console route on a viewport ≥ `lg` | collapsible rail, context bar, content |
+| `mobile` | the same routes below `lg` | summary bar + four-tab dock + 「更多」 drawer |
+| `immersive` | a route whose table entry says `mode: 'immersive'` | no chrome at all; a single floating exit names where it goes |
 
-**A token can look declared and still be missing.** `src/index.css` defines `--card`,
-`--card-foreground`, `--popover` and `--popover-foreground`, but `theme.extend.colors` never
-registers them, so `bg-card`, `text-card-foreground`, `bg-popover` and `text-popover-foreground`
-compile to nothing: the kit's `Card` renders without a background. That is the
-`unresolvedTokenUtilities` metric.
+The mode comes from the route table, so a page declares what it is in one place. The rail and
+the dock are **not** the same navigation with different styling — they show different
+destinations, so exactly one is mounted (`useIsDesktop`), and the reason is documented there.
 
-## 2. Rules the refactor is held to
+### The context bar
 
-1. **One token source.** Colour, radius, elevation, control height and motion live in
-   `src/index.css` and are exposed to Tailwind through `tailwind.config.js`. A page never writes
-   a hex literal, and never writes `!important`.
-2. **One component layer.** `@/components/ui/**` is the only place that styles a button, input,
-   select, table, dialog or state. Pages compose it; they do not restyle raw elements.
-3. **No new dependencies.** The kit is built from what is installed (`@base-ui/react`,
-   `class-variance-authority`, `tailwind-merge`, `clsx`, `lucide-react`, `sonner`,
-   `framer-motion`) and stays on Tailwind 3.4. v4-only syntax is rewritten, not adopted.
-4. **Copy is a contract.** Page tests assert visible text and accessible names
-   (`getByRole('button', { name: '保存' })`, `暂无更新日志。`). Restyling must not move them.
-5. **Ratchet, don't promise.** Every number in §1 has an allowance in
-   [`tests/guardrails/lib/allowances.json`](../tests/guardrails/lib/allowances.json) that may only
-   go down. `npm run guard` is green at every commit, so red always means "you broke something".
-6. **Declared exceptions.** `src/lib/brandIcon.ts` (the single definition of the brand mark) and
-   `src/lib/celebrationPalette.ts` (the canvas-confetti palette) may contain colour literals;
-   `TeacherBigscreenPage` is a projection-stage surface and is tokenised but not card-ified;
-   `.dark` tokens exist but no theme switch is wired, and this refactor neither enables nor
-   deletes them.
+It answers four questions in order: where am I (breadcrumb), what is this (the `h1`, from the
+route table), what can I do here (the page's own buttons, portalled in), how do I get anywhere
+else (the palette). The page's buttons stay in the page's React tree — see
+`src/components/ui/page-actions.tsx` for why the portal replaced lifted state, and for the
+three render-ordering traps that cost a browser run each.
 
-## 3. Commands
+## 4. Navigation and the command palette
+
+The route table is the **single source** for a route's path, label, icon, section, feature
+gate, layout mode, dock position and search aliases. There is no second `navItems` array and
+no icon table keyed by string: the previous `navRegistry` had both, and a label with no icon
+or an icon for a path that no longer exists failed silently.
+
+- **`⌘K` / `Ctrl K` opens the command palette** (`src/app/palette/CommandPalette.tsx`). It
+  indexes the route table (filtered by the same feature flags the rail uses), the current
+  page's registered actions, and the reader's recent commands. A command that navigates into
+  a page the reader has switched off would be a command that visibly does nothing, so the
+  palette cannot offer one.
+- **A page registers its own actions** with `useRegisterPageCommands`, which is how the
+  palette becomes a place to *act* rather than only to go somewhere.
+- **`⌘B` collapses the rail; `?` opens the shortcut reference.** Both live in
+  `src/app/shortcuts/`, and the reference is written by hand next to them: a generated list
+  that silently misses a binding is worse than a list a reviewer can check in one reading.
+- **Shortcuts never fire while the reader is typing**, except Escape. A `⌘B` that folds the
+  sidebar while somebody is in a password field is a shortcut that feels broken.
+
+## 5. The page template
+
+`PageScaffold` is the one shape a page can be. Before it, "a page" meant 76 files each
+deciding what a page looks like — and the measurements are in §1.
+
+| Variant | Structure | For |
+| --- | --- | --- |
+| `dashboard` | metric row, then cards in a grid | an overview |
+| `list` | sticky `Toolbar`, then `DataTable` | anything with rows |
+| `detail` | main column + 20rem side rail | a record and its context |
+| `form` | constrained measure + sticky action bar on a phone | anything you submit |
+| `immersive` | full-bleed, no padding, no measure | the game surfaces and the projection stage |
+
+It does **not** render the page title: the context bar owns the `h1`, and the `title` prop
+exists only for the standalone (test) case. `PageHeader`, which the pages still use during
+migration, contributes **only its actions** when a shell is present, and moves the page's
+description onto the bar's heading as its accessible description.
+
+## 6. The component kit
+
+`src/components/ui/**` is the only place that styles a control. The kit's vocabulary did not
+change in UI-R — `Button`, `Input`, `Textarea`, `Select`, `Checkbox`, `FormField`, `Card`,
+`Dialog`, `ConfirmDialog`, `Badge`, `Table`, `DataTable`, `Toolbar`, `StatCard`,
+`SectionCard`, `Progress`, `FileInput`, `PageHeader`, `EmptyState`, `Spinner`, `Skeleton`,
+`Label` — but three of its rules did:
+
+1. **Heights are tokens.** A button and the input beside it are both `h-control`, so a form
+   row lines up by construction. The previous version sized the button with `h-8` and left
+   the input at 36px, which made every form row ragged.
+2. **The accent is `bg-role`.** A primary button is "the action here", and which console you
+   are in is exactly what that should look like. Destructive stays `danger`, a product
+   colour: "this deletes something" does not change meaning between consoles.
+3. **Tailwind 3.4 only.** No v4 spelling anywhere; `ui-token-contract.test.ts` compiles each
+   contract utility and each inert construct, so "this class does nothing" is a test result
+   rather than a reading.
+
+Components UI-R added, with the consumer that justified each:
+
+| Component | Consumer |
+| --- | --- |
+| `sheet` (bottom/left/right/top, on Base UI's Dialog) | the command palette, the mobile drawer |
+| `breadcrumb` | the context bar |
+| `nav-item` | the rail, the drawer, the dock |
+| `kbd` + `CommandHint` + `useIsApplePlatform` | every shortcut hint, one platform decision |
+| `page-scaffold` + `PageSection` | the page template (§5) |
+| `page-actions` + `PageActionsProvider`/`Outlet` | lifting a page's buttons into the bar |
+
+## 7. Commands and verification
 
 ```bash
-npm run ui:audit          # human report: totals, per-area breakdown, top offenders
-npm run ui:audit:json     # machine-readable
-npm run ui:audit:check    # non-zero exit when a metric exceeds its allowance
-npm run guard             # G20 included; the CI-enforced form of the same ratchet
+npm run check            # tsc --noEmit
+npm run lint             # eslint
+npm run build            # tsc -b && vite build
+npm run test             # all four vitest projects
+npm run guard            # the ratchets, including the two UI-R guardrails
+npm run ui:audit         # human debt report
+npm run ui:audit:check   # non-zero when a metric exceeds its allowance
+
+npm run dev              # then, in another terminal:
+npm run tour:verify      # the guided tour, in real Chrome over CDP
+npm run shell:verify     # the shell, in real Chrome over CDP
 ```
 
-`docs/design-system.md` and `ui-audit.mjs` share one definition of every metric
-(`scripts/migration/lib/ui-audit.mjs`), so the report, the CLI gate and CI cannot disagree.
+`shell:verify` is UI-R's addition and it exists because **jsdom cannot see anything this
+refactor is about**: it lays nothing out, so every box is 0×0. Whether the rail sits beside
+the content rather than above it, whether the dock is pinned to the bottom of a 390-pixel
+phone, whether the palette opens on a real keystroke, whether the role accent reached
+`<html>` — all of it needs a renderer. It drives Chrome's DevTools Protocol through Node's
+built-in `fetch` and `WebSocket`, so it installs nothing, the same constraint the tour
+verifier documents. Its 31 checks are the shell's acceptance test; screenshots land in
+`.tmp/shell-verification/`.
 
-## 4. Phases
+Two things it deliberately does *not* do, both learned the hard way while writing it:
 
-Each phase is one commit and ends with `check` + `test:app` + `guard` + `build`, then a visual
-pass over that phase's routes.
+- It clicks through the DOM event path (`el.click()`), not `Input.dispatchMouseEvent`. Under
+  mobile emulation there is no reliable mapping from a `getBoundingClientRect()` to viewport
+  coordinates — the page is laid out at one size and scaled to another — and two attempts at
+  correcting for it moved the error rather than removing it. What `el.click()` still catches
+  is a broken handler or an overlaying element; what it does not catch is a press being
+  swallowed by an unrelated pointer-events layer, which the tour verifier covers for the one
+  overlay in this application that has to let a press through.
+- It clips screenshots to the emulated viewport. `captureScreenshot` defaults to the whole
+  page, which for a long route is thousands of pixels scaled down to fit — unreadable exactly
+  where the shell detail is.
 
-| Phase | Scope | Exit criteria |
+## 8. Phase log
+
+### UI-R A — the token layer and the kit
+
+Three tiers, dark mode wired, the `.theme-*` skins and the `--campus-*` compatibility layer
+deleted, `data-role` as the accent scope. `buttonVariants` moved onto the control-height
+tokens. New kit components: `sheet`, `breadcrumb`, `nav-item`, `kbd`, `page-scaffold`,
+`page-actions`.
+
+### UI-R B — the shell
+
+`AppShell` plus `ContextBar`, `SidebarNav`, `MobileBar`, `MobileTabBar` and the drawer; the
+route table extended with `group`/`icon`/`mobileTab`/`mode`/`aliases`; `navRegistry` deleted
+and replaced by `src/app/nav/` with a segment-wise matcher that handles parameterised paths;
+the command palette, the shortcuts and the shortcut reference; `RoleTheme` replacing
+`ThemeWrapper`; the four `*Layout.tsx` moved to `src/app/layouts/` with their feature-flag
+logic preserved verbatim — including the `canDecide` gate, which is the fix for a redirect
+loop that used to bounce every student on every hard refresh.
+
+Measured after this phase: **all 15 audit metrics at target**, 110 guardrail tests, 253 app
+tests, 1141 backend tests, and 31/31 shell checks in a real browser.
+
+### UI-R C — the pages (complete)
+
+All **67 console page modules** named by the route table are on `PageScaffold`, none renders its
+own page heading, and none writes a pre-UI-R token name. `npm run guard` prints the measurement
+on every run, and all four values are at their target:
+
+```text
+[UI-R C] 67/67 console pages use PageScaffold (100%); 0 still own a PageHeader,
+         0 still use pre-UI-R token names, 0 use an unresolvable colour family.
+```
+
+Measured by [`ui-page-contract.test.ts`](../tests/guardrails/ui-page-contract.test.ts) against
+four keys in `allowances.json`. The phase was run as four batches by family, one writer per file,
+with a shared task per batch carrying its write scope and acceptance criteria.
+
+| Batch | Pages | Notes |
 | --- | --- | --- |
-| P0 | audit + G20 + these notes | guard green; mutations make it red |
-| P1 | token layer, single theme owner, palette entries, inert-syntax fixes | `inertTokens` 0, `unresolvedTokenUtilities` 0, both CSS-import metrics 0 |
-| P2 | component layer: Select, Textarea, AlertDialog, EmptyState, PageHeader, SectionCard, StatCard, FormField, DataTable, Toolbar, Spinner, Skeleton, motion helpers | every new component has a test; `CrudPage` is its first consumer |
-| P3 | portal + auth + payment | `recolorRules` 0, `.public-campus-page` deleted, portal hex 0 |
-| P4 | admin console | raw tables/dialogs 0 in `src/pages/Admin/**` and `src/features/admin/**` |
-| P5 | parent area | parent hex 0, native dialogs 0 |
-| P6 | teacher console (lists, then forms, then game pages) | teacher raw controls 0 |
-| P7 | student area | student raw controls 0, inline styles 0 |
-| P8 | cleanup | all 14 metrics 0, dead utilities deleted, CHANGELOG entry |
+| student game | 12 | 8 `immersive`; the family that exposed the dropped-actions defect |
+| student non-game | 11 | the batch that dropped the last `getExams` misuse |
+| teacher console | 27 + 10 sub-components | the largest batch; took `legacyTokenPages` to 0 |
+| admin + parent + portal/auth | 26 + 13 portal components | 8 public pages deliberately have no scaffold |
 
-## 5. Token contract
+**The eight public pages are not a gap.** The portal, login, activation and payment routes are
+flat routes with no console shell — `PageScaffold` exists to give a console route a consistent
+shape under the rail and context bar, and has nothing to offer a visitor-facing page. A separate
+assertion checks that they have *not* been given console chrome, and it walks `features/portal/`
+recursively: the first version read only the directory root, so it passed vacuously for the five
+portal pages it existed to guard.
 
-Layers, in order, all in `src/index.css` and registered in `tailwind.config.js`:
+Reaching `legacyTokenPages` 0 is what makes deleting the compatibility aliases possible, and that
+is the next cleanup — the aliases in `index.css` and the `background`/`foreground`/`card`/
+`popover`/`sidebar` entries in `tailwind.config.js` now have no consumer left.
+`src/pages/Admin/**` also went with this phase: its four one-line forwarding shims were deleted
+and the route table points at the real modules, which removed the last of the legacy admin tree.
 
-| Layer | Names | Consumed as |
-| --- | --- | --- |
-| Primitives | `--background`, `--foreground`, `--primary`, `--secondary`, `--accent`, `--muted`, `--destructive`, `--border`, `--input`, `--ring`, `--card`, `--popover`, `--sidebar*`, `--chart-1..5` | `hsl(var(--x))` via `bg-*` / `text-*` / `border-*` |
-| Status | `--success`, `--warning`, `--info` | `text-success`, `bg-warning/10`, … |
-| Surfaces & text | `--canvas`, `--paper`, `--paper-warm`, `--ink-1/2/3` | `bg-canvas`, `bg-paper-warm`, `text-ink-2` |
-| Shape | `--radius` (-sm/-md/-lg), `--radius-card` 0.625rem, `--radius-panel` 0.75rem, `--radius-pill` | `rounded-lg`, `rounded-card`, `rounded-panel`, `rounded-pill` |
-| Elevation | `--elev-1/2/3` | `shadow-card`, `shadow-raised`, `shadow-floating` |
-| Motion | `--motion-fast` 150ms, `--motion-base` 200ms, `--motion-slow` 320ms, `--ease-out-soft` | `duration-base`, `ease-soft`, the `animate-*` keyframes |
-| Compatibility | `--campus-canvas/-paper/-paper-warm/-border/-soft-shadow` | legacy `var(--campus-*)` call sites (~100), resolving to the layers above |
+### UI-R D — measurement and tests
 
-Animations are named after the intent and defined as real keyframes: `animate-fade-in`,
-`animate-fade-out`, `animate-zoom-in`, `animate-zoom-out`, `animate-slide-in-top/-bottom/-left/-right`.
-There is no `animate-in`/`slide-in-from-*` composition: those were the v4 package's vocabulary and
-never compiled here.
+Landed: `ui-token-contract.test.ts` (the compile-level token contract, the correction of the
+`v4-only scale value` metric which had been counting `rounded-xs` and `size-control` as inert, and
+two guards for the blank-page defect below); `ui-route-coverage.test.ts` (route, destination, dock
+and section invariants against the real table); `ui-page-contract.test.ts` (the C-phase ratchet,
+now at target); `registry.test.tsx` (the stale-callback trap); `page-scaffold.test.tsx` (the
+scaffold and the actions portal); the raw-element exemption widened to `src/app/**` with the
+reason recorded; and the `!important` metric taught to ignore `prefers-reduced-motion`.
 
-### The accent palette
+The per-page tests needed almost no rewriting, which is worth recording: the batches changed
+markup and class names, not accessible names or copy, so the existing assertions kept working.
+Two tests were repointed at the real admin page modules when their shims were deleted, and one
+assertion in `RestartGuideButton.test.tsx` follows the kit's vocabulary
+(`hover:bg-muted` → `hover:bg-surface-3`) while testing the same thing.
 
-The product's identity is **green**, with **amber/orange** and **sky** as the two supporting accents.
-Every other colour family in a page is debt, and it is measured: `offBrandAccents` counts
-`indigo|violet|purple|fuchsia|pink|rose` utilities, because those are what the pages were written in
-and only the portal's copy is repainted by the `.public-campus-page` block.
+### UI-R E — acceptance
 
-| Was | Becomes |
+| Check | Result |
 | --- | --- |
-| `text-indigo-500/600`, `bg-indigo-500/600` | `text-primary`, `bg-primary` |
-| `bg-indigo-50`, `border-indigo-100/200` | `bg-primary/5`, `border-primary/20` |
-| `text-violet-500`, `text-purple-500` | `text-accent-foreground`, `text-secondary-foreground` |
-| `bg-violet-50`, `bg-purple-50` | `bg-accent`, `bg-secondary` |
-| `from-indigo-500 to-violet-500` | `from-primary to-accent` (or a role gradient token) |
-| glow shadows (`shadow-[0_0_15px_rgba(99,102,241,…)]`) | `shadow-glow-primary` |
+| `check` / `lint` / `build` | clean (0 lint errors) |
+| `test` (app + backend + guardrails + e2e) | 160 files, 1538 tests |
+| `guard` | 19 files, 117 tests |
+| `ui:audit:check` | 15/15 metrics within allowance |
+| `shell:verify` | 31/31 |
+| `sweep:verify` | 35/35, every console route per role |
+| `tour:verify` | 18/18 (+ 19/19 under `--reduce`) |
 
-## 6. Component contract
+### Four defects the verification found, and what each one taught
 
-Everything a page renders comes from `@/components/ui/**`. **A kit component lands with its first
-consumer**, because the `deadCode` ratchet counts an unreferenced file: adding a component "for
-later" is adding debt with a nicer name.
+These are recorded because each was invisible to the instrument that should have caught it, and
+the fix was always to change the instrument rather than the number.
 
-| Component | Import | Purpose | Notes |
-| --- | --- | --- | --- |
-| `Button` | `@/components/ui/button` | every action | `variant`: default/outline/secondary/ghost/destructive/link; `size`: xs…icon-lg |
-| `Input`, `Textarea`, `Select` | `@/components/ui/{input,textarea,select}` | form controls | `Select` is a styled native `<select>` on purpose - see below |
-| `Checkbox` | `@/components/ui/checkbox` | tick boxes | Base UI; `checked` / `onCheckedChange` |
-| `FormField` | `@/components/ui/form-field` | label + control + hint + error | wrapping `<label>`, so `getByLabelText` keeps working; the required marker is a CSS pseudo-element |
-| `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`, `CardAction` | `@/components/ui/card` | surfaces | |
-| `Dialog`, `DialogTrigger`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose` | `@/components/ui/dialog` | forms in a modal | Base UI Dialog |
-| `ConfirmDialog` | `@/components/ui/alert-dialog` | confirmations | replaces `window.confirm`; Base UI AlertDialog, so focus lands on the least destructive action |
-| `Badge` | `@/components/ui/badge` | status chips | `variant` adds success/warning/info to the stock set |
-| `Table` family | `@/components/ui/table` | tabular data | consumed by `DataTable` |
-| `DataTable` | `@/components/ui/data-table` | list pages | columns + rows; **owns loading and empty** so pages stop inventing both |
-| `Toolbar` | `@/components/ui/toolbar` | search + filters + actions above a list | the search input gets its accessible name from `searchLabel`, not the placeholder |
-| `StatCard` | `@/components/ui/stat-card` | dashboard figures | `tone` is an enum, so a caller cannot introduce a ninth palette |
-| `SectionCard` | `@/components/ui/section-card` | titled block with actions | what the settings/website pages are stacks of |
-| `Progress` | `@/components/ui/progress` | usage bars | Base UI's indicator owns the dynamic width, so no page needs an inline style; `toneForUsage` carries the threshold rule |
-| `FileInput` | `@/components/ui/file-input` | hidden file picker | `label` is required: a hidden input has no visible label to borrow a name from |
-| `DropdownMenu` family | `@/components/ui/dropdown-menu` | menus | *unadopted*: adopt for a user menu or row actions by P8, or delete |
-| `PageHeader` | `@/components/ui/page-header` | page title + description + actions | renders an `<h2>`; the shell owns the `h1` |
-| `EmptyState` | `@/components/ui/empty-state` | "nothing here" | copy stays with the caller |
-| `Spinner`, `Skeleton`, `SkeletonList` | `@/components/ui/{spinner,skeleton}` | loading | `Skeleton` where the incoming shape is known, `Spinner` inside a button |
-| `Label` | `@/components/ui/label` | standalone label | |
+1. **Every route served a blank `#root` in development.** An `@apply` in `@layer base` resolves
+   before Tailwind publishes `theme.extend`, so `bg-surface-1` did not exist. `npm run build`
+   succeeded and emitted correct CSS the whole time. Now guarded twice: no `@apply` and no hex
+   literal in `index.css`.
+2. **`h-auto`, `h-12` and `h-14` were inert on every kit control.** The project's `spacing` block
+   *replaced* Tailwind's, so its `h-*` rules were emitted after the defaults and `h-control` won
+   every conflict — a button written as `h-auto py-5` stayed 36px tall. Fixed by moving the block
+   inside `theme.extend`. `tailwind-merge` could not have helped: it does not know `h-control` is
+   a height.
+3. **`sweep-browser.mjs` reported blank pages that rendered perfectly.** It read `innerText`,
+   which is layout-dependent and returned empty in this headless browser on every route. Found by
+   screenshotting a failure instead of trusting the character count — which is why a failing route
+   now always produces one.
+4. **A metric that counted its own documentation, twice.** The `@apply` guard first failed on the
+   comment saying `@apply` is banned, and the public-surface check failed on the comment saying
+   `Public site, so no PageScaffold`. Both now strip comments, the same fix the UI audit applies.
 
-Two decisions worth stating, because they look like omissions:
+## 9. The previous round (P0–P8), retained as history
 
-- **`Select` is a native `<select>`.** The 27 selects in the app are written as
-  `<select value onChange><option>`. A composite listbox would rewrite every call site and change
-  keyboard/touch behaviour - a behaviour change this refactor does not get to make. The kit owns the
-  *look*; the element stays the browser's.
-- **`FormField` uses a wrapping `<label>` and draws `*` with `after:content-['*']`.** The three page
-  tests that exercise `CrudPage` reach their controls with `getByLabelText('股票名称')`, which matches
-  the label's text content. Nesting the control keeps that working, and a pseudo-element keeps the
-  required marker out of the accessible name.
+Kept because several of its findings are still the reason a rule exists, and because its
+metrics are the baseline the current ones were re-derived from.
 
-## 7. Phase log
-
-### P0 — measure first
-
-14 metrics, G20's ratchet, `npm run ui:audit`, these notes.
-
-### P1 — the token layer, and a component layer that compiles
-
-| Metric | Before | After |
+| Metric | Baseline | Now |
 | --- | --- | --- |
-| `inertTokens` | 74 (recounted 126 with the widened pattern set) | **0** |
-| `unresolvedTokenUtilities` | 8 | **0** |
-| `deadUtilities` | 6 | **0** |
-| `unresolvedCssImports` | 1 | **0** |
-| `v4OnlyCssImports` | 1 | **0** |
-| `offBrandAccents` | 790 (first measurement) | 790 (P3–P8 work) |
-| `importantOverrides` | 14 | 14 (unchanged - each phase deletes its own) |
-| built CSS | 188,058 bytes | 181,422 bytes |
+| `rawButtons` | 263 | 1 (the big screen's 3xl countdown, a projection instrument) |
+| `rawInputs` / `rawSelects` / `rawTables` | 96 / 27 / 13 | 0 / 0 / 0 |
+| `hexColors` | 67 | 0 (brand mark and confetti palette exempt by name) |
+| `offBrandAccents` | 790 | 0 |
+| `inlineStyles` | 18 | 3 (danmaku position/colour, two animation widths) |
+| `nativeDialogs` | 14 | 0 |
+| `importantOverrides` | 14 | 0 |
+| `inertTokens` | 74 | 0 |
 
-What became real, rather than merely written down:
+Three findings from that round that are still load-bearing:
 
-- **Focus rings.** `ring-3` does not exist in v3, so `Button`, `Input`, `Checkbox` and the CRUD
-  form had no focus ring at all. Now `ring-[3px]`, verified in `dist/assets/index-*.css`.
-- **The card surface.** `bg-card`/`text-card-foreground` named tokens the Tailwind theme never
-  registered; registering `card`, `popover`, `sidebar*`, `chart*`, `canvas`, `paper`, `ink*` and the
-  status colours made the kit render the surface it always claimed.
-- **The dialog and menu entrances.** `data-open:`/`data-closed:`/`data-inset:`/`data-disabled:`
-  are v4 spellings of `data-[open]:` and friends, and `animate-in fade-in-0 zoom-in-95` was a v4
-  package's composition. Base UI already sets those attributes, so the dialogs, the overlay and the
-  dropdown menus animate for the first time. `max-h-(--x)`/`w-(--x)`/`origin-(--x)` became
-  `max-h-[var(--x)]`, which is what makes a dropdown respect its available height.
-- **One theme owner.** `ThemeWrapper` puts the role theme on `<html>` (a layout effect, so no flash),
-  `CampusShell` no longer duplicates it, `/teacher` finally gets its own class, and dialog portals -
-  which live outside the shell element - now inherit the role palette instead of the default green.
-- **Badges.** `rounded-4xl` and `size-3!` meant `Badge` had square corners; it is a pill now.
-- Markdown `Card`, `Dialog` and `DropdownMenu` surfaces use `border-border` instead of
-  `border-[var(--campus-border)]`, the first two files moved onto tokens.
+- **A class name that looks like a style and compiles to nothing** is this project's most
+  expensive recurring defect. It has happened four times: `tw-animate-css` in a v3 project,
+  `coral-*` (a family that was never registered, so the parent area's filled buttons had no
+  background for months), `animate-blob` and `.scrollbar-hide` (declared nowhere). Hence
+  `ui-token-contract.test.ts` compiles its own contract.
+- **A metric that is wrong about what it counts is worse than no metric.** It has been
+  corrected four times, most recently in UI-R (§8 D). Each correction is recorded in
+  `allowances.json` next to the number.
+- **One writer per file.** A previous phase lost work to two writers on the same path and to
+  a `git checkout` on a file another writer owned. The C phase is run under that rule.
 
-Two metric corrections came out of doing this, both recorded because a metric that is wrong about
-what it counts is worse than no metric:
+## 10. Declared exceptions
 
-1. `group-data-[size=sm]/card:px-3` **does** compile in v3.4 - it was in the inert list and was
-   removed (79 → 74).
-2. Comments were being counted. `!important` in a CSS comment, and `ring-3` in a TypeScript comment
-   explaining that `ring-3` is inert, both scored as debt. Both scans now blank comments while
-   preserving line numbers.
+- `src/lib/brandIcon.ts` — the single definition of the brand mark; its colour literals are
+  artwork.
+- `src/lib/celebrationPalette.ts` — the canvas-confetti palette, also artwork.
+- `TeacherBigscreenPage` — a projection-stage surface. It is tokenised, its one raw `<button>`
+  is the 3xl countdown readout the kit's control cannot carry, and it declares `immersive`
+  mode so the shell gets out of its way.
+- `DanmakuOverlay` — per-message position and colour are server data, which is why
+  `inlineStyles` is 3 rather than 0.
+- `PraiseModal`'s `bg-yellow-100` / `bg-blue-100` — those class strings are **payload values**,
+  posted as a praise letter's colour, persisted, and later rendered by the pet wall. Changing them
+  would change a request parameter, so they are data that happens to look like styling.
 
-### P2 — the kit, with its first consumer
+## 11. Known remaining work
 
-Eight components land, all in `src/components/ui/`: `Select`, `Textarea`, `FormField`, `Spinner`,
-`Skeleton`/`SkeletonList`, `EmptyState`, `PageHeader`, `ConfirmDialog` (on Base UI's AlertDialog).
-`Badge` gains `success`/`warning`/`info`.
+Recorded rather than hidden. Each is a real gap, and none of them is a surprise found later.
 
-They land together with their consumer, `CrudPage` - the app's one generic CRUD page, used by
-股票管理, 拍卖行管理 and 盲盒管理 - which now composes all of them instead of carrying its own copy of
-every primitive. Its three page tests are the contract: `getByLabelText('股票名称')`, the buttons
-named `保存`/`删除`/`取消`, and the delete confirmation all still work, which the 18 new tests in
-`kit-primitives.test.tsx` / `kit-states.test.tsx` pin directly.
-
-Also in this phase: `FeatureDisabledState` moved onto `EmptyState` + `Button`; the dead
-`src/components/Empty.tsx` was deleted; `CrudPage`'s consumers stopped passing colour to their icons
-(`text-indigo-500`, `text-purple-500`), which is how the kit takes over the palette.
-
-| Metric | P1 | P2 |
-| --- | --- | --- |
-| `rawButtons` | 263 | 262 |
-| `rawInputs` | 96 | 95 |
-| `rawSelects` | 27 | 26 |
-| `rawTables` | 13 | 12 |
-| `offBrandAccents` | 790 | 788 |
-| `deadCode` (backend ratchet) | 55 | **54** |
-| app test files / tests | 65 / 157 | 67 / 175 |
-| guard files / tests | 15 / 85 | 15 / 85 |
-
-The third metric correction came from this phase: the raw-element counts were including
-`src/components/ui/**`, so `select.tsx`'s own `<select>` was scored as the debt the kit exists to
-remove. The counts now exclude the kit - a page writing `<select>` is the debt, the kit wrapping one
-is the fix - which is also why `rawSelects`/`rawTables` moved down without a page changing.
-
-### P3 — the public surface
-
-Home, About, Services, News, Contact, the login page (all three roles, registration and invite-code
-binding), activation, the payment landing page, and the admin console's login.
-
-The phase exists to delete a block. `.public-campus-page` in `index.css` repainted nine families of
-`indigo-*`/`violet-*` classes green, because the public pages were written in a design language the
-product does not use. Migrating them onto tokens made the block redundant, and it is gone -
-`recolorRules` 9 → 0, `importantOverrides` 14 → 7.
-
-| Metric | P2 | P3 |
-| --- | --- | --- |
-| `rawButtons` | 262 | 253 |
-| `rawInputs` | 95 | 89 |
-| `rawSelects` | 26 | 25 |
-| `hexColors` | 67 | 51 |
-| `offBrandAccents` | 788 | 667 |
-| `inlineStyles` | 18 | 16 |
-| `importantOverrides` | 14 | 7 |
-| `recolorRules` | 9 | **0** |
-
-Two structural wins worth naming: `loginStyles.ts` (eleven hex colours, a second copy of the three
-role palettes, and a `ROLE_THEME` map read by four components) is **deleted** - login is a token
-scope now, so choosing a role sets `theme-*` on the page wrapper and `bg-primary` follows. And
-`PortalShell` collapses four copies of the same sticky header + back button + footer into one.
-
-**Deferred to P8, deliberately:** `HomePage.tsx` is still a single ~700-line file with its sections
-inline. Splitting it is maintainability work rather than design-system work, and it was not worth
-holding the phase's exit criterion (the block's deletion) hostage to it. It is listed in §8.
-
-### P4 — the admin console
-
-Twelve pages, ten of them rewritten this phase: the dashboard, settings, website, system reset,
-open-api, codes, teachers, announcements, articles, audit logs.
-
-Two blocks died here. `.theme-admin .campus-content` (four `!important`s) repainted the console's
-dark panels white; it existed only because the dashboard was still written in an abandoned
-"editorial dark" spec - `glass-dark` panels, `bg-slate-800/50` wells, eight neon icon colours. P4
-moved the dashboard onto the tokens, so the block went with it. It was also quietly harmful: the
-rule that darkened `text-slate-400` applied to the **update log panel** too, a `bg-slate-950`
-terminal where a mid grey is nearly invisible. Deleting it improved the page it was meant to fix.
-
-Six hand-written `<table>` blocks became `DataTable`, and with them went six hand-written loading
-rows, six empty blocks and six "加载中..." cells. Nine `confirm()`/`window.confirm()` calls became
-`ConfirmDialog`, including the two on the dashboard that guard a database export and an import.
-
-| Metric | P3 | P4 |
-| --- | --- | --- |
-| `rawButtons` | 253 | **209** |
-| `rawInputs` | 89 | **62** |
-| `rawSelects` | 25 | **22** |
-| `rawTables` | 12 | **5** |
-| `offBrandAccents` | 667 | **608** |
-| `inlineStyles` | 16 | **15** |
-| `nativeDialogs` | 14 (19 after the metric fix) | **10** |
-| `importantOverrides` | 7 | **3** |
-| `deadCode` | 54 | **52** |
-| built CSS | 181,422 bytes | 174,539 bytes |
-
-Three test contracts were updated on purpose, and each is an improvement rather than a workaround:
-
-- `Admin/SystemReset.test.tsx` clicked through the new dialog instead of stubbing `window.confirm`.
-  The test's name - "calls the real reset contract after confirmation" - now asserts the
-  confirmation, plus a second test that the confirm button stays disabled until the word is exact.
-- `Admin/Settings.test.tsx` reaches its checkbox with `getByRole('checkbox', { name })` instead of
-  `getByLabelText`. Base UI renders the visible control as a `role="checkbox"` span with the real
-  input `aria-hidden`, so a label query can never find it - and role queries are what
-  testing-library recommends for custom controls anyway.
-- The metric was widened, and its value went **up**: `window.confirm(` was excluded by the
-  lookbehind that keeps `dialog.confirm(` (a method) out, so five real dialogs had been invisible.
-  Widening a metric mid-refactor is only acceptable because the phase then took nine of them out.
-
-Two kit components landed with the pages that needed them rather than "for later": `Progress`
-(the dashboard's hand-built bar, whose dynamic width is why `inlineStyles` could not reach 0) and
-`FileInput` (the two hidden pickers, which had no accessible name).
-
-### P5 — the parent area
-
-Six pages: 温馨家园, 成长足迹, 家庭时光, 请假假条, 学习采撷 and 家校信箱.
-
-The interesting find was a **palette that never existed**. The parent area was written against
-`coral-*` - `bg-coral-400` on its primary buttons, `text-coral-500` on its accents, `border-coral-100`
-on its cards - and `coral` is not a Tailwind family and was never registered in
-`tailwind.config.js`. All 74 occurrences compiled to nothing, so the area's filled buttons had **no
-background at all** and its "coral" cards had no border. The audit did not catch it either, because
-`unresolvedTokenUtilities` only knew about *project tokens* whose palette entry was missing. It now
-knows both shapes - a token with no entry, and a family/shade no palette resolves - which is why that
-metric moved from 0 to 79 and back to 0.
-
-| Metric | P4 | P5 |
-| --- | --- | --- |
-| `rawButtons` | 209 | **191** |
-| `rawInputs` | 62 | **58** |
-| `hexColors` | 51 | **28** |
-| `offBrandAccents` | 608 | **557** |
-| `inlineStyles` | 15 | **14** |
-| `nativeDialogs` | 10 | **9** |
-| `unresolvedTokenUtilities` | 0 | **0** (was 79 mid-phase) |
-| built CSS | 174,539 bytes | 170,381 bytes |
-
-`#fffdfa` was a warm paper the parent pages used 30 times - it is `bg-paper-warm`. The orange hero
-gradients written as three hexes are the role theme's own `primary`. The inline confetti arrays moved
-into `src/lib/celebrationPalette.ts`, which is exempt by name like the brand mark, because a confetti
-palette is artwork rather than a surface.
-
-**A regression this phase caused, and what now prevents it.** The colour migration was done with
-literal swap maps, and a swap whose replacement carried its own opacity produced classes like
-`bg-muted/50/70` (from `bg-slate-50/70`): not Tailwind classes at all, and therefore invisible rather
-than merely wrong. Thirty of them were checked in across ten files, three of them from P3's portal
-work. They are repaired, and `inertTokens` gained a `doubled opacity modifier (x/a/b)` entry so the
-tooling is held to the same standard as the pages. The lesson is in the shape of the fix: a bulk
-rename needs a metric that can see its output, or it moves debt instead of removing it.
-
-**A collision worth recording.** The parent pages' kit migration ran in parallel with the colour pass
-above, and the two writers briefly fought over the same files - one of them reverted the other's work
-with a `git checkout`, and a PowerShell array-flattening bug mangled two files (every `h` replaced by
-an `o`) before it was caught by the typechecker. Both were recovered by restoring from git and
-re-applying the edits with node scripts, and the final state is the one this log describes. The
-process rule that came out of it: **one writer per file, and no `git checkout` on a path another
-writer owns** - the same rule the migration's own handoff states for its phases.
-
-**Deliberately left for P6/P8:** `Report.tsx` and `ParentCommunicationPage.tsx` are colour-migrated
-and on the kit's `Button`, but still write their own page header and loading states. They are listed
-in §8.
-
-### P6 — the teacher console
-
-Thirty-nine files, 8,294 lines: the largest family in the product. It went from **144 raw buttons to
-1**, from 54 raw inputs to 0, from 22 selects to 0, and from 205 off-brand accent utilities to 0.
-
-| Metric | P5 | P6 |
-| --- | --- | --- |
-| `rawButtons` | 191 | **48** |
-| `rawInputs` | 58 | **4** |
-| `rawSelects` | 22 | **0** |
-| `rawTables` | 5 | **1** |
-| `hexColors` | 28 | **25** |
-| `offBrandAccents` | 557 | **244** |
-| `inlineStyles` | 14 | **11** |
-| `nativeDialogs` | 9 | **2** |
-| built CSS | 170,381 bytes | 168,940 bytes |
-
-Everything left in the table above is the **student area**, which is P7 - except one deliberate
-exception and one class of artwork:
-
-- **The big screen keeps one raw `<button>`.** It is the 3xl countdown readout on a projection
-  surface; the kit's control is 2.25rem tall and cannot carry it. It has an `aria-label`, and the
-  page is documented in §2 as a stage rather than a page.
-- **All 25 remaining hex literals are confetti palettes** (22 in the student area, 3 on the big
-  screen). They belong in `src/lib/celebrationPalette.ts`, which is exempt by name; moving them is
-  P7's first mechanical step.
-
-Two pre-existing defects the console surfaced, both now fixed rather than documented:
-
-- `animate-[slideRight_2s_linear_infinite]` (the big screen's transmission bar) and `.scrollbar-hide`
-  were written in a page and defined **nowhere**, so both compiled to nothing - the bar never moved
-  and the strip never hid its scrollbar. The keyframes and the utility now exist in `index.css`,
-  outside `@layer`, so they are emitted whether or not a utility references them.
-- One more native dialog than the phase brief listed: `TeacherBrawlPage.tsx` also had a
-  `window.confirm`. The writer found it, the audit confirms the teacher area is at 0, and the
-  lesson is recorded with the others - **the brief is a plan, the audit is the measurement.**
-
-Two decisions worth keeping:
-
-- **The brawl page's tug-of-war bar stays two `motion.div`s.** It is one track with two scores
-  pulling against each other; two `Progress` bars would be a redesign of the page's central idea,
-  not a migration of it. Every ordinary width bar in the console *is* `Progress`.
-- **`TeacherShopPage`'s `alert('网络错误，请稍后重试')` became `toast.error`** with the identical
-  message. It is the one behaviour change of the phase, it is user-visible (no more blocking browser
-  dialog), and it is right: the metric only matched `window.alert(` and would have left it behind.
-
-### P7 — the student area
-
-Twenty-three pages, the most playful family in the product: pet evolution, dungeon runs, the
-interactive wall's danmaku, the skill tree's starfield, the territory map, gacha pulls, the bank's
-sparkline.
-
-All of it is on the tokens now, and **the game feel was the constraint rather than the casualty**:
-`framer-motion` entrances, gradients, glows and full-bleed dark canvases survive, because they are
-the product's idea. What changed is where their colours come from - a starfield is
-`bg-secondary-foreground`, a glow is `shadow-glow-primary`, a completed node is `success` and an
-unlockable one is `info` (mapping both to `primary` would have made two different states the same
-green on a dark canvas, which is the kind of "consistency" that destroys meaning).
-
-| Metric | P6 | P7 |
-| --- | --- | --- |
-| `rawButtons` | 48 | **1** |
-| `rawInputs` | 4 | **0** |
-| `rawSelects` | 0 | 0 |
-| `rawTables` | 1 | **0** |
-| `hexColors` | 25 | **0** |
-| `offBrandAccents` | 244 | **0** |
-| `inlineStyles` | 11 | **3** |
-| `nativeDialogs` | 2 | **0** |
-| `importantOverrides` | 3 | 3 |
-| built CSS | 168,940 bytes | **161,412 bytes** |
-
-Two more classes that were written and never defined, both now real: `animate-blob` (six student
-pages carried it, so their decorative blobs never moved) and `animate-spin-slow`/
-`animation-delay-*`. This is the fourth instance of the same defect - a class name that looks like a
-style and compiles to nothing - and it is why G20's contract list has grown with every phase.
-
-### P8 — cleanup
-
-The last override block is gone: the radius and shadow flattening, which forced `rounded-3xl`,
-`rounded-2xl` and every `shadow-lg|xl|2xl|[…]` to the campus scale. The classes were rewritten to
-the tokens they were being forced to (`rounded-panel`, `rounded-card`, `shadow-raised`) - which is
-the same value written where it belongs - so deleting the block moved nothing on screen.
-`importantOverrides` is **0**, and a new override block fails G20 instead of being reviewed.
-
-The three blocks that lived in that section are now a comment recording what each was compensating
-for. That comment is the most useful thing in this document: every one of them existed because a
-page's markup said one thing and the product needed another, and the fix was always to change the
-page.
-
-**Done in the same round, and worth recording because it is the only structural move left:** the
-`HomePage` was 702 lines of sections written inline. It is **68** now, with the page's data in
-`components/home/homeContent.ts` and one file per section (`HomeNav`, `HomeHero`, `HomeQuickLinks`,
-`HomeAudience`, `HomeAbout`, `HomeJourney`, `HomeClassroomMoments`, `HomeNews`, `HomeClosingCta`,
-`HomeFooter`). The split was verified as a *move* rather than a rewrite: the CJK copy multiset, the
-`className` multiset, the double-quoted string literals and all 626 numeric literals (typewriter
-delays, animation durations, stagger factors) are identical between the original file and the new
-set, and every original code line reappears in order inside exactly one section file.
-
-Two smaller closures: `Report.tsx` and `ParentCommunicationPage.tsx` use `PageHeader` now, and
-`src/components/ui/dropdown-menu.tsx` was **deleted** - it was the last unadopted kit primitive, no
-file imported it, and the `deadCode` ratchet counts an unreferenced file. If a menu is needed, it
-comes back from shadcn with the styles already fixed, which is cheaper than carrying it dead.
-
-## 8. Deferred / open
-
-| Item | Phase | Why it is not done |
-| --- | --- | --- |
-| Browser-based visual regression | - | No automation is installed and the project does not add dependencies; visual acceptance is the maintainer's pass over the URL lists published at the end of each phase |
-| `bigscreen`'s one raw `<button>` and the three data-driven inline styles | - | Declared exceptions, not debt: the countdown readout is a projection-stage instrument, and the danmaku overlay's per-message position/colour plus two animation-driven bar widths are values a class cannot carry |
-
-
-
+| Item | Why it is not done |
+| --- | --- |
+| Delete the pre-UI-R aliases (`--canvas`, `--paper`, `--ink-*`, `--primary`, `--card*`, `--sidebar*`) and their `tailwind.config.js` entries | They have no page consumer left now that `legacyTokenPages` is 0, so this is mechanical — but it touches the kit and the shell, and it wants its own verified pass rather than riding along on the page migration. |
+| `src/features/pet/petConfig.ts` supplies `el.bg` as `bg-red-50` / `bg-blue-50` / … | A data file consumed by two pages, outside both batches' write scopes, and no audit metric counts it. The pet stage still renders those tiles in the old colour families. |
+| `src/features/classroom/components/analytics/DataInsight.tsx` still writes `bg-paper-warm` / `text-slate-*` | It is a component, not a page module, so `legacyTokenPages` does not see it; `Parent/Report` and `Parent/Assignments` render it. |
+| `HomeClosingCta`'s desktop state is `text-fg-1` on `bg-role` | A contrast defect inherited verbatim (it was `ink-1` on `primary`) and preserved rather than redesigned mid-migration. One `md:text-role-contrast` fixes it. |
+| The `prose` palette on `NewsPage` | Re-pointing the typography plugin at the tokens needs `theme.typography` in the config. |
+| A browser-based visual regression baseline | Still deferred: the project does not add dependencies. `shell:verify` and `sweep:verify` are the substitute, and they assert structure and absence of errors, not pixels. |

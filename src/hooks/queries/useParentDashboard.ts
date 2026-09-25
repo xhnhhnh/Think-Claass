@@ -43,6 +43,7 @@ export function useParentBuffMutation(studentId: number | null) {
     onSuccess: async () => {
       if (!studentId) return;
       await queryClient.invalidateQueries({ queryKey: ['parent-dashboard', studentId] });
+      await queryClient.invalidateQueries({ queryKey: ['motivation-summary', studentId] });
     },
   });
 }

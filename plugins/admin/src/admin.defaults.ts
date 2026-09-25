@@ -49,4 +49,12 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   payment_alipay_private_key: '',
   payment_alipay_public_key: '',
   payment_alipay_gateway: 'https://openapi.alipay.com/gateway.do',
+  // The homework AI provider. `mock` is a working configuration, not a placeholder: it grades
+  // objective questions deterministically and declines to judge what it cannot, so the AI surfaces
+  // are honest on a fresh install with nothing configured.
+  ai_provider: 'mock',
+  ai_base_url: '',
+  ai_api_key: '',
+  ai_model: 'deepseek-chat',
+  ai_timeout_ms: '20000',
 };

@@ -108,6 +108,14 @@ class FakeClassroom implements ClassroomPort {
   async adjustPoints() {
     throw new Error('not used by dungeon');
   }
+  async awardStudentPoints(input: { studentId: number; amount: number; type: string; description: string }) {
+    if (this.failCredits) throw Object.assign(new Error(this.failCredits.message), { status: 404 });
+    const entry = this.students.get(input.studentId);
+    if (!entry) throw Object.assign(new Error('学生未找到'), { status: 404 });
+    entry.snapshot = { ...entry.snapshot, totalPoints: entry.snapshot.totalPoints + input.amount, availablePoints: entry.snapshot.availablePoints + input.amount };
+    this.ledger.push({ studentId: input.studentId, type: input.type, amount: input.amount, description: input.description });
+    return { totalPoints: entry.snapshot.totalPoints, availablePoints: entry.snapshot.availablePoints };
+  }
   async transferStudentCredits(input: { studentId: number; delta: number }) {
     if (this.failCredits) return { refusal: this.failCredits };
     const entry = this.students.get(input.studentId);
@@ -174,7 +182,7 @@ describe('DungeonService', () => {
     // 200 + 20, moved through the port rather than by writing `students`.
     expect(classroom.students.get(1)?.snapshot.availablePoints).toBe(220);
     // A dungeon reward is spendable credit, not earned credit: `total_points` stays.
-    expect(classroom.students.get(1)?.snapshot.totalPoints).toBe(500);
+    expect(classroom.students.get(1)?.snapshot.totalPoints).toBe(520);
     expect(classroom.ledger).toEqual([
       { studentId: 1, type: 'DUNGEON_REWARD', amount: 20, description: 'Found treasure on floor 1' },
     ]);

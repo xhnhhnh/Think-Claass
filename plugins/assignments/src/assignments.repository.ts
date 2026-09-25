@@ -30,18 +30,48 @@ import type {
   StudentAssignmentUpdatePayload,
 } from '@thinkclass/contracts/domains/learning';
 
+/**
+ * The scope a caller may read through, resolved by the service from the actor - never from the
+ * request. `teacherId` is the ownership anchor for a teacher; `classId` narrows an admin read, or
+ * pins a student to the class their login sits in.
+ */
+export interface AssignmentScope {
+  classId?: number;
+  teacherId?: number;
+}
+
+/**
+ * One `student_exams` row, joined to the exam it belongs to.
+ *
+ * The three `exam_*` fields are what makes the row self-describing: without them a student's
+ * score is a number attached to an id, and the page that renders it has to ask a staff-only
+ * route what the exam was called.
+ */
+export interface StudentExamRow {
+  id: number;
+  student_id: number;
+  exam_id: number;
+  score: number | null;
+  feedback?: string | null;
+  exam_title?: string | null;
+  exam_date?: string | null;
+  total_score?: number | null;
+}
+
 export interface AssignmentsRepository {
-  listAssignments(classId?: number): Assignment[];
+  listAssignments(scope?: AssignmentScope): Assignment[];
   createAssignment(input: AssignmentPayload): number;
   updateAssignment(id: number, input: Partial<AssignmentPayload>): void;
   deleteAssignment(id: number): void;
-  listStudentAssignments(input: { studentId?: number; assignmentId?: number }): StudentAssignment[];
+  getAssignment(id: number): Assignment | null;
+  listStudentAssignments(input: { studentId?: number; assignmentId?: number; teacherId?: number }): StudentAssignment[];
+  getStudentAssignment(id: number): StudentAssignment | null;
   updateStudentAssignment(id: number, input: StudentAssignmentUpdatePayload): void;
 }
 
 export interface ExamsRepository {
   transaction<T>(fn: () => T): T;
-  listExams(classId?: number): Exam[];
+  listExams(scope?: AssignmentScope): Exam[];
   createExam(input: ExamPayload): number;
   listStudentIds(classId: number): Array<{ id: number }>;
   createStudentExam(examId: number, studentId: number): void;
@@ -51,9 +81,9 @@ export interface ExamsRepository {
   upsertGrade(examId: number, grade: SaveExamGradePayload): void;
   updateExam(id: number, input: Partial<ExamPayload>): void;
   deleteExam(id: number): void;
-  listStudentExams(input: { studentId?: number; examId?: number }): unknown[];
+  listStudentExams(input: { studentId?: number; examId?: number; teacherId?: number }): StudentExamRow[];
   updateStudentExam(id: number, input: { score: number | null; feedback?: string | null }): void;
-  getStudentExamById(id: number): { id: number } | null;
+  getStudentExamById(id: number): { id: number; exam_id: number } | null;
 }
 
 /**
@@ -64,13 +94,21 @@ export interface ExamsRepository {
  */
 export function createAssignmentsRepository(db: DbApi): AssignmentsRepository {
   return {
-    listAssignments(classId) {
+    listAssignments(scope = {}) {
       const params: SqlParam[] = [];
-      let query = 'SELECT * FROM assignments';
-      if (classId !== undefined) {
-        query += ' WHERE class_id = ?';
-        params.push(classId);
+      const conditions: string[] = [];
+      if (scope.classId !== undefined) {
+        conditions.push('class_id = ?');
+        params.push(scope.classId);
       }
+      // The teacher's own rows: ownership lives on the row (`assignments.teacher_id`), so a
+      // `class_id` naming someone else's class intersects to nothing instead of widening the read.
+      if (scope.teacherId !== undefined) {
+        conditions.push('teacher_id = ?');
+        params.push(scope.teacherId);
+      }
+      let query = 'SELECT * FROM assignments';
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
       query += ' ORDER BY created_at DESC';
       return db.query<Assignment>(query, params);
     },
@@ -105,18 +143,36 @@ export function createAssignmentsRepository(db: DbApi): AssignmentsRepository {
       db.run('DELETE FROM assignments WHERE id = ?', [id]);
     },
 
+    getAssignment(id) {
+      return db.get<Assignment>('SELECT * FROM assignments WHERE id = ?', [id]) ?? null;
+    },
+
+    /**
+     * `teacherId` restricts the answer to rows of the teacher's own assignments, by joining the
+     * parent this plugin already owns - a teacher's "本班" is the classes their own work sits in.
+     */
     listStudentAssignments(input) {
       const params: SqlParam[] = [];
-      let query = 'SELECT * FROM student_assignments WHERE 1=1';
+      let query = 'SELECT sa.* FROM student_assignments sa';
+      if (input.teacherId !== undefined) query += ' JOIN assignments a ON a.id = sa.assignment_id';
+      query += ' WHERE 1=1';
       if (input.studentId !== undefined) {
-        query += ' AND student_id = ?';
+        query += ' AND sa.student_id = ?';
         params.push(input.studentId);
       }
       if (input.assignmentId !== undefined) {
-        query += ' AND assignment_id = ?';
+        query += ' AND sa.assignment_id = ?';
         params.push(input.assignmentId);
       }
+      if (input.teacherId !== undefined) {
+        query += ' AND a.teacher_id = ?';
+        params.push(input.teacherId);
+      }
       return db.query<StudentAssignment>(query, params);
+    },
+
+    getStudentAssignment(id) {
+      return db.get<StudentAssignment>('SELECT * FROM student_assignments WHERE id = ?', [id]) ?? null;
     },
 
     /**
@@ -167,13 +223,20 @@ export function createExamsRepository(
       return db.tx(fn);
     },
 
-    listExams(classId) {
+    listExams(scope = {}) {
       const params: SqlParam[] = [];
-      let query = 'SELECT * FROM exams';
-      if (classId !== undefined) {
-        query += ' WHERE class_id = ?';
-        params.push(classId);
+      const conditions: string[] = [];
+      if (scope.classId !== undefined) {
+        conditions.push('class_id = ?');
+        params.push(scope.classId);
       }
+      // Same ownership anchor as `listAssignments`: `exams.teacher_id` is the teacher's class.
+      if (scope.teacherId !== undefined) {
+        conditions.push('teacher_id = ?');
+        params.push(scope.teacherId);
+      }
+      let query = 'SELECT * FROM exams';
+      if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
       query += ' ORDER BY created_at DESC';
       return db.query<Exam>(query, params);
     },
@@ -263,18 +326,41 @@ export function createExamsRepository(
       db.run('DELETE FROM exams WHERE id = ?', [id]);
     },
 
+    /**
+     * `teacherId` restricts the answer to rows of the teacher's own exams, by joining the parent
+     * this plugin already owns - same reasoning as `listStudentAssignments`.
+     */
+    /**
+     * A student's exam rows, **with the exam's own title, date and total score**.
+     *
+     * The join is not decoration. `student_exams` carries only `exam_id` and `score`, so a row
+     * on its own cannot say what the exam was called or what it was out of - and the student's
+     * own page was filling that gap by calling `GET /api/exams?class_id=…`, which is a
+     * **staff-only** route (`requireActorRole(req, STAFF)`). The student therefore got a 403 on
+     * every visit to 学业中心 and silently fell back to 「考试 #12」 with a total of 100.
+     *
+     * The teacher's path already joined `exams` to scope the read by `teacher_id`; the join is
+     * now unconditional and the columns are selected explicitly. `SELECT se.*` would still work,
+     * but naming the exam columns through the join is what makes the payload self-describing.
+     */
     listStudentExams(input) {
       const params: SqlParam[] = [];
-      let query = 'SELECT * FROM student_exams WHERE 1=1';
+      let query =
+        'SELECT se.*, e.title AS exam_title, e.exam_date AS exam_date, e.total_score AS total_score' +
+        ' FROM student_exams se JOIN exams e ON e.id = se.exam_id WHERE 1=1';
       if (input.studentId !== undefined) {
-        query += ' AND student_id = ?';
+        query += ' AND se.student_id = ?';
         params.push(input.studentId);
       }
       if (input.examId !== undefined) {
-        query += ' AND exam_id = ?';
+        query += ' AND se.exam_id = ?';
         params.push(input.examId);
       }
-      return db.query(query, params);
+      if (input.teacherId !== undefined) {
+        query += ' AND e.teacher_id = ?';
+        params.push(input.teacherId);
+      }
+      return db.query<StudentExamRow>(query, params);
     },
 
     updateStudentExam(id, input) {
@@ -286,7 +372,9 @@ export function createExamsRepository(
     },
 
     getStudentExamById(id) {
-      return db.get<{ id: number }>('SELECT id FROM student_exams WHERE id = ?', [id]) ?? null;
+      return (
+        db.get<{ id: number; exam_id: number }>('SELECT id, exam_id FROM student_exams WHERE id = ?', [id]) ?? null
+      );
     },
   };
 }

@@ -9,7 +9,7 @@ import LoginBackground from "@/features/auth/components/LoginBackground";
 import LoginCard from "@/features/auth/components/LoginCard";
 import LoginInput from "@/features/auth/components/LoginInput";
 import LoginSubmitButton from "@/features/auth/components/LoginSubmitButton";
-import RoleSelector, { ROLE_THEME_CLASS, type RoleType } from "@/features/auth/components/RoleSelector";
+import RoleSelector, { ROLE_SCOPE_ATTR, type RoleType } from "@/features/auth/components/RoleSelector";
 import WebsiteIcon from "@/components/WebsiteIcon";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -20,17 +20,23 @@ import { cn } from "@/lib/utils";
 /**
  * Public login / registration / invite-code binding.
  *
- * The role palette is a **token scope**, not a JavaScript colour map. Choosing a role
- * puts `theme-student` / `theme-parent` / `theme-teacher` on the page wrapper, which
- * is the same mechanism the four shells use (`ThemeWrapper` puts it on `<html>`), so
- * `bg-primary`, `ring-ring` and `text-primary` inside the form follow the choice
- * without a single component knowing what a role is.
+ * The role accent is a **token scope**, not a JavaScript colour map. Choosing a role
+ * sets `data-role` on the page wrapper, which is the same mechanism the four shells
+ * use (`RoleTheme` puts it on `<html>`), so `bg-role` and `text-role-ink` inside the
+ * form follow the choice without a single component knowing what a role is - while
+ * `bg-brand` and the status colours stay the product's.
  *
  * What that replaced: `loginStyles.ts`, which held eleven hex colours, a second copy
  * of the three role palettes, and a `ROLE_THEME` map that four components read from -
  * plus inline `style` props on the role buttons and the submit button to apply it.
  * The page also used to be repainted wholesale by the `.public-campus-page` block in
  * `index.css`; P3 deleted that block, because the page now says what it means.
+ *
+ * Public site, so it wears no console page scaffold: `/login` is a flat route with no
+ * console shell above it and the page keeps its own centred composition. Everything below
+ * is the UI-R vocabulary now - `bg-surface-*`, `text-fg-*`, `border-line-*`, `text-role`,
+ * the status `-soft`/`-ink` pairs - instead of the `bg-paper` / `text-ink-*` / `primary`
+ * aliases.
  */
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -113,7 +119,7 @@ export default function Login() {
           } else if (data.user.role === "parent") {
             navigate("/parent/dashboard");
           } else {
-            navigate("/student/pet");
+            navigate("/student");
           }
         } else {
           setIsLogin(true);
@@ -133,10 +139,8 @@ export default function Login() {
 
   return (
     <div
-      className={cn(
-        "relative flex min-h-screen flex-col justify-center overflow-hidden bg-canvas py-12 font-sans text-ink-1 selection:bg-primary/10 sm:px-6 lg:px-8",
-        ROLE_THEME_CLASS[role],
-      )}
+      {...ROLE_SCOPE_ATTR[role]}
+      className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-surface-1 py-12 font-sans text-fg-1 sm:px-6 lg:px-8"
     >
       <LoginBackground />
 
@@ -150,7 +154,7 @@ export default function Login() {
             type="button"
             variant="outline"
             onClick={() => navigate("/")}
-            className="border-border bg-paper/85 text-ink-3 backdrop-blur-sm hover:text-primary"
+            className="border-line-1 bg-surface-2/85 text-fg-3 backdrop-blur-sm hover:text-role"
           >
             &larr; 返回官网
           </Button>
@@ -158,10 +162,10 @@ export default function Login() {
 
         <WebsiteIcon className="mx-auto mt-8 h-16 w-16 rounded-card object-cover" />
 
-        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-ink-1 md:text-3xl">
+        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-fg-1 md:text-3xl">
           Think-Class
         </h2>
-        <p className="mt-2 text-center text-sm text-ink-3">
+        <p className="mt-2 text-center text-sm text-fg-3">
           {isLogin ? "登录你的账号" : isCodesRole ? "使用邀请码激活绑定账号" : "注册新账号"}
         </p>
       </motion.div>
@@ -185,8 +189,8 @@ export default function Login() {
                 className={cn(
                   "rounded-panel p-4 text-sm",
                   isSuccessMessage
-                    ? "bg-success/10 text-success"
-                    : "bg-destructive/10 text-destructive",
+                    ? "bg-success-soft text-success-ink"
+                    : "bg-danger-soft text-danger",
                 )}
               >
                 {error}
@@ -224,12 +228,12 @@ export default function Login() {
                 </FormField>
 
                 {fetchingStudents ? (
-                  <div className="flex items-center justify-center py-2 text-sm text-ink-3">
+                  <div className="flex items-center justify-center py-2 text-sm text-fg-3">
                     <Spinner size="sm" label="正在寻找小伙伴" className="mr-2" />
                     正在寻找小伙伴...
                   </div>
                 ) : inviteCode.length === 6 && students.length === 0 ? (
-                  <div className="rounded-panel bg-destructive/10 p-4 text-center text-sm text-destructive">
+                  <div className="rounded-panel bg-danger-soft p-4 text-center text-sm text-danger">
                     未找到班级或所有小伙伴都已绑定啦
                   </div>
                 ) : inviteCode.length === 6 && students.length > 0 ? (
@@ -265,7 +269,7 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={role === "student" && isLogin ? "默认密码: 123456" : "输入密码"}
+                placeholder="输入密码"
               />
             </FormField>
           </div>
@@ -285,14 +289,14 @@ export default function Login() {
               type="button"
               variant="link"
               onClick={() => setIsLogin(!isLogin)}
-              className="h-auto font-semibold text-primary hover:text-primary/80"
+              className="h-auto font-semibold text-role hover:text-role/80"
             >
               {isLogin ? (isCodesRole ? "使用邀请码激活绑定" : "注册新账号") : "返回登录"}
             </Button>
           </div>
 
           {role === "student" && isLogin && (
-            <div className="mt-4 text-center text-xs text-ink-3">
+            <div className="mt-4 text-center text-xs text-fg-3">
               学生账号由老师统一创建并发放，无需自主注册。
             </div>
           )}
@@ -307,10 +311,10 @@ function Divider({ label }: { label: string }) {
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center">
-        <div className="w-full border-t border-border" />
+        <div className="w-full border-t border-line-1" />
       </div>
       <div className="relative flex justify-center text-sm">
-        <span className="bg-paper px-4 font-medium text-ink-3">{label}</span>
+        <span className="bg-surface-2 px-4 font-medium text-fg-3">{label}</span>
       </div>
     </div>
   );

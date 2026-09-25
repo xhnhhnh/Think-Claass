@@ -22,6 +22,11 @@ export type FeatureRequirement =
 export const classFeatureRouteMap: Partial<Record<ClassFeatureKey, string[]>> = {
   enable_shop: ['/student/shop'],
   enable_auction_blind_box: ['/student/auction'],
+  // The challenge page hosts both the question mode and the world-boss mode, so either flag keeps
+  // the route reachable. `studentFeatureRequirements` below declares the same `anyOf`, and
+  // `tests/guardrails/class-feature-catalogue.test.ts` now asserts the two stay mirrored - before
+  // that, this map said `enable_challenge` alone while the requirement said `enable_challenge`
+  // only as well, and `enable_world_boss` appeared here without ever gating anything.
   enable_challenge: ['/student/challenge'],
   enable_world_boss: ['/student/challenge'],
   enable_lucky_draw: ['/student/lucky-draw'],
@@ -37,12 +42,16 @@ export const classFeatureRouteMap: Partial<Record<ClassFeatureKey, string[]>> = 
   enable_dungeon: ['/student/dungeon'],
   enable_guild_pk: ['/student/guild-pk'],
   enable_family_tasks: ['/parent/tasks'],
+  // AI 智学. The teacher board is not in `classFeatureRouteMap` because the map describes the
+  // *student/parent* requirement lookup below; the teacher side is menu-gated in `TeacherLayout`
+  // (a menu gate is not a route permission - see `teacherMenuGates` there).
+  enable_ai_study: ['/student/ai-study'],
 };
 
 export const studentFeatureRequirements: Partial<Record<string, FeatureRequirement>> = {
   '/student/shop': { key: 'enable_shop' },
   '/student/auction': { key: 'enable_auction_blind_box' },
-  '/student/challenge': { key: 'enable_challenge' },
+  '/student/challenge': { anyOf: ['enable_challenge', 'enable_world_boss'] },
   '/student/lucky-draw': { key: 'enable_lucky_draw' },
   '/student/achievements': { key: 'enable_achievements' },
   '/student/interactive-wall': { anyOf: ['enable_chat_bubble', 'enable_tree_hole'] },
@@ -54,6 +63,7 @@ export const studentFeatureRequirements: Partial<Record<string, FeatureRequireme
   '/student/gacha': { key: 'enable_gacha' },
   '/student/bank': { key: 'enable_economy' },
   '/student/dungeon': { key: 'enable_dungeon' },
+  '/student/ai-study': { key: 'enable_ai_study' },
 };
 
 export const parentFeatureRequirements: Partial<Record<string, FeatureRequirement>> = {
@@ -80,6 +90,9 @@ export const studentDefaultRouteOrder = [
   '/student/guild-pk',
   '/student/assignments',
   '/student/team-quests',
+  // Last on purpose: every other feature is a game or a reward, and a student who is bounced back to
+  // the first enabled route should land somewhere they chose to be rather than on a practice set.
+  '/student/ai-study',
 ] as const;
 
 export const parentDefaultRouteOrder = [

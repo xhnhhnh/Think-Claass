@@ -43,9 +43,6 @@ import { collectFiles, isTestFile, normalize, toRel } from './analysis.mjs';
 /** Source extensions that can carry UI markup or class names. */
 const SRC_EXTS = ['.ts', '.tsx'];
 
-/** True for every source file that is not the component layer itself. */
-const isOutsideKit = (rel) => !rel.startsWith(RAW_ELEMENT_EXEMPT_PREFIX);
-
 /** The stylesheet the refactor is shrinking. */
 export const STYLESHEET = 'src/index.css';
 
@@ -66,11 +63,20 @@ export const HEX_COLOR_EXEMPT = ['src/lib/brandIcon.ts', 'src/lib/celebrationPal
  * The lookahead keeps `<buttonGroup>`-style custom elements out of the count
  * while still matching `<button\n` and `<button>`.
  *
- * `src/components/ui/**` is excluded from these counts, not from the audit: the kit
- * is the one layer whose job is to render the element (`select.tsx` contains a real
- * `<select>`), so counting it would make the kit's own implementation look like the
- * debt the kit exists to remove. A page writing `<select>` is the debt; the kit
- * wrapping one is the fix.
+ * Two prefixes are exempt from these counts, not from the audit:
+ *
+ *   - `src/components/ui/**` is the kit itself. Its job is to render the element
+ *     (`select.tsx` contains a real `<select>`), so counting it would make the kit's own
+ *     implementation look like the debt the kit exists to remove. A page writing
+ *     `<select>` is the debt; the kit wrapping one is the fix.
+ *   - `src/app/**` is the shell - the rail's section disclosure, the dock's 「更多」
+ *     control, the account summary, the immersive escape hatch. It is chrome rather than
+ *     a page, it is measured as `shared` in the area table, and its controls are
+ *     deliberately not the kit's `Button`: a `<details><summary>` disclosure and a
+ *     `role="option"` row are not buttons that happen to look different, they are
+ *     different elements with different keyboard contracts, and forcing them through
+ *     `Button` would have made the accessible behaviour worse to make a count smaller.
+ *     The rule this preserves is the one that matters: a *page* composes the kit.
  */
 const RAW_ELEMENTS = /** @type {const} */ ({
   rawButtons: /<button(?=[\s/>])/g,
@@ -79,8 +85,15 @@ const RAW_ELEMENTS = /** @type {const} */ ({
   rawTables: /<table(?=[\s/>])/g,
 });
 
-/** Files allowed to contain the raw elements above. */
-export const RAW_ELEMENT_EXEMPT_PREFIX = 'src/components/ui/';
+/**
+ * Files allowed to contain the raw elements above.
+ *
+ * Exported because the guardrail suite reads it: a metric whose exemption is written
+ * down in one place and re-derived in another is how a scope drifts.
+ */
+export const RAW_ELEMENT_EXEMPT_PREFIXES = ['src/components/ui/', 'src/app/'];
+
+const isOutsideKit = (rel) => !RAW_ELEMENT_EXEMPT_PREFIXES.some((prefix) => rel.startsWith(prefix));
 
 /** A CSS colour literal: 3, 4, 6 or 8 hex digits, and nothing longer. */
 const HEX_COLOR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/g;
@@ -136,7 +149,17 @@ const INERT_TOKENS = /** @type {const} */ ({
   'data-attribute shorthand (data-x:)': /\bdata-(?!\[)[a-z][\w-]*:/g,
   'supports shorthand (supports-x:)': /\bsupports-(?!\[)[a-z][\w-]*:/g,
   'css-var shorthand (-(--x))': /[\w\])]-\(--[\w.-]+\)/g,
-  'v4-only scale value': /\b(?:backdrop-)?blur-xs\b|\brounded-(?:xs|4xl)\b|\bshadow-xs\b/g,
+  /*
+   * `v4-only scale value` is the corrected version of a pattern that was wrong.
+   *
+   * It used to be `blur-xs|rounded-(xs|4xl)|shadow-xs`, and `rounded-xs` is not v4-only:
+   * it resolves through `theme.borderRadius.xs`. The metric counted six working classes
+   * in the new kit as inert, which is the exact failure mode this file warns about -
+   * a metric that counts the wrong thing is worse than no metric, because it teaches
+   * people to ignore it. `rounded-4xl` and the `-xs` blur/shadow steps stay, and they are
+   * asserted to be inert by name in `ui-token-contract.test.ts`.
+   */
+  'v4-only scale value': /\b(?:backdrop-)?blur-xs\b|\brounded-4xl\b|\bshadow-xs\b/g,
   'trailing important (x!)': /[a-z][\w/[\].,-]*-[\w/[\].,-]+!(?=[\s"'])/g,
   'named group-has (group-has-x/y:)': /\bgroup-has-(?!\[)[a-z][\w-]*\/[\w-]+:/g,
   'unbracketed has / group-has': /\b(?:group-)?has-(?!\[)[a-z][\w-]*:/g,
@@ -405,9 +428,41 @@ export function auditStylesheet(root, srcText) {
   const lineOf = (index) => text.slice(0, index).split(/\r?\n/).length;
 
   // --- !important -----------------------------------------------------------------
+  /*
+   * `!important` is design debt when it is a page being corrected from outside, and it is
+   * a requirement when it is `prefers-reduced-motion`.
+   *
+   * The reduced-motion block has to win against every utility the pages write, including
+   * `transition-*` and `animate-*` on elements the stylesheet never sees, so `!important`
+   * is the only mechanism that works there. Counting it as debt would mean the honest
+   * fixes for this metric - delete the override, write the value where it belongs - are
+   * unavailable, and the metric would be demanding that a WCAG requirement be removed.
+   *
+   * Excluded by locating the block through brace matching rather than by matching prose or
+   * line numbers, so a comment cannot defeat it and an edit above it cannot shift it.
+   */
+  const reducedMotionRanges = [];
+  for (const match of text.matchAll(/@media\s*\(\s*prefers-reduced-motion[^{]*\{/g)) {
+    const open = (match.index ?? 0) + match[0].length - 1;
+    let depth = 0;
+    for (let i = open; i < text.length; i += 1) {
+      if (text[i] === '{') depth += 1;
+      else if (text[i] === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          reducedMotionRanges.push([open, i]);
+          break;
+        }
+      }
+    }
+  }
+
   const importantOffenders = [];
   for (const match of text.matchAll(/!important/g)) {
-    importantOffenders.push(`${rel}:${lineOf(match.index ?? 0)}`);
+    const index = match.index ?? 0;
+    const insideReducedMotion = reducedMotionRanges.some(([from, to]) => index > from && index < to);
+    if (insideReducedMotion) continue;
+    importantOffenders.push(`${rel}:${lineOf(index)}`);
   }
 
   // --- rule blocks -----------------------------------------------------------------

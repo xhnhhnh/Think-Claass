@@ -40,6 +40,7 @@ export function useUpdateFamilyTaskStatusMutation(studentId: number | null) {
         await studentsApi.updatePoints(payload.reward.studentId, {
           amount: payload.reward.amount,
           reason: payload.reward.reason,
+          requestId: `family-task:${payload.taskId}`,
         });
       }
       return result;

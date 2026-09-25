@@ -9,28 +9,27 @@ export function DroppableGroup({ groupId, groupName, count, average, children }:
   return (
     <div 
       ref={setNodeRef} 
-      className={`p-6 rounded-panel border border-white/50 backdrop-blur-md transition-all duration-300 ${
-        isOver ? 'bg-primary/5 border-primary/30 shadow-inner' : 'bg-paper/80 backdrop-blur-xl/40 shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:bg-paper/80 backdrop-blur-xl/60'
+      className={`min-w-0 rounded-panel border p-4 transition-colors sm:p-5 ${
+        isOver ? 'border-role bg-role-soft/60' : 'border-line-1 bg-surface-2 shadow-card'
       }`}
     >
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-ink-1 flex items-center">
-          <span className="bg-gradient-to-br from-primary to-cyan-500 p-2 rounded-card shadow-card mr-3 text-white">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold text-fg-1">
+          <span className="rounded-card bg-role p-2 text-role-contrast">
             <Users className="w-4 h-4" />
           </span>
-          {groupName} 
-          <span className="ml-3 px-2.5 py-1 bg-paper/80 backdrop-blur-xl/60 text-ink-2 border border-white text-xs font-semibold rounded-full shadow-card">
+          {groupName}
+          <span className="rounded-full border border-line-1 bg-surface-1 px-2 py-0.5 text-xs font-medium text-fg-2">
             {count} 人
           </span>
           {average !== undefined && count > 0 && (
-            <span className="ml-2 px-2.5 py-1 bg-primary/5 text-primary border border-primary/10 text-xs font-semibold rounded-full">
-              均分: {average}
+            <span className="rounded-full bg-role-soft px-2 py-0.5 text-xs font-medium text-role-ink">
+              人均成长 {average}
             </span>
           )}
         </h3>
       </div>
-      
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 min-h-[120px]">
+      <div className="flex min-h-20 flex-col gap-2">
         {children}
       </div>
     </div>

@@ -49,6 +49,10 @@ const SENSITIVE_SETTING_KEYS = new Set<keyof SystemSettings>([
   'payment_wechat_api_v3_key',
   'payment_alipay_private_key',
   'payment_alipay_public_key',
+  // The model API key. Masked for the same reason the payment private keys are: the console must
+  // never render a secret back into the browser, and `saveSystemSettings` skips a value that comes
+  // back as the mask so "the operator did not touch this field" cannot erase the real key.
+  'ai_api_key',
 ]);
 const MASKED_SETTING_VALUE = '********';
 
@@ -120,6 +124,8 @@ export class SqliteAdminRepository implements AdminRepositoryContract {
     const totalActivity = count(this.db, `SELECT COUNT(*) AS n FROM records`);
     const totalAssignments = count(this.db, `SELECT COUNT(*) AS n FROM assignments`);
     const totalLeaves = count(this.db, `SELECT COUNT(*) AS n FROM leave_requests`);
+    const draftArticles = count(this.db, `SELECT COUNT(*) AS n FROM articles WHERE is_published = 0`);
+    const inactiveTeachers = count(this.db, `SELECT COUNT(*) AS n FROM users WHERE role = 'teacher' AND is_activated = 0`);
     const totalTeamQuests = count(this.db, `SELECT COUNT(*) AS n FROM team_quests`);
     const totalPointsRow = this.db.get<{ total: number | null }>(
       `SELECT SUM(experience) AS total FROM pets`,
@@ -133,6 +139,8 @@ export class SqliteAdminRepository implements AdminRepositoryContract {
       totalActivity,
       totalAssignments,
       totalLeaves,
+      draftArticles,
+      inactiveTeachers,
       totalTeamQuests,
       totalPoints: totalPointsRow?.total ?? 0,
     };

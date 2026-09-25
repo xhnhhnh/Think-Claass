@@ -77,20 +77,20 @@ export function useStudentMutations(classId: number | null) {
   const queryClient = useQueryClient();
 
   const addPointsMutation = useMutation({
-    mutationFn: ({ studentId, amount, reason }: { studentId: number; amount: number; reason: string }) =>
-      studentsApi.updatePoints(studentId, { amount, reason }),
-    onSuccess: (_, variables) => {
+    mutationFn: ({ studentId, amount, reason, requestId }: { studentId: number; amount: number; reason: string; requestId: string }) =>
+      studentsApi.updatePoints(studentId, { amount, reason, requestId }),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: classroomQueryKeys.students(classId) });
-      toast.success(`已为该学生${variables.amount > 0 ? '加' : '扣'} ${Math.abs(variables.amount)} 分`);
+      toast.success(`实际${result.student.applied >= 0 ? '增加' : '扣除'} ${Math.abs(result.student.applied)} 分${result.student.bonus ? `，含祝福加成 ${result.student.bonus} 分` : ''}；可用 ${result.student.available_points} 分`);
     },
   });
 
   const addBatchPointsMutation = useMutation({
-    mutationFn: ({ studentIds, amount, reason }: { studentIds: number[]; amount: number; reason: string }) =>
-      studentsApi.batchPoints({ studentIds, amount, reason }),
-    onSuccess: (_, variables) => {
+    mutationFn: ({ studentIds, amount, reason, requestId }: { studentIds: number[]; amount: number; reason: string; requestId: string }) =>
+      studentsApi.batchPoints({ studentIds, amount, reason, requestId }),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: classroomQueryKeys.students(classId) });
-      toast.success(`已为选中学生${variables.amount > 0 ? '加' : '扣'} ${Math.abs(variables.amount)} 分`);
+      toast.success(`已完成 ${result.results.length} 人评分；实际变动 ${result.results.reduce((sum, item) => sum + item.applied, 0)} 分`);
     },
   });
 

@@ -13,128 +13,146 @@
  * message }` body the wrapper used to build - see the economy/gacha controllers, which
  * dropped the identical wrapper.
  *
- * Authorization is intentionally NOT added here. HANDOFF §10 records that only routes
- * calling `requireActorRole` are protected and most read the actor directly; changing
- * that is the "systematic authorization" work that lands with plugin permission
- * declarations, not with a relocation.
+ * Authorization is now the controller's job, and it is the reason this file is not a pure
+ * relocation any more. Every route resolves the caller from the kernel's verified request
+ * context (`./marketplace.authorization.js`, 401 before anything else) and then either
+ * restricts the role - shop/auction administration is teacher/admin, buying is student - or
+ * narrows what may be read or written to the actor's own row:
+ *
+ *   - `GET /api/shop/items` returns the shelf of the *caller's* teacher (a student's own
+ *     class), their own items (a teacher), or every active item (admin); it used to answer
+ *     the whole table whenever no `?studentId=` was supplied.
+ *   - `GET /api/shop/all` forces a teacher's `teacherId` to their own login id, so the
+ *     `?teacherId=` filter can no longer name somebody else's shelf.
+ *   - `PUT /api/shop/:id` and `/status` check item ownership.
+ *   - The three money routes (`buy`, `auctions/:id/bid`, `blind_box`) derive the student from
+ *     the actor, and refuse a body that names a different one.
  */
 
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, Post, Put, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 
-import { getRequestContext } from '@thinkclass/kernel';
-
+import { assertSameStudent, requireActorRole, studentActorId } from './marketplace.authorization.js';
 import { MarketplaceService } from './marketplace.service.js';
 
-/**
- * The student id behind a student actor, or null.
- *
- * The pre-migration controller resolved the caller with `getRequestActor(req)` and
- * gated only when `actor.role === 'student' && actor.id`. `RequestContext.actor` carries
- * `userId` (never `studentId`), so the service resolves the student through
- * `classroom.public.getStudentByUserId` - the same lookup the legacy
- * `getClassIdByUserId(userId, 'student')` performed.
- */
-function studentActorId(req: Request): number | null {
-  const actor = getRequestContext(req).actor;
-  return actor && actor.role === 'student' && actor.userId ? actor.userId : null;
-}
+/** Item and auction administration: the seller's own surface plus the admin console. */
+const STAFF = ['teacher', 'admin', 'superadmin'];
+
+/** The shop and the auction board are read by the class they belong to - not by parents. */
+const CLASS_READERS = ['student', 'teacher', 'admin', 'superadmin'];
 
 @Controller('api/shop')
 export class MarketplaceController {
   constructor(@Inject(MarketplaceService) private readonly marketplaceService: MarketplaceService) {}
 
   @Get('items')
-  async listItems(@Req() req: Request, @Query() query: Record<string, any>) {
-    const items = await this.marketplaceService.listItems(query?.studentId, studentActorId(req));
-    return { success: true, items };
+  async listItems(@Req() req: Request) {
+    const actor = requireActorRole(req, CLASS_READERS);
+    return { success: true, items: await this.marketplaceService.listItems(actor) };
   }
 
   @Get('all')
-  listAllItems(@Query() query: Record<string, any>) {
-    return { success: true, items: this.marketplaceService.listAllItems(query) };
+  listAllItems(@Req() req: Request, @Query() query: Record<string, any>) {
+    const actor = requireActorRole(req, STAFF);
+    return { success: true, items: this.marketplaceService.listAllItems(actor, query) };
   }
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  createItem(@Body() body: Record<string, any>) {
-    return { success: true, ...this.marketplaceService.createItem(body) };
+  createItem(@Req() req: Request, @Body() body: Record<string, any>) {
+    const actor = requireActorRole(req, STAFF);
+    return { success: true, ...this.marketplaceService.createItem(actor, body) };
   }
 
   @Put(':id/status')
-  updateItemStatus(@Param('id') id: string, @Body() body: Record<string, any>) {
-    this.marketplaceService.updateItemStatus(id, body);
+  updateItemStatus(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
+    const actor = requireActorRole(req, STAFF);
+    this.marketplaceService.updateItemStatus(actor, id, body);
     return { success: true };
   }
 
   @Put(':id')
-  updateItem(@Param('id') id: string, @Body() body: Record<string, any>) {
-    this.marketplaceService.updateItem(id, body);
+  updateItem(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
+    const actor = requireActorRole(req, STAFF);
+    this.marketplaceService.updateItem(actor, id, body);
     return { success: true };
   }
 
   @Post('buy')
   @HttpCode(HttpStatus.OK)
-  async buyItem(@Body() body: Record<string, any>) {
-    return { success: true, ...(await this.marketplaceService.buyItem(body)) };
+  async buyItem(@Req() req: Request, @Body() body: Record<string, any>) {
+    const studentId = studentActorId(req);
+    assertSameStudent(studentId, body?.studentId);
+    return { success: true, ...(await this.marketplaceService.buyItem(studentId, body)) };
   }
 
   @Get('auctions')
   async listAuctions(@Req() req: Request) {
-    const auctions = await this.marketplaceService.listAuctions(studentActorId(req));
-    return { success: true, auctions };
+    const actor = requireActorRole(req, CLASS_READERS);
+    return { success: true, auctions: await this.marketplaceService.listAuctions(actor) };
   }
 
   @Post('auctions/:id/bid')
   @HttpCode(HttpStatus.OK)
-  async bidAuction(@Param('id') id: string, @Body() body: Record<string, any>) {
-    return { success: true, ...(await this.marketplaceService.bidAuction(id, body)) };
+  async bidAuction(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
+    const studentId = studentActorId(req);
+    assertSameStudent(studentId, body?.studentId);
+    return { success: true, ...(await this.marketplaceService.bidAuction(studentId, id, body)) };
   }
 
   @Post('blind_box')
   @HttpCode(HttpStatus.OK)
-  async buyBlindBox(@Body() body: Record<string, any>) {
-    return { success: true, ...(await this.marketplaceService.buyBlindBox(body)) };
+  async buyBlindBox(@Req() req: Request, @Body() body: Record<string, any>) {
+    const studentId = studentActorId(req);
+    assertSameStudent(studentId, body?.studentId);
+    return { success: true, ...(await this.marketplaceService.buyBlindBox(studentId, body)) };
   }
 
   @Post('auctions')
   @HttpCode(HttpStatus.OK)
-  createAuction(@Body() body: Record<string, any>) {
+  createAuction(@Req() req: Request, @Body() body: Record<string, any>) {
+    requireActorRole(req, STAFF);
     return { success: true, ...this.marketplaceService.createAuction(body) };
   }
 
   @Put('auctions/:id')
-  updateAuction(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateAuction(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
+    requireActorRole(req, STAFF);
     this.marketplaceService.updateAuction(id, body);
     return { success: true };
   }
 
   @Delete('auctions/:id')
-  deleteAuction(@Param('id') id: string) {
+  deleteAuction(@Req() req: Request, @Param('id') id: string) {
+    requireActorRole(req, STAFF);
     this.marketplaceService.deleteAuction(id);
     return { success: true };
   }
 
   @Get('blind_boxes')
   async listBlindBoxes(@Req() req: Request) {
-    const boxes = await this.marketplaceService.listBlindBoxes(studentActorId(req));
+    const actor = requireActorRole(req, CLASS_READERS);
+    const boxes = await this.marketplaceService.listBlindBoxes(actor);
     return { success: true, boxes };
   }
 
   @Post('blind_boxes')
   @HttpCode(HttpStatus.OK)
-  createBlindBox(@Body() body: Record<string, any>) {
+  createBlindBox(@Req() req: Request, @Body() body: Record<string, any>) {
+    requireActorRole(req, STAFF);
     return { success: true, ...this.marketplaceService.createBlindBox(body) };
   }
 
   @Put('blind_boxes/:id')
-  updateBlindBox(@Param('id') id: string, @Body() body: Record<string, any>) {
+  updateBlindBox(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
+    requireActorRole(req, STAFF);
     this.marketplaceService.updateBlindBox(id, body);
     return { success: true };
   }
 
   @Delete('blind_boxes/:id')
-  deleteBlindBox(@Param('id') id: string) {
+  deleteBlindBox(@Req() req: Request, @Param('id') id: string) {
+    requireActorRole(req, STAFF);
     this.marketplaceService.deleteBlindBox(id);
     return { success: true };
   }

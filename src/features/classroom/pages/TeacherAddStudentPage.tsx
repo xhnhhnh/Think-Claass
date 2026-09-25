@@ -5,10 +5,11 @@ import { toast } from 'sonner';
 
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,12 +20,17 @@ import { cn } from '@/lib/utils';
  *
  * Two forms behind one tab strip. The visible copy, the payloads and the
  * `navigate` state transition are unchanged; what moved is the presentation - a
- * hand-written header, raw controls and indigo/blue accents became `PageHeader`,
- * the kit's form controls and the token palette.
+ * hand-written header, raw controls and indigo/blue accents became the kit's form
+ * controls and the token palette, and the scaffold's `form` variant carries the
+ * page's actions: 返回班级 in the context bar, 取消/确认 in the sticky footer.
  *
  * The `error` string is still the single source of truth for both the inline message
  * and the toast: it stays next to the form rather than being left to the toast alone,
  * because the form remains on screen after a failure.
+ *
+ * The two submit handlers take their event optionally so the same handler can be
+ * reached from the footer button and from the command palette as well as from the
+ * form's own `onSubmit`; the payload and the sequence are identical.
  */
 export default function AddStudent() {
   const navigate = useNavigate();
@@ -57,8 +63,8 @@ export default function AddStudent() {
     fetchClasses();
   }, [defaultClassId]);
 
-  const handleCreateStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateStudent = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setCreating(true);
     setError('');
 
@@ -80,8 +86,8 @@ export default function AddStudent() {
     }
   };
 
-  const handleBatchImport = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBatchImport = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!batchData.trim()) {
       setError('请输入学生数据');
       return;
@@ -128,38 +134,65 @@ export default function AddStudent() {
 
   const goBack = () => navigate('/teacher', { state: { classId: defaultClassId } });
 
+  // The page's one action: whichever tab is open decides what "confirm" means.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-add-student:confirm',
+      label: activeTab === 'single' ? '确认添加' : '确认导入',
+      icon: activeTab === 'single' ? UserPlus : Upload,
+      keywords: ['学生', '添加', '导入'],
+      disabled: creating || (activeTab === 'batch' && !batchData.trim()),
+      run: () => void (activeTab === 'single' ? handleCreateStudent() : handleBatchImport()),
+    },
+  ]);
+
   const errorBanner = error ? (
     <div
       role="alert"
-      className="flex items-center rounded-card border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
+      className="flex items-center rounded-card border border-danger/20 bg-danger/10 p-4 text-sm text-danger"
     >
       {error}
     </div>
   ) : null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <PageHeader
-        title="添加学生"
-        description="为班级添加新的学生账号"
-        icon={UserPlus}
-        actions={
+    <PageScaffold
+      variant="form"
+      contentClassName="mx-auto max-w-2xl"
+      actions={
+        <Button type="button" variant="outline" onClick={goBack}>
+          返回班级
+        </Button>
+      }
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={goBack}>
-            返回班级
+            取消
           </Button>
-        }
-      />
-
-      <div className="overflow-hidden rounded-panel border border-border bg-paper shadow-card">
+          {activeTab === 'single' ? (
+            <Button type="button" disabled={creating} onClick={() => void handleCreateStudent()}>
+              {creating ? <Spinner size="sm" label="创建中" /> : <UserPlus data-icon="inline-start" />}
+              {creating ? '创建中...' : '确认添加'}
+            </Button>
+          ) : (
+            <Button type="button" disabled={creating || !batchData.trim()} onClick={() => void handleBatchImport()}>
+              {creating ? <Spinner size="sm" label="导入中" /> : <Upload data-icon="inline-start" />}
+              {creating ? '导入中...' : '确认导入'}
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div className="overflow-hidden rounded-panel border border-line-1 bg-surface-2 shadow-card">
         {/* Both tabs stay mounted-in-place as one switch: `activeTab` is a form mode, not a route. */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-line-1">
           <Button
             type="button"
             aria-pressed={activeTab === 'single'}
             onClick={() => setActiveTab('single')}
             className={cn(
-              'h-auto flex-1 rounded-none border-b-2 border-transparent bg-transparent py-4 text-sm font-medium text-ink-3 hover:bg-transparent hover:text-ink-1',
-              activeTab === 'single' && 'border-primary bg-primary/5 text-primary hover:text-primary',
+              'h-auto flex-1 rounded-none border-b-2 border-transparent bg-transparent py-4 text-sm font-medium text-fg-3 hover:bg-transparent hover:text-fg-1',
+              activeTab === 'single' && 'border-role bg-role/5 text-role hover:text-role',
             )}
           >
             单个添加
@@ -169,8 +202,8 @@ export default function AddStudent() {
             aria-pressed={activeTab === 'batch'}
             onClick={() => setActiveTab('batch')}
             className={cn(
-              'h-auto flex-1 rounded-none border-b-2 border-transparent bg-transparent py-4 text-sm font-medium text-ink-3 hover:bg-transparent hover:text-ink-1',
-              activeTab === 'batch' && 'border-primary bg-primary/5 text-primary hover:text-primary',
+              'h-auto flex-1 rounded-none border-b-2 border-transparent bg-transparent py-4 text-sm font-medium text-fg-3 hover:bg-transparent hover:text-fg-1',
+              activeTab === 'batch' && 'border-role bg-role/5 text-role hover:text-role',
             )}
           >
             批量导入
@@ -215,23 +248,13 @@ export default function AddStudent() {
                 />
               </FormField>
 
-              <div className="rounded-card border border-primary/20 bg-primary/5 p-3">
-                <p className="flex items-center text-sm text-ink-2">
+              <div className="rounded-card border border-role/20 bg-role/5 p-3">
+                <p className="flex items-center text-sm text-fg-2">
                   <span className="mr-1 font-semibold">提示:</span>
                   新创建的学生账号默认登录密码为
-                  <code className="mx-1 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary">123456</code>
+                  <code className="mx-1 rounded bg-role/10 px-1.5 py-0.5 font-mono text-role">123456</code>
                 </p>
               </div>
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-border pt-6">
-              <Button type="button" variant="outline" onClick={goBack}>
-                取消
-              </Button>
-              <Button type="submit" disabled={creating}>
-                {creating ? <Spinner size="sm" label="创建中" /> : <UserPlus data-icon="inline-start" />}
-                {creating ? '创建中...' : '确认添加'}
-              </Button>
             </div>
           </form>
         ) : (
@@ -267,31 +290,21 @@ export default function AddStudent() {
                   Outside the `FormField`: its `<label>` wraps the control, so a paragraph
                   inside it would join the textarea's accessible name.
                 */}
-                <div className="mt-2 text-sm text-ink-3">
+                <div className="mt-2 text-sm text-fg-3">
                   请按照 <strong>姓名 账号</strong> 的格式输入，每行一个学生。支持使用空格、制表符（Tab）或逗号分隔。
                 </div>
               </div>
 
-              <div className="rounded-card border border-primary/20 bg-primary/5 p-3">
-                <p className="text-sm text-ink-2">
+              <div className="rounded-card border border-role/20 bg-role/5 p-3">
+                <p className="text-sm text-fg-2">
                   <span className="mr-1 font-semibold">提示:</span>
                   您可以直接从 Excel 表格中复制两列（姓名列、账号列），然后粘贴到上方输入框中。默认密码均为 123456。
                 </p>
               </div>
             </div>
-
-            <div className="flex justify-end gap-3 border-t border-border pt-6">
-              <Button type="button" variant="outline" onClick={goBack}>
-                取消
-              </Button>
-              <Button type="submit" disabled={creating || !batchData.trim()}>
-                {creating ? <Spinner size="sm" label="导入中" /> : <Upload data-icon="inline-start" />}
-                {creating ? '导入中...' : '确认导入'}
-              </Button>
-            </div>
           </form>
         )}
       </div>
-    </div>
+    </PageScaffold>
   );
 }

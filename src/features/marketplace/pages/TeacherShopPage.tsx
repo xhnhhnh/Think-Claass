@@ -3,6 +3,7 @@ import { CheckCircle, Edit2, Plus, Store, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useTeacherShopItems, useTeacherShopMutation } from '@/hooks/queries/useTeacherShop';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -126,39 +128,53 @@ export default function TeacherShop() {
     return matchSearch && matchStock;
   });
 
+  // The page's primary action, reachable from the command palette as well as the toolbar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-shop:create',
+      label: '添加商品',
+      icon: Plus,
+      keywords: ['商品', '上新', '商店'],
+      run: openAddModal,
+    },
+  ]);
+
   return (
-    <div className="space-y-6">
-      {/* Top Actions */}
-      <Toolbar
-        search={{
-          value: search,
-          onChange: setSearch,
-          placeholder: '搜索商品名称...',
-        }}
-        searchLabel="搜索商品名称"
-        filters={
-          <Select
-            aria-label="库存状态"
-            wrapperClassName="w-40"
-            value={stockFilter}
-            onChange={(e) => setStockFilter(e.target.value)}
-          >
-            <option value="all">全部库存状态</option>
-            <option value="in_stock">有货 / 无限</option>
-            <option value="out_of_stock">已售罄</option>
-          </Select>
-        }
-        actions={
-          <Button onClick={openAddModal}>
-            <Plus data-icon="inline-start" />
-            添加商品
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="list"
+      toolbar={
+        <Toolbar
+          search={{
+            value: search,
+            onChange: setSearch,
+            placeholder: '搜索商品名称...',
+          }}
+          searchLabel="搜索商品名称"
+          filters={
+            <Select
+              aria-label="库存状态"
+              wrapperClassName="w-40"
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value)}
+            >
+              <option value="all">全部库存状态</option>
+              <option value="in_stock">有货 / 无限</option>
+              <option value="out_of_stock">已售罄</option>
+            </Select>
+          }
+          actions={
+            <Button onClick={openAddModal}>
+              <Plus data-icon="inline-start" />
+              添加商品
+            </Button>
+          }
+        />
+      }
+    >
 
       {/* Items Grid */}
       {loading ? (
-        <div className="flex items-center justify-center gap-3 py-12 text-ink-3">
+        <div className="flex items-center justify-center gap-3 py-12 text-fg-3">
           <Spinner label="正在加载商品" />
           加载中...
         </div>
@@ -177,31 +193,31 @@ export default function TeacherShop() {
                     <div
                       className={cn(
                         'mr-3 rounded-card p-2',
-                        item.is_active === 1 ? 'bg-warning/10 text-warning' : 'bg-muted text-ink-3',
+                        item.is_active === 1 ? 'bg-warning/10 text-warning' : 'bg-surface-3 text-fg-3',
                       )}
                     >
                       <Store className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-ink-1">{item.name}</h3>
+                      <h3 className="text-lg font-bold text-fg-1">{item.name}</h3>
                       <div className="mt-1 flex items-center space-x-2">
                         <span className="font-bold text-warning">{item.price} 币</span>
-                        <span className="text-xs text-ink-3">|</span>
+                        <span className="text-xs text-fg-3">|</span>
                         <div className="flex items-center">
                           <span
                             className={cn(
                               'text-xs',
                               item.stock === 0
-                                ? 'font-bold text-destructive'
+                                ? 'font-bold text-danger'
                                 : item.stock > 0 && item.stock <= 5
                                   ? 'font-bold text-warning'
-                                  : 'text-ink-3',
+                                  : 'text-fg-3',
                             )}
                           >
                             库存: {item.stock === -1 ? '无限' : item.stock}
                           </span>
                           {item.stock !== -1 && (
-                            <div className="ml-2 flex items-center rounded border border-border bg-paper shadow-card">
+                            <div className="ml-2 flex items-center rounded border border-line-1 bg-surface-2 shadow-card">
                               <Button
                                 variant="ghost"
                                 size="icon-xs"
@@ -210,7 +226,7 @@ export default function TeacherShop() {
                               >
                                 -
                               </Button>
-                              <div className="h-3 w-px bg-border"></div>
+                              <div className="h-3 w-px bg-line-1"></div>
                               <Button
                                 variant="ghost"
                                 size="icon-xs"
@@ -232,11 +248,11 @@ export default function TeacherShop() {
                   )}
                 </div>
 
-                <p className="mb-6 h-10 text-sm text-ink-2 line-clamp-2">
+                <p className="mb-6 h-10 text-sm text-fg-2 line-clamp-2">
                   {item.description || '暂无描述'}
                 </p>
 
-                <div className="flex space-x-2 border-t border-border pt-4">
+                <div className="flex space-x-2 border-t border-line-1 pt-4">
                   <Button
                     variant="outline"
                     className="flex-1"
@@ -339,6 +355,6 @@ export default function TeacherShop() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageScaffold>
   );
 }

@@ -33,6 +33,7 @@
     "tables": [],
     "adopted": ["dungeon_runs"],
     "_adopted_note": "Keeps its legacy name because `SELECT *` rows are returned straight through to the frontend (current_floor, max_floor, active_buffs, current_hp, max_hp, status are read by name), and because api/modules/admin deletes rows from it through Prisma during a user cascade. Renaming is a coordinated change, tracked as namespace debt by guardrail G10.",
-    "reads": []
+    "reads": [],
+    "_auth_note": "All eight routes now resolve the caller from the kernel request context: 401 for anonymous (未登录或登录已过期), 403 for a role that may not call the route (无权限执行该操作). Scope follows the matrix's student（本人）/teacher（本班，只读） ruling - start, choices and abandon are accepted only from the student row the caller's own login owns (the URL's :studentId is never identity), while the two read routes also admit the teacher of that student's class. The pre-migration surface answered every one of these to an anonymous caller."
   }
 }

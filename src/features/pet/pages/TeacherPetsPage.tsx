@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useClassPets, useTeacherPetMutation } from '@/features/pet/hooks/usePet';
 import { getDefaultPetStageImage, getEvolutionStage, getPetDisplayImage, getPetElement, PET_ELEMENTS } from '@/features/pet/petConfig';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,10 +20,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
+import { Toolbar } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,7 +34,7 @@ import { cn } from '@/lib/utils';
  * of this page, so they stay - what changed is how the selected tile is drawn: the
  * border used to be assembled at runtime (`border-${el.color.split('-')[1]}-500`, a
  * class that only exists if Tailwind happened to see it) and is now the static
- * `border-primary`. The hidden uploader is `FileInput`, which gives it a name, and the
+ * `border-role`. The hidden uploader is `FileInput`, which gives it a name, and the
  * editor is the kit `Dialog` instead of a hand-built overlay with a raw close button.
  */
 export default function TeacherPets() {
@@ -100,33 +102,47 @@ export default function TeacherPets() {
   const renderPetImage = (pet: any) => {
     if (!pet) return null;
     const imgUrl = getPetDisplayImage(pet);
-    return <img src={imgUrl ?? ''} alt="Pet" className="size-16 rounded-full border-2 border-paper object-contain shadow-sm" />;
+    return <img src={imgUrl ?? ''} alt="Pet" className="size-16 rounded-full border-2 border-line-1 object-contain shadow-sm" />;
   };
 
+  // The page has no page-level button; its one action is re-reading the class roster.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-pets:refresh',
+      label: '刷新精灵列表',
+      icon: Sparkles,
+      keywords: ['精灵', '宠物', '外观'],
+      run: () => void refetch(),
+    },
+  ]);
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <PageHeader
-        title="班级精灵管理"
-        description="查看、分配或管理学生的学习精灵及进化外观"
-        icon={Sparkles}
-        actions={
-          <div className="flex items-center gap-3">
-            <Users className="size-5 text-ink-3" />
-            <Select
-              aria-label="选择班级"
-              wrapperClassName="w-40 sm:w-56"
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-            >
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        }
-      />
+    <PageScaffold
+      variant="list"
+      title="班级精灵管理"
+      description="查看、分配或管理学生的学习精灵及进化外观"
+      toolbar={
+        <Toolbar
+          filters={
+            <>
+              <Users className="size-5 text-fg-3" />
+              <Select
+                aria-label="选择班级"
+                wrapperClassName="w-40 sm:w-56"
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+              >
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </Select>
+            </>
+          }
+        />
+      }
+    >
 
       {/* Grid */}
       {loading ? (
@@ -139,7 +155,7 @@ export default function TeacherPets() {
         <EmptyState
           icon={Sparkles}
           title="暂无学生数据"
-          className="bg-paper"
+          className="bg-surface-2"
         />
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -152,17 +168,17 @@ export default function TeacherPets() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 key={student.student_id}
-                className="group flex flex-col rounded-card border border-border bg-paper/80 p-5 shadow-card backdrop-blur-xl transition-all hover:shadow-raised"
+                className="group flex flex-col rounded-card border border-line-1 bg-surface-2/80 p-5 shadow-card backdrop-blur-xl transition-all hover:shadow-raised"
               >
                 <div className="mb-4 flex items-center justify-between">
-                  <span className="font-bold text-ink-1">{student.student_name}</span>
+                  <span className="font-bold text-fg-1">{student.student_name}</span>
                   {!student.has_pet && (
                     <Badge variant="secondary">
                       未领养
                     </Badge>
                   )}
                   {student.has_pet && element && (
-                    <Badge className={cn('font-bold text-primary-foreground shadow-sm', element.color)}>
+                    <Badge className={cn('font-bold text-role-contrast shadow-sm', element.color)}>
                       {element.name}
                     </Badge>
                   )}
@@ -171,16 +187,16 @@ export default function TeacherPets() {
                 <div className="relative flex flex-1 flex-col items-center justify-center py-4">
                   {student.has_pet ? (
                     <>
-                      <div className={cn('mb-3 flex size-24 items-center justify-center rounded-full shadow-inner', element?.bg || 'bg-muted/50')}>
+                      <div className={cn('mb-3 flex size-24 items-center justify-center rounded-full shadow-inner', element?.bg || 'bg-surface-3/50')}>
                         {renderPetImage(pet)}
                       </div>
                       <div className="text-center">
-                        <div className="text-sm font-bold text-ink-2">Lv.{pet.level} {getEvolutionStage(pet.level)}</div>
-                        <div className="mt-1 text-xs text-ink-3">攻击力: {pet.attack_power} | 经验: {pet.experience}</div>
+                        <div className="text-sm font-bold text-fg-2">Lv.{pet.level} {getEvolutionStage(pet.level)}</div>
+                        <div className="mt-1 text-xs text-fg-3">攻击力: {pet.attack_power} | 经验: {pet.experience}</div>
                       </div>
                     </>
                   ) : (
-                    <div className="mb-3 flex size-24 flex-col items-center justify-center rounded-full border-2 border-dashed border-border bg-muted/50 text-ink-3">
+                    <div className="mb-3 flex size-24 flex-col items-center justify-center rounded-full border-2 border-dashed border-line-1 bg-surface-3/50 text-fg-3">
                       <Sparkles className="mb-1 size-6 opacity-50" />
                       <span className="text-xs font-medium">无精灵</span>
                     </div>
@@ -192,7 +208,7 @@ export default function TeacherPets() {
                     variant={student.has_pet ? 'secondary' : 'outline'}
                     className={cn(
                       'w-full',
-                      !student.has_pet && 'border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary',
+                      !student.has_pet && 'border-role/20 bg-role/5 text-role hover:bg-role/10 hover:text-role',
                     )}
                     onClick={() => openModal(student)}
                   >
@@ -219,7 +235,7 @@ export default function TeacherPets() {
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle className="flex items-center">
-                <Sparkles className="mr-3 size-6 text-primary" />
+                <Sparkles className="mr-3 size-6 text-role" />
                 {editingStudent.has_pet ? `管理 ${editingStudent.student_name} 的精灵` : `为 ${editingStudent.student_name} 分配精灵`}
               </DialogTitle>
             </DialogHeader>
@@ -227,7 +243,7 @@ export default function TeacherPets() {
             <div className="space-y-8">
               {/* Element Selection */}
               <div>
-                <h3 className="mb-4 flex items-center text-sm font-bold text-ink-2">
+                <h3 className="mb-4 flex items-center text-sm font-bold text-fg-2">
                   1. 选择精灵属性 (Element Type)
                 </h3>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
@@ -241,12 +257,12 @@ export default function TeacherPets() {
                       className={cn(
                         'h-auto flex-col gap-1 rounded-card border-2 p-3',
                         editingImages.element_type === el.id
-                          ? `border-primary ${el.bg} shadow-card`
-                          : 'border-border bg-muted/50 hover:border-primary/30',
+                          ? `border-role ${el.bg} shadow-card`
+                          : 'border-line-1 bg-surface-3/50 hover:border-role/30',
                       )}
                     >
                       <div className="text-2xl">{el.icon}</div>
-                      <div className="text-xs font-bold text-ink-2">{el.name}</div>
+                      <div className="text-xs font-bold text-fg-2">{el.name}</div>
                     </Button>
                   ))}
                 </div>
@@ -254,7 +270,7 @@ export default function TeacherPets() {
 
               {/* Base Stats Setting */}
               <div>
-                <h3 className="mb-4 flex items-center text-sm font-bold text-ink-2">
+                <h3 className="mb-4 flex items-center text-sm font-bold text-fg-2">
                   2. 基础数值设置 (Base Stats)
                 </h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -288,7 +304,7 @@ export default function TeacherPets() {
 
               {/* Stages Selection */}
               <div>
-                <h3 className="mb-4 flex items-center text-sm font-bold text-ink-2">
+                <h3 className="mb-4 flex items-center text-sm font-bold text-fg-2">
                   3. 配置阶段外观 (可选，支持 JPG/PNG/GIF，最高 5MB)
                 </h3>
                 <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
@@ -303,12 +319,12 @@ export default function TeacherPets() {
                         </Badge>
 
                         <label className="group relative aspect-square w-full max-w-[160px] cursor-pointer">
-                          <div className={cn('flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-card border-2 transition-all', currentImage ? 'border-primary/40 bg-paper shadow-card' : 'border-dashed border-border bg-muted/50 hover:border-primary/40')}>
+                          <div className={cn('flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-card border-2 transition-all', currentImage ? 'border-role/40 bg-surface-2 shadow-card' : 'border-dashed border-line-1 bg-surface-3/50 hover:border-role/40')}>
                             <img src={currentImage} alt={`Lv.${level}`} className="h-full w-full object-contain" />
                           </div>
 
-                          <div className="absolute inset-0 flex items-center justify-center rounded-card bg-foreground/40 opacity-0 transition-opacity group-hover:opacity-100">
-                            <span className="flex flex-col items-center text-xs font-bold text-primary-foreground">
+                          <div className="absolute inset-0 flex items-center justify-center rounded-card bg-fg-1/40 opacity-0 transition-opacity group-hover:opacity-100">
+                            <span className="flex flex-col items-center text-xs font-bold text-role-contrast">
                               <Upload className="mb-1 size-5" />
                               更换图片
                             </span>
@@ -349,6 +365,6 @@ export default function TeacherPets() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </PageScaffold>
   );
 }

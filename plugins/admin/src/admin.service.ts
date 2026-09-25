@@ -36,6 +36,7 @@ import type {
   UpsertAdminAnnouncementInput,
 } from '@thinkclass/contracts/domains/admin';
 import type { ClassroomPort } from '@thinkclass/contracts/domains/classroom';
+import type { HomeworkAiPort, HomeworkAiState } from '@thinkclass/contracts/domains/homework';
 import type { IdentityPort } from '@thinkclass/contracts/domains/identity';
 import { ApiError } from '@thinkclass/kernel';
 import type { KernelContext } from '@thinkclass/plugin-sdk';
@@ -65,6 +66,16 @@ export interface AdminServiceOptions {
    */
   identity: () => IdentityPort;
   classroom: () => ClassroomPort;
+  /**
+   * The homework plugin's AI provider, or null when that plugin is not installed.
+   *
+   * A `tryUse` shape rather than the hard `use` the two above use, because homework is
+   * `required: false` and a deployment that disables it must still serve the console: the AI panel
+   * then reports "not installed" instead of the console failing to boot. Resolved per call for the
+   * same reason as the other two, and more sharply - `admin` sorts *before* `homework`, so a value
+   * captured in `setup()` would be null even on a deployment that has it.
+   */
+  homework?: () => HomeworkAiPort | null;
   runtime?: AdminRuntime;
 }
 
@@ -77,6 +88,7 @@ export class AdminService {
   private readonly repository: AdminRepository;
   private readonly identity: () => IdentityPort;
   private readonly classroom: () => ClassroomPort;
+  private readonly homework: (() => HomeworkAiPort | null) | null;
   private readonly runtime: AdminRuntime;
 
   constructor(options: AdminServiceOptions) {
@@ -84,6 +96,7 @@ export class AdminService {
     this.repository = options.repository;
     this.identity = options.identity;
     this.classroom = options.classroom;
+    this.homework = options.homework ?? null;
     this.runtime = options.runtime ?? defaultRuntime;
   }
 
@@ -159,6 +172,82 @@ export class AdminService {
 
   async updateSystemSettings(input: Partial<SystemSettings>): Promise<SystemSettings> {
     return this.repository.saveSystemSettings(input);
+  }
+
+  // -- the homework AI provider --------------------------------------------
+
+  /**
+   * The state of the provider the `ai_*` settings currently resolve to.
+   *
+   * A *result*, not an error, when the homework plugin is not installed: the console must render its
+   * AI panel on a deployment that disabled the domain, and the honest answer there is "the surfaces
+   * are not installed" rather than a 500 on a settings screen. That is the same posture
+   * `resolveHomeworkProvider` takes toward a half-configured model.
+   *
+   * `provider: 'unavailable'` is deliberately not one of the provider names (`mock` / `http`): a
+   * status line that said `mock` would read as "the deterministic fallback is grading your papers"
+   * when in fact nothing is installed at all.
+   */
+  getAiState(): HomeworkAiState {
+    const port = this.homeworkPort();
+    if (!port) {
+      return {
+        provider: 'unavailable',
+        available: false,
+        reason: '作业插件未启用',
+        message: '作业插件未启用，AI 判分与问答功能当前不可用。',
+      };
+    }
+
+    try {
+      return port.getAiState();
+    } catch (error) {
+      // The port is expected not to throw. If a future implementation does, the console still has
+      // to render something true instead of a stack trace on a settings page.
+      return {
+        provider: 'unavailable',
+        available: false,
+        reason: error instanceof Error ? error.message : String(error),
+        message: `无法读取 AI 配置状态：${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * `POST /api/admin/system/ai/test` - the console's 测试连接.
+   *
+   * The settings the test uses are whatever is *saved*, not what is in the form: the button sits
+   * next to a 保存 button, and a test that silently used unsaved values would pass while the
+   * deployment kept failing. `getAiState` is folded into the response so one click answers both
+   * questions the operator has - "did it connect?" and "which provider is this?".
+   */
+  async testAiConnection(): Promise<{ state: HomeworkAiState; ok: boolean; message: string }> {
+    const state = this.getAiState();
+    const port = this.homeworkPort();
+
+    if (!port) return { state, ok: false, message: state.message };
+
+    try {
+      const result = await port.testAiConnection();
+      return { state: this.getAiState(), ok: result.ok, message: result.message };
+    } catch (error) {
+      // A port that throws is a failed connection test, not a failed request: the operator wants a
+      // sentence to act on, and an HTTP 502 from a settings form tells them nothing.
+      const message = error instanceof Error ? error.message : String(error);
+      return { state: this.getAiState(), ok: false, message: `测试连接失败：${message}` };
+    }
+  }
+
+  /** The homework port, or null when the plugin is absent or unresolvable. */
+  private homeworkPort(): HomeworkAiPort | null {
+    if (!this.homework) return null;
+    try {
+      return this.homework();
+    } catch {
+      // `ctx.use` throws when no active plugin provides the service. For an optional peer that is
+      // "not installed", which the callers above already know how to report.
+      return null;
+    }
   }
 
   // -- teachers (identity's table) -----------------------------------------

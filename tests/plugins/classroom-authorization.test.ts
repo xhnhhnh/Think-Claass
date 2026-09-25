@@ -51,7 +51,7 @@
 import type { Server } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createKernel, type Kernel } from '@thinkclass/kernel';
 import { createPluginHost, type PluginHost } from '@thinkclass/plugin-runtime';
@@ -553,7 +553,7 @@ describe('classroom writes: teacher scope', () => {
         await call('POST', '/api/students/batch-edit', tokens.teacherA, {
           studentIds: [110],
           action: 'reset_password',
-          value: 'fresh',
+          value: 'fresh-secret',
         })
       ).status,
     ).toBe(200);
@@ -683,9 +683,8 @@ describe('classroom writes: student scope', () => {
 });
 
 describe('classroom writes: parent scope', () => {
-  it('rewards only their own child', async () => {
-    // `src/pages/Parent/Tasks.tsx` approves a family task by adding points to the child.
-    expect((await call('POST', '/api/students/110/points', tokens.parent, { amount: 2, reason: '家庭任务奖励' })).status).toBe(200);
+  it('only awards an approved family task for their own child', async () => {
+    expect((await call('POST', '/api/students/110/points', tokens.parent, { amount: 2, reason: '家庭任务奖励' })).status).toBe(403);
 
     const stranger = await call('POST', '/api/students/111/points', tokens.parent, { amount: 2, reason: '越权' });
     expect(stranger.status).toBe(403);
@@ -731,5 +730,103 @@ describe('classroom writes: the admin console keeps the full surface', () => {
     expect((await call('GET', '/api/attendance', tokens.admin)).status).toBe(200);
     expect((await call('GET', '/api/leaves', tokens.admin)).status).toBe(200);
     expect((await call('PUT', '/api/leaves/3001', tokens.admin, { status: 'rejected' })).status).toBe(200);
+  });
+});
+
+describe('incentive policy and transactional scoring', () => {
+  beforeAll(() => {
+    kernel.db.exec(`
+      INSERT INTO users (id, role, username, password_hash) VALUES (210, 'student', 'score210', 'x'), (211, 'student', 'score211', 'x');
+      INSERT INTO classes (id, name, teacher_id, invite_code) VALUES (13, '三班', 107, 'DEF456');
+      INSERT INTO student_groups (id, name, class_id) VALUES (501, '原小组', 11), (502, '目标小组', 13);
+      INSERT INTO students (id, user_id, class_id, group_id, name, total_points, available_points) VALUES
+        (210, 210, 11, 501, '评分学生甲', 0, 0), (211, 211, 11, 501, '评分学生乙', 0, 0);
+    `);
+  });
+
+  beforeEach(() => {
+    kernel.db.exec(`DELETE FROM p_classroom_point_events WHERE student_id IN (210,211);
+      DELETE FROM records WHERE student_id IN (210,211);
+      UPDATE students SET class_id = 11, group_id = 501, total_points = 0, available_points = 0, last_checkin_date = NULL WHERE id IN (210,211);
+      DELETE FROM parent_activity WHERE student_id = 210;
+      DELETE FROM p_classroom_incentive_policies WHERE class_id IN (11,13);`);
+  });
+
+  it('enforces integer range and daily positive cap using server results', async () => {
+    expect((await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 1.5 })).status).toBe(400);
+    expect((await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 6 })).status).toBe(400);
+    for (let index = 0; index < 4; index += 1) {
+      expect((await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 5, reason: '课堂表现', requestId: `cap-${index}` })).status).toBe(200);
+    }
+    const capped = await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 1, reason: '课堂表现', requestId: 'cap-extra' });
+    expect(capped.status).toBe(400);
+    const row = kernel.db.prepare('SELECT total_points, available_points FROM students WHERE id = 210').get() as { total_points: number; available_points: number };
+    expect(row).toEqual({ total_points: 20, available_points: 20 });
+  });
+
+  it('replays a request without adding points twice', async () => {
+    const payload = { amount: 5, reason: '课堂表现', requestId: 'repeat-score' };
+    const first = await call('POST', '/api/students/210/points', tokens.teacherA, payload);
+    const second = await call('POST', '/api/students/210/points', tokens.teacherA, payload);
+    expect(first.status).toBe(200);
+    expect(second.body.student).toMatchObject({ applied: 5, replayed: true, total_points: 5, available_points: 5 });
+    expect((kernel.db.prepare("SELECT COUNT(*) AS n FROM p_classroom_point_events WHERE student_id = 210").get() as { n: number }).n).toBe(1);
+    expect((await call('POST', '/api/students/210/points', tokens.teacherA, { ...payload, amount: 4 })).status).toBe(409);
+  });
+
+  it('caps the parent blessing at two additional credits per day', async () => {
+    expect((await call('PUT', '/api/classes/11/incentive-policy', tokens.teacherB, { parentBonusPercent: 20 })).status).toBe(403);
+    expect((await call('PUT', '/api/classes/11/incentive-policy', tokens.teacherA, { parentBonusPercent: 7 })).status).toBe(400);
+    expect((await call('PUT', '/api/classes/11/incentive-policy', tokens.teacherA, { parentBonusPercent: 20, schoolStage: 'middle' })).status).toBe(200);
+    expect((await call('PUT', '/api/classes/11/settings', tokens.teacherA, { enable_parent_buff: true })).status).toBe(200);
+    kernel.db.exec("INSERT INTO parent_activity (parent_id, student_id, activity_type) VALUES (130, 210, 'PARENT_BUFF')");
+    const first = await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 5, reason: '鼓励' });
+    const second = await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 5, reason: '鼓励' });
+    const third = await call('POST', '/api/students/210/points', tokens.teacherA, { amount: 5, reason: '鼓励' });
+    expect(first.body.student.bonus).toBe(1);
+    expect(second.body.student.bonus).toBe(1);
+    expect(third.body.student.bonus).toBe(0);
+    expect(third.body.student.available_points).toBe(17);
+    const summary = await call('GET', '/api/students/210/summary', tokens.teacherA);
+    expect(summary.body.summary).toMatchObject({ growth: 15, availableCredits: 17, schoolStage: 'middle' });
+    expect((await call('GET', '/api/students/210/summary', tokens.teacherB)).status).toBe(403);
+  });
+
+  it('rolls back a batch if one student cannot be debited', async () => {
+    kernel.db.exec('UPDATE students SET available_points = 5 WHERE id = 210');
+    const response = await call('POST', '/api/students/batch-points', tokens.teacherA, { studentIds: [210, 211], amount: -3, reason: '调整', requestId: 'batch-rollback' });
+    expect(response.status).toBe(400);
+    const rows = kernel.db.prepare('SELECT id, available_points FROM students WHERE id IN (210,211) ORDER BY id').all();
+    expect(rows).toEqual([{ id: 210, available_points: 5 }, { id: 211, available_points: 0 }]);
+    expect((kernel.db.prepare("SELECT COUNT(*) AS n FROM p_classroom_point_events WHERE request_id = 'batch-rollback'").get() as { n: number }).n).toBe(0);
+  });
+
+  it('validates target groups and clears the old group on a class move', async () => {
+    expect((await call('POST', '/api/students/batch-edit', tokens.teacherA, { studentIds: [210], action: 'change_group', value: 502 })).status).toBe(400);
+    expect((await call('POST', '/api/students/batch-edit', tokens.teacherA, { studentIds: [210], action: 'change_class', value: 13 })).status).toBe(200);
+    expect(kernel.db.prepare('SELECT class_id, group_id FROM students WHERE id = 210').get()).toEqual({ class_id: 13, group_id: null });
+  });
+
+  it('uses the Shanghai Monday window and divides team scores by current members', async () => {
+    kernel.db.exec(`
+      INSERT INTO p_classroom_point_events (student_id, source, category, growth_delta, credits_delta, created_at)
+        VALUES (210, 'team_quest_reward', 'collaboration', 8, 8,
+          datetime(date('now', '+8 hours', 'weekday 0', '-6 days'), '-8 hours', '+1 hour'));
+      INSERT INTO p_classroom_point_events (student_id, source, category, growth_delta, credits_delta, created_at)
+        VALUES (210, 'team_quest_reward', 'collaboration', 100, 100,
+          datetime(date('now', '+8 hours', 'weekday 0', '-6 days'), '-8 hours', '-1 day'));
+    `);
+    const response = await call('GET', '/api/classes/11/team-ranking?category=collaboration', tokens.teacherA);
+    expect(response.status).toBe(200);
+    expect(response.body.rankings).toMatchObject([{ group_id: 501, members: 2, score: 4 }]);
+  });
+
+  it('counts one daily check-in as growth and participation without spendable credits', async () => {
+    const studentToken = kernel.sessions.issue({ userId: 210, role: 'student', ttlMs: 60_000 }).token;
+    const first = await call('POST', '/api/students/checkin', studentToken, { studentId: 210 });
+    expect(first.status).toBe(200);
+    const summary = await call('GET', '/api/students/210/summary', studentToken);
+    expect(summary.body.summary).toMatchObject({ growth: 1, participation: 1, availableCredits: 0 });
+    expect((await call('POST', '/api/students/checkin', studentToken, { studentId: 210 })).status).toBe(400);
   });
 });

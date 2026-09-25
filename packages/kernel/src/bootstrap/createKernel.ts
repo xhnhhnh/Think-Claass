@@ -37,7 +37,7 @@ import {
 } from '../logging/auditLog.js';
 import { runMigrations, type Migration, type MigrationResult } from '../storage/migrations.js';
 import { createErrorMiddleware } from '../http/errorEnvelope.js';
-import { createRequestContextMiddleware } from '../http/requestContext.js';
+import { createRequestContextMiddleware, type ScopeResolver } from '../http/requestContext.js';
 import { createKernelRouter, createEmptyPluginHost, type PluginHostView } from '../http/kernelRoutes.js';
 
 /**
@@ -133,6 +133,15 @@ export interface CreateKernelOptions {
    * the kernel router sees the registration without the kernel importing a plugin (guardrail G2).
    */
   authProvider?: { current: AuthProvider | null };
+  /**
+   * Extend a verified actor with its domain scope (`studentId`, `classId`).
+   *
+   * The kernel cannot do this itself: the student row behind a login belongs to a plugin, and the
+   * kernel knows none of them (G2/G5). The application supplies a resolver that reads the kernel
+   * context and asks a plugin through its published port. It runs per request, after token
+   * verification, so it is expected to be cheap - see `api/app.ts`, which memoises it.
+   */
+  scopeResolver?: ScopeResolver;
 }
 
 /**
@@ -211,7 +220,14 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
   app.disable('x-powered-by');
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  app.use(createRequestContextMiddleware({ config, sessions, logger: logger.child('auth') }));
+  app.use(
+    createRequestContextMiddleware({
+      config,
+      sessions,
+      logger: logger.child('auth'),
+      resolveScope: options.scopeResolver,
+    }),
+  );
 
   // Uploads only. The built frontend is served *after* plugins so that a plugin
   // route can never be shadowed by a static file or the SPA fallback.

@@ -62,6 +62,10 @@ export default definePlugin({
       // (HANDOFF section 9 records this trap). `dependsOn` guarantees both exist.
       identity: () => ctx.use('identity.public'),
       classroom: () => ctx.use('classroom.public'),
+      // `tryUse`, not `use`, and for a second reason on top of the ordering one: homework is
+      // `required: false`, so a deployment that disabled it must still boot the console. The
+      // service treats null as "the AI surfaces are not installed" and says so in the panel.
+      homework: () => ctx.tryUse('homework.public'),
     });
 
     providers.push(
@@ -73,7 +77,7 @@ export default definePlugin({
 
     ctx.log.info('admin service ready', {
       owns: ['announcements', 'api_keys', 'schools'],
-      routes: 28,
+      routes: 29,
       cascade: 'ctx.cleanup',
     });
   },

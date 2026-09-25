@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Edit, Plus, Trash2, Users } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
@@ -18,7 +19,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 
 interface Teacher {
   id: number;
@@ -29,10 +30,15 @@ interface Teacher {
 /**
  * 教师管理.
  *
- * The template for this phase's list pages: `PageHeader` + `DataTable` (which owns
- * loading and empty) + `Dialog` for the form + `ConfirmDialog` for the delete. Before,
- * this file hand-wrote a `<table>`, its own spinner, its own empty block, a fixed-overlay
- * modal and a `window.confirm`.
+ * The template for this phase's list pages: `PageScaffold variant="list"` (the toolbar
+ * slot stays empty because this list has never had a search or a filter) + `DataTable`
+ * (which owns loading and empty) + `Dialog` for the form + `ConfirmDialog` for the
+ * delete. Before, this file hand-wrote a `<table>`, its own spinner, its own empty
+ * block, a fixed-overlay modal and a `window.confirm`.
+ *
+ * The heading is the scaffold's `title`, which the shell suppresses while it renders the
+ * `h1` from the route table, plus the page's动作 in the context bar. 添加教师 is
+ * registered with the command palette as well, so `⌘K` reaches it.
  */
 export default function AdminTeachers() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -123,24 +129,33 @@ export default function AdminTeachers() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="教师管理"
-        description="管理系统中的所有教师账号"
-        icon={Users}
-        actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus data-icon="inline-start" />
-            添加教师
-          </Button>
-        }
-      />
+  // The page's one 主要动作, registered with the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'admin-teachers:create',
+      label: '添加教师',
+      icon: Plus,
+      keywords: ['教师', '新增', '账号'],
+      run: () => handleOpenModal(),
+    },
+  ]);
 
+  return (
+    <PageScaffold
+      variant="list"
+      title="教师管理"
+      description="管理系统中的所有教师账号"
+      actions={
+        <Button onClick={() => handleOpenModal()}>
+          <Plus data-icon="inline-start" />
+          添加教师
+        </Button>
+      }
+    >
       <DataTable<Teacher>
         columns={[
-          { key: 'id', header: 'ID', className: 'text-ink-2' },
-          { key: 'username', header: '用户名', className: 'font-medium text-ink-1' },
+          { key: 'id', header: 'ID', className: 'text-fg-2' },
+          { key: 'username', header: '用户名', className: 'font-medium text-fg-1' },
           {
             key: 'role',
             header: '角色',
@@ -168,7 +183,7 @@ export default function AdminTeachers() {
                   size="icon-sm"
                   aria-label={`删除${teacher.username}`}
                   title="删除"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-danger hover:bg-danger-soft hover:text-danger"
                   onClick={() => setDeleteTarget(teacher)}
                 >
                   <Trash2 />
@@ -185,7 +200,7 @@ export default function AdminTeachers() {
             icon={Users}
             title="暂无教师"
             description="点击上方按钮添加第一位教师"
-            className="bg-card"
+            className="bg-surface-2"
           />
         }
       />
@@ -240,6 +255,6 @@ export default function AdminTeachers() {
         isPending={isDeleting}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageScaffold>
   );
 }

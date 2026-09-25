@@ -18,7 +18,16 @@ export const classQueryKeys = {
   guildRanking: (classId: number | null) => ['guild-ranking', classId] as const,
 };
 
-export function useClasses() {
+/**
+ * The classes this account can see.
+ *
+ * `enabled` is for callers that only sometimes need the answer - the opening guide asks for it only
+ * on a teacher's first day, to decide whether to hand over to `FirstRunWizard`. A disabled query
+ * shares the key and the cache entry with the enabled ones, so the request is never sent twice and
+ * an account that will never ask costs nothing. Note that a disabled query reports `isPending`,
+ * not `isLoading`, so `isLoading` stays the right "the answer is not ready" test for both.
+ */
+export function useClasses(options: { enabled?: boolean } = {}) {
   const user = useStore((state) => state.user);
   return useQuery({
     queryKey: classQueryKeys.classes(user?.id, user?.role),
@@ -27,6 +36,7 @@ export function useClasses() {
       const data = await classroomApi.getClasses(teacherId);
       return data.classes;
     },
+    enabled: options.enabled ?? true,
   });
 }
 

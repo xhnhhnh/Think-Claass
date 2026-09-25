@@ -6,6 +6,7 @@ import { Map as MapIcon, Plus, Play, XCircle } from 'lucide-react';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useCreateTerritoryMutation, useTerritoryMap, useTriggerYieldMutation } from '@/features/slg/hooks/useTerritory';
 import type { Territory, TerritoryType } from '@/features/slg/api/slgApi';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +21,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 
 /** Status → chip. The ternary chain that picked emerald/amber/slate is now a `Badge` variant. */
@@ -93,8 +94,8 @@ export default function TeacherTerritory() {
   };
 
   const columns: Array<DataTableColumn<Territory>> = [
-    { key: 'name', header: '领地名称', className: 'font-bold text-ink-2' },
-    { key: 'type', header: '类型', className: 'capitalize text-ink-2' },
+    { key: 'name', header: '领地名称', className: 'font-bold text-fg-2' },
+    { key: 'type', header: '类型', className: 'capitalize text-fg-2' },
     { key: 'level', header: '等级', className: 'font-medium', render: (t) => `Lv.${t.level}` },
     {
       key: 'progress',
@@ -105,7 +106,7 @@ export default function TeacherTerritory() {
     {
       key: 'position',
       header: '坐标',
-      className: 'font-mono text-ink-3',
+      className: 'font-mono text-fg-3',
       render: (t) => `(${t.x_pos}, ${t.y_pos})`,
     },
     {
@@ -118,31 +119,47 @@ export default function TeacherTerritory() {
     },
   ];
 
-  if (!classId) return <div className="p-8 text-center text-ink-3">请先创建或选择一个班级</div>;
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-territory:create',
+      label: '配置新领地',
+      icon: Plus,
+      keywords: ['领地', '地图', '解锁'],
+      run: () => setIsModalOpen(true),
+    },
+  ]);
+
+  if (!classId) {
+    return (
+      <PageScaffold variant="list">
+        <div className="p-8 text-center text-fg-3">请先创建或选择一个班级</div>
+      </PageScaffold>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4">
-      <PageHeader
-        title="领土扩张管理"
-        description="配置大地图节点，设定解锁需要的全班积分捐献阈值。"
-        icon={MapIcon}
-        actions={
-          <>
-            <Button type="button" variant="outline" onClick={triggerYield}>
-              <Play data-icon="inline-start" />
-              强制结算资源
-            </Button>
-            <Button type="button" onClick={() => setIsModalOpen(true)}>
-              <Plus data-icon="inline-start" />
-              配置新领地
-            </Button>
-          </>
-        }
-      />
+    <PageScaffold
+      variant="list"
+      title="领土扩张管理"
+      description="配置大地图节点，设定解锁需要的全班积分捐献阈值。"
+      actions={
+        <>
+          <Button type="button" variant="outline" onClick={triggerYield}>
+            <Play data-icon="inline-start" />
+            强制结算资源
+          </Button>
+          <Button type="button" onClick={() => setIsModalOpen(true)}>
+            <Plus data-icon="inline-start" />
+            配置新领地
+          </Button>
+        </>
+      }
+    >
 
       <Card className="rounded-panel">
         <CardContent className="p-6">
-          <h3 className="mb-4 text-lg font-bold text-ink-1">领地列表</h3>
+          <h3 className="mb-4 text-lg font-bold text-fg-1">领地列表</h3>
           <DataTable<Territory>
             columns={columns}
             rows={territories}
@@ -152,7 +169,7 @@ export default function TeacherTerritory() {
                 icon={MapIcon}
                 title="暂无领地节点"
                 description="点击右上角配置第一个领地节点"
-                className="bg-paper"
+                className="bg-surface-2"
               />
             }
           />
@@ -224,6 +241,6 @@ export default function TeacherTerritory() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageScaffold>
   );
 }

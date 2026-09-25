@@ -85,6 +85,12 @@ export class StudentsController {
     }
   }
 
+  @Get(':id/summary')
+  getStudentSummary(@Req() req: Request, @Param('id') id: string) {
+    try { return { success: true, summary: this.classroomService.getStudentSummary(req, id) }; }
+    catch (error) { throwClassroomError(error); }
+  }
+
   @Post('checkin')
   @HttpCode(HttpStatus.OK)
   checkin(@Req() req: Request, @Body() body: Record<string, any>) {
@@ -279,6 +285,24 @@ export class ClassesController {
     } catch (error) {
       throwClassroomError(error);
     }
+  }
+
+  @Get(':id/incentive-policy')
+  getIncentivePolicy(@Req() req: Request, @Param('id') id: string) {
+    try { return { success: true, policy: this.classroomService.getIncentivePolicy(req, id) }; }
+    catch (error) { throwClassroomError(error); }
+  }
+
+  @Put(':id/incentive-policy')
+  updateIncentivePolicy(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
+    try { return { success: true, policy: this.classroomService.updateIncentivePolicy(req, id, body) }; }
+    catch (error) { throwClassroomError(error); }
+  }
+
+  @Get(':id/team-ranking')
+  getWeeklyTeamScores(@Req() req: Request, @Param('id') id: string, @Query('category') category: string) {
+    try { return { success: true, rankings: this.classroomService.getWeeklyTeamScores(req, id, category) }; }
+    catch (error) { throwClassroomError(error); }
   }
 
   @Get(':id/bigscreen')

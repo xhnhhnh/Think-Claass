@@ -23,8 +23,9 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 
 interface FamilyTask {
   id: number;
@@ -39,12 +40,15 @@ interface FamilyTask {
  *
  * The warm-paper styling this page carried - a hex background, a paper texture loaded
  * from a third-party URL, a fixed-overlay modal, its own spinner, its own empty block and
- * a `confirm()` - is the kit's now: `PageHeader`, `Card`, `Badge`, `Dialog` and
- * `ConfirmDialog`.
+ * a `confirm()` - is the kit's now: `PageScaffold variant="list"`, `Card`, `Badge`,
+ * `Dialog` and `ConfirmDialog`. The scaffold's `title` is the page's heading (the shell
+ * suppresses it while it renders the route's `h1`), and 新约定 is a command-palette
+ * command as well as a context-bar button.
  *
  * `coral-*` was never a colour: `tailwind.config.js` does not register that family, so
  * every `bg-coral-*` in the parent pages compiled to nothing and the primary buttons had
- * no background at all. The parent theme's `primary` is the same orange, and it is real.
+ * no background at all. The parent theme's `role` accent is the same orange, and it is
+ * real.
  */
 export default function ParentTasks() {
   const user = useStore(state => state.user);
@@ -116,14 +120,27 @@ export default function ParentTasks() {
     }
   };
 
+  // Registered before the early return below so the hook order is stable.
+  useRegisterPageCommands([
+    {
+      id: 'parent-tasks:create',
+      label: '新约定',
+      icon: Plus,
+      keywords: ['家庭任务', '约定', '新增'],
+      run: () => setShowAddModal(true),
+    },
+  ]);
+
   if (!user?.studentId) {
     return (
-      <EmptyState
-        icon={Heart}
-        className="mx-auto h-80 max-w-5xl"
-        title="等待宝贝加入"
-        description="您的账号尚未绑定宝贝信息，请联系老师获取邀请码进行绑定，开启温馨的家校之旅。"
-      />
+      <PageScaffold variant="list" title="家庭时光" description="和宝贝定下温馨的小约定，见证成长">
+        <EmptyState
+          icon={Heart}
+          className="mx-auto h-80 max-w-5xl"
+          title="等待宝贝加入"
+          description="您的账号尚未绑定宝贝信息，请联系老师获取邀请码进行绑定，开启温馨的家校之旅。"
+        />
+      </PageScaffold>
     );
   }
 
@@ -148,23 +165,21 @@ export default function ParentTasks() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader
-        title="家庭时光"
-        description="和宝贝定下温馨的小约定，见证成长"
-        icon={CheckSquare}
-        actions={
-          <Button type="button" onClick={() => setShowAddModal(true)}>
-            <Plus data-icon="inline-start" />
-            新约定
-          </Button>
-        }
-      />
-
+    <PageScaffold
+      variant="list"
+      title="家庭时光"
+      description="和宝贝定下温馨的小约定，见证成长"
+      actions={
+        <Button type="button" onClick={() => setShowAddModal(true)}>
+          <Plus data-icon="inline-start" />
+          新约定
+        </Button>
+      }
+    >
       <Card>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-16 font-medium tracking-widest text-ink-3">
+            <div className="flex items-center justify-center gap-2 py-16 font-medium tracking-widest text-fg-3">
               <Spinner label="正在加载家庭约定" />
               翻阅记录中...
             </div>
@@ -179,17 +194,17 @@ export default function ParentTasks() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex flex-col justify-between gap-4 rounded-panel border border-border bg-muted/50 p-5 sm:flex-row sm:items-center"
+                  className="flex flex-col justify-between gap-4 rounded-panel border border-line-1 bg-surface-3/50 p-5 sm:flex-row sm:items-center"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-card bg-warning/10 text-warning">
                         <Star aria-hidden="true" className="size-5" />
                       </span>
-                      <h3 className="text-base font-bold tracking-wide text-ink-1">{task.title}</h3>
+                      <h3 className="text-base font-bold tracking-wide text-fg-1">{task.title}</h3>
                       {getStatusBadge(task.status)}
                     </div>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-4 pl-[3.25rem] text-sm text-ink-3">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-4 pl-[3.25rem] text-sm text-fg-3">
                       <span className="flex items-center gap-1.5">
                         <Clock aria-hidden="true" className="size-4" />
                         {new Date(task.created_at).toLocaleDateString()}
@@ -233,7 +248,7 @@ export default function ParentTasks() {
                         size="icon-sm"
                         aria-label="删除约定"
                         title="删除约定"
-                        className="text-ink-3 hover:bg-destructive/10 hover:text-destructive"
+                        className="text-fg-3 hover:bg-danger-soft hover:text-danger"
                         onClick={() => setDeleteTargetId(task.id)}
                       >
                         <Trash2 />
@@ -276,7 +291,7 @@ export default function ParentTasks() {
                 />
                 <Heart
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary"
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-role"
                 />
               </div>
             </FormField>
@@ -303,6 +318,6 @@ export default function ParentTasks() {
         isPending={deleteMutation.isPending}
         onConfirm={handleDelete}
       />
-    </div>
+    </PageScaffold>
   );
 }

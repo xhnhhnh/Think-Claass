@@ -1,9 +1,9 @@
 /**
- * The admin console's HTTP surface: 17 routes under `/api/admin`, 7 under `/api/openapi`, and 1
+ * The admin console's HTTP surface: 18 routes under `/api/admin`, 7 under `/api/openapi`, and 1
  * under `/api/audit-logs`, ported verbatim from `api/modules/admin/admin.controllers.ts`.
  *
  * The METHOD+PATH pairs and the response envelopes are unchanged - that is what keeps
- * `npm run api:surface -- --check` at 297 while the implementation moves - and so are three details
+ * `npm run api:surface -- --check` at the recorded count, now 321 - and so are three details
  * that are easy to lose in a port:
  *
  *   1. **Every POST carries `@HttpCode(200)`.** Nest answers 201 for POST by default; the console's
@@ -14,6 +14,12 @@
  *   3. **The error translation keeps Nest exceptions untouched** (see admin.errors.ts): the
  *      database import route goes through `FileInterceptor`, whose own exceptions already have the
  *      right status.
+ *
+ * The AI round added exactly one route - `POST /api/admin/system/ai/test`, the 18th under
+ * `/api/admin` - which is why the count above is 18 rather than the 17 this file was ported with.
+ * It follows all three rules (`@HttpCode(200)`, a message, `requireAdmin` first) and holds no
+ * provider knowledge: the model lives in the optional `homework` plugin behind the
+ * `homework.public` port.
  *
  * Authorization is unchanged in position: `requireAdmin` guards every `/api/admin` route, the
  * update routes additionally require `superadmin`, and so do the OpenAPI and audit-log routes -
@@ -106,6 +112,27 @@ export class AdminController {
     try {
       requireAdmin(req);
       return ok(await this.adminService.updateSystemSettings(body ?? {}), '系统设置已更新');
+    } catch (error) {
+      throwAdminError(error);
+    }
+  }
+
+  /**
+   * 测试连接 for the `ai_*` settings.
+   *
+   * A POST because it performs one outbound model call - it is not idempotent in the HTTP sense and
+   * must not be prefetched or cached. The provider itself lives in the optional `homework` plugin and
+   * is reached through the `homework.public` port, so this handler contains no provider knowledge:
+   * a deployment without that plugin gets a normal 200 saying so (see `AdminService.testAiConnection`),
+   * not a 404 or a 500 on a settings screen.
+   */
+  @Post('system/ai/test')
+  @HttpCode(HttpStatus.OK)
+  async testAiConnection(@Req() req: Request) {
+    try {
+      requireAdmin(req);
+      const result = await this.adminService.testAiConnection();
+      return ok(result, result.message);
     } catch (error) {
       throwAdminError(error);
     }

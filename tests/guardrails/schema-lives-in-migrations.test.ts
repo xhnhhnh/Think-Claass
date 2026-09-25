@@ -182,7 +182,18 @@ describe('G17 schema changes live only in migrations', () => {
     expect(read('api/app.ts')).toContain('migrations: APP_MIGRATIONS');
 
     const ids = APP_MIGRATIONS.map((migration) => migration.id);
-    expect(ids).toEqual(['0000_legacy_boot_schema', '0000b_payment_tables', '0000c_legacy_compat_columns', '0000d_legacy_compat_indexes']);
+    // `0001_homework_tables` is the homework plugin's six tables. Its DDL lives in that plugin's own
+    // directory and is registered here rather than through the manifest's `provides.migrations`,
+    // because G13 builds its schema from this list and then asserts every Prisma model has a table -
+    // see the header of `api/schema/homeworkTables.ts`.
+    //
+    // `0000h_ai_study_feature_column` is the one column the AI 智学 feature switch needs
+    // (`classes.enable_ai_study`). It is a *new* migration rather than an addition to
+    // `0000c_legacy_compat_columns`, because a function migration's checksum is `up.toString()` and
+    // editing it after it has been applied anywhere makes `runMigrations` refuse to start. The
+    // `0000h` prefix sorts after `0000g_incentive_namespace` and before `0001_`, so the boot schema
+    // still runs first - which is what the sort assertion below is for.
+    expect(ids).toEqual(['0000_legacy_boot_schema', '0000b_payment_tables', '0000c_legacy_compat_columns', '0000d_legacy_compat_indexes', '0000e_incentive_policy', '0000f_incentive_event_receipt', '0000g_incentive_namespace', '0000h_ai_study_feature_column', '0001_homework_tables']);
     // Ordering is by id, so the boot schema must sort first for the FKs to resolve.
     expect([...ids].sort()).toEqual(ids);
   });

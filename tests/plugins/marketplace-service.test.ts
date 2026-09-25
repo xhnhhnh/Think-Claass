@@ -28,7 +28,35 @@ import { createDbApi, TableOwnershipError } from '@thinkclass/plugin-runtime';
 
 import { createMarketplaceRepository } from '../../plugins/marketplace/src/marketplace.repository.js';
 import { MarketplaceService } from '../../plugins/marketplace/src/marketplace.service.js';
+import type { RequestActor } from '../../plugins/marketplace/src/marketplace.authorization.js';
 import type { MarketplaceRepository } from '../../plugins/marketplace/src/marketplace.types.js';
+
+/**
+ * Actors, shaped the way `marketplace.authorization.ts` builds them from the kernel context: a
+ * student actor carries BOTH `userId` (the login) and `studentId` (the `students` row), and the
+ * two are deliberately different numbers here - conflating them is the defect this round fixed.
+ */
+function student(studentId: number, userId: number): RequestActor {
+  return { userId, role: 'student', studentId, classId: 3 };
+}
+
+function teacher(userId = 7): RequestActor {
+  return { userId, role: 'teacher', studentId: null, classId: null };
+}
+
+function admin(userId = 1): RequestActor {
+  return { userId, role: 'admin', studentId: null, classId: null };
+}
+
+/** The HTTP status of the `ApiError` a synchronous service call throws, or null when it does not. */
+function statusOf(fn: () => unknown): number | null {
+  try {
+    fn();
+    return null;
+  } catch (error) {
+    return error instanceof ApiError ? error.status : null;
+  }
+}
 
 /** A shop item row as the legacy test data shaped it. */
 function item(overrides: Partial<ShopItem> = {}): ShopItem {
@@ -263,7 +291,13 @@ class FakeClassroom implements ClassroomPort {
     return { totalPoints: entry.snapshot.totalPoints, availablePoints: entry.snapshot.availablePoints };
   }
 
-  async transferStudentCredits(input: { studentId: number; delta: number }) {
+  async awardStudentPoints(input: { studentId: number; amount: number; type: string; description: string }) {
+    const result = await this.adjustPoints({ studentId: input.studentId, delta: input.amount });
+    await this.recordStudentLedgerEntry({ studentId: input.studentId, type: input.type, amount: input.amount, description: input.description });
+    return result;
+  }
+
+  async transferStudentCredits(input: { studentId: number; delta: number; reason: string; ledger?: { type: string; description: string } }) {
     if (this.failCreditsFor === input.studentId) return { refusal: this.failCreditsRefusal };
     const entry = this.students.get(input.studentId);
     if (!entry) return { refusal: { code: 'student-not-found' as const, message: '学生未找到' } };
@@ -274,6 +308,7 @@ class FakeClassroom implements ClassroomPort {
     // Only the spendable half moves - `totalPoints` is untouched, exactly like the
     // real port and exactly like the legacy `spendStudentPoints`.
     entry.snapshot = { ...entry.snapshot, availablePoints: available };
+    this.ledger.push({ studentId: input.studentId, type: input.ledger?.type ?? input.reason.toUpperCase().replace(/\./g, '_'), amount: input.delta, description: input.ledger?.description ?? input.reason });
     return { value: { availablePoints: available } };
   }
 
@@ -345,45 +380,69 @@ describe('MarketplaceService shop items', () => {
   it('resolves a student to their class teacher items through the port', async () => {
     repository.items = [item({ id: 10, teacher_id: 7 }), item({ id: 11, teacher_id: 9 }), item({ id: 12, teacher_id: 7, is_active: 0 })];
 
-    const items = await service.listItems('1', null);
+    const items = await service.listItems(student(1, 100));
     expect(items.map((entry) => entry.id)).toEqual([10]);
-
-    // No studentId at all: the legacy branch listed every active item.
-    const all = await service.listItems(undefined, null);
-    expect(all.map((entry) => entry.id)).toEqual([10, 11]);
   });
 
-  it('returns an empty list for an unknown student rather than throwing', async () => {
-    repository.items = [item()];
-    expect(await service.listItems('999', null)).toEqual([]);
-    expect(await service.listItems('not-a-number', null)).toEqual([]);
+  /**
+   * The scope is the actor's, not the query's. Before this round `listItems(undefined, null)`
+   * answered every active item in the database, which is how an anonymous caller (or a student
+   * who simply omitted `?studentId=`) read other teachers' shelves.
+   */
+  it('scopes the shelf to the actor instead of trusting the request', async () => {
+    repository.items = [item({ id: 10, teacher_id: 7 }), item({ id: 11, teacher_id: 9 })];
+
+    expect((await service.listItems(teacher(7))).map((entry) => entry.id)).toEqual([10]);
+    expect((await service.listItems(teacher(9))).map((entry) => entry.id)).toEqual([11]);
+    // admin/superadmin are the only roles that see the whole table.
+    expect((await service.listItems(admin())).map((entry) => entry.id)).toEqual([10, 11]);
+  });
+
+  it('answers an empty shelf - never the global list - when a student has no resolved row', async () => {
+    repository.items = [item({ id: 10, teacher_id: 7 })];
+
+    // The feature gate resolves the login, so this actor is a real student; the *scope* is what
+    // failed to resolve. Failing open here would hand them every teacher's items.
+    expect(await service.listItems({ userId: 100, role: 'student', studentId: null, classId: null })).toEqual([]);
   });
 
   it('gates a student actor by resolving user id -> student through the port', async () => {
     classroom.students.get(1)!.features = new Set();
 
-    await expect(service.listItems(undefined, 100)).rejects.toMatchObject({
+    await expect(service.listItems(student(1, 100))).rejects.toMatchObject({
       status: 403,
       message: '该功能当前已关闭',
     });
     // `getClassIdByUserId`'s message for a user id with no student row.
-    await expect(service.listItems(undefined, 999)).rejects.toMatchObject({ status: 404, message: '班级未找到' });
+    await expect(service.listItems(student(1, 999))).rejects.toMatchObject({ status: 404, message: '班级未找到' });
   });
 
   it('validates createItem input and falls back to the first teacher', () => {
-    expect(() => service.createItem({ name: 'A', price: 5 })).toThrow(ApiError);
-    expect(() => service.createItem({ name: 'A', price: 5 })).toThrow('Invalid input');
-    expect(() => service.createItem({ name: '', price: 5, stock: 1 })).toThrow('Invalid input');
-    expect(() => service.createItem({ name: 'A', price: 5, stock: -2 })).toThrow('Invalid input');
+    expect(() => service.createItem(teacher(7), { name: 'A', price: 5 })).toThrow(ApiError);
+    expect(() => service.createItem(teacher(7), { name: 'A', price: 5 })).toThrow('Invalid input');
+    expect(() => service.createItem(teacher(7), { name: '', price: 5, stock: 1 })).toThrow('Invalid input');
+    expect(() => service.createItem(teacher(7), { name: 'A', price: 5, stock: -2 })).toThrow('Invalid input');
 
-    const created = service.createItem({ name: 'A', price: 5, stock: 1 });
+    const created = service.createItem(teacher(7), { name: 'A', price: 5, stock: 1 });
     expect(created.id).toBe(1000);
     expect(repository.items[0]).toMatchObject({ name: 'A', price: 5, stock: 1, is_active: 1, teacher_id: 7 });
   });
 
+  it('creates an item on the caller own shelf, ignoring a teacher_id in the body', () => {
+    service.createItem(teacher(7), { name: 'A', price: 5, stock: 1, teacher_id: 9 });
+    expect(repository.items[0]).toMatchObject({ teacher_id: 7 });
+
+    // admin/superadmin have no shelf of their own, so they may name a seller; with none named the
+    // legacy "first teacher in the database" default still applies.
+    service.createItem(admin(), { name: 'B', price: 5, stock: 1, teacher_id: 9 });
+    expect(repository.items[1]).toMatchObject({ teacher_id: 9 });
+    service.createItem(admin(), { name: 'C', price: 5, stock: 1 });
+    expect(repository.items[2]).toMatchObject({ teacher_id: 7 });
+  });
+
   it('keeps the legacy update defaults (a missing is_active deactivates a blind box)', () => {
     repository.items = [item({ id: 10, is_active: 1 })];
-    service.updateItemStatus('10', {});
+    service.updateItemStatus(admin(), '10', {});
     expect(repository.getShopItem(10)!.is_active).toBe(0);
 
     repository.boxes = [blindBox({ id: 3, is_active: 1 })];
@@ -393,6 +452,27 @@ describe('MarketplaceService shop items', () => {
     service.createBlindBox({ name: 'C', price: 30 });
     expect(repository.boxes.find((box) => box.name === 'C')!.is_active).toBe(1);
     expect(() => service.createBlindBox({ name: 'C', price: '30' })).toThrow('Invalid input');
+  });
+
+  /**
+   * `shop_items.teacher_id` is the ownership boundary: the shelf is per teacher, so editing
+   * another teacher's item is a 403, and an id that does not exist is a 404 rather than the
+   * legacy silent no-op.
+   */
+  it('lets only the owning teacher (or admin) edit an item', () => {
+    repository.items = [item({ id: 10, teacher_id: 7 })];
+
+    service.updateItemStatus(teacher(7), '10', { is_active: 0 });
+    expect(repository.getShopItem(10)!.is_active).toBe(0);
+
+    expect(statusOf(() => service.updateItemStatus(teacher(9), '10', { is_active: 1 }))).toBe(403);
+    expect(statusOf(() => service.updateItem(teacher(9), '10', { name: '偷改' }))).toBe(403);
+    expect(repository.getShopItem(10)!.is_active).toBe(0);
+
+    expect(statusOf(() => service.updateItem(teacher(7), '999', { name: 'x' }))).toBe(404);
+    // The admin console edits anything.
+    service.updateItem(admin(), '10', { name: '改好了' });
+    expect(repository.getShopItem(10)!.name).toBe('改好了');
   });
 });
 
@@ -407,7 +487,7 @@ describe('MarketplaceService.buyItem', () => {
   });
 
   it('moves ONLY available_points and writes the ledger row through the port', async () => {
-    const result = await service.buyItem({ studentId: 1, itemId: 10 });
+    const result = await service.buyItem(1, { itemId: 10 });
 
     expect(result).toEqual({ points: 150 });
     // The risky half: a spend must not touch the lifetime figure.
@@ -422,14 +502,14 @@ describe('MarketplaceService.buyItem', () => {
 
   it('does not decrement an unlimited-stock item', async () => {
     repository.items = [item({ stock: -1 })];
-    await service.buyItem({ studentId: 1, itemId: 10 });
+    await service.buyItem(1, { itemId: 10 });
     expect(repository.getShopItem(10)!.stock).toBe(-1);
   });
 
   it('refuses an overdraft without writing anything', async () => {
     classroom.students.get(1)!.snapshot = { ...classroom.students.get(1)!.snapshot, availablePoints: 10 };
 
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toMatchObject({
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toMatchObject({
       status: 400,
       message: 'Not enough points',
     });
@@ -442,33 +522,36 @@ describe('MarketplaceService.buyItem', () => {
   it('refunds the debit when the ticket write fails', async () => {
     repository.failTicketInsert = true;
 
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toThrow('disk I/O error');
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toThrow('disk I/O error');
 
     // The debit is compensated and the platform write rolled back: no charge, no ticket.
     expect(balances(classroom, 1)).toEqual({ total: 500, available: 200 });
     expect(repository.tickets).toHaveLength(0);
     expect(repository.getShopItem(10)!.stock).toBe(3);
-    expect(classroom.ledger).toHaveLength(0);
+    expect(classroom.ledger.map((entry) => [entry.type, entry.amount])).toEqual([
+      ['BUY_ITEM', -50],
+      ['MARKETPLACE_BUY_ITEM_ROLLBACK', 50],
+    ]);
   });
 
   it('keeps the stock, active and holiday-window checks in the legacy order', async () => {
     repository.items = [item({ id: 10, stock: 0 })];
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toThrow('Item out of stock');
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toThrow('Item out of stock');
 
     repository.items = [item({ id: 10, is_active: 0 })];
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toThrow('Item is not active');
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toThrow('Item is not active');
 
     repository.items = [
       item({ id: 10, is_holiday_limited: 1, holiday_start_time: '2999-01-01T00:00:00.000Z' }),
     ];
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toThrow(
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toThrow(
       'This item is not yet available for purchase',
     );
 
     repository.items = [
       item({ id: 10, is_holiday_limited: 1, holiday_end_time: '2000-01-01T00:00:00.000Z' }),
     ];
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toThrow(
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toThrow(
       'This item is no longer available for purchase',
     );
 
@@ -477,12 +560,12 @@ describe('MarketplaceService.buyItem', () => {
 
   it('gates the feature, then the student, before any write', async () => {
     classroom.students.get(1)!.features = new Set();
-    await expect(service.buyItem({ studentId: 1, itemId: 10 })).rejects.toMatchObject({
+    await expect(service.buyItem(1, { itemId: 10 })).rejects.toMatchObject({
       status: 403,
       message: '该功能当前已关闭',
     });
 
-    await expect(service.buyItem({ studentId: 999, itemId: 10 })).rejects.toMatchObject({
+    await expect(service.buyItem(999, { itemId: 10 })).rejects.toMatchObject({
       status: 404,
       message: '学生未找到',
     });
@@ -501,7 +584,7 @@ describe('MarketplaceService.bidAuction', () => {
   });
 
   it('refunds the outbid student on the available balance only, then debits the bidder', async () => {
-    const result = await service.bidAuction('5', { studentId: 1, bid_amount: 100 });
+    const result = await service.bidAuction(1, '5', { bid_amount: 100 });
 
     expect(result).toEqual({ points: 100 });
     // Bidder: available only.
@@ -511,8 +594,8 @@ describe('MarketplaceService.bidAuction', () => {
     expect(balances(classroom, 2)).toEqual({ total: 300, available: 230 });
 
     expect(classroom.ledger).toEqual([
-      { studentId: 2, type: 'AUCTION_REFUND', amount: 80, description: 'Refund for outbid on auction: 限量徽章' },
       { studentId: 1, type: 'AUCTION_BID', amount: -100, description: 'Placed bid on auction: 限量徽章' },
+      { studentId: 2, type: 'AUCTION_REFUND', amount: 80, description: 'Refund for outbid on auction: 限量徽章' },
     ]);
     expect(repository.getAuction(5)).toMatchObject({ current_price: 100, highest_bidder_id: 1 });
   });
@@ -521,7 +604,7 @@ describe('MarketplaceService.bidAuction', () => {
     classroom.failCreditsFor = 1;
     classroom.failCreditsRefusal = { code: 'insufficient-credits', message: '积分不足' };
 
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 100 })).rejects.toMatchObject({
+    await expect(service.bidAuction(1, '5', { bid_amount: 100 })).rejects.toMatchObject({
       status: 400,
       message: 'Not enough points',
     });
@@ -538,42 +621,45 @@ describe('MarketplaceService.bidAuction', () => {
     classroom.failCreditsFor = 2;
     classroom.failCreditsRefusal = { code: 'student-not-found', message: '学生未找到' };
 
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 100 })).rejects.toMatchObject({
+    await expect(service.bidAuction(1, '5', { bid_amount: 100 })).rejects.toMatchObject({
       status: 404,
       message: 'Student not found',
     });
 
     expect(balances(classroom, 1)).toEqual({ total: 500, available: 200 });
     expect(balances(classroom, 2)).toEqual({ total: 300, available: 150 });
-    expect(classroom.ledger).toHaveLength(0);
+    expect(classroom.ledger.map((entry) => [entry.type, entry.amount])).toEqual([
+      ['AUCTION_BID', -100],
+      ['MARKETPLACE_AUCTION_BID_ROLLBACK', 100],
+    ]);
     expect(repository.getAuction(5)).toMatchObject({ current_price: 80, highest_bidder_id: 2 });
   });
 
   it('keeps the legacy validation order and messages', async () => {
-    await expect(service.bidAuction('999', { studentId: 1, bid_amount: 100 })).rejects.toThrow(
+    await expect(service.bidAuction(1, '999', { bid_amount: 100 })).rejects.toThrow(
       'Auction not found',
     );
 
     repository.auctions = [auction({ status: 'ended' })];
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 100 })).rejects.toThrow('Auction is not active');
+    await expect(service.bidAuction(1, '5', { bid_amount: 100 })).rejects.toThrow('Auction is not active');
 
     repository.auctions = [auction({ end_time: '2000-01-01T00:00:00.000Z' as unknown as string })];
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 100 })).rejects.toThrow('Auction has ended');
+    await expect(service.bidAuction(1, '5', { bid_amount: 100 })).rejects.toThrow('Auction has ended');
 
     repository.auctions = [auction()];
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 80 })).rejects.toThrow(
+    await expect(service.bidAuction(1, '5', { bid_amount: 80 })).rejects.toThrow(
       'Bid amount must be greater than current price: 80',
     );
 
     // A missing bid passes the two comparisons the legacy code made first (both are
     // `false` for `undefined`) and is then rejected by the amount validation, exactly
     // as `spendStudentPoints` did.
-    await expect(service.bidAuction('5', { studentId: 1 })).rejects.toThrow('Invalid amount');
+    await expect(service.bidAuction(1, '5', {})).rejects.toThrow('Invalid amount');
   });
 
   it('lets the standing highest bidder raise their own bid without a refund', async () => {
     repository.auctions = [auction({ highest_bidder_id: 1 })];
-    await service.bidAuction('5', { studentId: 1, bid_amount: 100 });
+    await service.bidAuction(1, '5', { bid_amount: 100 });
 
     expect(balances(classroom, 1)).toEqual({ total: 500, available: 100 });
     expect(classroom.ledger).toEqual([
@@ -583,7 +669,7 @@ describe('MarketplaceService.bidAuction', () => {
 
   it('gates the auction feature before reading the auction', async () => {
     classroom.students.get(1)!.features = new Set();
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 100 })).rejects.toMatchObject({
+    await expect(service.bidAuction(1, '5', { bid_amount: 100 })).rejects.toMatchObject({
       status: 403,
       message: '该功能当前已关闭',
     });
@@ -602,7 +688,7 @@ describe('MarketplaceService.buyBlindBox', () => {
   it('moves BOTH balances for the consolation prize and available only for the purchase', async () => {
     const service = new MarketplaceService(repository, classroom, () => 0.9);
 
-    const result = await service.buyBlindBox({ studentId: 1 });
+    const result = await service.buyBlindBox(1, {});
 
     expect(result).toEqual({ points: 110, reward: '谢谢参与 (获得安慰奖 10积分)' });
     // 200 - 100 + 10 available, and 500 + 10 total: the legacy console used
@@ -618,7 +704,7 @@ describe('MarketplaceService.buyBlindBox', () => {
   it('moves only the available balance for a winning roll', async () => {
     const service = new MarketplaceService(repository, classroom, () => 0);
 
-    const result = await service.buyBlindBox({ studentId: 1 });
+    const result = await service.buyBlindBox(1, {});
 
     expect(result).toEqual({ points: 100, reward: '稀有碎片 x1' });
     expect(balances(classroom, 1)).toEqual({ total: 500, available: 100 });
@@ -632,20 +718,20 @@ describe('MarketplaceService.buyBlindBox', () => {
     const service = new MarketplaceService(repository, classroom, () => 0.2);
 
     // `blindBoxId` is the legacy alias for `boxId`.
-    expect(await service.buyBlindBox({ studentId: 1, blindBoxId: 3 })).toEqual({
+    expect(await service.buyBlindBox(1, { blindBoxId: 3 })).toEqual({
       points: 160,
       reward: '普通碎片 x2',
     });
 
-    await expect(service.buyBlindBox({ studentId: 1, boxId: 999 })).rejects.toThrow('Blind box not found');
-    await expect(service.buyBlindBox({ studentId: 1, boxId: 4 })).rejects.toThrow('Blind box is not active');
+    await expect(service.buyBlindBox(1, { boxId: 999 })).rejects.toThrow('Blind box not found');
+    await expect(service.buyBlindBox(1, { boxId: 4 })).rejects.toThrow('Blind box is not active');
   });
 
   it('refuses an overdraft before spending anything', async () => {
     classroom.students.get(1)!.snapshot = { ...classroom.students.get(1)!.snapshot, availablePoints: 5 };
     const service = new MarketplaceService(repository, classroom, () => 0.9);
 
-    await expect(service.buyBlindBox({ studentId: 1 })).rejects.toMatchObject({
+    await expect(service.buyBlindBox(1, {})).rejects.toMatchObject({
       status: 400,
       message: 'Not enough points',
     });
@@ -692,15 +778,28 @@ describe('MarketplaceService auction administration', () => {
 
   it('lists auctions and blind boxes behind the actor gate', async () => {
     repository.auctions = [auction({ id: 5 }), auction({ id: 6 })];
-    repository.boxes = [blindBox({ id: 3 })];
+    repository.boxes = [blindBox({ id: 3 }), blindBox({ id: 4, is_active: 0 })];
 
-    expect(await service.listAuctions(null)).toHaveLength(2);
-    expect((await service.listAuctions(100)).map((entry) => entry.id)).toEqual([6, 5]);
-    expect(await service.listBlindBoxes(null)).toHaveLength(1);
+    // Teachers and admins read the board; the feature flag is a *student* gate, which is why
+    // the same call is then refused for the student actor alone.
+    expect(await service.listAuctions(teacher(7))).toHaveLength(2);
+    expect(await service.listAuctions(admin())).toHaveLength(2);
+    expect((await service.listAuctions(student(1, 100))).map((entry) => entry.id)).toEqual([6, 5]);
+
+    // Staff get the management listing (inactive boxes included); a student gets the shop
+    // listing - active boxes only - because the student shop page reads this same route.
+    expect((await service.listBlindBoxes(teacher(7))).map((entry) => entry.id)).toEqual([4, 3]);
+    expect((await service.listBlindBoxes(student(1, 100))).map((entry) => entry.id)).toEqual([3]);
 
     classroom.students.get(1)!.features = new Set();
-    await expect(service.listAuctions(100)).rejects.toMatchObject({ status: 403, message: '该功能当前已关闭' });
-    await expect(service.listBlindBoxes(100)).rejects.toMatchObject({ status: 403, message: '该功能当前已关闭' });
+    await expect(service.listAuctions(student(1, 100))).rejects.toMatchObject({
+      status: 403,
+      message: '该功能当前已关闭',
+    });
+    await expect(service.listBlindBoxes(student(1, 100))).rejects.toMatchObject({
+      status: 403,
+      message: '该功能当前已关闭',
+    });
   });
 });
 
@@ -884,7 +983,7 @@ describe('createMarketplaceRepository against a real ownership-checked DbApi', (
     const fake = classroom();
     const service = new MarketplaceService(createMarketplaceRepository(api), fake, () => 0.9);
 
-    await expect(service.buyItem({ studentId: 1, itemId: 1 })).resolves.toEqual({ points: 150 });
+    await expect(service.buyItem(1, { itemId: 1 })).resolves.toEqual({ points: 150 });
 
     expect(db.prepare('SELECT stock FROM shop_items WHERE id = 1').get()).toEqual({ stock: 1 });
     expect(db.prepare('SELECT student_id, item_id, status FROM redemption_tickets').all()).toEqual([
@@ -902,7 +1001,7 @@ describe('createMarketplaceRepository against a real ownership-checked DbApi', (
     const fake = classroom();
     const service = new MarketplaceService(createMarketplaceRepository(api), fake, () => 0.9);
 
-    await expect(service.bidAuction('5', { studentId: 1, bid_amount: 100 })).resolves.toEqual({ points: 100 });
+    await expect(service.bidAuction(1, '5', { bid_amount: 100 })).resolves.toEqual({ points: 100 });
 
     expect(db.prepare('SELECT current_price, highest_bidder_id FROM auctions WHERE id = 5').get()).toEqual({
       current_price: 100,

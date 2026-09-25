@@ -17,11 +17,25 @@ export interface StudentResponse {
   student: StudentDto;
 }
 
+export interface StudentMotivationSummary {
+  studentId: number;
+  growth: number;
+  collaboration: number;
+  competition: number;
+  participation: number;
+  availableCredits: number;
+  level: string;
+  schoolStage: 'general' | 'primary' | 'middle' | 'high';
+  parentBonusPercent: number;
+  parentBlessingActive: boolean;
+}
+
 export const studentsApi = {
   getStudents: (classId?: number | string | null) =>
     apiGet<StudentsResponse>(`/api/students${classId ? `?classId=${classId}` : ''}`),
 
   getStudentById: (id: number) => apiGet<StudentResponse>(`/api/students/${id}`),
+  getSummary: (id: number) => apiGet<{ success: true; summary: StudentMotivationSummary }>(`/api/students/${id}/summary`),
 
   createStudent: (payload: CreateStudentPayload) =>
     apiPost<{ success: true; message: string; student: StudentDto }>('/api/students', payload),
@@ -55,10 +69,10 @@ export const studentsApi = {
       `/api/students/${id}/achievements`,
     ),
 
-  updatePoints: (id: number, data: { amount: number; reason: string }) =>
-    apiPost<{ success: true; message: string }>(`/api/students/${id}/points`, data),
+  updatePoints: (id: number, data: { amount: number; reason: string; requestId?: string }) =>
+    apiPost<{ success: true; student: { total_points: number; available_points: number; applied: number; bonus: number } }>(`/api/students/${id}/points`, data),
 
-  batchPoints: (payload: BatchPointsPayload) => apiPost<{ success: true; message: string }>('/api/students/batch-points', payload),
+  batchPoints: (payload: BatchPointsPayload & { requestId?: string }) => apiPost<{ success: true; message: string; results: Array<{ studentId: number; applied: number; bonus: number; total_points: number; available_points: number }> }>('/api/students/batch-points', payload),
 
   batchEdit: (data: { studentIds: number[]; action: string; value: unknown }) =>
     apiPost<{ success: true; message: string }>('/api/students/batch-edit', data),

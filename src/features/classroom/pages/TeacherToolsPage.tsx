@@ -5,11 +5,12 @@ import { toast } from 'sonner';
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { launchConfetti } from '@/lib/confetti';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { cn } from '@/lib/utils';
 
 interface Student {
@@ -30,7 +31,8 @@ interface ClassItem {
  * button in a different hard-coded palette - purple, blue, orange, teal. The tints
  * are the kit's tone tokens now, and the digits keep their dark instrument panel:
  * that contrast is what makes a 6xl monospace number readable from the back of a
- * classroom, so it is the one deliberate survivor of the old styling.
+ * classroom, so it is the one deliberate survivor of the old styling - spelled with
+ * `bg-fg-1`, the product's darkest token, and the two status colours.
  *
  * Timers, intervals, confetti and every toast string are unchanged.
  */
@@ -177,6 +179,17 @@ export default function TeacherTools() {
     triggerConfetti();
   };
 
+  // The page's one action, reachable from the command palette as well as its button.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-tools:roll-call',
+      label: '开始抽取',
+      icon: Dice5,
+      run: handleStartRollCall,
+      disabled: rollCallState.isRolling,
+    },
+  ]);
+
   /** The tinted 10×10 icon block each widget's heading opens with. */
   const widgetIcon = (Icon: typeof Dice5, tint: string) => (
     <span className={cn('mr-3 flex h-10 w-10 items-center justify-center rounded-card', tint)}>
@@ -185,15 +198,9 @@ export default function TeacherTools() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader
-        title="教学工具"
-        description="随机点名、课堂倒计时、正向计时与随机分组"
-        icon={Dice5}
-      />
-
-      <div className="flex items-center space-x-2 overflow-x-auto rounded-card border border-border bg-paper/80 p-4 shadow-card backdrop-blur-xl">
-        <span className="mr-2 flex-shrink-0 text-sm font-bold text-ink-3">操作班级:</span>
+    <PageScaffold variant="dashboard">
+      <div className="flex items-center space-x-2 overflow-x-auto rounded-card border border-line-1 bg-surface-2/80 p-4 shadow-card backdrop-blur-xl">
+        <span className="mr-2 flex-shrink-0 text-sm font-bold text-fg-3">操作班级:</span>
         {classes.map((cls) => (
           <Button
             key={cls.id}
@@ -202,34 +209,34 @@ export default function TeacherTools() {
             className={cn(
               'flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
               selectedClassId === cls.id
-                ? 'bg-gradient-to-r from-primary to-cyan-500 text-white shadow-card'
-                : 'border border-border bg-muted/50 text-ink-2 hover:bg-muted/50',
+                ? 'bg-gradient-to-r from-role to-role-ink text-role-contrast shadow-card'
+                : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/50',
             )}
           >
             {cls.name}
           </Button>
         ))}
-        {classes.length === 0 && <span className="text-sm text-ink-3">暂无班级</span>}
+        {classes.length === 0 && <span className="text-sm text-fg-3">暂无班级</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Roll Call */}
         <Card className="flex flex-col rounded-panel">
           <CardContent className="flex flex-1 flex-col p-8">
-            <h2 className="mb-6 flex items-center text-xl font-bold text-ink-1">
-              {widgetIcon(Dice5, 'bg-accent text-accent-foreground')}
+            <h2 className="mb-6 flex items-center text-xl font-bold text-fg-1">
+              {widgetIcon(Dice5, 'bg-role-soft text-role-ink')}
               随机点名
             </h2>
             <div className="flex flex-1 flex-col items-center justify-center">
-              <div className="mb-8 flex h-32 w-full items-center justify-center rounded-card border border-border bg-muted/50 shadow-inner">
-                <span className="text-4xl font-bold text-ink-1">{rollCallState.currentName}</span>
+              <div className="mb-8 flex h-32 w-full items-center justify-center rounded-card border border-line-1 bg-surface-3/50 shadow-inner">
+                <span className="text-4xl font-bold text-fg-1">{rollCallState.currentName}</span>
               </div>
               <div className="flex w-full space-x-4">
                 <Button
                   type="button"
                   onClick={handleStartRollCall}
                   disabled={rollCallState.isRolling}
-                  className="h-auto flex-1 rounded-card bg-primary py-3 text-lg font-bold text-primary-foreground hover:bg-primary/90"
+                  className="h-auto flex-1 rounded-card bg-role py-3 text-lg font-bold text-role-contrast hover:bg-role/90"
                 >
                   开始抽取
                 </Button>
@@ -237,7 +244,7 @@ export default function TeacherTools() {
                   type="button"
                   onClick={handleStopRollCall}
                   disabled={!rollCallState.isRolling}
-                  className="h-auto flex-1 rounded-card bg-destructive py-3 text-lg font-bold text-destructive-foreground hover:bg-destructive/90"
+                  className="h-auto flex-1 rounded-card bg-danger py-3 text-lg font-bold text-fg-inverse hover:bg-danger/90"
                 >
                   停！
                 </Button>
@@ -249,13 +256,13 @@ export default function TeacherTools() {
         {/* Countdown Timer */}
         <Card className="flex flex-col rounded-panel">
           <CardContent className="flex flex-1 flex-col p-8">
-            <h2 className="mb-6 flex items-center text-xl font-bold text-ink-1">
+            <h2 className="mb-6 flex items-center text-xl font-bold text-fg-1">
               {widgetIcon(Timer, 'bg-info/10 text-info')}
               课堂倒计时
             </h2>
             <div className="flex flex-1 flex-col items-center justify-center">
-              <div className="mb-6 flex h-32 w-full items-center justify-center rounded-card border border-border bg-gray-900 shadow-inner">
-                <span className="font-mono text-6xl font-bold tracking-wider text-green-400">
+              <div className="mb-6 flex h-32 w-full items-center justify-center rounded-card border border-line-1 bg-fg-1 shadow-inner">
+                <span className="font-mono text-6xl font-bold tracking-wider text-success">
                   {formatTime(timerState.timeLeft > 0 ? timerState.timeLeft : timerState.inputMinutes * 60)}
                 </span>
               </div>
@@ -271,7 +278,7 @@ export default function TeacherTools() {
                       'h-auto rounded-card border-2 px-4 py-2 text-sm font-bold transition-colors',
                       timerState.inputMinutes === min
                         ? 'border-info bg-info/10 text-info hover:bg-info/10'
-                        : 'border-transparent bg-muted/50 text-ink-2 hover:bg-muted/50',
+                        : 'border-transparent bg-surface-3/50 text-fg-2 hover:bg-surface-3/50',
                     )}
                   >
                     {min} 分钟
@@ -284,7 +291,7 @@ export default function TeacherTools() {
                   type="button"
                   onClick={handleStartTimer}
                   disabled={timerState.isActive}
-                  className="h-auto flex-1 rounded-card bg-info py-3 font-bold text-info-foreground hover:bg-info/90"
+                  className="h-auto flex-1 rounded-card bg-info py-3 font-bold text-fg-inverse hover:bg-info/90"
                 >
                   {timerState.timeLeft > 0 ? '继续' : '开始计时'}
                 </Button>
@@ -292,7 +299,7 @@ export default function TeacherTools() {
                   type="button"
                   onClick={() => setTimerState(prev => ({ ...prev, isActive: false }))}
                   disabled={!timerState.isActive}
-                  className="h-auto flex-1 rounded-card bg-warning py-3 font-bold text-warning-foreground hover:bg-warning/90"
+                  className="h-auto flex-1 rounded-card bg-warning py-3 font-bold text-fg-inverse hover:bg-warning/90"
                 >
                   暂停
                 </Button>
@@ -312,13 +319,13 @@ export default function TeacherTools() {
         {/* Stopwatch */}
         <Card className="flex flex-col rounded-panel">
           <CardContent className="flex flex-1 flex-col p-8">
-            <h2 className="mb-6 flex items-center text-xl font-bold text-ink-1">
+            <h2 className="mb-6 flex items-center text-xl font-bold text-fg-1">
               {widgetIcon(Clock, 'bg-warning/10 text-warning')}
               正向计时器
             </h2>
             <div className="flex flex-1 flex-col items-center justify-center">
-              <div className="mb-8 flex h-32 w-full items-center justify-center rounded-card border border-border bg-gray-900 shadow-inner">
-                <span className="font-mono text-6xl font-bold tracking-wider text-orange-400">
+              <div className="mb-8 flex h-32 w-full items-center justify-center rounded-card border border-line-1 bg-fg-1 shadow-inner">
+                <span className="font-mono text-6xl font-bold tracking-wider text-warning">
                   {formatTime(stopwatchState.time)}
                 </span>
               </div>
@@ -327,10 +334,7 @@ export default function TeacherTools() {
                 <Button
                   type="button"
                   onClick={() => setStopwatchState(prev => ({ ...prev, isActive: !prev.isActive }))}
-                  className={cn(
-                    'h-auto flex-1 rounded-card font-bold text-white',
-                    stopwatchState.isActive ? 'bg-warning hover:bg-warning/90' : 'bg-orange-500 hover:bg-orange-600',
-                  )}
+                  className="h-auto flex-1 rounded-card bg-warning font-bold text-fg-inverse hover:bg-warning/90"
                 >
                   {stopwatchState.isActive ? '暂停计时' : (stopwatchState.time > 0 ? '继续计时' : '开始计时')}
                 </Button>
@@ -350,7 +354,7 @@ export default function TeacherTools() {
         {/* Group Generator */}
         <Card className="flex flex-col rounded-panel">
           <CardContent className="flex flex-1 flex-col p-8">
-            <h2 className="mb-6 flex items-center text-xl font-bold text-ink-1">
+            <h2 className="mb-6 flex items-center text-xl font-bold text-fg-1">
               {widgetIcon(Users, 'bg-success/10 text-success')}
               随机分组
             </h2>
@@ -370,7 +374,7 @@ export default function TeacherTools() {
                 <Button
                   type="button"
                   onClick={handleGenerateGroups}
-                  className="h-auto flex-1 self-end rounded-card bg-primary py-2 font-bold text-primary-foreground hover:bg-primary/90"
+                  className="h-auto flex-1 self-end rounded-card bg-role py-2 font-bold text-role-contrast hover:bg-role/90"
                 >
                   一键分组
                 </Button>
@@ -383,16 +387,16 @@ export default function TeacherTools() {
                       <div className="mb-2 border-b border-success/20 pb-1 text-xs font-bold text-success">
                         第 {index + 1} 组 ({group.length}人)
                       </div>
-                      <div className="flex flex-wrap gap-1 text-sm text-ink-2">
+                      <div className="flex flex-wrap gap-1 text-sm text-fg-2">
                         {group.map(s => (
-                          <span key={s.id} className="rounded border border-border bg-paper px-1.5 py-0.5 text-xs">{s.name}</span>
+                          <span key={s.id} className="rounded border border-line-1 bg-surface-2 px-1.5 py-0.5 text-xs">{s.name}</span>
                         ))}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-1 items-center justify-center rounded-card border-2 border-dashed border-border bg-muted/50 text-sm text-ink-3">
+                <div className="flex flex-1 items-center justify-center rounded-card border-2 border-dashed border-line-1 bg-surface-3/50 text-sm text-fg-3">
                   点击上方按钮生成随机小组
                 </div>
               )}
@@ -400,6 +404,6 @@ export default function TeacherTools() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageScaffold>
   );
 }

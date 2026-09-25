@@ -6,11 +6,20 @@ import { cn } from "@/lib/utils";
 /** The three roles a public login can be made as. */
 export type RoleType = "student" | "parent" | "teacher";
 
-/** Role class for the wrapper that scopes the palette - see `LoginPage`. */
-export const ROLE_THEME_CLASS: Record<RoleType, string> = {
-  student: "theme-student",
-  parent: "theme-parent",
-  teacher: "theme-teacher",
+/**
+ * The role scope, as an attribute.
+ *
+ * This replaced `ROLE_THEME_CLASS`, which returned `theme-student` and friends:
+ * those classes swapped the entire palette, so choosing "I am a parent" on the
+ * login screen repainted the brand green orange, and a dialog portalled to
+ * `<body>` missed the scope entirely. The role is now a single accent
+ * (`data-role` -> `--role*` in `index.css`), so the page keeps the product's
+ * green for meaning and only its accent moves.
+ */
+export const ROLE_SCOPE_ATTR: Record<RoleType, { 'data-role': RoleType }> = {
+  student: { 'data-role': 'student' },
+  parent: { 'data-role': 'parent' },
+  teacher: { 'data-role': 'teacher' },
 };
 
 const ROLES: Array<{ key: RoleType; label: string }> = [

@@ -51,6 +51,7 @@
 import type { ClassroomPort, ClassroomRefusal } from '@thinkclass/contracts/domains/classroom';
 import { ApiError } from '@thinkclass/kernel';
 
+import type { RequestActor } from './dungeon.authorization.js';
 import type { DungeonChoicePayload, DungeonRepository, DungeonRunRow, FloorChoice } from './dungeon.types.js';
 
 function positiveInteger(value: unknown, label: string) {
@@ -167,6 +168,52 @@ export class DungeonService {
     private readonly random = Math.random,
   ) {}
 
+  /**
+   * The actor-scope half of authorization for the acting routes: 403 unless `actor` is the student
+   * this row belongs to.
+   *
+   * The claim is resolved from the actor - its `studentId` when the host's scope resolver filled it
+   * in, otherwise the student bound to the login's `userId` through `classroom.public` - so an
+   * authenticated caller cannot advance, or collect the reward for, another student's run.
+   */
+  async assertSelfStudent(actor: RequestActor, studentIdInput: unknown): Promise<void> {
+    const studentId = positiveInteger(studentIdInput, 'Student id');
+    if (actor.role !== 'student' || (await this.ownStudentId(actor)) !== studentId) {
+      throw new ApiError(403, '无权限使用该学生账号');
+    }
+  }
+
+  /**
+   * The actor-scope half of authorization for the read routes: the student's own row, or a teacher
+   * who teaches the class that row is in (the matrix allows `teacher（本班，只读）`).
+   */
+  async assertStudentReadable(actor: RequestActor, studentIdInput: unknown): Promise<void> {
+    const studentId = positiveInteger(studentIdInput, 'Student id');
+
+    if (actor.role === 'student') {
+      if ((await this.ownStudentId(actor)) !== studentId) throw new ApiError(403, '无权限查看该学生');
+      return;
+    }
+
+    if (actor.role === 'teacher') {
+      const student = await this.classroom.getStudentById(studentId);
+      if (!student) throw new ApiError(404, '学生未找到');
+      const owned = actor.id === null ? [] : await this.classroom.listClassIdsByTeacher(actor.id);
+      if (!owned.includes(student.classId)) throw new ApiError(403, '无权限查看该学生');
+      return;
+    }
+
+    throw new ApiError(403, '无权限查看该学生');
+  }
+
+  /** The student row this login owns, or `null` when the account is unbound. */
+  private async ownStudentId(actor: RequestActor): Promise<number | null> {
+    if (actor.studentId) return actor.studentId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.id ?? null;
+  }
+
   async getRun(studentIdInput: unknown) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
     await this.requireDungeonStudent(studentId);
@@ -270,19 +317,12 @@ export class DungeonService {
    * the balance is untouched by a dungeon reward.
    */
   private async grantReward(studentId: number, amount: number, floor: number): Promise<void> {
-    const moved = await this.classroom.transferStudentCredits({
+    await this.classroom.awardStudentPoints({
       studentId,
-      delta: amount,
-      reason: 'dungeon.reward',
-      actorId: 0,
-    });
-    if (moved.refusal) throw toApiError(moved.refusal);
-
-    await this.classroom.recordStudentLedgerEntry({
-      studentId,
-      type: 'DUNGEON_REWARD',
       amount,
+      type: 'DUNGEON_REWARD',
       description: `Found treasure on floor ${floor}`,
+      actorId: 0,
     });
   }
 }

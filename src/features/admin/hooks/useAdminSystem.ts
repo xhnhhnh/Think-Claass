@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminClient, type AdminCredentials } from '@/features/admin/api/adminClient';
 import type {
   AdminSession,
+  AiConnectionTestResult,
   DatabaseImportResult,
   DatabaseResetResult,
   ReleaseUpdateStatus,
@@ -45,6 +46,19 @@ export function useUpdateAdminSystemSettingsMutation() {
     onSuccess: (settings) => {
       queryClient.setQueryData(adminQueryKeys.settings, settings);
     },
+  });
+}
+
+/**
+ * `POST /api/admin/system/ai/test` - the AI panel's 测试连接.
+ *
+ * A mutation rather than a query because it is an action with a side effect outside the process (one
+ * outbound model call), and because it must never be prefetched, cached or refired on focus. Nothing
+ * is invalidated: the response *is* the state, so the panel renders it directly.
+ */
+export function useTestAiConnectionMutation() {
+  return useMutation<AiConnectionTestResult, Error, void>({
+    mutationFn: () => adminClient.testAiConnection(),
   });
 }
 

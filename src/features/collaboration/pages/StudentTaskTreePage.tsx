@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { GitBranch, Lock, CheckCircle2, Unlock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import { useCompleteTaskNodeMutation, useStudentTaskNodes } from '@/features/collaboration/hooks/useTaskTree';
 import type { StudentTaskNode } from '@/features/collaboration/api/taskTreeApi';
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 
@@ -25,15 +25,15 @@ import { cn } from '@/lib/utils';
  *
  * The starfield canvas is the feature, so it keeps its dark stage, its glowing nodes and
  * the spring entrance on each one - it now matches the teacher's editor, which P6 moved
- * onto `bg-secondary-foreground` + `from-primary/30`. Two things had to leave the canvas:
- * the two hard-coded stroke colours, which are `currentColor` on a `text-*` class now (so
- * the linked and the locked states survive as tokens), and the inline position that placed
- * a node - the same coordinates ride on the `motion` element's `animate`, which is where
- * its scale entrance already lived.
+ * onto `bg-fg-1` + `from-role/30`. Two things had to leave the canvas: the two hard-coded
+ * stroke colours, which are `currentColor` on a `text-*` class now (so the linked and the
+ * locked states survive as tokens), and the inline position that placed a node - the same
+ * coordinates ride on the `motion` element's `animate`, which is where its scale entrance
+ * already lived.
  *
- * "可学习" is the `info` token rather than `primary`, deliberately: completed and
- * unlockable would otherwise both be the brand green on a dark canvas, and telling them
- * apart is the whole point of the node. Sky is the product's second supporting accent.
+ * "可学习" is the `info` token rather than `role`, deliberately: completed and unlockable
+ * would otherwise both be the brand green on a dark canvas, and telling them apart is the
+ * whole point of the node. Sky is the product's second supporting accent.
  */
 export default function StudentTaskTree() {
   const user = useStore(state => state.user);
@@ -42,6 +42,7 @@ export default function StudentTaskTree() {
   const completeMutation = useCompleteTaskNodeMutation(studentId);
   const [selectedNode, setSelectedNode] = useState<StudentTaskNode | null>(null);
   const completing = completeMutation.isPending;
+  const shouldReduceMotion = useReducedMotion();
 
   const handleComplete = async () => {
     if (!selectedNode || !user) return;
@@ -56,10 +57,12 @@ export default function StudentTaskTree() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 p-12 text-ink-3">
-        <Spinner size="lg" label="正在加载技能树" />
-        加载中...
-      </div>
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="flex items-center justify-center gap-2 text-fg-3">
+          <Spinner size="lg" label="正在加载技能树" />
+          加载中...
+        </div>
+      </PageScaffold>
     );
   }
 
@@ -81,139 +84,155 @@ export default function StudentTaskTree() {
         stroke="currentColor"
         strokeWidth="3"
         strokeDasharray={isActive ? "none" : "5,5"}
-        className={isActive ? "animate-pulse text-primary" : "text-primary-foreground/20"}
+        className={isActive ? "animate-pulse text-role" : "text-fg-inverse/20"}
       />
     );
   }).filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-8">
-      <PageHeader
-        title="魔法技能树"
-        description="解锁前置节点，攀登魔法巅峰！"
-        icon={GitBranch}
-        className="mb-8"
-      />
+    <PageScaffold variant="immersive" className="min-h-dvh px-4 pb-12 pt-16 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-8">
+        {/* The immersive shell renders no context bar, so the page keeps its own heading. */}
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-card bg-role-soft text-role-ink">
+            <GitBranch aria-hidden="true" className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-bold tracking-tight text-fg-1">魔法技能树</h2>
+            <p className="mt-1 text-sm text-fg-3">解锁前置节点，攀登魔法巅峰！</p>
+          </div>
+        </div>
 
-      <div className="relative min-h-[600px] overflow-hidden rounded-panel border border-accent-foreground bg-secondary-foreground p-6 shadow-raised">
-        {/* Starry background */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/30 via-secondary-foreground to-foreground opacity-60" />
+        <div className="relative min-h-[600px] overflow-hidden rounded-panel border border-role-ink bg-fg-1 p-6 shadow-raised">
+          {/* Starry background */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-role/30 via-fg-1 to-fg-1 opacity-60" />
 
-        {/* Connections Layer */}
-        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full">
-          {lines}
-        </svg>
+          {/* Connections Layer */}
+          <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full">
+            {lines}
+          </svg>
 
-        {/* Nodes Layer */}
-        {nodes.map(node => (
-          <motion.div
-            key={node.id}
-            initial={{ scale: 0, opacity: 0, left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
-            animate={{ scale: 1, opacity: 1, left: `calc(${node.x_pos}% - 2rem)`, top: `calc(${node.y_pos}% - 2rem)` }}
-            transition={{ type: 'spring', bounce: 0.35 }}
-            whileHover={{ scale: 1.1 }}
-            className="absolute z-10"
-          >
-            <Button
-              type="button"
-              variant="outline"
-              aria-label={node.title}
-              onClick={() => setSelectedNode(node)}
-              className={cn(
-                'size-16 rounded-full border-4 p-0',
-                node.status === 'completed'
-                  ? 'border-success/40 bg-success text-success-foreground shadow-glow-primary'
-                  : node.status === 'unlocked'
-                    ? 'animate-pulse border-info/40 bg-info text-info-foreground shadow-glow-primary'
-                    : 'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/40',
-              )}
+          {/* Nodes Layer */}
+          {nodes.map(node => (
+            <motion.div
+              key={node.id}
+              initial={{
+                opacity: 0,
+                left: `calc(${node.x_pos}% - 2rem)`,
+                top: `calc(${node.y_pos}% - 2rem)`,
+                ...(shouldReduceMotion ? {} : { scale: 0 }),
+              }}
+              animate={{
+                opacity: 1,
+                left: `calc(${node.x_pos}% - 2rem)`,
+                top: `calc(${node.y_pos}% - 2rem)`,
+                ...(shouldReduceMotion ? {} : { scale: 1 }),
+              }}
+              transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', bounce: 0.35 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.1 }}
+              className="absolute z-10"
             >
-              {node.status === 'completed' && <CheckCircle2 className="size-8" />}
-              {node.status === 'unlocked' && <Unlock className="size-8" />}
-              {node.status === 'locked' && <Lock className="size-6" />}
-            </Button>
-
-            {/* Label */}
-            <div className="absolute left-1/2 top-full mt-2 w-32 -translate-x-1/2 text-center">
-              <span className={cn('text-sm font-bold drop-shadow-md', node.status !== 'locked' ? 'text-primary-foreground/90' : 'text-primary-foreground/40')}>
-                {node.title}
-              </span>
-            </div>
-          </motion.div>
-        ))}
-
-        {nodes.length === 0 && (
-          <EmptyState
-            icon={GitBranch}
-            title="暂无技能节点"
-            description="老师还没有布置技能树"
-            className="absolute inset-0 border-primary-foreground/25 bg-transparent [&_div]:text-primary-foreground"
-          />
-        )}
-      </div>
-
-      {/* Node Detail Modal */}
-      <Dialog open={Boolean(selectedNode)} onOpenChange={(open) => !open && setSelectedNode(null)}>
-        <DialogContent className="sm:max-w-md">
-          {selectedNode ? (
-            <>
-              <DialogHeader>
-                <div className="flex items-start gap-4">
-                  <span className={cn(
-                    'flex size-12 shrink-0 items-center justify-center rounded-card',
-                    selectedNode.status === 'completed' ? 'bg-success/10 text-success' :
-                    selectedNode.status === 'unlocked' ? 'bg-info/10 text-info' :
-                    'bg-muted/50 text-ink-3',
-                  )}>
-                    {selectedNode.status === 'completed' && <CheckCircle2 className="size-6" />}
-                    {selectedNode.status === 'unlocked' && <Unlock className="size-6" />}
-                    {selectedNode.status === 'locked' && <Lock className="size-6" />}
-                  </span>
-                  <div className="space-y-2">
-                    <DialogTitle className="text-xl font-bold text-ink-1">{selectedNode.title}</DialogTitle>
-                    <Badge variant={
-                      selectedNode.status === 'completed' ? 'success' :
-                      selectedNode.status === 'unlocked' ? 'info' : 'secondary'
-                    }>
-                      {selectedNode.status === 'completed' ? '已掌握' :
-                       selectedNode.status === 'unlocked' ? '可学习' : '未解锁'}
-                    </Badge>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <p className="text-sm leading-relaxed text-ink-2">
-                  {selectedNode.description || '暂无描述'}
-                </p>
-                {selectedNode.points_reward > 0 && (
-                  <div className="flex items-center rounded-card border border-warning/20 bg-warning/10 px-4 py-3 font-bold text-warning">
-                    <span className="mr-2">🎁 完成奖励:</span>
-                    +{selectedNode.points_reward} 积分
-                  </div>
+              <Button
+                type="button"
+                variant="outline"
+                aria-label={node.title}
+                onClick={() => setSelectedNode(node)}
+                className={cn(
+                  'size-16 rounded-full border-4 p-0',
+                  node.status === 'completed'
+                    ? 'border-success/40 bg-success text-fg-inverse shadow-glow-role'
+                    : node.status === 'unlocked'
+                      ? 'animate-pulse border-info/40 bg-info text-fg-inverse shadow-glow-role'
+                      : 'border-fg-inverse/20 bg-fg-inverse/10 text-fg-inverse/40',
                 )}
+              >
+                {node.status === 'completed' && <CheckCircle2 className="size-8" />}
+                {node.status === 'unlocked' && <Unlock className="size-8" />}
+                {node.status === 'locked' && <Lock className="size-6" />}
+              </Button>
+
+              {/* Label */}
+              <div className="absolute left-1/2 top-full mt-2 w-32 -translate-x-1/2 text-center">
+                <span className={cn('text-sm font-bold drop-shadow-md', node.status !== 'locked' ? 'text-fg-inverse/90' : 'text-fg-inverse/40')}>
+                  {node.title}
+                </span>
               </div>
+            </motion.div>
+          ))}
 
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedNode(null)}
-                >
-                  关闭
-                </Button>
-                {selectedNode.status === 'unlocked' && (
+          {nodes.length === 0 && (
+            <EmptyState
+              icon={GitBranch}
+              title="暂无技能节点"
+              description="老师还没有布置技能树"
+              className="absolute inset-0 border-fg-inverse/25 bg-transparent [&_div]:text-fg-inverse"
+            />
+          )}
+        </div>
+
+        {/* Node Detail Modal */}
+        <Dialog open={Boolean(selectedNode)} onOpenChange={(open) => !open && setSelectedNode(null)}>
+          <DialogContent className="sm:max-w-md">
+            {selectedNode ? (
+              <>
+                <DialogHeader>
+                  <div className="flex items-start gap-4">
+                    <span className={cn(
+                      'flex size-12 shrink-0 items-center justify-center rounded-card',
+                      selectedNode.status === 'completed' ? 'bg-success/10 text-success' :
+                      selectedNode.status === 'unlocked' ? 'bg-info/10 text-info' :
+                      'bg-surface-3 text-fg-3',
+                    )}>
+                      {selectedNode.status === 'completed' && <CheckCircle2 className="size-6" />}
+                      {selectedNode.status === 'unlocked' && <Unlock className="size-6" />}
+                      {selectedNode.status === 'locked' && <Lock className="size-6" />}
+                    </span>
+                    <div className="space-y-2">
+                      <DialogTitle className="text-xl font-bold text-fg-1">{selectedNode.title}</DialogTitle>
+                      <Badge variant={
+                        selectedNode.status === 'completed' ? 'success' :
+                        selectedNode.status === 'unlocked' ? 'info' : 'secondary'
+                      }>
+                        {selectedNode.status === 'completed' ? '已掌握' :
+                         selectedNode.status === 'unlocked' ? '可学习' : '未解锁'}
+                      </Badge>
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <p className="text-sm leading-relaxed text-fg-2">
+                    {selectedNode.description || '暂无描述'}
+                  </p>
+                  {selectedNode.points_reward > 0 && (
+                    <div className="flex items-center rounded-card border border-warning/20 bg-warning/10 px-4 py-3 font-bold text-warning">
+                      <span className="mr-2">🎁 完成奖励:</span>
+                      +{selectedNode.points_reward} 积分
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
                   <Button
-                    onClick={handleComplete}
-                    disabled={completing}
+                    variant="outline"
+                    onClick={() => setSelectedNode(null)}
                   >
-                    {completing ? '提交中...' : '完成此节点'}
+                    关闭
                   </Button>
-                )}
-              </DialogFooter>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
+                  {selectedNode.status === 'unlocked' && (
+                    <Button
+                      onClick={handleComplete}
+                      disabled={completing}
+                    >
+                      {completing ? '提交中...' : '完成此节点'}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PageScaffold>
   );
 }

@@ -19,68 +19,98 @@
  * filter (`renderError`) that duck-types `status`/`statusCode` and renders exactly
  * the same envelope. So the try/catch is gone without the observable body moving.
  *
- * Authorization is intentionally NOT added here. HANDOFF §10 records that only routes
- * calling `requireActorRole` are protected and most read the actor directly; changing
- * that is the "systematic authorization" work that lands with plugin permission
- * declarations, not with a relocation. Adding checks here would silently change the
- * contract this round is supposed to preserve.
+ * Authorization is enforced here now. The matrix rules every route
+ * `student（本人）/teacher（本班，只读）`, so:
+ *
+ *   - the role gate answers 401 for an anonymous caller and 403 for a role that may not call the
+ *     route at all - a teacher may read a run but never start, advance or abandon one;
+ *   - `DungeonService.assertSelfStudent` / `assertStudentReadable` answer 403 for a caller who is
+ *     known but naming a student that is not theirs, resolved from the actor through
+ *     `classroom.public` - the URL's `:studentId` is never identity.
  */
 
-import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 
+import { requireActorRole } from './dungeon.authorization.js';
 import { DungeonService } from './dungeon.service.js';
 
 function ok<T>(data: T, legacyPayload: Record<string, unknown> = {}) {
   return { success: true, data, ...legacyPayload };
 }
 
+/** Reading a run: the student's own row, or the teacher of that student's class. */
+const READERS = ['student', 'teacher'];
+/** Acting on a run - start, choose, abandon - is the student's own row only. */
+const ACTORS = ['student'];
+
 @Controller('api/dungeon')
 export class DungeonController {
   constructor(@Inject(DungeonService) private readonly dungeonService: DungeonService) {}
 
   @Get('students/:studentId/run')
-  async run(@Param('studentId') studentId: string) {
+  async run(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, READERS);
+    await this.dungeonService.assertStudentReadable(actor, studentId);
     const data = await this.dungeonService.getRun(studentId);
     return ok(data, data);
   }
 
   @Post('students/:studentId/start')
-  async start(@Param('studentId') studentId: string) {
+  async start(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ACTORS);
+    await this.dungeonService.assertSelfStudent(actor, studentId);
     const data = await this.dungeonService.startRun(studentId);
     return ok(data, data);
   }
 
   @Post('students/:studentId/choices')
-  async choose(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+  async choose(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ACTORS);
+    await this.dungeonService.assertSelfStudent(actor, studentId);
     const data = await this.dungeonService.choose(studentId, body as never);
     return ok(data, data);
   }
 
   @Post('students/:studentId/abandon')
-  async abandon(@Param('studentId') studentId: string) {
+  async abandon(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ACTORS);
+    await this.dungeonService.assertSelfStudent(actor, studentId);
     return ok(await this.dungeonService.abandon(studentId));
   }
 
   @Get(':studentId')
-  async legacyRun(@Param('studentId') studentId: string) {
+  async legacyRun(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, READERS);
+    await this.dungeonService.assertStudentReadable(actor, studentId);
     const data = await this.dungeonService.getRun(studentId);
     return { success: true, ...data };
   }
 
   @Post('start/:studentId')
-  async legacyStart(@Param('studentId') studentId: string) {
+  async legacyStart(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ACTORS);
+    await this.dungeonService.assertSelfStudent(actor, studentId);
     const data = await this.dungeonService.startRun(studentId);
     return { success: true, ...data };
   }
 
   @Post('choice/:studentId')
-  async legacyChoice(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+  async legacyChoice(
+    @Req() req: Request,
+    @Param('studentId') studentId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const actor = requireActorRole(req, ACTORS);
+    await this.dungeonService.assertSelfStudent(actor, studentId);
     const data = await this.dungeonService.choose(studentId, body as never);
     return { success: true, ...data };
   }
 
   @Post('abandon/:studentId')
-  async legacyAbandon(@Param('studentId') studentId: string) {
+  async legacyAbandon(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ACTORS);
+    await this.dungeonService.assertSelfStudent(actor, studentId);
     await this.dungeonService.abandon(studentId);
     return { success: true };
   }

@@ -3,6 +3,7 @@ import type {
   ActivationCodeListItem,
   AdminAnnouncementListItem,
   AdminSession,
+  AiConnectionTestResult,
   AuditLogListResponse,
   AuditLogQuery,
   DatabaseImportResult,
@@ -62,6 +63,18 @@ export const adminClient = {
 
   resetDatabase: async (): Promise<DatabaseResetResult> => {
     const response = await apiPost<{ success: true; data: DatabaseResetResult }>('/api/admin/system/database/reset');
+    return unwrapData(response);
+  },
+
+  /**
+   * `POST /api/admin/system/ai/test` - one outbound call to the configured model.
+   *
+   * The provider belongs to the optional `homework` plugin; this client knows only that the route
+   * answers with a state and a sentence. `ok: false` is a normal 200: an unreachable model is a
+   * result the operator reads, not a failed request.
+   */
+  testAiConnection: async (): Promise<AiConnectionTestResult> => {
+    const response = await apiPost<{ success: true; data: AiConnectionTestResult }>('/api/admin/system/ai/test');
     return unwrapData(response);
   },
 

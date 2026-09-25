@@ -64,6 +64,7 @@ function fakeService() {
     listStudents: vi.fn().mockReturnValue([{ id: 1, name: 'Ada' }]),
     getRecords: vi.fn().mockReturnValue([{ id: 3 }]),
     getProgressStar: vi.fn().mockReturnValue([{ id: 4 }]),
+    getStudentSummary: vi.fn().mockReturnValue({ studentId: 1, growth: 5 }),
     checkin: vi.fn().mockReturnValue({ student: { total_points: 5 }, message: '签到成功，获得 5 积分' }),
     gift: vi.fn().mockReturnValue({ message: 'Gift sent successfully' }),
     batchImport: vi
@@ -89,6 +90,9 @@ function fakeService() {
     getClassFeatures: vi
       .fn()
       .mockReturnValue({ classId: 1, features: { enable_peer_review: true }, pet_selection_mode: 'random' }),
+    getIncentivePolicy: vi.fn().mockReturnValue({ classId: 1, schoolStage: 'general', parentBonusPercent: 0, teamRankingsVisible: true }),
+    updateIncentivePolicy: vi.fn().mockReturnValue({ classId: 1, schoolStage: 'primary', parentBonusPercent: 5, teamRankingsVisible: true }),
+    getWeeklyTeamScores: vi.fn().mockReturnValue([]),
     getBigscreen: vi.fn().mockReturnValue({
       class: { id: 1 },
       topStudents: [],
@@ -156,6 +160,7 @@ const EXPECTED_ROUTES = [
   'GET /api/students',
   'GET /api/students/records',
   'GET /api/students/progress-star',
+  'GET /api/students/:id/summary',
   'POST /api/students/checkin',
   'POST /api/students/gift',
   'POST /api/students/batch-import',
@@ -183,6 +188,12 @@ const EXPECTED_ROUTES = [
   'GET /api/class/:id',
   'GET /api/classes/:id/features',
   'GET /api/class/:id/features',
+  'GET /api/classes/:id/incentive-policy',
+  'GET /api/class/:id/incentive-policy',
+  'PUT /api/classes/:id/incentive-policy',
+  'PUT /api/class/:id/incentive-policy',
+  'GET /api/classes/:id/team-ranking',
+  'GET /api/class/:id/team-ranking',
   'GET /api/classes/:id/bigscreen',
   'GET /api/class/:id/bigscreen',
   'GET /api/classes/:id/guild-ranking',
@@ -280,6 +291,7 @@ describe('classroom controllers: route inventory and envelopes', () => {
     ['GET', '/api/students', (c) => c.students.listStudents('2'), { success: true, students: [{ id: 1, name: 'Ada' }] }],
     ['GET', '/api/students/records', (c) => c.students.getRecords({ studentId: '1' }), { success: true, records: [{ id: 3 }] }],
     ['GET', '/api/students/progress-star', (c) => c.students.getProgressStar('2'), { success: true, students: [{ id: 4 }] }],
+    ['GET', '/api/students/:id/summary', (c) => c.students.getStudentSummary(c.req, '1'), { success: true, summary: { studentId: 1, growth: 5 } }],
     [
       'POST',
       '/api/students/checkin',
@@ -392,6 +404,11 @@ describe('classroom controllers: route inventory and envelopes', () => {
       (c) => c.classes.getClassFeatures('1'),
       { success: true, classId: 1, features: { enable_peer_review: true }, pet_selection_mode: 'random' },
     ],
+    ...(['api/classes', 'api/class'] as const).flatMap((base): Array<[string, string, (c: ReturnType<typeof controllers>) => unknown, unknown]> => [
+      ['GET', `/${base}/:id/incentive-policy`, (c) => c.classes.getIncentivePolicy(c.req, '1'), { success: true, policy: { classId: 1, schoolStage: 'general', parentBonusPercent: 0, teamRankingsVisible: true } }],
+      ['PUT', `/${base}/:id/incentive-policy`, (c) => c.classes.updateIncentivePolicy(c.req, '1', { schoolStage: 'primary', parentBonusPercent: 5 }), { success: true, policy: { classId: 1, schoolStage: 'primary', parentBonusPercent: 5, teamRankingsVisible: true } }],
+      ['GET', `/${base}/:id/team-ranking`, (c) => c.classes.getWeeklyTeamScores(c.req, '1', 'collaboration'), { success: true, rankings: [] }],
+    ]),
     [
       'GET',
       '/api/classes/:id/bigscreen',
@@ -463,8 +480,8 @@ describe('classroom controllers: route inventory and envelopes', () => {
 
   it('declares exactly the 47 METHOD+PATH pairs the endpoint snapshot records', () => {
     // Non-vacuity for the literal inventory: the count is the migration's whole point.
-    expect(EXPECTED_ROUTES).toHaveLength(47);
-    expect(new Set(EXPECTED_ROUTES).size).toBe(47);
+    expect(EXPECTED_ROUTES).toHaveLength(54);
+    expect(new Set(EXPECTED_ROUTES).size).toBe(54);
 
     // The envelope table and the literal inventory must describe the same 47 routes.
     const fromTable = new Set(routeCases.map(([method, path]) => `${method} ${path}`));
@@ -474,15 +491,15 @@ describe('classroom controllers: route inventory and envelopes', () => {
     // Nest's own metadata must match, exactly: one extra or missing route fails here. This is
     // the assertion a stray second `@Controller` base - or a handler added under the wrong
     // controller - trips, independently of the envelope table.
-    expect(NEST_DECLARED_ROUTES).toHaveLength(47);
+    expect(NEST_DECLARED_ROUTES).toHaveLength(54);
     const fromMetadata = new Set(NEST_DECLARED_ROUTES.map((entry) => entry.route));
     expect(notIn(EXPECTED_ROUTES, fromMetadata), 'Nest does not register an expected route').toEqual([]);
     expect(notIn(fromMetadata, new Set(EXPECTED_ROUTES)), 'Nest registers an unexpected route').toEqual([]);
 
     // Per-controller counts, so a base moved from one controller to another is named.
     expect(countByController(NEST_DECLARED_ROUTES)).toEqual({
-      StudentsController: 18,
-      ClassesController: 18,
+      StudentsController: 19,
+      ClassesController: 24,
       GroupsController: 3,
       PresetsController: 3,
       AttendanceController: 2,
@@ -554,7 +571,7 @@ describe('classroom controllers: route inventory and envelopes', () => {
     );
     const fromMetadata = new Set(NEST_DECLARED_ROUTES.map((entry) => entry.route));
 
-    expect(extracted.size, 'the extractor found no routes in the controllers file').toBe(47);
+    expect(extracted.size, 'the extractor found no routes in the controllers file').toBe(54);
     expect(notIn(fromMetadata, extracted), 'the extractor misses routes Nest registers').toEqual([]);
     expect(notIn(extracted, fromMetadata), 'the extractor invents routes Nest does not register').toEqual([]);
   });
@@ -570,7 +587,7 @@ describe('classroom controllers: route inventory and envelopes', () => {
     // 37 declaration rows: the two-base classes controller and the four-path PUT express their
     // aliases through `compat`, which is the SDK's own alias mechanism (see
     // packages/plugin-sdk/src/manifest.ts). Expanding them must reproduce the inventory.
-    expect(rows).toHaveLength(37);
+    expect(rows).toHaveLength(41);
     expect(notIn(EXPECTED_ROUTES, advertised), 'the manifest is missing a route the controllers declare').toEqual([]);
     expect(notIn(advertised, new Set(EXPECTED_ROUTES)), 'the manifest advertises a route no controller declares').toEqual(
       [],

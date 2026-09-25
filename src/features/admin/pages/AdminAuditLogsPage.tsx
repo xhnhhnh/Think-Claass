@@ -3,13 +3,14 @@ import { toast } from 'sonner';
 import { Calendar, RefreshCw, Search, Shield } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Toolbar } from '@/components/ui/toolbar';
 
 interface AuditLog {
@@ -27,8 +28,12 @@ interface AuditLog {
  *
  * The list was a hand-written `<table>` that carried its own "加载中..." row and its own
  * empty row; `DataTable` owns both states now, and the hand-built filter card above it
- * became a `Toolbar`. The filters still only fill state - the query is issued by 查询
- * and by a page change, so typing never hits the API, exactly as before.
+ * became the scaffold's `toolbar` slot, which `variant="list"` keeps stuck to the top
+ * while the table scrolls. The filters still only fill state - the query is issued by
+ * 查询 and by a page change, so typing never hits the API, exactly as before.
+ *
+ * The heading is the scaffold's `title` (suppressed while the shell renders the route's
+ * `h1`); 刷新数据 is both the scaffold's `actions` entry and a command-palette command.
  *
  * The action filter is the toolbar's search slot because it is the page's one
  * search-shaped control; `searchLabel` keeps 操作类型 (Action) as its accessible name
@@ -115,81 +120,90 @@ export default function AdminAuditLogs() {
 
   const totalPages = Math.ceil(total / limit);
 
+  useRegisterPageCommands([
+    {
+      id: 'admin-audit-logs:refresh',
+      label: '刷新数据',
+      icon: RefreshCw,
+      keywords: ['审计日志', '刷新'],
+      run: () => void fetchLogs(),
+    },
+  ]);
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="系统审计日志"
-        description="查看系统的所有关键操作记录，用于安全审计和追踪溯源"
-        icon={Shield}
-        actions={
-          <Button variant="outline" onClick={fetchLogs} disabled={loading}>
-            <RefreshCw data-icon="inline-start" className={loading ? 'animate-spin' : undefined} />
-            刷新数据
-          </Button>
-        }
-      />
-
-      {/*
-        The form wraps the whole toolbar so Enter still submits from any filter, which
-        is what the hand-written `<form>` around the old filter panel did.
-      */}
-      <form onSubmit={handleSearch}>
-        <Toolbar
-          search={{
-            value: actionFilter,
-            onChange: setActionFilter,
-            placeholder: '例如: LOGIN, UPDATE_USER',
-          }}
-          searchLabel="操作类型 (Action)"
-          filters={
-            <>
-              <FormField label="教师 ID" className="w-full sm:w-40">
-                <Input
-                  type="number"
-                  value={teacherId}
-                  onChange={(e) => setTeacherId(e.target.value)}
-                  placeholder="输入教师 ID"
-                />
-              </FormField>
-              <FormField label="用户 ID" className="w-full sm:w-40">
-                <Input
-                  type="number"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="输入用户 ID"
-                />
-              </FormField>
-            </>
-          }
-          actions={
-            <>
-              <Button type="submit">
-                <Search data-icon="inline-start" />
-                查询
-              </Button>
-              <Button type="button" variant="outline" onClick={handleReset}>
-                重置
-              </Button>
-            </>
-          }
-        />
-      </form>
-
+    <PageScaffold
+      variant="list"
+      title="系统审计日志"
+      description="查看系统的所有关键操作记录，用于安全审计和追踪溯源"
+      actions={
+        <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+          <RefreshCw data-icon="inline-start" className={loading ? 'animate-spin' : undefined} />
+          刷新数据
+        </Button>
+      }
+      toolbar={
+        /*
+          The form wraps the whole toolbar so Enter still submits from any filter, which
+          is what the hand-written `<form>` around the old filter panel did.
+        */
+        <form onSubmit={handleSearch}>
+          <Toolbar
+            search={{
+              value: actionFilter,
+              onChange: setActionFilter,
+              placeholder: '例如: LOGIN, UPDATE_USER',
+            }}
+            searchLabel="操作类型 (Action)"
+            filters={
+              <>
+                <FormField label="教师 ID" className="w-full sm:w-40">
+                  <Input
+                    type="number"
+                    value={teacherId}
+                    onChange={(e) => setTeacherId(e.target.value)}
+                    placeholder="输入教师 ID"
+                  />
+                </FormField>
+                <FormField label="用户 ID" className="w-full sm:w-40">
+                  <Input
+                    type="number"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    placeholder="输入用户 ID"
+                  />
+                </FormField>
+              </>
+            }
+            actions={
+              <>
+                <Button type="submit">
+                  <Search data-icon="inline-start" />
+                  查询
+                </Button>
+                <Button type="button" variant="outline" onClick={handleReset}>
+                  重置
+                </Button>
+              </>
+            }
+          />
+        </form>
+      }
+    >
       <DataTable<AuditLog>
         columns={[
           {
             key: 'id',
             header: 'ID',
-            className: 'text-ink-3',
+            className: 'text-fg-3',
             render: (log) => `#${log.id}`,
           },
           {
             key: 'created_at',
             header: '时间',
-            className: 'text-ink-2',
+            className: 'text-fg-2',
             render: (log) => (
               <span className="flex items-center gap-1">
-                <Calendar aria-hidden="true" className="size-3 text-ink-3" />
+                <Calendar aria-hidden="true" className="size-3 text-fg-3" />
                 {new Date(log.created_at).toLocaleString()}
               </span>
             ),
@@ -200,24 +214,24 @@ export default function AdminAuditLogs() {
             // The chip used to be an indigo pill; §5 of docs/design-system.md maps that
             // family onto the brand's own primary, at chip strength: a /10 background
             // with primary text.
-            render: (log) => <Badge className="bg-primary/10 text-primary">{log.action}</Badge>,
+            render: (log) => <Badge className="bg-role/10 text-role">{log.action}</Badge>,
           },
           {
             key: 'teacher_id',
             header: '操作人',
-            className: 'text-ink-2',
+            className: 'text-fg-2',
             render: (log) => (log.teacher_id ? `Teacher ID: ${log.teacher_id}` : '-'),
           },
           {
             key: 'user_id',
             header: '目标用户',
-            className: 'text-ink-2',
+            className: 'text-fg-2',
             render: (log) => (log.user_id ? `User ID: ${log.user_id}` : '-'),
           },
           {
             key: 'details',
             header: '详情',
-            className: 'text-ink-3',
+            className: 'text-fg-3',
             // A block with a max width is what makes `truncate` bite inside a table
             // cell; the full value stays reachable through the title.
             render: (log) => (
@@ -229,7 +243,7 @@ export default function AdminAuditLogs() {
           {
             key: 'ip_address',
             header: 'IP 地址',
-            className: 'font-mono text-xs text-ink-3',
+            className: 'font-mono text-xs text-fg-3',
             render: (log) => log.ip_address || '-',
           },
         ]}
@@ -240,17 +254,17 @@ export default function AdminAuditLogs() {
           <EmptyState
             icon={Shield}
             title="没有找到符合条件的审计日志"
-            className="bg-card"
+            className="bg-surface-2"
           />
         }
       />
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-paper px-4 py-3">
-          <div className="text-sm text-ink-3">
-            共 <span className="font-medium text-ink-1">{total}</span> 条记录，
-            第 <span className="font-medium text-ink-1">{page}</span> / {totalPages} 页
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line-1 bg-surface-2 px-4 py-3">
+          <div className="text-sm text-fg-3">
+            共 <span className="font-medium text-fg-1">{total}</span> 条记录，
+            第 <span className="font-medium text-fg-1">{page}</span> / {totalPages} 页
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -272,6 +286,6 @@ export default function AdminAuditLogs() {
           </div>
         </div>
       )}
-    </div>
+    </PageScaffold>
   );
 }

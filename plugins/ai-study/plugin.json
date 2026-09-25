@@ -1,0 +1,104 @@
+{
+  "id": "ai-study",
+  "name": "AI 智学",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "AI 智学 - a personalisation engine over the existing question bank, knowledge graph and wrong-question book. A student asks for today's practice set and gets five questions chosen by a deterministic scoring rule (mastery gap, repeat misses, knowledge-node importance, difficulty fit, type balance), each with the reason it was chosen; the student answers them inline, and submitting folds the result back into 错题本 through `learning.public.recordPracticeOutcome`, so mastery stays one number with one definition. A teacher sees which knowledge points the class is collectively missing and dispatches a set to the students who need it. A configured model may re-rank the rule's candidates and write the reasons; the default deployment has none and the rule stands alone.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "classroom": "^1.0.0",
+    "learning": "^1.0.0"
+  },
+  "optionalPeers": {
+    "homework": "^1.0.0"
+  },
+  "provides": {
+    "services": [],
+    "_services_note": "Publishes nothing. The engine is consumed over HTTP (`src/features/ai-study/*`); a second plugin wanting a personalised set would be a reason to publish `ai_study.public`, and that is not this round's shape.",
+    "permissions": [
+      {
+        "key": "ai_study.practice",
+        "scope": "student",
+        "default": true,
+        "label": "使用 AI 智学练习"
+      },
+      {
+        "key": "ai_study.insight",
+        "scope": "class",
+        "default": true,
+        "label": "查看班级智学看板"
+      },
+      {
+        "key": "ai_study.assign",
+        "scope": "class",
+        "default": true,
+        "label": "派发智学练单"
+      }
+    ],
+    "routes": [
+      {
+        "method": "POST",
+        "base": "/api/ai-study/my/sets",
+        "handler": "AiStudyStudentController.generateMySet",
+        "auth": "actor",
+        "permissions": ["ai_study.practice"]
+      },
+      {
+        "method": "GET",
+        "base": "/api/ai-study/my/sets/current",
+        "handler": "AiStudyStudentController.currentMySet",
+        "auth": "actor",
+        "permissions": ["ai_study.practice"]
+      },
+      {
+        "method": "PUT",
+        "base": "/api/ai-study/sets/:id/answers",
+        "handler": "AiStudyStudentController.saveAnswers",
+        "auth": "actor",
+        "permissions": ["ai_study.practice"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/ai-study/sets/:id/submit",
+        "handler": "AiStudyStudentController.submitSet",
+        "auth": "actor",
+        "permissions": ["ai_study.practice"]
+      },
+      {
+        "method": "GET",
+        "base": "/api/ai-study/classes/:classId/insight",
+        "handler": "AiStudyTeacherController.classInsight",
+        "auth": "actor",
+        "permissions": ["ai_study.insight"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/ai-study/classes/:classId/assign",
+        "handler": "AiStudyTeacherController.assign",
+        "auth": "actor",
+        "permissions": ["ai_study.assign"]
+      }
+    ],
+    "_routes_note": "All six are `auth: \"actor\"` and every handler gates the caller before any validation runs: 401 未登录或登录已过期 for a request with no verified actor, 403 无权限执行该操作 for a role the route does not list, then the declared capability through `ctx.permissions.require`. The `base` values keep the hyphen (`/api/ai-study/...`) while the plugin's derived slug is `ai_study`, so the manifest validator warns that they are not namespaced under `/api/ai_study` - that warning is expected, it is on all 21 other plugins, and the URL is what the frontend, the API snapshot and the authorization matrix all name. Students reach only their own rows: the student routes take no `:studentId` at all, because the student behind the caller comes from `classroom.public.getStudentByUserId(actor.userId)` and a path parameter would be a second, forgeable way to name a student.",
+    "events": {
+      "emits": [],
+      "subscribes": []
+    },
+    "migrations": [{ "id": "0001_init", "up": "migrations/0001_init.sql" }],
+    "_migrations_note": "Registered through the plugin runtime rather than `api/schema/appMigrations.ts`, which is the opposite of what `plugins/homework` does - and the difference is structural. `homework`'s six tables are Prisma models, so G13 builds its schema from `APP_MIGRATIONS` and then asserts every Prisma model has a table; the three tables here are created by the plugin runner and deliberately have no Prisma model, because nothing in this plugin goes through Prisma. Registering them there instead would also mean editing the pinned id list in `tests/guardrails/schema-lives-in-migrations.test.ts`, for no gain. The prefix rule (`p_ai_study_`) is checked by the runner before the DDL executes, which is why these tables have no foreign key to `students`, `classes` or `questions`: those belong to the classroom and learning plugins, and referential integrity for `student_id` / `class_id` / `question_id` is the port's job - the same ruling `plugins/pet` and `plugins/homework` record."
+  },
+  "data": {
+    "tables": ["p_ai_study_answers", "p_ai_study_items", "p_ai_study_sets"],
+    "_tables_note": "Three namespaced tables, so nothing is adopted and the G10 legacy-adoption ratchet does not move. `adopted` and `reads` are both empty on purpose: every learning-owned fact this engine needs (wrong-question mastery, knowledge-node progress, the candidate pool) and every classroom-owned fact (the student behind a login, class membership, `enable_ai_study`) arrives through a port, so no statement in `ai-study.repository.ts` names another plugin's table and the ownership check in `ctx.db` has nothing to permit outside these three.",
+    "adopted": [],
+    "reads": [],
+    "_reads_note": "Empty, and that is the design rather than an omission - see `_tables_note`. Declaring `questions` or `wrong_questions` here would both weaken the ownership model and leave the mastery *write* impossible, which is why `learning.public` exists.",
+    "_ai_note": "AI is an assist, never a gate - the posture `plugins/homework` records, applied to a second surface. The scoring rule is local, deterministic and complete on its own: the same input produces the same set, every item carries the factor that put it there, and the reason string is derived from that factor rather than written by a model. A configured model (`homework.public.complete`, resolved per call through `ctx.tryUse`) may only *reorder and explain* within the candidates the rule already chose - it can never introduce a question, which is the same invariant `normaliseCandidateQuestion` enforces for 出题. When no model is configured the mock declines with a message naming the console field, every response still says `ai.available: false`, and the rule result is returned unchanged; when the model is unreachable or its reply does not parse, the same thing happens rather than a 500, because the caller has a deterministic result to show either way.",
+    "_engine_note": "`src/ai-study.engine.ts` is a pure function - no `ctx`, no db, no clock beyond one it is handed - so the ranking is unit-testable without a database and reproducible across runs. Factors and weights are integers, ties are broken by question id, and the per-type cap is a repair pass rather than randomness. `ENGINE_VERSION` is stored on every set: the ranking is expected to change as the product learns what a good practice set is, and a stored set has to be readable against the rule that produced it."
+  }
+}

@@ -83,6 +83,87 @@ describe('G14 class-feature catalogue stays derived', () => {
     expect(text).toContain('GENERATED FILE - do not edit by hand');
     expect(text).toContain('plugins/classroom/plugin.json');
   });
+
+  /**
+   * `featureRoutes.ts` declares the flag→route relationship twice, for two different consumers:
+   * `classFeatureRouteMap` answers "which pages does this flag govern" (used to decide what a
+   * feature toggle controls), and `studentFeatureRequirements` / `parentFeatureRequirements` answer
+   * "which flag does this page need" (used by the guard and the menu).
+   *
+   * They drifted: `/student/challenge` was reachable on `enable_challenge` alone while
+   * `classFeatureRouteMap` claimed `enable_world_boss` governed it too - so the world-boss switch
+   * appeared to control a page it could not actually open. Nothing caught it, because each map was
+   * only ever read by one consumer.
+   */
+  it('the two per-flag route maps agree about every route', () => {
+    const text = fs.readFileSync(ROUTES, 'utf8');
+
+    /** The slice of `text` from `const <name>` up to the closing `};` of that object literal. */
+    const blockOf = (name: string): string => {
+      const start = text.indexOf(`const ${name}`);
+      expect(start, `${name} is missing from featureRoutes.ts`).toBeGreaterThan(-1);
+      const end = text.indexOf('\n};', start);
+      expect(end, `${name} has no closing brace`).toBeGreaterThan(start);
+      return text.slice(start, end);
+    };
+
+    /** `{ '/student/x': { key: 'a' } }` and `{ key: 'a' | anyOf: ['a','b'] }` → route → flags. */
+    const requirementMap = (name: string): Map<string, string[]> => {
+      const entries = new Map<string, string[]>();
+      const body = blockOf(name).slice(blockOf(name).indexOf('{') + 1);
+      for (const entry of body.matchAll(/'([^']+)':\s*(\{[^}]*\})/g)) {
+        entries.set(
+          entry[1],
+          [...entry[2].matchAll(/'((?:enable)_[a-z_]+)'/g)].map((m) => m[1]).sort(),
+        );
+      }
+      return entries;
+    };
+
+    /**
+     * Reverse the flag→routes map into route→flags, which is what the requirement maps say.
+     *
+     * The keys here are unquoted (`enable_shop: [...]`) while the requirement maps quote their route
+     * keys and their flags, so the two patterns are deliberately different.
+     */
+    const expected = new Map<string, string[]>();
+    for (const entry of blockOf('classFeatureRouteMap').matchAll(
+      /^\s*(enable_[a-z_]+):\s*\[([^\]]*)\]/gm,
+    )) {
+      for (const route of entry[2].matchAll(/'([^']+)'/g)) {
+        expected.set(route[1], [...(expected.get(route[1]) ?? []), entry[1]].sort());
+      }
+    }
+    expect(expected.size, 'classFeatureRouteMap parsed empty - the pattern went stale').toBeGreaterThan(0);
+
+    const student = requirementMap('studentFeatureRequirements');
+    const parent = requirementMap('parentFeatureRequirements');
+
+    // A route one map gates must be gated by exactly the same flags in the other.
+    for (const [name, actual] of [
+      ['studentFeatureRequirements', student],
+      ['parentFeatureRequirements', parent],
+    ] as const) {
+      for (const [route, flags] of actual) {
+        expect(
+          expected.get(route),
+          `${name}['${route}'] requires ${flags.join('/')}, but classFeatureRouteMap says that ` +
+            `route is governed by ${expected.get(route)?.join('/') ?? 'no flag'}. The feature ` +
+            'toggle and the page it controls must agree.',
+        ).toEqual(flags);
+      }
+    }
+
+    // And the other direction: a flag claiming to govern a route no requirement map names is a
+    // toggle with no effect.
+    for (const [route, flags] of expected) {
+      expect(
+        student.has(route) || parent.has(route),
+        `classFeatureRouteMap says ${flags.join('/')} governs '${route}', but no requirement map ` +
+          'names that route - the switch would have no effect.',
+      ).toBe(true);
+    }
+  });
 });
 
 /**

@@ -19,12 +19,12 @@ export default function HomeQuickLinks() {
       >
         {quickLinks.map((item, idx) => (
           <Link key={idx} to={item.link} className="group">
-            <div className="h-full p-6 rounded-2xl bg-paper border border-border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col items-center text-center gap-3">
+            <div className="h-full p-6 rounded-2xl bg-surface-2 border border-line-1 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col items-center text-center gap-3">
               <div className={`h-12 w-12 rounded-xl ${item.bg} flex items-center justify-center`}>
                 <item.icon className={`w-6 h-6 ${item.color}`} />
               </div>
-              <h3 className="text-sm font-semibold text-ink-1">{item.title}</h3>
-              <p className="text-xs leading-relaxed text-ink-3">{item.description}</p>
+              <h3 className="text-sm font-semibold text-fg-1">{item.title}</h3>
+              <p className="text-xs leading-relaxed text-fg-3">{item.description}</p>
             </div>
           </Link>
         ))}

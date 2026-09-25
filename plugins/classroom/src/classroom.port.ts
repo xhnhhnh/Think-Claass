@@ -35,6 +35,7 @@ import type {
   StudentSnapshot,
 } from '@thinkclass/contracts/domains/classroom';
 import type { KernelContext } from '@thinkclass/plugin-sdk';
+import { ApiError } from '@thinkclass/kernel';
 
 import type { ClassFeatureResolver } from './classroom.features.js';
 import type { ClassroomRepository } from './classroom.repository.js';
@@ -237,8 +238,10 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
 
       const updated = db.tx(() => {
         db.addStudentAvailable(studentId, delta);
-        db.insertRecord(entry.studentId, entry.type, entry.amount, entry.description);
-        return db.findStudentRow(studentId) as StudentRow;
+        const row = db.findStudentRow(studentId) as StudentRow;
+        const recordId = db.insertRecord(entry.studentId, entry.type, entry.amount, entry.description);
+        db.insertPointEvent({ studentId, recordId, source: entry.type.toLowerCase(), category: 'balance', growth: 0, credits: delta, total: row.total_points ?? 0, available: row.available_points ?? 0 });
+        return row;
       });
 
       return { value: { availablePoints: updated.available_points ?? 0 } };
@@ -315,6 +318,7 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
     },
 
     async adjustPoints({ studentId, delta, reason, actorId }) {
+      if (!Number.isInteger(delta) || delta <= 0) throw new Error('奖励积分必须是正整数');
       // Read the class before the update so the event carries it; consumers
       // (analytics, achievements) should not have to look it up themselves.
       const before = requireStudent(studentId);
@@ -332,6 +336,33 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
       };
     },
 
+    async awardStudentPoints({ studentId, amount, type, description, actorId, requestId }) {
+      if (!Number.isInteger(amount) || amount <= 0) throw new Error('奖励积分必须是正整数');
+      const before = db.findStudentRow(studentId);
+      if (!before) throw new ApiError(404, '学生未找到');
+      const source = type.toLowerCase();
+      const category = /TASK_TREE|TEAM_QUEST/.test(type) ? 'collaboration'
+        : /CHALLENGE|BOSS|DUNGEON/.test(type) ? 'competition' : 'participation';
+      let replayed = false;
+      const result = db.tx(() => {
+        if (requestId) {
+          const existing = db.findPointEvent(studentId, requestId);
+          if (existing) {
+            if (existing.source !== source || Number(existing.requested_delta) !== amount) throw new Error('请求标识已用于其他奖励');
+            replayed = true;
+            return { totalPoints: Number(existing.growth_balance), availablePoints: Number(existing.credits_balance) };
+          }
+        }
+        db.addStudentPointsPair(studentId, amount);
+        const row = db.findStudentRow(studentId) as StudentRow;
+        const recordId = db.insertRecord(studentId, type, amount, description);
+        db.insertPointEvent({ studentId, recordId, requestId, source, category, growth: amount, credits: amount, participation: category === 'participation' ? 1 : 0, requested: amount, total: row.total_points ?? 0, available: row.available_points ?? 0 });
+        return { totalPoints: row.total_points ?? 0, availablePoints: row.available_points ?? 0 };
+      });
+      if (!replayed) emitPointsChanged(studentId, before.class_id, amount, description, actorId);
+      return result;
+    },
+
     /**
      * Move the *spendable* half of the balance.
      *
@@ -340,7 +371,7 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
      * spendable half, because the points were still earned. Both live behind this port so
      * `students` keeps exactly one writer.
      */
-    async transferStudentCredits({ studentId, delta, reason, actorId }) {
+    async transferStudentCredits({ studentId, delta, reason, actorId, ledger }) {
       const before = db.findStudentRow(studentId);
       if (!before) {
         return { refusal: { code: 'student-not-found', message: '学生未找到' } };
@@ -352,7 +383,11 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
 
       const updated = db.tx(() => {
         db.addStudentAvailable(studentId, delta);
-        return db.findStudentRow(studentId) as StudentRow;
+        const row = db.findStudentRow(studentId) as StudentRow;
+        const type = ledger?.type ?? reason.toUpperCase().replace(/\./g, '_');
+        const recordId = db.insertRecord(studentId, type, delta, ledger?.description ?? reason);
+        db.insertPointEvent({ studentId, recordId, source: reason, category: 'balance', growth: 0, credits: delta, total: row.total_points ?? 0, available: row.available_points ?? 0 });
+        return row;
       });
 
       emitPointsChanged(studentId, before.class_id, delta, reason, actorId);
@@ -369,7 +404,28 @@ export function createClassroomPort({ ctx, repository, features, cipher, reports
      * what every entry is about.
      */
     async recordStudentLedgerEntry(entry: PointLedgerEntry) {
-      db.insertRecord(entry.studentId, entry.type, entry.amount, entry.description);
+      db.tx(() => {
+        const student = db.findStudentRow(entry.studentId);
+        if (!student) throw new Error('学生未找到');
+        const recordId = db.insertRecord(entry.studentId, entry.type, entry.amount, entry.description);
+        const type = entry.type.toUpperCase();
+        const reward = entry.amount > 0 && /REWARD|WIN|CONSOLATION/.test(type);
+        const category = reward
+          ? /TASK_TREE|TEAM_QUEST/.test(type) ? 'collaboration'
+            : /CHALLENGE|BOSS|DUNGEON/.test(type) ? 'competition' : 'participation'
+          : type === 'BOSS_ATTACK' ? 'participation' : 'balance';
+        db.insertPointEvent({
+          studentId: entry.studentId,
+          recordId,
+          source: type.toLowerCase(),
+          category,
+          growth: reward ? entry.amount : 0,
+          credits: entry.amount,
+          participation: type === 'BOSS_ATTACK' ? 1 : reward && category === 'participation' ? 1 : 0,
+          total: student.total_points ?? 0,
+          available: student.available_points ?? 0,
+        });
+      });
     },
 
     async listStudentLedger(studentId, limit) {

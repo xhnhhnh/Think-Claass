@@ -38,6 +38,7 @@
     "tables": [],
     "adopted": ["class_battles"],
     "_adopted_note": "`class_battles` carries its legacy name on purpose: `SELECT *` rows are returned straight through to the frontend, so initiator_class_id / target_class_id / start_time / end_time / winner_class_id are part of the HTTP contract. Renaming it is a coordinated frontend change, tracked as namespace debt by guardrail G10.",
-    "reads": []
+    "reads": [],
+    "_auth_note": "All thirteen routes now resolve the caller from the kernel request context: 401 for anonymous (未登录或登录已过期), 403 for a role that may not call the route (无权限执行该操作). Scope follows the matrix - the class search and every write (initiate/accept/reject/end) are teacher/admin, and a write additionally requires the actor to teach a participating class (the initiator class for POST /api/battles); a class's battle list is readable by its teacher and its students, a battle's stats by the participating classes' teachers and students. Admin/superadmin pass the scope checks. The pre-migration surface answered all thirteen to an anonymous caller, including the class enumeration."
   }
 }

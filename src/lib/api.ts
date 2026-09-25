@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
+import { ADMIN_PATH } from '@/constants';
 import { useStore } from '@/store/useStore';
 
 interface ApiOptions extends AxiosRequestConfig {
@@ -33,6 +34,54 @@ const showErrorToast = (message: string) => {
   lastErrorTime = now;
   toast.error(message);
 };
+
+/**
+ * Send the browser back to the right login page after a 401.
+ *
+ * Which one depends on where the user was: an expired session in the admin console must land on
+ * the admin login, not the student one. `ADMIN_PATH` is the runtime-injected value, so a
+ * deployment that renamed the console still gets the right target.
+ *
+ * Guarded against a redirect loop - a 401 raised *by* the login route must not bounce the page
+ * that is already showing the login form.
+ */
+function redirectToLogin() {
+  if (typeof window === 'undefined') return;
+
+  const path = window.location.pathname;
+  const target = path.startsWith(ADMIN_PATH) ? `${ADMIN_PATH}/login` : '/login';
+  if (path === target) return;
+
+  window.location.assign(target);
+}
+
+/**
+ * 401 and 403 are different problems and used to share one message.
+ *
+ * `401` means the session is gone: clear it, and send the user to log in - the app previously left
+ * the stale user in the store, so every subsequent request failed the same way while the UI kept
+ * rendering as if signed in.
+ *
+ * `403` means the session is perfectly valid and the account simply may not do this. Telling that
+ * user "登录已过期或无权限，请重新登录" was actively misleading: it hid the real answer (a role or
+ * ownership decision on the server) behind a symptom that never happens, and made authorization
+ * defects look like a login problem.
+ */
+function handleAuthError(status: number | undefined, showError: boolean) {
+  if (status === 401) {
+    useStore.getState().logout();
+    if (showError) showErrorToast('登录已过期，请重新登录');
+    redirectToLogin();
+    return true;
+  }
+
+  if (status === 403) {
+    if (showError) showErrorToast('当前账号无权访问该功能');
+    return true;
+  }
+
+  return false;
+}
 
 const normalizeApiBaseUrl = (value: string | undefined) => {
   if (!value) {
@@ -109,12 +158,11 @@ export const api = async <T = any>(config: ApiOptions): Promise<T> => {
   } catch (error: any) {
     // 处理未授权错误 (401/403)
     const status = error.response?.status || error.status;
-    if (status === 401 || status === 403) {
-      if (showError) showErrorToast('登录已过期或无权限，请重新登录');
-      // 可在此处加入重定向逻辑：window.location.href = '/login';
-    } else if (showError) {
-      const message = error.response?.data?.message || error.data?.message || error.message || '网络请求错误，请重试';
-      showErrorToast(message);
+    if (!handleAuthError(status, showError)) {
+      if (showError) {
+        const message = error.response?.data?.message || error.data?.message || error.message || '网络请求错误，请重试';
+        showErrorToast(message);
+      }
     }
     throw error;
   }

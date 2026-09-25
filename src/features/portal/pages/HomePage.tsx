@@ -20,6 +20,10 @@ import HomeFooter from "@/features/portal/components/home/HomeFooter";
  * motion hooks they feed, and the order of the sections. Every visual block now lives in
  * `components/home`, which is why the markup below is a single flat run of sections —
  * same DOM, same copy, no per-section state or requests added.
+ *
+ * Public site, so it wears no console page scaffold: the marketing page has no console
+ * shell above it and keeps its own `HomeNav`/`HomeFooter` chrome. The wrapper is
+ * `bg-surface-1 text-fg-1` now instead of the `bg-canvas text-ink-1` aliases.
  */
 export default function Home() {
   const [homeData, setHomeData] = useState<any>({});
@@ -52,7 +56,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-canvas text-ink-1 selection:bg-primary/10 selection:text-primary font-sans">
+    <div className="min-h-screen bg-surface-1 font-sans text-fg-1 selection:bg-role/10">
       <HomeNav onNavigateHome={() => navigate("/")} />
       <HomeHero shouldReduceMotion={shouldReduceMotion} />
       <HomeQuickLinks />

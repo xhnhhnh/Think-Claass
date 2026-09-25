@@ -38,6 +38,7 @@ import type { ClassroomPort, ClassroomRefusal, StudentSnapshot } from '@thinkcla
 import type { CreatePetDictionaryPayload, GachaDrawPayload, GachaPool, GachaRarity, PetDictionaryEntry } from '@thinkclass/contracts/domains/gacha';
 import { ApiError } from '@thinkclass/kernel';
 
+import type { RequestActor } from './gacha.authorization.js';
 import type { GachaRepository } from './gacha.types.js';
 
 function positiveInteger(value: unknown, label: string): number {
@@ -46,6 +47,11 @@ function positiveInteger(value: unknown, label: string): number {
     throw new ApiError(400, `${label} is invalid`);
   }
   return number;
+}
+
+/** Admin/superadmin reach every student and class, so the scope checks below let them through. */
+function isStaffAdmin(actor: RequestActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
 }
 
 function rollRarity(pool: Pick<GachaPool, 'ssr_rate' | 'sr_rate' | 'r_rate'>, random: () => number): GachaRarity {
@@ -123,9 +129,14 @@ export class GachaService {
    *
    * The create-on-empty and the read stay in one transaction, exactly as before: two
    * concurrent first reads must not both insert the default pool.
+   *
+   * That first read is also a WRITE, which is why the class membership check now runs before
+   * it: an anonymous caller (or a student of another class) used to be able to mint a pool in
+   * any class and read its odds.
    */
-  async listPools(classIdInput: unknown): Promise<GachaPool[]> {
+  async listPools(actor: RequestActor, classIdInput: unknown): Promise<GachaPool[]> {
     const classId = positiveInteger(classIdInput, 'Class id');
+    await this.assertCanReadClass(actor, classId);
     await this.assertClassFeatureEnabled(classId);
 
     return this.repository.transaction(() => {
@@ -136,10 +147,19 @@ export class GachaService {
     });
   }
 
-  async draw(studentIdInput: unknown, input: GachaDrawPayload): Promise<PetDictionaryEntry[]> {
+  /**
+   * Draw `times` pets for the caller's own student row.
+   *
+   * `studentId` comes from the path but the caller must own it: the controller refuses every
+   * non-student role and this check refuses a student naming somebody else, both before the
+   * pool is looked up and long before points move. Every `draw` used to be anonymous.
+   */
+  async draw(actor: RequestActor, studentIdInput: unknown, input: GachaDrawPayload): Promise<PetDictionaryEntry[]> {
     const studentId = positiveInteger(studentIdInput, 'Student id');
     const poolId = positiveInteger(input.poolId, 'Pool id');
     const times = positiveInteger(input.times, 'Times');
+
+    this.assertOwnStudent(actor, studentId);
 
     // Runs before anything is spent, so a disabled feature costs nothing. The
     // pre-migration order (validate ids -> gate -> look the pool up) is preserved.
@@ -163,6 +183,7 @@ export class GachaService {
       // The legacy endpoints take the student from the path and carry no actor; 0 is
       // the same placeholder economy passes for the same reason.
       actorId: 0,
+      ledger: { type: 'GACHA_PULL', description: `Performed ${times}x Gacha Pull from ${pool.name}` },
     });
     if (moved.refusal) {
       // Nothing platform-side has been written yet, so there is nothing to undo.
@@ -185,17 +206,15 @@ export class GachaService {
       throw error;
     }
 
-    await this.ledger(
-      studentId,
-      'GACHA_PULL',
-      -totalCost,
-      `Performed ${times}x Gacha Pull from ${pool.name}`,
-    );
     return results;
   }
 
-  async listCollection(studentIdInput: unknown) {
+  /**
+   * One student's pet album: their own row, their linked parent, or a teacher of their class.
+   */
+  async listCollection(actor: RequestActor, studentIdInput: unknown) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
+    await this.assertCanReadStudent(actor, studentId);
     await this.requireGachaStudent(studentId);
     return this.repository.listCollection(studentId);
   }
@@ -207,10 +226,14 @@ export class GachaService {
    * pre-migration repository: a 404 here leaves the previous pet deactivated, which is
    * the behaviour the legacy endpoint had. They are not wrapped in a new transaction,
    * because that would change the contract this relocation is supposed to preserve.
+   *
+   * Like `draw`, the caller must own the row: this writes the student's active pet.
    */
-  async setActivePet(studentIdInput: unknown, instanceIdInput: unknown) {
+  async setActivePet(actor: RequestActor, studentIdInput: unknown, instanceIdInput: unknown) {
     const studentId = positiveInteger(studentIdInput, 'Student id');
     const instanceId = positiveInteger(instanceIdInput, 'Pet instance id');
+
+    this.assertOwnStudent(actor, studentId);
     await this.requireGachaStudent(studentId);
 
     this.repository.clearActivePet(studentId);
@@ -234,6 +257,70 @@ export class GachaService {
     if (gate.refusal) throw toApiError(gate.refusal);
 
     return student;
+  }
+
+  // -- actor scope ----------------------------------------------------------
+  //
+  // "May this caller touch this student / this class" is answered here rather than per
+  // endpoint, and always from the actor plus the roster - never from the request body or the
+  // path alone. A student's claim is their own `students` row (`Actor.studentId`, resolved by
+  // the host from their login); a parent's is the `parent_students` link; a teacher's is class
+  // ownership. admin/superadmin own everything.
+
+  /**
+   * 403 unless the actor *is* this student.
+   *
+   * Failed closed: a student login with no `students` row behind it has no claim at all, and
+   * falling back to the id in the path is exactly the hole this round closes.
+   */
+  private assertOwnStudent(actor: RequestActor, studentId: number): void {
+    if (actor.role !== 'student' || actor.studentId === null || actor.studentId !== studentId) {
+      throw new ApiError(403, '无权限执行该操作');
+    }
+  }
+
+  /** 403 unless the actor may read this student: own row, linked child, or own class. */
+  private async assertCanReadStudent(actor: RequestActor, studentId: number): Promise<void> {
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'student') {
+      if (actor.studentId !== null && actor.studentId === studentId) return;
+      throw new ApiError(403, '无权限查看该学生');
+    }
+
+    if (actor.role === 'parent') {
+      const children = await this.classroom.listStudentsByParent(actor.userId);
+      if (children.some((child) => child.id === studentId)) return;
+      throw new ApiError(403, '无权限查看该学生');
+    }
+
+    if (actor.role === 'teacher') {
+      const student = await this.classroom.getStudentById(studentId);
+      const classRow = student ? await this.classroom.getClassById(student.classId) : null;
+      if (classRow && classRow.teacherId === actor.userId) return;
+      throw new ApiError(403, '无权限查看该学生');
+    }
+
+    throw new ApiError(403, '无权限查看该学生');
+  }
+
+  /** 403 unless the actor may read this class: the owning teacher, or one of its students. */
+  private async assertCanReadClass(actor: RequestActor, classId: number): Promise<void> {
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      const classRow = await this.classroom.getClassById(classId);
+      if (classRow && classRow.teacherId === actor.userId) return;
+      throw new ApiError(403, '无权限查看该班级');
+    }
+
+    if (actor.role === 'student' && actor.studentId !== null) {
+      const student = await this.classroom.getStudentById(actor.studentId);
+      if (student && student.classId === classId) return;
+      throw new ApiError(403, '无权限查看该班级');
+    }
+
+    throw new ApiError(403, '无权限查看该班级');
   }
 
   /** Reject when a *class* has gacha off; the pool belongs to a class, not a student. */

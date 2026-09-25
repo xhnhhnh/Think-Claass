@@ -1,51 +1,71 @@
 import { useNavigate } from 'react-router-dom';
-import { FileText, LoaderCircle, PlayCircle } from 'lucide-react';
+import { FileText, PlayCircle } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Spinner } from '@/components/ui/spinner';
 
 import { usePapers } from '@/hooks/queries/usePapers';
 
+/**
+ * 试卷练习.
+ *
+ * A `list` page on the scaffold: the shell's context bar owns the heading, so the
+ * page no longer prints its own `h2` inside a card. The request (`usePapers`), the
+ * route each row navigates to and every label are unchanged; only the surface
+ * moved from the old `paper`/`primary` aliases onto the surface, fg, line and role
+ * tokens, and the row action is the kit's `Button` instead of a hand-tinted one.
+ */
 export default function StudentPapers() {
   const navigate = useNavigate();
   const { data: papers = [], isLoading } = usePapers();
 
-  return (
-    <div className="space-y-6">
-      <div className="bg-paper/80 backdrop-blur-xl p-6 rounded-panel border border-white/60 shadow-card">
-        <div className="flex items-center mb-4">
-          <FileText className="w-5 h-5 mr-2 text-primary" />
-          <h2 className="text-lg font-bold text-ink-1">试卷练习</h2>
+  if (isLoading) {
+    return (
+      <PageScaffold variant="list" className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center gap-3 text-fg-3">
+          <Spinner size="lg" label="正在加载试卷" />
+          正在加载试卷...
         </div>
+      </PageScaffold>
+    );
+  }
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-20 text-ink-3">
-            <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
-            正在加载试卷...
-          </div>
-        )}
-
-        {!isLoading && papers.length === 0 && <div className="py-16 text-center text-ink-3">暂无可练习试卷</div>}
-
-        {!isLoading && papers.length > 0 && (
-          <div className="space-y-3">
-            {papers.map((p) => (
-              <div key={p.id} className="bg-paper/70 border border-white/60 rounded-panel p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+  return (
+    <PageScaffold variant="list" title="试卷练习">
+      {papers.length === 0 ? (
+        <EmptyState icon={FileText} title="暂无可练习试卷" />
+      ) : (
+        <ul className="space-y-3">
+          {papers.map((p) => (
+            <li
+              key={p.id}
+              className="flex flex-col gap-3 rounded-panel border border-line-1 bg-surface-2 p-5 shadow-card transition-colors hover:border-role/40 md:flex-row md:items-center md:justify-between"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-card bg-role-soft text-role-ink">
+                  <FileText aria-hidden="true" className="size-4" />
+                </span>
                 <div className="min-w-0">
-                  <div className="font-bold text-ink-1 truncate">{p.title}</div>
-                  <div className="text-sm text-ink-3">{p.subjects?.name ? `学科：${p.subjects.name}` : '未设置学科'}</div>
+                  <div className="truncate font-bold text-fg-1">{p.title}</div>
+                  <div className="text-sm text-fg-3">
+                    {p.subjects?.name ? `学科：${p.subjects.name}` : '未设置学科'}
+                  </div>
                 </div>
-                <Button variant="ghost"
-                  onClick={() => navigate(`/student/papers/${p.id}`)}
-                  className="px-4 py-2 rounded-card bg-primary/5 text-primary border border-primary/10 hover:bg-primary/10 font-semibold flex items-center justify-center"
-                >
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  开始练习
-                </Button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/student/papers/${p.id}`)}
+                className="shrink-0"
+              >
+                <PlayCircle aria-hidden="true" className="size-4" />
+                开始练习
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </PageScaffold>
   );
 }
-

@@ -6,7 +6,7 @@
   "tier": "feature",
   "required": false,
   "isolation": "restricted",
-  "description": "The admin console: 28 routes over /api/admin (17), /api/openapi (7) and /api/audit-logs (1), relocated from api/modules/admin/** (P4.3b.14). It is the last domain to leave api/modules/**. Every cross-domain write it used to perform through Prisma is now a port call: teachers, activation codes and superadmins go through identity.public (which owns users), the classes and students a deletion covers through classroom.public, the database file through the host-injected ctx.maintenance, and the audit trail through ctx.audit (the kernel owns operation_logs). The 58-table delete cascade in DELETE /api/admin/users/:id is now ctx.cleanup.run(): each plugin deletes its own rows, all of them inside one transaction, ordered by the schema's foreign keys - see docs/migration/admin-cascade-decision.md.",
+  "description": "The admin console: 29 routes over /api/admin (18), /api/openapi (7) and /api/audit-logs (1), relocated from api/modules/admin/** (P4.3b.14). It is the last domain to leave api/modules/**. Every cross-domain write it used to perform through Prisma is now a port call: teachers, activation codes and superadmins go through identity.public (which owns users), the classes and students a deletion covers through classroom.public, the database file through the host-injected ctx.maintenance, and the audit trail through ctx.audit (the kernel owns operation_logs). The 58-table delete cascade in DELETE /api/admin/users/:id is now ctx.cleanup.run(): each plugin deletes its own rows, all of them inside one transaction, ordered by the schema's foreign keys - see docs/migration/admin-cascade-decision.md. The 18th /api/admin route is the AI round's POST /api/admin/system/ai/test, which reaches the model through the optional homework.public port - see _ai_test_note.",
   "entry": {
     "backend": "./src/index.ts"
   },
@@ -21,6 +21,7 @@
       { "method": "GET", "base": "/api/admin", "handler": "AdminController.getSystemStats", "auth": "actor" },
       { "method": "GET", "base": "/api/admin", "handler": "AdminController.getSystemSettings", "auth": "actor" },
       { "method": "PUT", "base": "/api/admin", "handler": "AdminController.updateSystemSettings", "auth": "actor" },
+      { "method": "POST", "base": "/api/admin", "handler": "AdminController.testAiConnection", "auth": "actor" },
       { "method": "GET", "base": "/api/admin", "handler": "AdminController.exportDatabase", "auth": "actor" },
       { "method": "POST", "base": "/api/admin", "handler": "AdminController.importDatabase", "auth": "actor" },
       { "method": "POST", "base": "/api/admin", "handler": "AdminController.resetDatabase", "auth": "actor" },
@@ -49,7 +50,8 @@
     "events": {
       "emits": [],
       "subscribes": []
-    }
+    },
+    "_ai_test_note": "`POST /api/admin/system/ai/test` is the AI round's only new route, declared above next to the settings routes it belongs with (the nesting is what makes the manifest's `(18)` count and this list agree). It resolves the model through `ctx.tryUse('homework.public')` rather than through a second provider implementation: this plugin owns the five `ai_*` settings, `plugins/homework` owns the provider they configure, and the port carries the only two things that need to cross - the resolved state and one connectivity check. `tryUse` and not `use` because `homework` is `required: false`: a deployment that disabled it must still render the console's settings page, and the route answers 200 with 「作业插件未启用」 instead of failing. `homework` is deliberately NOT in `dependsOn` for the same reason - a hard dependency would make the console unbootable without an optional feature plugin."
   },
   "data": {
     "tables": [],
@@ -62,6 +64,7 @@
       "assignments",
       "leave_requests",
       "team_quests",
+      "articles",
       "pets",
       "operation_logs"
     ],

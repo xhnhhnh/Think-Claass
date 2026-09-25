@@ -13,6 +13,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Request } from 'express';
 
 import { ApiError, openDatabase, type Database } from '@thinkclass/kernel';
 import { createDbApi, type DbApi } from '@thinkclass/plugin-runtime';
@@ -21,7 +22,7 @@ import {
   createParentBuffRepository,
   type ParentBuffRepository,
 } from '../../plugins/parent-buff/src/parentBuff.repository.js';
-import { ParentBuffService } from '../../plugins/parent-buff/src/parentBuff.service.js';
+import { ParentBuffService, type ParentBuffClassroom } from '../../plugins/parent-buff/src/parentBuff.service.js';
 import { ParentBuffController } from '../../plugins/parent-buff/src/parentBuff.controller.js';
 
 function fakeRepository(overrides: Partial<ParentBuffRepository> = {}): ParentBuffRepository {
@@ -32,9 +33,32 @@ function fakeRepository(overrides: Partial<ParentBuffRepository> = {}): ParentBu
   };
 }
 
+/**
+ * The classroom port the authorization check reads.
+ *
+ * `listStudentsByParent` is the only method this domain uses (see `ParentBuffClassroom`), so the
+ * double is one function: parent 8 is linked to students 2 and 20, and nobody else is linked to
+ * anything.
+ */
+function fakeClassroom(children: Array<{ id: number; classId: number }> = [
+  { id: 2, classId: 1 },
+  { id: 20, classId: 1 },
+]): ParentBuffClassroom {
+  return {
+    listStudentsByParent: vi.fn(async () => children.map((child) => ({ ...child }))),
+    getStudentById: vi.fn(async (id: number) => children.find((child) => child.id === id) ?? null),
+    getClassById: vi.fn(async (id: number) => ({ id, teacherId: 5 })),
+    checkStudentFeature: vi.fn(async () => ({ value: true })),
+  } as never;
+}
+
+function fakeRequest(actor: { userId: number; role: string } | null): Request {
+  return { context: { requestId: 'test', actor, authSource: actor ? 'session' : 'none' } } as unknown as Request;
+}
+
 describe('ParentBuffService guards (relocated)', () => {
   it('requires a studentId', () => {
-    const service = new ParentBuffService(fakeRepository());
+    const service = new ParentBuffService(fakeRepository(), fakeClassroom());
 
     expect(() => service.createParentBuff({})).toThrow(ApiError);
     try {
@@ -47,7 +71,7 @@ describe('ParentBuffService guards (relocated)', () => {
 
   it('rejects a second blessing on the same day', () => {
     const repository = fakeRepository({ findToday: vi.fn(() => ({ id: 1 })) });
-    const service = new ParentBuffService(repository);
+    const service = new ParentBuffService(repository, fakeClassroom());
 
     try {
       service.createParentBuff({ studentId: 2 });
@@ -61,7 +85,7 @@ describe('ParentBuffService guards (relocated)', () => {
 
   it('records the blessing when none exists today', () => {
     const repository = fakeRepository();
-    const service = new ParentBuffService(repository);
+    const service = new ParentBuffService(repository, fakeClassroom());
 
     expect(service.createParentBuff({ studentId: 2 })).toBeUndefined();
     expect(repository.insert).toHaveBeenCalledWith(2);
@@ -69,31 +93,57 @@ describe('ParentBuffService guards (relocated)', () => {
 
   it('treats studentId 0 as missing, not as a valid id', () => {
     // `if (!studentId)` rather than `== null`, so 0 is rejected. Preserved deliberately.
-    const service = new ParentBuffService(fakeRepository());
+    const service = new ParentBuffService(fakeRepository(), fakeClassroom());
     expect(() => service.createParentBuff({ studentId: 0 })).toThrow('Student ID required');
+  });
+
+  it('binds a parent to their own children, through the classroom port', async () => {
+    const classroom = fakeClassroom();
+    const service = new ParentBuffService(fakeRepository(), classroom);
+
+    await expect(service.assertActorMayBless({ id: 8, role: 'parent' }, 2)).resolves.toBeUndefined();
+    expect(classroom.listStudentsByParent).toHaveBeenCalledWith(8);
+
+    // A student the parent is not linked to is refused rather than blessed.
+    await expect(service.assertActorMayBless({ id: 8, role: 'parent' }, 99)).rejects.toMatchObject({
+      status: 403,
+      message: '无权限执行该操作',
+    });
+
+    await expect(service.assertActorMayBless({ id: 5, role: 'teacher' }, 2)).resolves.toBeUndefined();
+    await expect(service.assertActorMayBless({ id: 5, role: 'teacher' }, 99)).rejects.toMatchObject({ status: 403 });
+    await expect(service.assertActorMayBless({ id: 6, role: 'teacher' }, 2)).rejects.toMatchObject({ status: 403 });
+    const disabled = fakeClassroom();
+    vi.mocked(disabled.checkStudentFeature).mockResolvedValue({ refusal: { code: 'feature-disabled', message: '该功能当前已关闭' } });
+    await expect(new ParentBuffService(fakeRepository(), disabled).assertActorMayBless({ id: 8, role: 'parent' }, 2))
+      .rejects.toMatchObject({ status: 403, message: '该功能当前已关闭' });
   });
 });
 
 describe('ParentBuffController', () => {
-  it('answers a bare success envelope', () => {
-    const service = { createParentBuff: vi.fn() };
+  it('answers a bare success envelope for a parent blessing their own child', async () => {
+    const service = { createParentBuff: vi.fn(), assertActorMayBless: vi.fn(async () => undefined) };
     const controller = new ParentBuffController(service as never);
 
-    expect(controller.createParentBuff({ studentId: 2 })).toEqual({ success: true });
+    expect(await controller.createParentBuff(fakeRequest({ userId: 8, role: 'parent' }), { studentId: 2 })).toEqual({
+      success: true,
+    });
+    expect(service.assertActorMayBless).toHaveBeenCalledWith({ id: 8, role: 'parent', studentId: undefined }, 2);
     expect(service.createParentBuff).toHaveBeenCalledWith({ studentId: 2 });
   });
 
-  it('lets an ApiError propagate with its own status and message', () => {
+  it('lets an ApiError propagate with its own status and message', async () => {
     // The legacy `throwPlatformError(error, errorMessage)` wrapper is gone; the composition's
     // global filter renders the ApiError. What must not change is the status and the body.
     const controller = new ParentBuffController({
+      assertActorMayBless: vi.fn(async () => undefined),
       createParentBuff: () => {
         throw new ApiError(400, '今日已经施放过祝福了');
       },
     } as never);
 
     try {
-      controller.createParentBuff({ studentId: 2 });
+      await controller.createParentBuff(fakeRequest({ userId: 8, role: 'parent' }), { studentId: 2 });
       throw new Error('expected a throw');
     } catch (error) {
       expect(error).toBeInstanceOf(ApiError);
@@ -141,7 +191,7 @@ describe('shipped SQL matches the manifest data declaration', () => {
 
   it('both statements pass the ownership check', () => {
     const repository = createParentBuffRepository(api);
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     expect(() => repository.findToday(2, today)).not.toThrow();
     expect(() => repository.insert(2)).not.toThrow();
@@ -165,8 +215,8 @@ describe('shipped SQL matches the manifest data declaration', () => {
 
   it('enforces one blessing per calendar day, using SQLite dates', () => {
     const repository = createParentBuffRepository(api);
-    const service = new ParentBuffService(repository);
-    const today = new Date().toISOString().split('T')[0];
+    const service = new ParentBuffService(repository, fakeClassroom());
+    const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     // First blessing succeeds, second is refused - and the guard really consults the table.
     service.createParentBuff({ studentId: 2 });
@@ -180,7 +230,7 @@ describe('shipped SQL matches the manifest data declaration', () => {
 
   it("does not let yesterday's blessing block today", () => {
     const repository = createParentBuffRepository(api);
-    const service = new ParentBuffService(repository);
+    const service = new ParentBuffService(repository, fakeClassroom());
 
     // Write the row with an explicit yesterday timestamp rather than relying on the clock.
     db.prepare(

@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { Swords, Shield, Trophy, Flame, AlertCircle } from 'lucide-react';
+import { AlertCircle, Flame, Shield, Swords, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+
+import { useRegisterPageCommands } from '@/app/commands/registry';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Progress } from '@/components/ui/progress';
+import { Segmented } from '@/components/ui/segmented';
+import { StatCard } from '@/components/ui/stat-card';
+import { cn } from '@/lib/utils';
 
 import {
   useActiveBoss,
@@ -12,10 +21,24 @@ import {
 } from '@/features/challenge/hooks/useChallenge';
 import type { WorldBossDto } from '@/features/challenge/types';
 
+/**
+ * 挑战模式.
+ *
+ * A `dashboard`: the two tabs are the kit's `Segmented` (the original was two
+ * hand-built pills), the result row is a metric row, and the boss's health is the
+ * kit's `Progress` rather than a hand-built bar with an inline width - the one
+ * dynamic value a page could not express as a class.
+ *
+ * Everything below the surface is unchanged: the question fetch (5 at a time), the
+ * submit mutation, the answer map (including the multi-select toggle), the local
+ * boss hp update after an attack and every label. The 重新开始挑战 action that the
+ * result view already offers is also registered as a palette command.
+ */
 export default function StudentChallenge() {
   const user = useStore((state) => state.user);
   const [activeTab, setActiveTab] = useState<'questions' | 'boss'>('questions');
-  
+  const shouldReduceMotion = useReducedMotion();
+
   // Questions State
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
@@ -95,263 +118,261 @@ export default function StudentChallenge() {
     }
   };
 
+  // The result view's 再来一次 action, offered in the palette too. It reads no page
+  // state - `refetchQuestions` and the setters are stable - so the registry's
+  // structural key is enough here.
+  useRegisterPageCommands([
+    {
+      id: 'challenge:restart',
+      label: '重新开始挑战',
+      icon: Swords,
+      disabled: questions.length === 0,
+      run: () => {
+        void fetchQuestions();
+      },
+    },
+  ]);
+
+  const currentQuestion = questions[currentQIndex];
+  const bossHpPercent = boss ? Math.max(0, (boss.hp / boss.max_hp) * 100) : 0;
+
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto space-y-6"
+    <PageScaffold
+      variant="dashboard"
+      title="挑战模式"
+      toolbar={
+        <Segmented<'questions' | 'boss'>
+          label="挑战模式"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            {
+              value: 'questions',
+              label: (
+                <>
+                  <Swords aria-hidden="true" className="size-4" />
+                  答题挑战
+                </>
+              ),
+            },
+            {
+              value: 'boss',
+              label: (
+                <>
+                  <Flame aria-hidden="true" className="size-4" />
+                  世界Boss
+                </>
+              ),
+            },
+          ]}
+        />
+      }
     >
-      {/* Tabs */}
-      <div className="flex justify-center space-x-6 mb-8">
-        <motion.button
-          whileHover={{ y: -4 }}
-          whileTap={{ y: 0 }}
-          onClick={() => setActiveTab('questions')}
-          className={`flex items-center px-8 py-4 rounded-panel font-black text-xl transition-all border-b-8 ${
-            activeTab === 'questions'
-              ? 'bg-blue-500 text-white border-blue-700 shadow-raised'
-              : 'bg-paper text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600'
-          }`}
-        >
-          <Swords className="mr-3 h-8 w-8" />
-          答题挑战
-        </motion.button>
-        <motion.button
-          whileHover={{ y: -4 }}
-          whileTap={{ y: 0 }}
-          onClick={() => setActiveTab('boss')}
-          className={`flex items-center px-8 py-4 rounded-panel font-black text-xl transition-all border-b-8 ${
-            activeTab === 'boss'
-              ? 'bg-destructive text-white border-red-700 shadow-raised'
-              : 'bg-paper text-gray-500 border-gray-200 hover:bg-destructive/10 hover:text-destructive'
-          }`}
-        >
-          <Flame className="mr-3 h-8 w-8" />
-          世界Boss
-        </motion.button>
-      </div>
-
-      {/* Questions Tab */}
+      {/* Questions tab */}
       <AnimatePresence mode="wait">
-      {activeTab === 'questions' && (
-        <motion.div 
-          key="questions"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          className="bg-paper rounded-panel p-10 shadow-raised border-8 border-blue-100"
-        >
-          {result ? (
-            <motion.div 
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              className="text-center space-y-8"
-            >
-              <Trophy className="mx-auto h-32 w-32 text-yellow-400 drop-shadow-raised" />
-              <h2 className="text-5xl font-black text-gray-900 drop-shadow-sm">挑战结果</h2>
-              <div className="flex justify-center space-x-8 text-xl">
-                <div className="p-6 bg-success/20 text-green-800 rounded-panel border-b-8 border-green-300 min-w-[140px]">
-                  <p className="text-base font-bold mb-2">正确</p>
-                  <p className="text-5xl font-black">{result.correctCount}</p>
-                </div>
-                <div className="p-6 bg-destructive/20 text-destructive rounded-panel border-b-8 border-red-300 min-w-[140px]">
-                  <p className="text-base font-bold mb-2">错误</p>
-                  <p className="text-5xl font-black">{result.wrongCount}</p>
-                </div>
-                <div className="p-6 bg-blue-100 text-blue-800 rounded-panel border-b-8 border-blue-300 min-w-[140px] shadow-raised">
-                  <p className="text-base font-bold mb-2">得分</p>
-                  <p className="text-6xl font-black text-blue-600">{result.score}</p>
-                </div>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={fetchQuestions}
-                className="mt-10 px-12 py-5 bg-blue-500 text-white rounded-panel font-black text-2xl border-b-8 border-blue-700 shadow-raised hover:bg-blue-400"
+        {activeTab === 'questions' && (
+          <motion.div
+            key="questions"
+            initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: -16 }) }}
+            animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
+            exit={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: 16 }) }}
+            className="rounded-panel border border-line-1 bg-surface-2 p-8 shadow-card md:p-10"
+          >
+            {result ? (
+              <motion.div
+                initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.94 }) }}
+                animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1 }) }}
+                className="space-y-8"
               >
-                再来一次
-              </motion.button>
-            </motion.div>
-          ) : questions.length > 0 ? (
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key={currentQIndex}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                <div className="flex justify-between items-center mb-8 bg-gray-50 p-4 rounded-card border-4 border-gray-100">
-                  <h3 className="text-2xl font-black text-gray-800 flex items-center">
-                    <span className="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full mr-3 shadow-md">
-                      {currentQIndex + 1}
+                <div className="text-center">
+                  <Trophy aria-hidden="true" className="mx-auto size-24 text-warning" />
+                  <h2 className="mt-4 text-3xl font-black text-fg-1">挑战结果</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <StatCard icon={Trophy} label="正确" tone="success" value={result.correctCount} />
+                  <StatCard icon={AlertCircle} label="错误" tone="destructive" value={result.wrongCount} />
+                  <StatCard icon={Swords} label="得分" tone="info" value={result.score} />
+                </div>
+                <div className="text-center">
+                  <Button size="lg" onClick={fetchQuestions}>
+                    再来一次
+                  </Button>
+                </div>
+              </motion.div>
+            ) : questions.length > 0 && currentQuestion ? (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentQIndex}
+                  initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: 16 }) }}
+                  animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
+                  exit={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: -16 }) }}
+                >
+                  <div className="mb-8 flex items-center justify-between gap-3 rounded-card border border-line-1 bg-surface-3 p-4">
+                    <h3 className="flex items-center text-xl font-black text-fg-1">
+                      <span className="mr-3 flex size-9 items-center justify-center rounded-full bg-role text-role-contrast">
+                        {currentQIndex + 1}
+                      </span>
+                      <span className="mx-2 text-fg-3">/</span>
+                      {questions.length}
+                    </h3>
+                    <span className="rounded-pill border border-info/30 bg-info-soft px-4 py-1.5 text-sm font-bold text-info-ink">
+                      {currentQuestion.type === 'SINGLE' ? '单选题' : currentQuestion.type === 'MULTIPLE' ? '多选题' : '判断题'}
                     </span>
-                    <span className="text-gray-400 mx-2">/</span>
-                    {questions.length}
-                  </h3>
-                  <span className="px-5 py-2 bg-blue-100 text-blue-800 rounded-full text-lg font-black border-b-4 border-blue-200">
-                    {questions[currentQIndex].type === 'SINGLE' ? '单选题' : questions[currentQIndex].type === 'MULTIPLE' ? '多选题' : '判断题'}
-                  </span>
-                </div>
-                
-                <div className="mb-10">
-                  <h4 className="text-3xl font-black text-gray-900 mb-8 leading-tight">{questions[currentQIndex].title}</h4>
-                  <div className="space-y-4">
-                    {questions[currentQIndex].type === 'JUDGE' ? (
-                      ['正确', '错误'].map((opt) => (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          key={opt}
-                          onClick={() => handleAnswer(questions[currentQIndex].id, opt)}
-                          className={`w-full text-left p-6 rounded-card border-4 transition-all text-xl font-bold ${
-                            answers[questions[currentQIndex].id] === opt
-                              ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md'
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
-                          }`}
-                        >
-                          {opt}
-                        </motion.button>
-                      ))
-                    ) : (
-                      getOptionsArray(questions[currentQIndex].options).map((opt, idx) => {
-                        const isMultiple = questions[currentQIndex].type === 'MULTIPLE';
-                        const isSelected = isMultiple
-                          ? (answers[questions[currentQIndex].id] || []).includes(opt)
-                          : answers[questions[currentQIndex].id] === opt;
-                        const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+                  </div>
 
-                        return (
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            key={opt}
-                            onClick={() => {
-                              if (isMultiple) {
-                                const curr = answers[questions[currentQIndex].id] || [];
-                                const next = curr.includes(opt)
-                                  ? curr.filter((o: string) => o !== opt)
-                                  : [...curr, opt];
-                                handleAnswer(questions[currentQIndex].id, next);
-                              } else {
-                                handleAnswer(questions[currentQIndex].id, opt);
-                              }
-                            }}
-                            className={`w-full text-left p-6 rounded-card border-4 transition-all text-xl font-bold flex items-center ${
-                              isSelected
-                                ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md'
-                                : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
-                            }`}
-                          >
-                            <span className={`w-10 h-10 flex items-center justify-center rounded-card mr-4 ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                              {labels[idx]}
-                            </span>
-                            {opt}
-                          </motion.button>
-                        );
-                      })
+                  <div className="mb-8">
+                    <h4 className="mb-6 text-2xl font-black leading-tight text-fg-1">
+                      {currentQuestion.title}
+                    </h4>
+                    <div className="space-y-3">
+                      {currentQuestion.type === 'JUDGE' ? (
+                        ['正确', '错误'].map((opt) => {
+                          const isSelected = answers[currentQuestion.id] === opt;
+                          return (
+                            <Button
+                              key={opt}
+                              variant="outline"
+                              onClick={() => handleAnswer(currentQuestion.id, opt)}
+                              className={cn(
+                                'h-auto w-full justify-start rounded-card border-2 p-5 text-left text-lg font-bold',
+                                isSelected
+                                  ? 'border-role bg-role-soft text-role-ink hover:bg-role-soft hover:text-role-ink'
+                                  : 'border-line-1 bg-surface-2 text-fg-2 hover:border-role/40 hover:bg-role-soft/40',
+                              )}
+                            >
+                              {opt}
+                            </Button>
+                          );
+                        })
+                      ) : (
+                        getOptionsArray(currentQuestion.options).map((opt, idx) => {
+                          const isMultiple = currentQuestion.type === 'MULTIPLE';
+                          const isSelected = isMultiple
+                            ? (answers[currentQuestion.id] || []).includes(opt)
+                            : answers[currentQuestion.id] === opt;
+                          const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+                          return (
+                            <Button
+                              key={opt}
+                              variant="outline"
+                              onClick={() => {
+                                if (isMultiple) {
+                                  const curr = answers[currentQuestion.id] || [];
+                                  const next = curr.includes(opt)
+                                    ? curr.filter((o: string) => o !== opt)
+                                    : [...curr, opt];
+                                  handleAnswer(currentQuestion.id, next);
+                                } else {
+                                  handleAnswer(currentQuestion.id, opt);
+                                }
+                              }}
+                              className={cn(
+                                'h-auto w-full justify-start rounded-card border-2 p-5 text-left text-lg font-bold',
+                                isSelected
+                                  ? 'border-role bg-role-soft text-role-ink hover:bg-role-soft hover:text-role-ink'
+                                  : 'border-line-1 bg-surface-2 text-fg-2 hover:border-role/40 hover:bg-role-soft/40',
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'mr-4 flex size-9 shrink-0 items-center justify-center rounded-card',
+                                  isSelected
+                                    ? 'bg-role text-role-contrast'
+                                    : 'bg-surface-3 text-fg-2',
+                                )}
+                              >
+                                {labels[idx]}
+                              </span>
+                              {opt}
+                            </Button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 flex justify-between border-t border-line-1 pt-6">
+                    <Button
+                      variant="outline"
+                      disabled={currentQIndex === 0}
+                      onClick={() => setCurrentQIndex(i => i - 1)}
+                    >
+                      上一题
+                    </Button>
+                    {currentQIndex === questions.length - 1 ? (
+                      <Button
+                        disabled={submitMutation.isPending}
+                        onClick={handleSubmit}
+                        className="bg-success text-role-contrast hover:bg-success/90"
+                      >
+                        {submitMutation.isPending ? '提交中...' : '提交试卷'}
+                      </Button>
+                    ) : (
+                      <Button onClick={() => setCurrentQIndex(i => i + 1)}>下一题</Button>
                     )}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            ) : (
+              <EmptyState icon={AlertCircle} title="暂无题目数据" />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Boss tab */}
+      <AnimatePresence mode="wait">
+        {activeTab === 'boss' && (
+          <motion.div
+            key="boss"
+            initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: 16 }) }}
+            animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
+            exit={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: -16 }) }}
+            className="rounded-panel border border-line-1 bg-surface-2 p-8 text-center shadow-card md:p-10"
+          >
+            {boss ? (
+              <div className="space-y-6">
+                <motion.div
+                  animate={shouldReduceMotion ? undefined : { y: [0, -16, 0] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  className="mx-auto flex size-40 items-center justify-center rounded-full border-4 border-danger/30 bg-danger-soft"
+                >
+                  <Flame aria-hidden="true" className="size-20 text-danger" />
+                </motion.div>
+                <h2 className="text-3xl font-black text-fg-1">{boss.name}</h2>
+                <p className="mx-auto max-w-lg text-lg font-medium text-fg-2">{boss.description}</p>
+
+                <div className="mx-auto mt-6 w-full max-w-2xl space-y-2">
+                  <Progress
+                    value={bossHpPercent}
+                    label={`首领血量 ${boss.hp} / ${boss.max_hp}`}
+                    tone="destructive"
+                  />
+                  <div className="text-lg font-black text-fg-1">
+                    HP: {boss.hp} / {boss.max_hp}
                   </div>
                 </div>
 
-                <div className="flex justify-between mt-10 border-t-4 border-gray-100 pt-8">
-                  <motion.button
-                    whileHover={currentQIndex !== 0 ? { scale: 1.05 } : {}}
-                    whileTap={currentQIndex !== 0 ? { scale: 0.95 } : {}}
-                    disabled={currentQIndex === 0}
-                    onClick={() => setCurrentQIndex(i => i - 1)}
-                    className="px-8 py-4 rounded-card font-black text-lg bg-gray-100 text-gray-500 border-b-4 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    上一题
-                  </motion.button>
-                  {currentQIndex === questions.length - 1 ? (
-                    <motion.button
-                      whileHover={!submitMutation.isPending ? { scale: 1.05, y: -4 } : {}}
-                      whileTap={!submitMutation.isPending ? { scale: 0.95 } : {}}
-                      onClick={handleSubmit}
-                      disabled={submitMutation.isPending}
-                      className="px-10 py-4 rounded-card font-black text-lg bg-success text-white border-b-8 border-green-700 hover:bg-green-400 disabled:opacity-50 shadow-raised"
-                    >
-                      {submitMutation.isPending ? '提交中...' : '提交试卷'}
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      whileHover={{ scale: 1.05, y: -4 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setCurrentQIndex(i => i + 1)}
-                      className="px-10 py-4 rounded-card font-black text-lg bg-blue-500 text-white border-b-8 border-blue-700 hover:bg-blue-400 shadow-raised"
-                    >
-                      下一题
-                    </motion.button>
-                  )}
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          ) : (
-            <div className="text-center py-20 text-gray-500">
-              <AlertCircle className="mx-auto h-20 w-20 mb-6 text-gray-300" />
-              <p className="text-2xl font-bold">暂无题目数据</p>
-            </div>
-          )}
-        </motion.div>
-      )}
-      </AnimatePresence>
-
-      {/* Boss Tab */}
-      <AnimatePresence mode="wait">
-      {activeTab === 'boss' && (
-        <motion.div 
-          key="boss"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          className="bg-paper rounded-panel p-10 shadow-raised border-8 border-destructive/30 text-center relative overflow-hidden"
-        >
-          {boss ? (
-            <div className="space-y-8 relative z-10">
-              <motion.div 
-                animate={{ y: [0, -20, 0] }}
-                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                className="mx-auto w-48 h-48 bg-destructive/20 rounded-full flex items-center justify-center mb-8 border-8 border-red-300 shadow-raised"
-              >
-                <Flame className="w-24 h-24 text-destructive drop-shadow-raised" />
-              </motion.div>
-              <h2 className="text-5xl font-black text-gray-900 drop-shadow-sm">{boss.name}</h2>
-              <p className="text-xl font-bold text-gray-500 max-w-lg mx-auto">{boss.description}</p>
-              
-              <div className="bg-gray-200 rounded-panel h-10 w-full max-w-2xl mx-auto overflow-hidden relative border-4 border-gray-300 shadow-inner mt-8">
-                <motion.div 
-                  className="bg-gradient-to-r from-red-500 to-red-400 h-full relative"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.max(0, (boss.hp / boss.max_hp) * 100)}%` }}
-                  transition={{ type: "spring", bounce: 0.5 }}
+                <Button
+                  size="lg"
+                  onClick={handleAttackBoss}
+                  disabled={attackMutation.isPending || boss.hp <= 0}
+                  className="mt-6 bg-danger text-role-contrast hover:bg-danger/90"
                 >
-                  <div className="absolute inset-0 bg-paper/20 w-full h-1/2"></div>
-                </motion.div>
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-white drop-shadow-md">
-                  HP: {boss.hp} / {boss.max_hp}
-                </div>
+                  {attackMutation.isPending ? '攻击中...' : boss.hp <= 0 ? 'Boss已被击败' : '发起攻击！'}
+                </Button>
               </div>
-              
-              <motion.button
-                whileHover={!attackMutation.isPending && boss.hp > 0 ? { scale: 1.1, y: -5 } : {}}
-                whileTap={!attackMutation.isPending && boss.hp > 0 ? { scale: 0.9 } : {}}
-                onClick={handleAttackBoss}
-                disabled={attackMutation.isPending || boss.hp <= 0}
-                className="mt-12 px-16 py-6 bg-destructive text-white rounded-panel font-black text-3xl border-b-8 border-red-700 hover:bg-red-400 disabled:opacity-50 shadow-raised shadow-red-500/40"
-              >
-                {attackMutation.isPending ? '攻击中...' : boss.hp <= 0 ? 'Boss已被击败' : '发起攻击！'}
-              </motion.button>
-            </div>
-          ) : (
-            <div className="py-20 text-gray-400 flex flex-col items-center">
-              <Shield className="w-24 h-24 text-gray-200 mb-6" />
-              <h3 className="text-3xl font-black text-gray-600">当前没有出现世界Boss</h3>
-              <p className="mt-4 text-xl font-bold">请等待老师开启</p>
-            </div>
-          )}
-        </motion.div>
-      )}
+            ) : (
+              <EmptyState
+                icon={Shield}
+                title="当前没有出现世界Boss"
+                description="请等待老师开启"
+              />
+            )}
+          </motion.div>
+        )}
       </AnimatePresence>
-    </motion.div>
+    </PageScaffold>
   );
 }

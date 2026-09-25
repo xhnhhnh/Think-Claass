@@ -8,11 +8,12 @@ import { useQuery } from '@tanstack/react-query';
 
 import { shopApi } from '@/features/marketplace/api/shopApi';
 import { useLuckyDrawConfig, useSaveLuckyDrawConfigMutation } from '@/hooks/queries/useLuckyDraw';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -114,34 +115,46 @@ export default function TeacherLuckyDrawConfig() {
     }
   };
 
+  // The page's one action (it is a settings form), reachable from the command palette too.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-lucky-draw:save',
+      label: '保存设置',
+      icon: Save,
+      keywords: ['抽奖', '九宫格', '保存', '概率'],
+      disabled: saving,
+      run: () => void handleSave(),
+    },
+  ]);
+
   if (loading && configs.length === 0) {
     return (
-      <div className="flex items-center justify-center gap-2 p-8 text-ink-3">
+      <PageScaffold variant="form" className="flex items-center justify-center gap-2 p-8 text-fg-3">
         <Spinner label="正在加载抽奖配置" />
         加载中...
-      </div>
+      </PageScaffold>
     );
   }
 
   const totalProbability = configs.reduce((sum, conf) => sum + (Number(conf.probability) || 0), 0);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader
-        title="九宫格抽奖设置"
-        description="设置抽奖消耗和 9 个格子的奖品与概率权重"
-        icon={Gift}
-        actions={
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Spinner size="sm" label="保存中" /> : <Save data-icon="inline-start" />}
-            {saving ? '保存中...' : '保存设置'}
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="form"
+      title="九宫格抽奖设置"
+      description="设置抽奖消耗和 9 个格子的奖品与概率权重"
+      contentClassName="mx-auto max-w-5xl"
+      footer={
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? <Spinner size="sm" label="保存中" /> : <Save data-icon="inline-start" />}
+          {saving ? '保存中...' : '保存设置'}
+        </Button>
+      }
+    >
 
-      <Card className="rounded-panel border-border bg-paper/80 backdrop-blur-xl">
+      <Card className="rounded-panel border-line-1 bg-surface-2/80 backdrop-blur-xl">
         <CardContent className="space-y-6 px-6 sm:px-8">
-          <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 border-b border-line-1 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <FormField label="每次消耗:" className="w-full sm:w-44">
               <div className="flex items-center gap-2">
                 <Input
@@ -151,11 +164,11 @@ export default function TeacherLuckyDrawConfig() {
                   onChange={(e) => setCostPoints(parseInt(e.target.value) || 0)}
                   className="w-24 text-center"
                 />
-                <span className="text-sm text-ink-3">分</span>
+                <span className="text-sm text-fg-3">分</span>
               </div>
             </FormField>
-            <p className="text-sm text-ink-3">
-              提示：概率权重越大，被抽中的几率越高。当前总权重: <strong className="text-ink-1">{totalProbability}</strong>
+            <p className="text-sm text-fg-3">
+              提示：概率权重越大，被抽中的几率越高。当前总权重: <strong className="text-fg-1">{totalProbability}</strong>
             </p>
           </div>
 
@@ -169,9 +182,9 @@ export default function TeacherLuckyDrawConfig() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
-                  className="relative rounded-panel border border-border bg-muted/50 p-5 pt-7 transition-colors hover:border-warning/40"
+                  className="relative rounded-panel border border-line-1 bg-surface-3/50 p-5 pt-7 transition-colors hover:border-warning/40"
                 >
-                  <div className="absolute -top-3 -left-3 flex size-8 items-center justify-center rounded-full border-2 border-paper bg-warning/10 font-bold text-warning shadow-card">
+                  <div className="absolute -top-3 -left-3 flex size-8 items-center justify-center rounded-full border-2 border-line-1 bg-warning/10 font-bold text-warning shadow-card">
                     {index + 1}
                   </div>
 
@@ -237,6 +250,6 @@ export default function TeacherLuckyDrawConfig() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageScaffold>
   );
 }

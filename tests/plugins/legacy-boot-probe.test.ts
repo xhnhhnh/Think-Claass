@@ -227,6 +227,7 @@ describe('legacy composition serves plugin routes', () => {
     const ids = payload.data.map((plugin) => plugin.id).sort();
     expect(ids).toEqual([
       'admin',
+      'ai-study',
       'assignments',
       'battles',
       'challenge',
@@ -236,6 +237,7 @@ describe('legacy composition serves plugin routes', () => {
       'economy',
       'engagement',
       'gacha',
+      'homework',
       'identity',
       'insights',
       'learning',
@@ -262,21 +264,40 @@ describe('legacy composition serves plugin routes', () => {
     // plugin controller -> service -> classroom.public -> capability/column fallback.
     // A route that was not mounted would be 404, and a class that does not exist would be 404 too -
     // hence the setup-created id: the class is real and every `enable_*` flag on it defaults off.
-    const response = await probe(`/api/economy/classes/${probeClassId}/stocks`);
+    //
+    // The request is credentialed because the route is: `GET /api/economy/classes/:classId/stocks`
+    // now enforces the matrix's roles (class teacher / student of the class / admin), and an
+    // anonymous caller is refused with 401 before the feature gate is ever consulted. The claim this
+    // probe exists to make is about the *plugin* serving the route, so it has to get past the actor
+    // gate to reach the gate being asserted. `probeClassId` is the class the superadmin created for
+    // `probe-teacher` (`createClass` falls back to the first teacher row), so the teacher owns it
+    // and this still lands on the feature gate rather than on an ownership refusal.
+    const response = await probe(`/api/economy/classes/${probeClassId}/stocks`, {
+      headers: { authorization: `Bearer ${await teacherToken()}` },
+    });
     expect(response.status).toBe(403);
     expect(response.body).toContain('该功能当前已关闭');
   });
 
   it('serves a migrated route from its plugin, not from api/modules', async () => {
     // This said "dungeon is still an api/modules Nest module" - it is not, and has not
-    // been since P4.3b.2. `plugins/dungeon/src/dungeon.service.ts:91` is the source of
-    // this message, which is what makes it evidence for the right thing: the legacy
-    // composition is serving a *plugin* controller's real error path. The route answers
-    // 404 for a student that does not exist, so status alone proves nothing - the *body*
-    // distinguishes "controller ran" ("学生未找到") from "route not mounted"
-    // (Nest's catch-all "Cannot GET ...").
-    const response = await probe('/api/dungeon/students/1/run');
+    // been since P4.3b.2.
+    //
+    // The route is guarded now (the matrix rules it `student（本人）/teacher（本班，只读）`), so the
+    // anonymous half asserts the plugin's own gate and the credentialed half asserts the plugin's own
+    // service path: the probe database holds no students, so a teacher gets the 404 the dungeon
+    // service has always thrown. Both bodies distinguish "the plugin's controller ran" from
+    // "route not mounted" (Nest's catch-all "Cannot GET ..."), which is what this probe is for.
+    const anonymous = await probe('/api/dungeon/students/1/run');
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toContain('未登录或登录已过期');
+    expect(anonymous.body).not.toContain('Cannot GET');
 
+    const response = await probe('/api/dungeon/students/1/run', {
+      headers: { authorization: `Bearer ${await teacherToken()}` },
+    });
+
+    expect(response.status).toBe(404);
     expect(response.body).toContain('学生未找到');
     expect(response.body).not.toContain('Cannot GET');
   });
@@ -305,12 +326,27 @@ describe('legacy composition serves plugin routes', () => {
     expect(JSON.parse(response.body)).toEqual({ success: true, questions: [] });
   });
 
-  it('serves the migrated assignments/exams domain from its plugin', async () => {
+  it('serves the migrated assignments/exams domain from its plugin, to a credentialed caller only', async () => {
     // `api/modules/learning` no longer declares these two controllers (P4.3b.5b); the
     // routes come from `plugins/assignments` through the legacy root module. The envelope
     // carries the class list straight from the plugin's repository, and the `data`/`exams`
     // keys are the ones the deleted controller produced.
-    const response = await probe('/api/exams?class_id=1');
+    //
+    // The anonymous half comes first because this surface used to answer it with 200 and the exam
+    // list of any class the caller named - it was one of the `无鉴权` rows of
+    // `docs/security/route-authorization-matrix.md`. The message is the plugin's own gate, so the
+    // body still does the real work: it distinguishes "the controller ran and refused" from
+    // "Cannot GET".
+    const anonymous = await probe(`/api/exams?class_id=${probeClassId}`);
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toContain('未登录或登录已过期');
+    expect(anonymous.body).not.toContain('Cannot GET');
+
+    // A session is what it takes now, and the answer is scoped to the caller: this teacher owns no
+    // exam, so their own view of the class is the empty list the legacy envelope wraps.
+    const response = await probe(`/api/exams?class_id=${probeClassId}`, {
+      headers: { authorization: `Bearer ${await teacherToken()}` },
+    });
 
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
@@ -418,12 +454,23 @@ describe('legacy composition serves plugin routes', () => {
     expect((await probe('/api/admin/users')).status).toBe(401);
   });
 
-  it('serves the migrated learning domain from its plugin', async () => {
+  it('serves the migrated learning domain from its plugin, to a logged-in caller only', async () => {
     // The other half of api/modules/learning (papers / knowledge / wrong-questions /
     // study-plans) is plugins/learning now. subjects is a plain list read, so an empty
     // database answers `{success, data: []}` - and a route served by the deleted module
     // cannot be what answered it.
-    const response = await probe('/api/knowledge/subjects');
+    //
+    // The knowledge-graph reads were this domain's last unguarded routes; the matrix rules them
+    // 登录用户（teacher/student/admin）, so the anonymous request is asserted first and the body is
+    // the plugin's own gate rather than Nest's catch-all.
+    const anonymous = await probe('/api/knowledge/subjects');
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toContain('未登录或登录已过期');
+    expect(anonymous.body).not.toContain('Cannot GET');
+
+    const response = await probe('/api/knowledge/subjects', {
+      headers: { authorization: `Bearer ${await teacherToken()}` },
+    });
 
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
@@ -435,17 +482,31 @@ describe('legacy composition serves plugin routes', () => {
     // plugins/insights'. This is the round whose whole point is that the domain owns **no tables**: it
     // answers by calling `classroom.public` and `engagement.public`.
     //
+    // The routes are guarded now, so an anonymous probe is refused by the plugin's own gate before
+    // any port call. The body is what proves the plugin served it: Nest's catch-all answers
+    // "Cannot GET ..." instead.
+    const anonymousMissing = await probe('/api/analytics/classes/999/overview');
+    expect(anonymousMissing.status).toBe(401);
+    expect(anonymousMissing.body).toContain('未登录或登录已过期');
+    expect(anonymousMissing.body).not.toContain('Cannot GET');
+
     // A missing class is the case that proves the port path ran: the service asks
     // `getClassReportInputs`, gets `class: null`, and answers the legacy 404. A route that was not
     // mounted answers Nest's catch-all instead - same status, different body - so both are asserted.
-    const missing = await probe('/api/analytics/classes/999/overview');
+    // The admin token is needed because the class overview is scoped per the matrix
+    // (`admin 任意；teacher 本班；parent 孩子；student 本人`).
+    const missing = await probe('/api/analytics/classes/999/overview', {
+      headers: { authorization: `Bearer ${await superadminToken()}` },
+    });
     expect(missing.status).toBe(404);
     expect(missing.body).toContain('Class not found');
     expect(missing.body).not.toContain('Cannot GET');
 
     // The setup-created class exists, so this one goes all the way through the port: aggregates from
     // classroom, praise count from engagement, and the derived rates computed here.
-    const overview = await probe(`/api/analytics/classes/${probeClassId}/overview`);
+    const overview = await probe(`/api/analytics/classes/${probeClassId}/overview`, {
+      headers: { authorization: `Bearer ${await superadminToken()}` },
+    });
     expect(overview.status, `overview body: ${overview.body}`).toBe(200);
     expect(overview.body).not.toContain('Cannot GET');
 
@@ -477,13 +538,14 @@ describe('legacy composition serves plugin routes', () => {
   });
 
   it('answers the insights access check on a real request', async () => {
-    // An anonymous caller is refused by the access check *before* any port call, so this also shows
-    // the 403/404 split: a bogus student id is a 403 for an anonymous caller, not a 404.
+    // An anonymous caller is refused with 401 before any port call: we do not know who they are.
     const anonymous = await probe('/api/analytics/students/1/radar');
-    expect(anonymous.status).toBe(403);
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toContain('未登录或登录已过期');
     expect(anonymous.body).not.toContain('Cannot GET');
 
-    // The teacher asking about a class they do not own gets the class-overview refusal - the other
+    // A known caller outside the scope gets the 403 - the other half of the contract. The teacher
+    // asking about a class they do not own gets the class-overview refusal - the other
     // hand-written gate in this domain. Like the classroom probe above, this presents a real session
     // rather than the legacy identity headers, which no longer authenticate by default.
     const teacher = await probe('/api/analytics/classes/999/overview', {
@@ -571,8 +633,13 @@ describe('legacy composition serves plugin routes', () => {
   });
 
   it('distinguishes a missing resource from a missing route', async () => {
-    const missingResource = await probe('/api/pet/students/999/dashboard');
-    const missingRoute = await probe('/api/pet/nope-not-a-route');
+    // Both probes are credentialed: the pet routes now enforce the matrix's
+    // `student（本人）/ parent（孩子）/ teacher（本班）` rule, so an anonymous caller is refused with 401
+    // before the service is consulted - and a 401 cannot distinguish a missing student from a
+    // missing route, which is the distinction this test exists for. Staff pass the scope check.
+    const auth = { authorization: `Bearer ${await superadminToken()}` };
+    const missingResource = await probe('/api/pet/students/999/dashboard', { headers: auth });
+    const missingRoute = await probe('/api/pet/nope-not-a-route', { headers: auth });
 
     expect(missingResource.status).toBe(404);
     expect(missingRoute.status).toBe(404);
@@ -663,7 +730,13 @@ describe('legacy composition serves plugin routes', () => {
     // so the setup-created class answering `{success, data:{students:[]}, students:[]}` proves three
     // things at once: the plugin's controller ran, the port resolved, and both envelope copies
     // are intact. A route that was not mounted would be Nest's catch-all instead.
-    const response = await probe(`/api/pet/classes/${probeClassId}`);
+    //
+    // Credentialed: the class board is scoped to the class's teacher (or its students). The probe
+    // class was created by the superadmin and `createClass` assigned it to `probe-teacher`, so the
+    // teacher token passes the scope check and the envelope below is the plugin's own answer.
+    const response = await probe(`/api/pet/classes/${probeClassId}`, {
+      headers: { authorization: `Bearer ${await teacherToken()}` },
+    });
 
     expect(response.status).toBe(200);
     expect(response.body).not.toContain('Cannot GET');
@@ -673,7 +746,11 @@ describe('legacy composition serves plugin routes', () => {
   it('serves the legacy /api/pets alias family from the plugin too', async () => {
     // The parent dashboard still calls `/api/pets/${studentId}`. Its envelope has no `data`
     // key at all - a different shape from `/api/pet/...` - and the pet plugin answers both.
-    const response = await probe('/api/pets/999');
+    // Credentialed for the same reason as the dashboard probe above: the alias family now enforces
+    // the same scope rule as its `/api/pet` twin, which is what made it a bypass before.
+    const response = await probe('/api/pets/999', {
+      headers: { authorization: `Bearer ${await superadminToken()}` },
+    });
 
     expect(response.status).toBe(404);
     expect(response.body).toContain('Student not found');

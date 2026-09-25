@@ -18,7 +18,25 @@ import { ApiError } from '@thinkclass/kernel';
 
 import { createEconomyRepository } from '../../plugins/economy/src/economy.repository.js';
 import { EconomyService } from '../../plugins/economy/src/economy.service.js';
+import type { RequestActor } from '../../plugins/economy/src/economy.authorization.js';
 import type { EconomyRepository, PortfolioItemDto, StockDto, StockPayload, StockPricePayload } from '../../plugins/economy/src/economy.types.js';
+
+/**
+ * Actors, shaped the way `economy.authorization.ts` builds them from the kernel context: a student
+ * actor carries BOTH `userId` (the login) and `studentId` (the `students` row), and the two are
+ * deliberately different numbers here - conflating them is what the pre-round routes did.
+ */
+function student(studentId: number, userId: number): RequestActor {
+  return { userId, role: 'student', studentId, classId: 3 };
+}
+
+function teacher(userId = 7): RequestActor {
+  return { userId, role: 'teacher', studentId: null, classId: null };
+}
+
+function admin(userId = 1): RequestActor {
+  return { userId, role: 'admin', studentId: null, classId: null };
+}
 
 class FakeEconomyRepository implements EconomyRepository {
   accounts = new Map<number, { student_id: number; deposit_amount: number; interest_rate: number; last_interest_date: string | null }>();
@@ -137,7 +155,7 @@ class FakeClassroom implements ClassroomPort {
   async adjustPoints() {
     throw new Error('not used by economy');
   }
-  async transferStudentCredits(input: { studentId: number; delta: number }) {
+  async transferStudentCredits(input: { studentId: number; delta: number; ledger?: { type: string; description: string } }) {
     if (this.failCredits) return { refusal: this.failCredits };
     const entry = this.students.get(input.studentId);
     if (!entry) return { refusal: { code: 'student-not-found' as const, message: '学生未找到' } };
@@ -146,6 +164,7 @@ class FakeClassroom implements ClassroomPort {
       return { refusal: { code: 'insufficient-credits' as const, message: '积分不足' } };
     }
     entry.snapshot = { ...entry.snapshot, availablePoints: available };
+    if (input.ledger) this.ledger.push({ studentId: input.studentId, type: input.ledger.type, amount: input.delta, description: input.ledger.description });
     return { value: { availablePoints: available } };
   }
   async recordStudentLedgerEntry(entry: { studentId: number; type: string; amount: number; description: string }) {
@@ -212,19 +231,19 @@ describe('EconomyService', () => {
       snapshot: { id: 4, classId: 3, userId: null, name: '小红', totalPoints: 0, availablePoints: 0 },
       featureEnabled: true,
     });
-    expect((await service.getBankAccount(4)).deposit_amount).toBe(0);
+    expect((await service.getBankAccount(admin(), 4)).deposit_amount).toBe(0);
     expect(repository.accounts.has(4)).toBe(true);
   });
 
   it('rejects deposits and withdrawals with insufficient balance', async () => {
-    await expect(service.deposit(1, { amount: 500 })).rejects.toThrow(ApiError);
-    await expect(service.withdraw(1, { amount: 500 })).rejects.toThrow(ApiError);
+    await expect(service.deposit(student(1, 100), 1, { amount: 500 })).rejects.toThrow(ApiError);
+    await expect(service.withdraw(student(1, 100), 1, { amount: 500 })).rejects.toThrow(ApiError);
   });
 
   it('buys stock and recalculates average price', async () => {
-    await service.buyStock(1, { stockId: 2, shares: 2 });
+    await service.buyStock(student(1, 100), 1, { stockId: 2, shares: 2 });
     repository.stocks.set(2, { ...repository.stocks.get(2)!, current_price: 40 });
-    await service.buyStock(1, { stockId: 2, shares: 2 });
+    await service.buyStock(student(1, 100), 1, { stockId: 2, shares: 2 });
 
     const holding = repository.getHolding(1, 2)!;
     expect(holding.shares).toBe(4);
@@ -234,24 +253,24 @@ describe('EconomyService', () => {
   });
 
   it('rejects stock sales above the current holding', async () => {
-    await service.buyStock(1, { stockId: 2, shares: 1 });
-    await expect(service.sellStock(1, { stockId: 2, shares: 2 })).rejects.toThrow(ApiError);
+    await service.buyStock(student(1, 100), 1, { stockId: 2, shares: 1 });
+    await expect(service.sellStock(student(1, 100), 1, { stockId: 2, shares: 2 })).rejects.toThrow(ApiError);
   });
 
   it('supports teacher stock CRUD', async () => {
-    const created = await service.createStock({ class_id: 3, name: '阅读之星', symbol: 'read', current_price: 100 });
-    await service.updateStock(created.id, { class_id: 3, name: '阅读之星', symbol: 'READ', current_price: 120 });
+    const created = await service.createStock(teacher(7), { class_id: 3, name: '阅读之星', symbol: 'read', current_price: 100 });
+    await service.updateStock(teacher(7), created.id, { class_id: 3, name: '阅读之星', symbol: 'READ', current_price: 120 });
 
     expect(repository.getStock(created.id)?.symbol).toBe('READ');
     expect(repository.getStock(created.id)?.current_price).toBe(120);
 
-    await service.deleteStock(created.id);
+    await service.deleteStock(teacher(7), created.id);
     expect(repository.getStock(created.id)).toBeNull();
   });
 
   it('appends every money movement to the shared ledger through the port', async () => {
-    await service.deposit(1, { amount: 50 });
-    await service.withdraw(1, { amount: 30 });
+    await service.deposit(student(1, 100), 1, { amount: 50 });
+    await service.withdraw(student(1, 100), 1, { amount: 30 });
 
     expect(classroom.ledger.map((entry) => entry.type)).toEqual(['BANK_DEPOSIT', 'BANK_WITHDRAW']);
     expect(classroom.ledger.map((entry) => entry.amount)).toEqual([-50, 30]);
@@ -260,13 +279,13 @@ describe('EconomyService', () => {
   it('rejects the whole operation when the class has the feature disabled', async () => {
     classroom.students.get(1)!.featureEnabled = false;
 
-    await expect(service.getBankAccount(1)).rejects.toMatchObject({ status: 403 });
+    await expect(service.getBankAccount(admin(), 1)).rejects.toMatchObject({ status: 403 });
     // Nothing moved: the gate runs before any bank write.
     expect(repository.accounts.get(1)?.deposit_amount).toBe(80);
   });
 
   it('reports a missing student as 404 before the feature gate', async () => {
-    await expect(service.getBankAccount(999)).rejects.toMatchObject({ status: 404 });
+    await expect(service.getBankAccount(admin(), 999)).rejects.toMatchObject({ status: 404 });
   });
 
   /**
@@ -277,16 +296,94 @@ describe('EconomyService', () => {
   it('rolls the bank deposit back when the credit transfer is refused', async () => {
     classroom.failCredits = { code: 'insufficient-credits', message: '积分不足' };
 
-    await expect(service.deposit(1, { amount: 50 })).rejects.toThrow(ApiError);
+    await expect(service.deposit(student(1, 100), 1, { amount: 50 })).rejects.toThrow(ApiError);
     expect(repository.accounts.get(1)?.deposit_amount).toBe(80);
   });
 
   it('rolls the holding back when the credit transfer is refused', async () => {
     classroom.failCredits = { code: 'insufficient-credits', message: '积分不足' };
 
-    await expect(service.buyStock(1, { stockId: 2, shares: 1 })).rejects.toThrow(ApiError);
+    await expect(service.buyStock(student(1, 100), 1, { stockId: 2, shares: 1 })).rejects.toThrow(ApiError);
     expect(repository.getHolding(1, 2)).toBeNull();
     expect(classroom.ledger).toHaveLength(0);
+  });
+});
+
+/**
+ * Actor scope. The pre-round routes took `studentId` (and `class_id`) straight from the path or
+ * body, so an anonymous caller - or any logged-in student - could move another student's points.
+ * These cover the part the controller cannot answer alone: whether *this* actor owns the row.
+ */
+describe('EconomyService actor scope', () => {
+  let repository: FakeEconomyRepository;
+  let classroom: FakeClassroom;
+  let service: EconomyService;
+
+  beforeEach(() => {
+    ({ repository, classroom, service } = setup());
+    classroom.students.set(2, {
+      snapshot: { id: 2, classId: 3, userId: 200, name: '小红', totalPoints: 100, availablePoints: 100 },
+      featureEnabled: true,
+    });
+    repository.accounts.set(2, { student_id: 2, deposit_amount: 0, interest_rate: 0.05, last_interest_date: null });
+  });
+
+  it('refuses a student naming another student row, on every asset write', async () => {
+    await expect(service.deposit(student(1, 100), 2, { amount: 10 })).rejects.toMatchObject({ status: 403 });
+    await expect(service.withdraw(student(1, 100), 2, { amount: 10 })).rejects.toMatchObject({ status: 403 });
+    await expect(service.buyStock(student(1, 100), 2, { stockId: 2, shares: 1 })).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(service.sellStock(student(1, 100), 2, { stockId: 2, shares: 1 })).rejects.toMatchObject({
+      status: 403,
+    });
+
+    // Nothing moved and nothing was written for either row.
+    expect(repository.accounts.get(2)?.deposit_amount).toBe(0);
+    expect(classroom.students.get(1)?.snapshot.availablePoints).toBe(200);
+    expect(classroom.students.get(2)?.snapshot.availablePoints).toBe(100);
+    expect(classroom.ledger).toHaveLength(0);
+  });
+
+  it('refuses a student with no resolved student row', async () => {
+    const unresolved: RequestActor = { userId: 100, role: 'student', studentId: null, classId: null };
+    await expect(service.deposit(unresolved, 1, { amount: 10 })).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('scopes a bank read to the student themselves, their class teacher, or admin', async () => {
+    await expect(service.getBankAccount(student(1, 100), 1)).resolves.toMatchObject({ student_id: 1 });
+    await expect(service.getBankAccount(student(1, 100), 2)).rejects.toMatchObject({ status: 403 });
+    await expect(service.getBankAccount(teacher(7), 1)).resolves.toMatchObject({ student_id: 1 });
+    await expect(service.getBankAccount(teacher(9), 1)).rejects.toMatchObject({ status: 403 });
+    await expect(service.getBankAccount(admin(), 2)).resolves.toMatchObject({ student_id: 2 });
+  });
+
+  it('scopes a portfolio and an overview read the same way', async () => {
+    await expect(service.listPortfolio(student(1, 100), 1)).resolves.toEqual([]);
+    await expect(service.listPortfolio(student(1, 100), 2)).rejects.toMatchObject({ status: 403 });
+    await expect(service.getStudentOverview(teacher(7), 1)).resolves.toBeDefined();
+    await expect(service.getStudentOverview(teacher(9), 1)).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('scopes a class stock board to the class teacher and its students', async () => {
+    await expect(service.listStocks(teacher(7), 3)).resolves.toBeDefined();
+    await expect(service.listStocks(student(1, 100), 3)).resolves.toBeDefined();
+    await expect(service.listStocks(teacher(9), 3)).rejects.toMatchObject({ status: 403 });
+    await expect(service.listStocks(admin(), 3)).resolves.toBeDefined();
+  });
+
+  it('lets only the class teacher (or admin) administer that class stock board', async () => {
+    await expect(
+      service.createStock(teacher(7), { class_id: 3, name: '阅读之星', symbol: 'read', current_price: 10 }),
+    ).resolves.toMatchObject({ id: expect.any(Number) });
+
+    await expect(
+      service.createStock(teacher(9), { class_id: 3, name: '越权', symbol: 'NOPE', current_price: 10 }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    await expect(
+      service.createStock(student(1, 100), { class_id: 3, name: '学生', symbol: 'STU', current_price: 10 }),
+    ).rejects.toMatchObject({ status: 403 });
   });
 });
 

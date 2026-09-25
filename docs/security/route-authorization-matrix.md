@@ -90,6 +90,8 @@
 | `GET /api/admin/system/stats` | `plugins/admin/src/admin.controllers.ts:81` | 受控：requireAdmin | admin/superadmin | 每方法首行 requireAdmin（401 匿名 / 403 非管理员）。 |
 | `GET /api/admin/system/settings` | `plugins/admin/src/admin.controllers.ts:91` | 受控：requireAdmin | admin/superadmin | 每方法首行 requireAdmin（401 匿名 / 403 非管理员）。 |
 | `PUT /api/admin/system/settings` | `plugins/admin/src/admin.controllers.ts:101` | 受控：requireAdmin | admin/superadmin | 每方法首行 requireAdmin（401 匿名 / 403 非管理员）。 |
+| `POST /api/admin/system/ai/test` | `plugins/admin/src/admin.controllers.ts:129` | 受控：requireAdmin | admin/superadmin | AI 判分/问答的「测试连接」：每方法首行 requireAdmin（401 匿名 / 403 非管理员）。**这是本轮唯一新增的路由**，模型调用经 `homework.public` 端口转发到 `plugins/homework`，作业插件未启用时仍返回 200 + 说明文案。 |
+| `POST /api/homework/ai/questions` | `plugins/homework/src/homework.controllers.ts:154` | 受控：requireActorRole(TEACHER_WRITER) | teacher/admin/superadmin | AI 出题。作业插件 17 条路由中唯一没有 `:id` 的一条：生成不读也不写任何行，候选题只回给对话框，保存仍走原有的发布/编辑接口。服务层另有一道「只有老师可以出题」的 403（学生/家长即使越权到达控制器也会被拒）。 |
 | `GET /api/admin/system/database/export` | `plugins/admin/src/admin.controllers.ts:111` | 受控：requireAdmin | admin/superadmin | 每方法首行 requireAdmin（401 匿名 / 403 非管理员）。 |
 | `POST /api/admin/system/database/import` | `plugins/admin/src/admin.controllers.ts:122` | 受控：requireAdmin | admin/superadmin | 每方法首行 requireAdmin（401 匿名 / 403 非管理员）。 |
 | `POST /api/admin/system/database/reset` | `plugins/admin/src/admin.controllers.ts:136` | 受控：requireAdmin | admin/superadmin | 每方法首行 requireAdmin（401 匿名 / 403 非管理员）。 |
@@ -201,6 +203,19 @@
 | `GET /api/analytics/classes/:classId/overview` | `plugins/insights/src/insights.controllers.ts:38` | 受控：actor 判定 | admin 任意；teacher 本班；parent 孩子；student 本人 | insights.service.ts assertStudentAccess / 班级 owner 判定，匿名 403。 |
 | `GET /api/analytics/students/:studentId/report` | `plugins/insights/src/insights.controllers.ts:47` | 受控：actor 判定 | admin 任意；teacher 本班；parent 孩子；student 本人 | insights.service.ts assertStudentAccess / 班级 owner 判定，匿名 403。 |
 | `GET /api/analytics/students/:studentId/radar` | `plugins/insights/src/insights.controllers.ts:56` | 受控：actor 判定 | admin 任意；teacher 本班；parent 孩子；student 本人 | insights.service.ts assertStudentAccess / 班级 owner 判定，匿名 403。 |
+
+### `plugins/ai-study/src/ai-study.controllers.ts`
+
+AI 智学（本轮新增的 6 条路由）。两层门：控制器先做角色门（401 未登录或登录已过期 / 403 无权限执行该操作，在任何校验之前），随后以 `ctx.permissions.require` 施加清单里声明的能力键（`ai_study.practice` / `ai_study.insight` / `ai_study.assign`）。服务层再做归属收窄：学生路由**不带 `:studentId`**，学生行由 `classroom.public.getStudentByUserId(actor.userId)` 解析，因此没有可伪造的路径参数；`sets/:id` 是学生唯一能提供的 id，服务比对练单的 `student_id`。教师路由经 `assertClassAccess`（admin/superadmin 任意，teacher 限 `listClassIdsByTeacher` 的班级，其他角色 403），派发时再逐生 `assertStudentInClass`。班级开关 `enable_ai_study` 关闭时统一 403 该功能当前已关闭。
+
+| METHOD /path | 声明位置 | 鉴权现状（基线） | 应属角色 | 备注 |
+| --- | --- | --- | --- | --- |
+| `POST /api/ai-study/my/sets` | `plugins/ai-study/src/ai-study.controllers.ts:68` | 受控：requireActorRole(student) | student（本人） | 生成智学练单。控制器角色门 + `ai_study.practice` + `assertStudentFeature`；已有进行中练单时幂等返回原练单，不新建。 |
+| `GET /api/ai-study/my/sets/current` | `plugins/ai-study/src/ai-study.controllers.ts:76` | 受控：requireActorRole(student) | student（本人） | 读取本人当前练单；无练单时 200 + `set: null`（不是 404）。 |
+| `PUT /api/ai-study/sets/:id/answers` | `plugins/ai-study/src/ai-study.controllers.ts:84` | 受控：requireActorRole(student) | student（本人） | 保存作答。练单不属于本人 403；练单不存在 404；已提交 400。 |
+| `POST /api/ai-study/sets/:id/submit` | `plugins/ai-study/src/ai-study.controllers.ts:97` | 受控：requireActorRole(student) | student（本人） | 交卷并回写掌握度。判定在题目所有者 `learning.public.recordPracticeOutcome` 内完成；主观题/无参考答案返回 `is_correct: null` 且不动掌握度。 |
+| `GET /api/ai-study/classes/:classId/insight` | `plugins/ai-study/src/ai-study.controllers.ts:113` | 受控：requireActorRole(teacher/admin/superadmin) | teacher（本班）/admin/superadmin | 班级智学看板。仅汇总本班学生信号，学生数上限 40 并在响应里说明截断。 |
+| `POST /api/ai-study/classes/:classId/assign` | `plugins/ai-study/src/ai-study.controllers.ts:121` | 受控：requireActorRole(teacher/admin/superadmin) | teacher（本班）/admin/superadmin | 派发练单。缺 `student_ids` 400；逐个校验学生属于本班；单次上限 60 人，失败按学生返回原因。 |
 
 ### `plugins/learning/src/learning.controllers.ts`
 

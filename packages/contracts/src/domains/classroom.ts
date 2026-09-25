@@ -422,6 +422,16 @@ export interface ClassroomPort {
     actorId: number;
   }): Promise<{ totalPoints: number; availablePoints: number }>;
 
+  /** Atomically write an earned reward, its ledger row and its typed event. */
+  awardStudentPoints(input: {
+    studentId: number;
+    amount: number;
+    type: string;
+    description: string;
+    actorId: number;
+    requestId?: string;
+  }): Promise<{ totalPoints: number; availablePoints: number }>;
+
   // -- credit balance -------------------------------------------------------
   // Feature plugins spend and earn a student's *available* points (the spendable
   // half of the balance). They must not write `students.available_points`
@@ -439,6 +449,7 @@ export interface ClassroomPort {
     delta: number;
     reason: string;
     actorId: number;
+    ledger?: { type: string; description: string };
   }): Promise<ClassroomResult<{ availablePoints: number }>>;
 
   /**

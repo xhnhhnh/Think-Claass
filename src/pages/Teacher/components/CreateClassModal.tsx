@@ -24,9 +24,9 @@ export function CreateClassModal({ isOpen, onClose, onSubmit, submitting }: Crea
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-paper/90 backdrop-blur-xl border-white/60">
+      <DialogContent className="sm:max-w-md bg-surface-2/90 backdrop-blur-xl border-line-1">
         <DialogHeader>
-          <DialogTitle className="text-ink-1 text-xl font-bold">新建班级</DialogTitle>
+          <DialogTitle className="text-fg-1 text-xl font-bold">新建班级</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
@@ -42,7 +42,7 @@ export function CreateClassModal({ isOpen, onClose, onSubmit, submitting }: Crea
           </div>
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>取消</Button>
-            <Button type="submit" disabled={submitting || !name.trim()} className="bg-primary hover:bg-primary/90">
+            <Button type="submit" disabled={submitting || !name.trim()}>
               {submitting ? '创建中...' : '确认'}
             </Button>
           </div>

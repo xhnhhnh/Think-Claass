@@ -36,6 +36,10 @@ interface Article {
  * Escape and gets the same entrance animation as every other dialog in the product.
  * The empty and loading states use `EmptyState` and `Spinner` instead of a
  * `border-b-2 border-indigo-500` div.
+ *
+ * Public site, so it wears no console page scaffold: there is no console shell on these
+ * routes and the page keeps its own `PortalShell` chrome. Only the vocabulary moved -
+ * every colour is a token now (`bg-surface-*`, `text-fg-*`, `text-role`).
  */
 export default function NewsPage() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -72,20 +76,20 @@ export default function NewsPage() {
   return (
     <PortalShell title="新闻动态" icon={Newspaper} mainClassName="max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-3xl font-bold text-ink-1 md:text-4xl">最新动态</h1>
-        <p className="mx-auto max-w-xl text-base text-ink-3">
+        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-4xl">最新动态</h1>
+        <p className="mx-auto max-w-xl text-base text-fg-3">
           了解系统的最新功能发布、教育资讯和成功案例分享。
         </p>
       </motion.div>
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Spinner size="lg" label="正在加载新闻" className="text-primary" />
+          <Spinner size="lg" label="正在加载新闻" className="text-role" />
         </div>
       ) : articles.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title={<span className="text-xl font-semibold text-ink-1">暂无新闻内容</span>}
+          title={<span className="text-xl font-semibold text-fg-1">暂无新闻内容</span>}
           description="我们正在准备更多精彩内容，敬请期待！"
         />
       ) : (
@@ -96,11 +100,11 @@ export default function NewsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.08 }}
               key={article.id}
-              className="group flex cursor-pointer flex-col overflow-hidden rounded-panel border border-border bg-paper shadow-card transition-all duration-200 hover:-translate-y-1 hover:shadow-raised"
+              className="group flex cursor-pointer flex-col overflow-hidden rounded-panel border border-line-1 bg-surface-2 shadow-card transition-all duration-200 hover:-translate-y-1 hover:shadow-raised"
               onClick={() => handleReadMore(article.id)}
             >
               {article.cover_image ? (
-                <div className="h-48 overflow-hidden bg-muted">
+                <div className="h-48 overflow-hidden bg-surface-3">
                   <img
                     src={article.cover_image}
                     alt={article.title}
@@ -108,12 +112,12 @@ export default function NewsPage() {
                   />
                 </div>
               ) : (
-                <div className="flex h-48 items-center justify-center bg-muted/50">
-                  <Newspaper className="size-12 text-ink-3/40" />
+                <div className="flex h-48 items-center justify-center bg-surface-3/50">
+                  <Newspaper className="size-12 text-fg-3/40" />
                 </div>
               )}
               <div className="flex flex-1 flex-col p-6">
-                <div className="mb-3 flex items-center gap-3 text-xs font-medium text-ink-3">
+                <div className="mb-3 flex items-center gap-3 text-xs font-medium text-fg-3">
                   {article.category ? <Badge variant="secondary">{article.category}</Badge> : null}
                   <div className="flex items-center">
                     <Calendar className="mr-1 size-3.5" />
@@ -124,18 +128,18 @@ export default function NewsPage() {
                     })}
                   </div>
                 </div>
-                <h3 className="mb-2 line-clamp-2 text-base leading-snug font-semibold text-ink-1 transition-colors group-hover:text-primary">
+                <h3 className="mb-2 line-clamp-2 text-base leading-snug font-semibold text-fg-1 transition-colors group-hover:text-role">
                   {article.title}
                 </h3>
-                <p className="mb-4 line-clamp-3 flex-1 text-sm leading-relaxed text-ink-3">
+                <p className="mb-4 line-clamp-3 flex-1 text-sm leading-relaxed text-fg-3">
                   {article.summary || "点击阅读完整内容..."}
                 </p>
-                <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
-                  <div className="flex items-center text-xs text-ink-3">
+                <div className="mt-auto flex items-center justify-between border-t border-line-1 pt-4">
+                  <div className="flex items-center text-xs text-fg-3">
                     <Eye className="mr-1 size-3.5" />
                     {article.view_count} 次阅读
                   </div>
-                  <span className="text-xs font-medium text-primary group-hover:underline">阅读全文</span>
+                  <span className="text-xs font-medium text-role group-hover:underline">阅读全文</span>
                 </div>
               </div>
             </motion.div>
@@ -157,7 +161,7 @@ export default function NewsPage() {
                 </div>
               ) : null}
               <DialogHeader className="px-8 pt-6">
-                <div className="mb-3 flex items-center gap-3 text-xs font-medium text-ink-3">
+                <div className="mb-3 flex items-center gap-3 text-xs font-medium text-fg-3">
                   {selectedArticle.category ? (
                     <Badge variant="secondary">{selectedArticle.category}</Badge>
                   ) : null}
@@ -178,16 +182,16 @@ export default function NewsPage() {
               <div className="max-h-[50vh] overflow-y-auto px-8 pb-4">
                 {articleLoading ? (
                   <div className="flex justify-center py-10">
-                    <Spinner size="lg" label="正在加载文章" className="text-primary" />
+                    <Spinner size="lg" label="正在加载文章" className="text-role" />
                   </div>
                 ) : (
                   <div
-                    className="prose prose-slate max-w-none leading-relaxed whitespace-pre-line text-ink-2"
+                    className="prose max-w-none leading-relaxed whitespace-pre-line text-fg-2"
                     dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
                   />
                 )}
               </div>
-              <DialogFooter className="justify-center bg-muted/40">
+              <DialogFooter className="justify-center bg-surface-3/50">
                 <Button type="button" variant="outline" onClick={() => setSelectedArticle(null)}>
                   关闭文章
                 </Button>

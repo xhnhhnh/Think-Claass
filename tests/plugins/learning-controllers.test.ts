@@ -17,7 +17,9 @@
  *     DELETE answer 200. The legacy controllers had no `@HttpCode` either, and adding one (as
  *     the pet domain had to, because *its* controllers pinned 200) would be a regression.
  *   - Authorization lives in the controller now - the legacy service gated first thing - with
- *     the same split: 401 for an unknown caller, 403 for a known one who may not.
+ *     the same split: 401 for an unknown caller, 403 for a known one who may not. The three
+ *     knowledge-graph reads were the domain's last open routes; the matrix rules them
+ *     登录用户（teacher/student/admin）, so they too carry the gate now.
  *
  * The service fake mirrors the real service's sync/async split exactly (papers, subjects and the
  * knowledge graph are synchronous; submissions, wrong questions and study plans are async). That
@@ -117,12 +119,12 @@ describe('learning controllers: the data envelope', () => {
       await submissions.start(student, { paper_id: 1 }),
       await submissions.submit(student, '1'),
       // knowledge
-      await knowledge.getSubjects(),
+      await knowledge.getSubjects(staff),
       await knowledge.createSubject(staff, { name: '语文' }),
-      await knowledge.getNodes('1'),
+      await knowledge.getNodes(staff, '1'),
       await knowledge.createNode(staff, { subject_id: 1, name: '函数' }),
       await knowledge.updateNode(staff, '11', { name: '导数' }),
-      await knowledge.getEdges('1'),
+      await knowledge.getEdges(staff, '1'),
       await knowledge.createEdge(staff, { subject_id: 1, from_node_id: 1, to_node_id: 2, edge_type: 'requires' }),
       // wrong questions
       await wrong.my(student),
@@ -194,16 +196,17 @@ describe('learning controllers: delegation', () => {
     expect(service.listPapers).toHaveBeenLastCalledWith(actor, undefined);
 
     // The service owns numeric validation, so the raw query value is what must arrive.
-    await knowledge.getNodes('1');
+    await knowledge.getNodes(staff, '1');
     expect(service.listKnowledgeNodes).toHaveBeenCalledWith('1');
-    await knowledge.getNodes(undefined);
+    await knowledge.getNodes(staff, undefined);
     expect(service.listKnowledgeNodes).toHaveBeenLastCalledWith(undefined);
 
-    await knowledge.getEdges('2');
+    await knowledge.getEdges(staff, '2');
     expect(service.listKnowledgeEdges).toHaveBeenCalledWith('2');
 
-    // `getSubjects` takes no request at all, matching the legacy handler.
-    await knowledge.getSubjects();
+    // `getSubjects` passes no request on to the service: the gate is a login gate, and the
+    // subject list itself takes no scope.
+    await knowledge.getSubjects(staff);
     expect(service.listSubjects).toHaveBeenCalledWith();
 
     await papers.createPaper(staff, { title: '周测', class_id: '3' });
@@ -309,10 +312,44 @@ describe('learning controllers: authorization', () => {
     }
   });
 
-  it('leaves the read routes ungated: the actor reaches the service, which decides', async () => {
+  it('gates the three knowledge reads: logged-in teacher/student/admin, never anonymous or parent', async () => {
+    const service = fakeService();
+    const knowledge = new KnowledgeController(service as never);
+
+    const anonymous = fakeRequest(null);
+    const parent = fakeRequest({ userId: 4, role: 'parent' });
+    const teacher = fakeRequest({ userId: 7, role: 'teacher' });
+    const student = fakeRequest({ userId: 8, role: 'student' });
+    const admin = fakeRequest({ userId: 9, role: 'admin' });
+
+    const routes: Array<{
+      label: string;
+      run: (req: Request) => Promise<unknown>;
+      method: keyof ReturnType<typeof fakeService>;
+    }> = [
+      { label: 'GET /api/knowledge/subjects', run: (req) => knowledge.getSubjects(req), method: 'listSubjects' },
+      { label: 'GET /api/knowledge/nodes', run: (req) => knowledge.getNodes(req, '1'), method: 'listKnowledgeNodes' },
+      { label: 'GET /api/knowledge/edges', run: (req) => knowledge.getEdges(req, '1'), method: 'listKnowledgeEdges' },
+    ];
+
+    for (const route of routes) {
+      // The matrix's 应属角色 for these three reads is 登录用户（teacher/student/admin）: the graph
+      // is course content with no user data, so the gate is "we know who you are" and there is no
+      // scope to filter on.
+      expect((await apiErrorOf(() => route.run(anonymous))).message, route.label).toBe('未登录或登录已过期');
+      expect((await apiErrorOf(() => route.run(parent))).statusCode, route.label).toBe(403);
+      expect(service[route.method], route.label).not.toHaveBeenCalled();
+
+      for (const allowed of [teacher, student, admin]) {
+        expect(((await route.run(allowed)) as { success: boolean }).success, route.label).toBe(true);
+      }
+      expect(service[route.method], route.label).toHaveBeenCalledTimes(3);
+    }
+  });
+
+  it('leaves the two paper reads filtered rather than pre-gated: the actor reaches the service, which decides', async () => {
     const service = fakeService();
     const papers = new PapersController(service as never);
-    const knowledge = new KnowledgeController(service as never);
     const anonymous = fakeRequest(null);
 
     // The legacy service gated these itself (403 for an unknown role on `listPapers`, 403 for a
@@ -322,11 +359,6 @@ describe('learning controllers: authorization', () => {
 
     expect(await papers.getPaper(anonymous, '1')).toEqual({ success: true, data: { id: 1 } });
     expect(service.getPaper).toHaveBeenCalledWith({ id: null, role: null }, '1');
-
-    // Subjects, nodes and edges took no actor before the migration and still take none.
-    expect(await knowledge.getSubjects()).toEqual({ success: true, data: [{ id: 1, name: '数学' }] });
-    expect(await knowledge.getNodes(undefined)).toEqual({ success: true, data: [{ id: 10 }] });
-    expect(await knowledge.getEdges('1')).toEqual({ success: true, data: [{ id: 20 }] });
   });
 });
 

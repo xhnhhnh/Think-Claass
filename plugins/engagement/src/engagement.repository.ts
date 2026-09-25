@@ -28,6 +28,8 @@ export interface EngagementRepository {
     title: unknown;
     content: unknown;
   }): number;
+  /** The announcing teacher, so `DELETE` can be limited to the author. */
+  classAnnouncementAuthor(id: SqlParam): { teacher_id: number | null } | undefined;
   deleteClassAnnouncement(id: SqlParam): void;
 
   // -- praises --------------------------------------------------------------
@@ -39,10 +41,14 @@ export interface EngagementRepository {
   countPraisesForStudentIds(studentIds: number[]): number;
   insertPraise(input: { teacherId: SqlParam; studentId: SqlParam; content: unknown; color: unknown }): number;
   findPraise(id: SqlParam): Record<string, unknown> | undefined;
+  /** The praising teacher, so `DELETE` can be limited to the author. */
+  praiseAuthor(id: SqlParam): { teacher_id: number | null } | undefined;
   deletePraise(id: SqlParam): void;
 
   // -- certificates ---------------------------------------------------------
   certificates(studentId: SqlParam | null): Array<Record<string, unknown>>;
+  /** Certificates for a resolved roster: the actor-scoped form of the read above. */
+  certificatesByStudentIds(studentIds: number[]): Array<Record<string, unknown>>;
   insertCertificate(input: { studentId: SqlParam; title: unknown; description: unknown }): number;
 
   // -- redemption (shared-write table, see the manifest) --------------------
@@ -53,6 +59,14 @@ export interface EngagementRepository {
   // -- messages -------------------------------------------------------------
   messages(filter: {
     classId: SqlParam | null;
+    /**
+     * A resolved roster of classes, for the actor-scoped read.
+     *
+     * `null` keeps the legacy single-`classId` (or unfiltered) behaviour; an empty array asks for
+     * nothing and must not degrade into "every class", which is why it is distinguished from
+     * `null` rather than collapsed with it.
+     */
+    classIds: number[] | null;
     type: SqlParam | null;
     receiverId: SqlParam | null;
     involvedId: SqlParam | null;
@@ -80,6 +94,8 @@ export interface EngagementRepository {
     points: unknown;
   }): number;
   familyTaskStudentId(id: SqlParam): { student_id: number } | undefined;
+  /** The row's student *and* parent, so `PUT`/`DELETE` can be limited to the actor's own tasks. */
+  familyTaskOwner(id: SqlParam): { student_id: number; parent_id: number | null } | undefined;
   setFamilyTaskStatus(id: SqlParam, status: unknown): void;
   deleteFamilyTask(id: SqlParam): void;
 
@@ -135,6 +151,13 @@ export function createEngagementRepository(db: DbApi): EngagementRepository {
         [input.classId, input.teacherId, input.title as never, input.content as never],
       );
       return Number(info.lastInsertRowid);
+    },
+
+    classAnnouncementAuthor(id) {
+      return db.get<{ teacher_id: number | null }>(
+        'SELECT teacher_id FROM class_announcements WHERE id = ?',
+        [id],
+      );
     },
 
     deleteClassAnnouncement(id) {
@@ -200,6 +223,10 @@ export function createEngagementRepository(db: DbApi): EngagementRepository {
       return db.get<Record<string, unknown>>('SELECT * FROM praises WHERE id = ?', [id]);
     },
 
+    praiseAuthor(id) {
+      return db.get<{ teacher_id: number | null }>('SELECT teacher_id FROM praises WHERE id = ?', [id]);
+    },
+
     deletePraise(id) {
       db.run('DELETE FROM praises WHERE id = ?', [id]);
     },
@@ -209,6 +236,21 @@ export function createEngagementRepository(db: DbApi): EngagementRepository {
       return studentId === null
         ? db.query<Record<string, unknown>>(`${sql} ORDER BY created_at DESC`)
         : db.query<Record<string, unknown>>(`${sql} WHERE student_id = ? ORDER BY created_at DESC`, [studentId]);
+    },
+
+    /**
+     * The roster form of the certificate read.
+     *
+     * An empty roster returns `[]` without a query: `IN ()` is a SQLite syntax error, and the
+     * caller means "this actor may see nobody", never "everybody".
+     */
+    certificatesByStudentIds(studentIds) {
+      if (studentIds.length === 0) return [];
+      const placeholders = studentIds.map(() => '?').join(',');
+      return db.query<Record<string, unknown>>(
+        `SELECT * FROM certificates WHERE student_id IN (${placeholders}) ORDER BY created_at DESC`,
+        studentIds,
+      );
     },
 
     insertCertificate(input) {
@@ -260,7 +302,12 @@ export function createEngagementRepository(db: DbApi): EngagementRepository {
       let sql = 'SELECT m.* FROM messages m WHERE 1=1';
       const params: SqlParam[] = [];
 
-      if (filter.classId !== null) {
+      if (filter.classIds !== null && filter.classIds !== undefined) {
+        // A resolved roster: no classes means no rows, not every row.
+        if (filter.classIds.length === 0) return [];
+        sql += ` AND m.class_id IN (${filter.classIds.map(() => '?').join(',')})`;
+        params.push(...filter.classIds);
+      } else if (filter.classId !== null) {
         sql += ' AND m.class_id = ?';
         params.push(filter.classId);
       }
@@ -351,6 +398,13 @@ export function createEngagementRepository(db: DbApi): EngagementRepository {
 
     familyTaskStudentId(id) {
       return db.get<{ student_id: number }>('SELECT student_id FROM family_tasks WHERE id = ?', [id]);
+    },
+
+    familyTaskOwner(id) {
+      return db.get<{ student_id: number; parent_id: number | null }>(
+        'SELECT student_id, parent_id FROM family_tasks WHERE id = ?',
+        [id],
+      );
     },
 
     setFamilyTaskStatus(id, status) {

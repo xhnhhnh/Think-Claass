@@ -12,8 +12,11 @@ import { Button } from "@/components/ui/button";
  * (indigo, amber, emerald, violet, rose, cyan, emerald, slate) - a rainbow that
  * belonged to no palette the product owns. They cycle through the four accents the
  * design system actually has, which is what makes a grid of eight read as one page.
+ *
+ * Public site, so it wears no console page scaffold: these routes have no console shell
+ * and the page keeps its own `PortalShell` chrome and `<h1>`. Only the vocabulary moved.
  */
-const TONES = ["bg-primary", "bg-warning", "bg-success", "bg-info"] as const;
+const TONES = ["bg-role", "bg-warning", "bg-success", "bg-info"] as const;
 
 const SERVICES = [
   { icon: Users, title: "多角色管理", description: "支持超级管理员、教师、学生和家长等多种角色，各司其职，权限分明，满足不同使用场景需求。" },
@@ -32,8 +35,8 @@ export default function ServicesPage() {
   return (
     <PortalShell title="产品服务" icon={Layout} mainClassName="max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-3xl font-bold text-ink-1 md:text-4xl">全方位的智慧班级解决方案</h1>
-        <p className="mx-auto max-w-2xl text-base leading-relaxed text-ink-3">
+        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-4xl">全方位的智慧班级解决方案</h1>
+        <p className="mx-auto max-w-2xl text-base leading-relaxed text-fg-3">
           我们提供了一套完整的教育管理工具，旨在减轻教师负担，促进家校合作，助力学生全面发展。
         </p>
       </motion.div>
@@ -45,15 +48,15 @@ export default function ServicesPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.06 }}
             key={service.title}
-            className="flex flex-col items-center rounded-panel border border-border bg-paper p-6 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:shadow-raised"
+            className="flex flex-col items-center rounded-panel border border-line-1 bg-surface-2 p-6 text-center shadow-card transition-all duration-200 hover:-translate-y-1 hover:shadow-raised"
           >
             <div
-              className={`mb-4 flex size-12 items-center justify-center rounded-card text-primary-foreground ${TONES[index % TONES.length]}`}
+              className={`mb-4 flex size-12 items-center justify-center rounded-card text-role-contrast ${TONES[index % TONES.length]}`}
             >
               <service.icon className="size-6" />
             </div>
-            <h3 className="mb-2 text-base font-semibold text-ink-1">{service.title}</h3>
-            <p className="text-sm leading-relaxed text-ink-3">{service.description}</p>
+            <h3 className="mb-2 text-base font-semibold text-fg-1">{service.title}</h3>
+            <p className="text-sm leading-relaxed text-fg-3">{service.description}</p>
           </motion.div>
         ))}
       </div>
@@ -62,10 +65,10 @@ export default function ServicesPage() {
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.4 }}
-        className="relative mt-20 overflow-hidden rounded-panel border border-primary/10 bg-gradient-to-br from-primary/5 to-accent p-12 text-center md:p-14"
+        className="relative mt-20 overflow-hidden rounded-panel border border-role/10 bg-gradient-to-br from-role/5 to-role-soft p-12 text-center md:p-14"
       >
-        <h2 className="mb-4 text-2xl font-bold text-ink-1 md:text-3xl">准备好开启您的教育故事了吗？</h2>
-        <p className="mx-auto mb-8 max-w-xl text-ink-3">
+        <h2 className="mb-4 text-2xl font-bold text-fg-1 md:text-3xl">准备好开启您的教育故事了吗？</h2>
+        <p className="mx-auto mb-8 max-w-xl text-fg-3">
           立即注册体验所有功能，或者联系我们的团队获取详细的演示和解决方案。
         </p>
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -76,7 +79,7 @@ export default function ServicesPage() {
             size="lg"
             variant="outline"
             onClick={() => navigate("/contact")}
-            className="w-full bg-paper sm:w-auto"
+            className="w-full bg-surface-2 sm:w-auto"
           >
             联系我们
           </Button>

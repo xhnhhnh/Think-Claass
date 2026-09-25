@@ -38,8 +38,8 @@ export function PointsModal({
 
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseInt(customAmount, 10);
-    if (!isNaN(amount) && amount !== 0) {
+    const amount = Number(customAmount);
+    if (Number.isInteger(amount) && amount >= -5 && amount <= 5 && amount !== 0) {
       onSubmitPoints(amount, customReason);
     }
   };
@@ -47,16 +47,18 @@ export function PointsModal({
   const handleAddPreset = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPresetLabel.trim() || !newPresetAmount) return;
-    onAddPreset(newPresetLabel.trim(), parseInt(newPresetAmount, 10));
+    const amount = Number(newPresetAmount);
+    if (!Number.isInteger(amount) || amount < -5 || amount > 5 || amount === 0) return;
+    onAddPreset(newPresetLabel.trim(), amount);
     setNewPresetLabel('');
     setNewPresetAmount('');
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-paper/90 backdrop-blur-xl border-white/60">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !submitting) onClose(); }}>
+      <DialogContent className="sm:max-w-md bg-surface-2/90 backdrop-blur-xl border-line-1">
         <DialogHeader>
-          <DialogTitle className="text-ink-1 text-xl font-bold">
+          <DialogTitle className="text-fg-1 text-xl font-bold">
             {targetCount > 1 ? `批量评分 (${targetCount}人)` : '积分管理'}
           </DialogTitle>
         </DialogHeader>
@@ -64,23 +66,23 @@ export function PointsModal({
         <div className="space-y-6 mt-4">
           <div>
             <div className="flex justify-between items-center mb-3">
-              <h4 className="text-sm font-medium text-ink-2">快捷评分</h4>
+              <h4 className="text-sm font-medium text-fg-2">快捷评分</h4>
               <Button variant="ghost" 
                 onClick={() => setIsEditingPresets(!isEditingPresets)}
-                className="text-xs text-primary hover:text-primary/80 flex items-center transition-colors"
+                className="text-xs text-role hover:text-role/80 flex items-center transition-colors"
               >
                 {isEditingPresets ? <><CheckCircle className="w-3 h-3 mr-1" /> 完成编辑</> : <><Edit2 className="w-3 h-3 mr-1" /> 编辑预设</>}
               </Button>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
-              {presets.map((preset) => (
+              {presets.filter((preset) => Number.isInteger(preset.amount) && preset.amount >= -5 && preset.amount <= 5 && preset.amount !== 0).map((preset) => (
                 <div key={preset.id} className="relative group">
                   <Button
                     variant={preset.amount > 0 ? "default" : "destructive"}
                     onClick={() => !isEditingPresets && onSubmitPoints(preset.amount, preset.label)}
                     disabled={submitting || isEditingPresets}
-                    className={`w-full justify-between h-auto py-3 px-4 ${preset.amount > 0 ? 'bg-primary hover:bg-primary/90' : ''}`}
+                    className={`w-full justify-between h-auto py-3 px-4 ${preset.amount > 0 ? 'bg-role hover:bg-role/90' : ''}`}
                   >
                     <span className="font-medium truncate mr-2">{preset.label}</span>
                     <span className="font-bold flex-shrink-0">{preset.amount > 0 ? `+${preset.amount}` : preset.amount}</span>
@@ -88,7 +90,7 @@ export function PointsModal({
                   {isEditingPresets && (
                     <Button variant="ghost"
                       onClick={() => onDeletePreset(preset.id)}
-                      className="absolute -top-2 -right-2 bg-destructive/20 text-destructive rounded-full p-1.5 hover:bg-red-200 transition-colors z-10 shadow-sm"
+                      className="absolute -top-2 -right-2 bg-danger/20 text-danger rounded-full p-1.5 hover:bg-danger/30 transition-colors z-10 shadow-sm"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -98,8 +100,8 @@ export function PointsModal({
             </div>
 
             {isEditingPresets && (
-              <form onSubmit={handleAddPreset} className="mt-4 p-4 bg-muted/50 rounded-card border border-dashed border-input">
-                <h5 className="text-xs font-medium text-ink-2 mb-3">添加新预设</h5>
+              <form onSubmit={handleAddPreset} className="mt-4 p-4 bg-surface-3/50 rounded-card border border-dashed border-line-1">
+                <h5 className="text-xs font-medium text-fg-2 mb-3">添加新预设</h5>
                 <div className="flex space-x-2">
                   <Input
                     placeholder="理由 (如: 表现优异)"
@@ -109,12 +111,15 @@ export function PointsModal({
                   />
                   <Input
                     type="number"
+                    min={-5}
+                    max={5}
+                    step={1}
                     placeholder="分数"
                     value={newPresetAmount}
                     onChange={(e) => setNewPresetAmount(e.target.value)}
                     className="w-20"
                   />
-                  <Button type="submit" disabled={!newPresetLabel || !newPresetAmount} size="sm" className="bg-muted/50">
+                  <Button type="submit" disabled={!newPresetLabel || !newPresetAmount} size="sm">
                     添加
                   </Button>
                 </div>
@@ -122,8 +127,8 @@ export function PointsModal({
             )}
           </div>
 
-          <div className="border-t border-border/60 pt-6">
-            <h4 className="text-sm font-medium text-ink-2 mb-3">自定义评分</h4>
+          <div className="border-t border-line-1/60 pt-6">
+            <h4 className="text-sm font-medium text-fg-2 mb-3">自定义评分</h4>
             <form onSubmit={handleCustomSubmit} className="space-y-4">
               <div className="flex space-x-3">
                 <div className="flex-1">
@@ -131,6 +136,9 @@ export function PointsModal({
                   <Input
                     id="custom-amount"
                     type="number"
+                    min={-5}
+                    max={5}
+                    step={1}
                     placeholder="输入分数 (如: 5 或 -3)"
                     value={customAmount}
                     onChange={(e) => setCustomAmount(e.target.value)}
@@ -148,7 +156,8 @@ export function PointsModal({
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={submitting || !customAmount || parseInt(customAmount) === 0} className="w-full bg-muted/50">
+              <p className="text-xs text-fg-3">每次可评整数 −5 至 +5；正向评分每日最多获得 20 可用积分。</p>
+              <Button type="submit" disabled={submitting || !Number.isInteger(Number(customAmount)) || Number(customAmount) === 0 || Number(customAmount) < -5 || Number(customAmount) > 5} className="w-full">
                 {submitting ? '提交中...' : '确认评分'}
               </Button>
             </form>

@@ -104,6 +104,14 @@ export interface GroupProgressRow {
 /** Validated filter for `listTeamQuests`. */
 export interface TeamQuestFilter {
   classId?: number;
+  /**
+   * The classes the actor owns, when the request named none.
+   *
+   * A teacher may own several classes and the response used to be the whole table; the caller
+   * resolves the roster and passes it here. An empty array means "no classes" and must answer no
+   * rows, never every row.
+   */
+  classIds?: number[];
   status?: string;
 }
 
@@ -111,6 +119,8 @@ export interface TeamQuestFilter {
 export interface TeamQuestProgressFilter {
   questId?: number;
   studentId?: number;
+  /** The students the actor owns, when the request named none. Empty means "nobody". */
+  studentIds?: number[];
 }
 
 /** Validated filter for `listPeerReviews`. */

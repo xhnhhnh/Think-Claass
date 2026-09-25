@@ -371,6 +371,122 @@ describe('platform settings - kernel storage, written through the kernel API', (
   });
 });
 
+/**
+ * The AI panel's two halves: the `ai_*` settings, and the connection test that reads them through
+ * the `homework.public` port.
+ *
+ * This is where the "AI is configurable" claim is proved rather than asserted. Before this round the
+ * five keys were already in the schema and already persisted, but no page rendered a control for
+ * them, so `ai_provider` was frozen at `mock` in every deployment and the homework plugin's HTTP
+ * provider was unreachable - a capability with no way to turn it on.
+ *
+ * The provider itself is *not* exercised here (that is `tests/plugins/homework-ai.test.ts`, against
+ * a stubbed `fetch`): what matters at this layer is that the console can save a configuration, that
+ * saving a configuration does not itself call a model, that the key it reads back is the mask rather
+ * than the secret, and that the test route reaches the model through the port the homework plugin
+ * publishes instead of through a second copy of the provider.
+ */
+describe('AI provider settings and the connection test', () => {
+  it('saves the provider configuration and never calls a model while doing it', async () => {
+    // Any outbound call from this process would land here; the mock provider is the reason the
+    // default installation can save AI settings on a machine with no network at all.
+    const calls: string[] = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${String(input)}`);
+      return originalFetch(input as RequestInfo, init);
+    }) as typeof fetch;
+
+    try {
+      const saved = await call('PUT', '/api/admin/system/settings', {
+        token: adminToken,
+        body: {
+          ai_provider: 'mock',
+          ai_base_url: 'https://api.example.test/v1',
+          ai_model: 'deepseek-chat',
+          ai_timeout_ms: '15000',
+        },
+      });
+
+      expect(saved.status).toBe(200);
+      expect(saved.body.data).toMatchObject({
+        ai_provider: 'mock',
+        ai_base_url: 'https://api.example.test/v1',
+        ai_model: 'deepseek-chat',
+        ai_timeout_ms: '15000',
+      });
+
+      // The only request in the list is the one this test just made to the console.
+      expect(calls.every((entry) => entry.includes('127.0.0.1'))).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('saves an API key, hands it back as a mask, and does not overwrite the real one with the mask', async () => {
+    await call('PUT', '/api/admin/system/settings', {
+      token: adminToken,
+      body: { ai_provider: 'http', ai_api_key: 'sk-real-key' },
+    });
+
+    const stored = kernel.db.prepare(`SELECT value FROM settings WHERE key = 'ai_api_key'`).get() as {
+      value: string;
+    };
+    expect(stored.value).toBe('sk-real-key');
+
+    // A half-configured provider is the case the mask exists for: the console must never render a
+    // secret back into the browser, and the form posts every field it holds on every save.
+    const readBack = await call('GET', '/api/admin/system/settings', { token: adminToken });
+    expect(readBack.body.data.ai_api_key).toBe('********');
+
+    await call('PUT', '/api/admin/system/settings', {
+      token: adminToken,
+      body: { ai_api_key: '********', ai_model: 'deepseek-chat' },
+    });
+
+    const afterRoundTrip = kernel.db.prepare(`SELECT value FROM settings WHERE key = 'ai_api_key'`).get() as {
+      value: string;
+    };
+    expect(afterRoundTrip.value).toBe('sk-real-key');
+  });
+
+  it('answers the connection test through the homework port, and degrades gracefully without it', async () => {
+    // `http` with no base URL is the misconfiguration the operator is most likely to produce, and
+    // the homework plugin's documented response is to keep working on the mock with the reason
+    // attached. That reason is what the console prints, so a silent fallback is the failure mode
+    // this asserts against.
+    await call('PUT', '/api/admin/system/settings', {
+      token: adminToken,
+      body: { ai_provider: 'http', ai_base_url: '', ai_api_key: 'sk-real-key' },
+    });
+
+    const failed = await call('POST', '/api/admin/system/ai/test', { token: adminToken });
+    expect(failed.status).toBe(200);
+    expect(failed.body.success).toBe(true);
+    expect(failed.body.data.ok).toBe(false);
+    expect(failed.body.data.state.provider).toBe('mock');
+    expect(failed.body.data.state.reason).toContain('ai_base_url');
+    expect(failed.body.data.message).toContain('ai_base_url');
+
+    // The same route with a usable configuration: the port's answer is passed through, and the
+    // default provider answers `ok: true` because the deterministic mock *is* a working setup -
+    // reporting it as a failure would send the operator hunting for a problem that does not exist.
+    await call('PUT', '/api/admin/system/settings', { token: adminToken, body: { ai_provider: 'mock' } });
+    const mockOk = await call('POST', '/api/admin/system/ai/test', { token: adminToken });
+    expect(mockOk.status).toBe(200);
+    expect(mockOk.body.data).toMatchObject({ ok: true, state: { provider: 'mock', available: true } });
+    expect(mockOk.body.message).toContain('未接入外部模型');
+  });
+
+  it('keeps the connection test behind requireAdmin', async () => {
+    const anonymous = await call('POST', '/api/admin/system/ai/test');
+    expect(anonymous.status).toBe(401);
+
+    const teacher = await call('POST', '/api/admin/system/ai/test', { token: teacherToken });
+    expect(teacher.status).toBe(403);
+  });
+});
+
 describe('stats, audit log and OpenAPI surface', () => {
   it('reports the platform counters', async () => {
     const { status, body } = await call('GET', '/api/admin/system/stats', { token: adminToken });

@@ -186,9 +186,8 @@ export function createClassroomRepository(ctx: KernelContext) {
       db.run(`UPDATE students SET class_id = ?, group_id = NULL WHERE id = ?`, [classId, studentId]);
     },
 
-    /** `batchEdit`'s `change_class`: unlike `moveStudentToClass`, the group is kept. */
-    setStudentClassId(studentId: number, classId: unknown): void {
-      db.run(`UPDATE students SET class_id = ? WHERE id = ?`, [classId as never, studentId]);
+    setStudentClassId(studentId: number, classId: number): void {
+      db.run(`UPDATE students SET class_id = ?, group_id = NULL WHERE id = ?`, [classId, studentId]);
     },
 
     setStudentGroup(studentId: number, groupId: number | null): void {
@@ -419,13 +418,71 @@ export function createClassroomRepository(ctx: KernelContext) {
 
     // -- records: the shared point ledger (owned) ----------------------------
 
-    insertRecord(studentId: unknown, type: string, amount: number, description: unknown): void {
-      db.run(`INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)`, [
+    insertRecord(studentId: unknown, type: string, amount: number, description: unknown): number {
+      const result = db.run(`INSERT INTO records (student_id, type, amount, description) VALUES (?, ?, ?, ?)`, [
         studentId as never,
         type,
         amount,
         description as never,
       ]);
+      return Number(result.lastInsertRowid);
+    },
+
+    incentivePolicy(classId: number): { school_stage: string; parent_bonus_percent: number; team_rankings_visible: number } {
+      return db.get<{ school_stage: string; parent_bonus_percent: number; team_rankings_visible: number }>(
+        `SELECT school_stage, parent_bonus_percent, team_rankings_visible FROM p_classroom_incentive_policies WHERE class_id = ?`, [classId],
+      ) ?? { school_stage: 'general', parent_bonus_percent: 0, team_rankings_visible: 1 };
+    },
+
+    setIncentivePolicy(classId: number, stage: string, bonus: number, rankings: boolean): void {
+      db.run(`INSERT INTO p_classroom_incentive_policies (class_id, school_stage, parent_bonus_percent, team_rankings_visible)
+              VALUES (?, ?, ?, ?) ON CONFLICT(class_id) DO UPDATE SET school_stage = excluded.school_stage,
+              parent_bonus_percent = excluded.parent_bonus_percent, team_rankings_visible = excluded.team_rankings_visible`,
+        [classId, stage, bonus, rankings ? 1 : 0]);
+    },
+
+    findPointEvent(studentId: number, requestId: string): Record<string, unknown> | undefined {
+      return db.get<Record<string, unknown>>(`SELECT * FROM p_classroom_point_events WHERE student_id = ? AND request_id = ?`, [studentId, requestId]);
+    },
+
+    insertPointEvent(event: { studentId: number; recordId: number; requestId?: string; source: string; category: string; growth: number; credits: number; participation?: number; requested?: number; total?: number; available?: number }): void {
+      db.run(`INSERT INTO p_classroom_point_events (student_id, record_id, request_id, source, category, rule_version, growth_delta, credits_delta, participation_delta, requested_delta, growth_balance, credits_balance)
+              VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+        [event.studentId, event.recordId, event.requestId ?? null, event.source, event.category, event.growth, event.credits, event.participation ?? 0, event.requested ?? null, event.total ?? null, event.available ?? null]);
+    },
+
+    teacherPositiveToday(studentId: number): { base: number; bonus: number } {
+      const result = db.get<{ base: number; bonus: number }>(
+        `SELECT COALESCE(SUM(CASE WHEN growth_delta > 0 THEN growth_delta ELSE 0 END), 0) AS base,
+                COALESCE(SUM(CASE WHEN credits_delta > growth_delta THEN credits_delta - growth_delta ELSE 0 END), 0) AS bonus
+           FROM p_classroom_point_events WHERE student_id = ? AND source = 'teacher_score'
+             AND date(created_at, '+8 hours') = date('now', '+8 hours')`, [studentId]);
+      return result ?? { base: 0, bonus: 0 };
+    },
+
+    pointSummary(studentId: number): Array<{ category: string; score: number; participation: number }> {
+      return db.query<{ category: string; score: number; participation: number }>(
+        `SELECT category, COALESCE(SUM(growth_delta),0) AS score, COALESCE(SUM(participation_delta),0) AS participation
+           FROM p_classroom_point_events WHERE student_id = ? GROUP BY category`, [studentId]);
+    },
+
+    weeklyTeamScores(classId: number, category: 'collaboration' | 'competition'): Array<{ group_id: number; group_name: string; members: number; score: number }> {
+      return db.query<{ group_id: number; group_name: string; members: number; score: number }>(
+        `SELECT g.id AS group_id, g.name AS group_name, COUNT(DISTINCT s.id) AS members,
+                COALESCE(SUM(CASE WHEN e.growth_delta > 0 THEN e.growth_delta ELSE 0 END),0) * 1.0 / COUNT(DISTINCT s.id) AS score
+           FROM student_groups g JOIN students s ON s.group_id = g.id
+           LEFT JOIN p_classroom_point_events e ON e.student_id = s.id AND e.category = ?
+             AND date(e.created_at, '+8 hours') >= date('now', '+8 hours', 'weekday 0', '-6 days')
+          WHERE g.class_id = ? GROUP BY g.id ORDER BY score DESC, g.id ASC`, [category, classId]);
+    },
+
+    hasParentActivityShanghaiToday(studentId: number): boolean {
+      return !!db.get(`SELECT 1 FROM parent_activity WHERE student_id = ? AND activity_type = 'PARENT_BUFF' AND date(created_at, '+8 hours') = date('now', '+8 hours') LIMIT 1`, [studentId]);
+    },
+
+    approvedFamilyTask(taskId: number): { student_id: number; points: number; title: string } | undefined {
+      return db.get<{ student_id: number; points: number; title: string }>(
+        `SELECT student_id, points, title FROM family_tasks WHERE id = ? AND status = 'approved'`, [taskId]);
     },
 
     /**

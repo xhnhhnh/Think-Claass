@@ -1,12 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LoaderCircle, Save, Send, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowLeft, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { useRegisterPageCommands } from '@/app/commands/registry';
+import { Button } from '@/components/ui/button';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 
 import { paperSubmissionsApi, type PaperSubmission } from '@/features/learning/api/paperSubmissionsApi';
 import type { PaperItem } from '@/features/learning/api/papersApi';
 
+/**
+ * 试卷作答.
+ *
+ * The `form` variant, so `保存` and `提交` are the scaffold's sticky footer and are
+ * always reachable on a phone instead of sitting in a row at the top of a long
+ * paper. `返回` is the page's secondary action and rides in the context bar.
+ *
+ * Both actions are registered as palette commands as well. They run through a ref
+ * holding the latest handlers rather than through the render's closure, because the
+ * payload is read from `answers`: the registry re-registers on a structural key
+ * (`id` + `disabled`), so a captured closure would submit the answers as they were
+ * when the command was registered. The start call, the save call, the submit call,
+ * the labels and the disabled conditions are unchanged.
+ */
 export default function StudentPaperAttempt() {
   const { id } = useParams();
   const paperId = id ? Number(id) : null;
@@ -85,65 +104,103 @@ export default function StudentPaperAttempt() {
     }
   };
 
-  if (!paperId) return <div className="text-ink-3">无效试卷</div>;
+  // The latest handlers, so a command run from the palette acts on the answers as
+  // they are now rather than on the render that registered it.
+  const handlers = useRef({ save: handleSave, submit: handleSubmit });
+  useEffect(() => {
+    handlers.current = { save: handleSave, submit: handleSubmit };
+  });
 
-  if (loading) {
+  useRegisterPageCommands([
+    {
+      id: 'paper-attempt:save',
+      label: '保存作答',
+      icon: Save,
+      disabled: saving || submitting || !!result,
+      run: () => void handlers.current.save(),
+    },
+    {
+      id: 'paper-attempt:submit',
+      label: '提交试卷',
+      icon: Send,
+      disabled: submitting || !!result,
+      run: () => void handlers.current.submit(),
+    },
+  ]);
+
+  if (!paperId) {
     return (
-      <div className="flex items-center justify-center py-20 text-ink-3">
-        <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
-        正在初始化作答...
-      </div>
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-dashed border-line-1 bg-surface-2 py-16 text-center text-fg-3">
+          无效试卷
+        </div>
+      </PageScaffold>
     );
   }
 
-  if (!submission) return <div className="text-ink-3">无法开始该试卷</div>;
+  if (loading) {
+    return (
+      <PageScaffold variant="form" className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center gap-3 text-fg-3">
+          <Spinner size="lg" label="正在初始化作答" />
+          正在初始化作答...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (!submission) {
+    return (
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-dashed border-line-1 bg-surface-2 py-16 text-center text-fg-3">
+          无法开始该试卷
+        </div>
+      </PageScaffold>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost"
-          onClick={() => navigate('/student/papers')}
-          className="px-4 py-2 rounded-card text-sm font-medium bg-muted/50 text-ink-2 border border-gray-200 hover:bg-muted/50 flex items-center"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+    <PageScaffold
+      variant="form"
+      actions={
+        <Button variant="outline" onClick={() => navigate('/student/papers')}>
+          <ArrowLeft aria-hidden="true" className="size-4" />
           返回
         </Button>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSave}
-            disabled={saving || submitting || !!result}
-            className="px-4 py-2 rounded-card text-sm font-semibold bg-muted/50 text-ink-2 border border-gray-200 hover:bg-muted/50 disabled:opacity-50 flex items-center"
-          >
-            <Save className="w-4 h-4 mr-2" />
+      }
+      footer={
+        <>
+          <Button variant="outline" onClick={handleSave} disabled={saving || submitting || !!result}>
+            <Save aria-hidden="true" className="size-4" />
             {saving ? '保存中...' : '保存'}
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || !!result}
-            className="px-4 py-2 rounded-card text-sm font-semibold bg-gradient-to-r from-primary to-cyan-500 text-white shadow-card disabled:opacity-50 flex items-center"
-          >
-            <Send className="w-4 h-4 mr-2" />
+          <Button onClick={handleSubmit} disabled={submitting || !!result}>
+            <Send aria-hidden="true" className="size-4" />
             {submitting ? '提交中...' : '提交'}
           </Button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {result && (
-        <div className="bg-success/10 border border-success/20 rounded-panel p-6">
-          <div className="text-lg font-bold text-emerald-800 mb-2">提交成功</div>
-          <div className="text-sm text-success">
+        <div className="rounded-panel border border-success/30 bg-success-soft p-6">
+          <div className="mb-2 text-lg font-bold text-success-ink">提交成功</div>
+          <div className="text-sm text-success-ink">
             得分：{result.total_score} · 正确：{result.correct_count} · 错误：{result.wrong_count}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="ghost"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => navigate('/student/wrong-questions')}
-              className="px-4 py-2 rounded-card text-sm font-medium bg-paper/70 border border-success/20 text-emerald-800 hover:bg-paper"
+              className="border-success/30 bg-surface-2 text-success-ink hover:text-success-ink"
             >
               去错题本
             </Button>
-            <Button variant="ghost"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => navigate('/student/plan')}
-              className="px-4 py-2 rounded-card text-sm font-medium bg-paper/70 border border-success/20 text-emerald-800 hover:bg-paper"
+              className="border-success/30 bg-surface-2 text-success-ink hover:text-success-ink"
             >
               看学习计划
             </Button>
@@ -153,19 +210,19 @@ export default function StudentPaperAttempt() {
 
       <div className="space-y-4">
         {items.map((it) => (
-          <div key={it.id} className="bg-paper/80 backdrop-blur-xl p-6 rounded-panel border border-white/60 shadow-card">
-            <div className="text-sm font-bold text-ink-1 mb-2">第 {it.order_no} 题</div>
-            <div className="text-ink-2 whitespace-pre-wrap">{it.questions?.stem ?? ''}</div>
-            <textarea
+          <div key={it.id} className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card">
+            <div className="mb-2 text-sm font-bold text-fg-1">第 {it.order_no} 题</div>
+            <div className="whitespace-pre-wrap text-fg-2">{it.questions?.stem ?? ''}</div>
+            <Textarea
               value={answers[it.id] ?? ''}
               onChange={(e) => setAnswers((prev) => ({ ...prev, [it.id]: e.target.value }))}
               disabled={!!result}
               placeholder="请输入你的答案"
-              className="mt-4 w-full px-4 py-3 rounded-card border border-border bg-paper/60 outline-none min-h-[96px] disabled:opacity-50"
+              className="mt-4 min-h-[96px]"
             />
           </div>
         ))}
       </div>
-    </div>
+    </PageScaffold>
   );
 }

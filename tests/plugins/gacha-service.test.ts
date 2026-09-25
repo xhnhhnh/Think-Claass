@@ -21,12 +21,30 @@ import { createDbApi, TableOwnershipError } from '@thinkclass/plugin-runtime';
 
 import { createGachaRepository } from '../../plugins/gacha/src/gacha.repository.js';
 import { GachaDictionaryMissingError, GachaService } from '../../plugins/gacha/src/gacha.service.js';
+import type { RequestActor } from '../../plugins/gacha/src/gacha.authorization.js';
 import type {
   GachaPool,
   GachaRepository,
   PetCollectionItem,
   PetDictionaryEntry,
 } from '../../plugins/gacha/src/gacha.types.js';
+
+/**
+ * Actors, shaped the way `gacha.authorization.ts` builds them from the kernel context: a student
+ * actor carries BOTH `userId` (the login) and `studentId` (the `students` row), and they are
+ * deliberately different numbers here.
+ */
+function student(studentId: number, userId: number): RequestActor {
+  return { userId, role: 'student', studentId, classId: 3 };
+}
+
+function teacher(userId = 7): RequestActor {
+  return { userId, role: 'teacher', studentId: null, classId: null };
+}
+
+function admin(userId = 1): RequestActor {
+  return { userId, role: 'admin', studentId: null, classId: null };
+}
 
 class FakeGachaRepository implements GachaRepository {
   pools: GachaPool[] = [];
@@ -127,7 +145,7 @@ class FakeClassroom implements ClassroomPort {
   async adjustPoints() {
     throw new Error('not used by gacha');
   }
-  async transferStudentCredits(input: { studentId: number; delta: number }) {
+  async transferStudentCredits(input: { studentId: number; delta: number; reason: string; ledger?: { type: string; description: string } }) {
     if (this.failCredits) return { refusal: this.failCredits };
     const entry = this.students.get(input.studentId);
     if (!entry) return { refusal: { code: 'student-not-found' as const, message: '学生未找到' } };
@@ -136,6 +154,7 @@ class FakeClassroom implements ClassroomPort {
       return { refusal: { code: 'insufficient-credits' as const, message: '积分不足' } };
     }
     entry.snapshot = { ...entry.snapshot, availablePoints: available };
+    this.ledger.push({ studentId: input.studentId, type: input.ledger?.type ?? input.reason.toUpperCase().replace(/\./g, '_'), amount: input.delta, description: input.ledger?.description ?? input.reason });
     return { value: { availablePoints: available } };
   }
   async recordStudentLedgerEntry(entry: { studentId: number; type: string; amount: number; description: string }) {
@@ -178,8 +197,8 @@ describe('GachaService', () => {
   });
 
   it('auto-creates class pools and draws into the collection', async () => {
-    expect(await service.listPools(3)).toHaveLength(1);
-    const results = await service.draw(1, { poolId: 1, times: 1 });
+    expect(await service.listPools(student(1, 100), 3)).toHaveLength(1);
+    const results = await service.draw(student(1, 100), 1, { poolId: 1, times: 1 });
 
     expect(results[0].rarity).toBe('SSR');
     expect(repository.collection).toHaveLength(1);
@@ -188,18 +207,18 @@ describe('GachaService', () => {
   });
 
   it('rejects draws with insufficient points', async () => {
-    await service.listPools(3);
+    await service.listPools(student(1, 100), 3);
     classroom.students.get(1)!.snapshot = { ...classroom.students.get(1)!.snapshot, availablePoints: 0 };
 
-    await expect(service.draw(1, { poolId: 1, times: 1 })).rejects.toThrow(ApiError);
+    await expect(service.draw(student(1, 100), 1, { poolId: 1, times: 1 })).rejects.toThrow(ApiError);
     expect(repository.collection).toHaveLength(0);
   });
 
   it('keeps only one active pet', async () => {
-    await service.listPools(3);
-    await service.draw(1, { poolId: 1, times: 1 });
+    await service.listPools(student(1, 100), 3);
+    await service.draw(student(1, 100), 1, { poolId: 1, times: 1 });
 
-    expect((await service.setActivePet(1, 10)).activePetId).toBe(10);
+    expect((await service.setActivePet(student(1, 100), 1, 10)).activePetId).toBe(10);
     expect(repository.collection[0].is_active).toBe(1);
   });
 
@@ -211,8 +230,8 @@ describe('GachaService', () => {
   });
 
   it('appends the draw to the shared ledger through the port', async () => {
-    await service.listPools(3);
-    await service.draw(1, { poolId: 1, times: 1 });
+    await service.listPools(student(1, 100), 3);
+    await service.draw(student(1, 100), 1, { poolId: 1, times: 1 });
 
     expect(classroom.ledger).toHaveLength(1);
     expect(classroom.ledger[0]).toMatchObject({ studentId: 1, type: 'GACHA_PULL', amount: -100 });
@@ -222,8 +241,8 @@ describe('GachaService', () => {
   it('rejects the whole operation when the class has the feature disabled', async () => {
     classroom.students.get(1)!.featureEnabled = false;
 
-    await expect(service.listPools(3)).rejects.toMatchObject({ status: 403 });
-    await expect(service.draw(1, { poolId: 1, times: 1 })).rejects.toMatchObject({ status: 403 });
+    await expect(service.listPools(student(1, 100), 3)).rejects.toMatchObject({ status: 403 });
+    await expect(service.draw(student(1, 100), 1, { poolId: 1, times: 1 })).rejects.toMatchObject({ status: 403 });
 
     // Nothing moved: the gate runs before the pool lookup and before any spend.
     expect(repository.pools).toHaveLength(0);
@@ -233,12 +252,70 @@ describe('GachaService', () => {
   });
 
   it('reports a missing student as 404 before the feature gate', async () => {
-    await expect(service.draw(999, { poolId: 1, times: 1 })).rejects.toMatchObject({ status: 404 });
-    await expect(service.listCollection(999)).rejects.toMatchObject({ status: 404 });
+    await expect(service.draw(student(999, 999), 999, { poolId: 1, times: 1 })).rejects.toMatchObject({ status: 404 });
+    await expect(service.listCollection(student(999, 999), 999)).rejects.toMatchObject({ status: 404 });
+  });
+
+  /**
+   * The self-check. The controller refuses every non-student role on the draw routes; this is the
+   * half that refuses a *student* naming somebody else's row, which is how the pre-round routes
+   * let one login spend another student's points.
+   */
+  it('refuses a draw, an active-pet write and a read for another student row', async () => {
+    classroom.students.set(2, {
+      snapshot: { id: 2, classId: 3, userId: 200, name: '小红', totalPoints: 0, availablePoints: 500 },
+      featureEnabled: true,
+    });
+    await service.listPools(teacher(7), 3);
+
+    await expect(service.draw(student(2, 200), 1, { poolId: 1, times: 1 })).rejects.toMatchObject({
+      status: 403,
+      message: '无权限执行该操作',
+    });
+    await expect(service.setActivePet(student(2, 200), 1, 10)).rejects.toMatchObject({ status: 403 });
+    await expect(service.listCollection(student(2, 200), 1)).rejects.toMatchObject({ status: 403 });
+
+    // Nothing was spent, granted or moved for either row.
+    expect(classroom.students.get(1)?.snapshot.availablePoints).toBe(500);
+    expect(classroom.students.get(2)?.snapshot.availablePoints).toBe(500);
+    expect(repository.collection).toHaveLength(0);
+    expect(classroom.ledger).toHaveLength(0);
+  });
+
+  /**
+   * The class half of the scope. `listPools` creates the default pool on first read (a GET that
+   * writes), so "this class is mine" has to be settled before it runs.
+   */
+  it('scopes class pools to the class teacher, its students, and admin', async () => {
+    classroom.students.set(2, {
+      snapshot: { id: 2, classId: 4, userId: 200, name: '小红', totalPoints: 0, availablePoints: 0 },
+      featureEnabled: true,
+    });
+
+    await expect(service.listPools(student(2, 200), 3)).rejects.toMatchObject({
+      status: 403,
+      message: '无权限查看该班级',
+    });
+    await expect(service.listPools(teacher(9), 3)).rejects.toMatchObject({ status: 403 });
+    // Nothing was created by the refused reads.
+    expect(repository.pools).toHaveLength(0);
+
+    await expect(service.listPools(teacher(7), 3)).resolves.toHaveLength(1);
+    await expect(service.listPools(student(1, 100), 3)).resolves.toHaveLength(1);
+    await expect(service.listPools(admin(), 3)).resolves.toHaveLength(1);
+  });
+
+  it('scopes a collection read to the student themselves or their class teacher', async () => {
+    await service.listPools(teacher(7), 3);
+    await service.draw(student(1, 100), 1, { poolId: 1, times: 1 });
+
+    await expect(service.listCollection(student(1, 100), 1)).resolves.toHaveLength(1);
+    await expect(service.listCollection(teacher(7), 1)).resolves.toHaveLength(1);
+    await expect(service.listCollection(teacher(9), 1)).rejects.toMatchObject({ status: 403 });
   });
 
   it('validates the draw payload before touching the port', async () => {
-    await expect(service.draw(1, { poolId: 1, times: 0 })).rejects.toMatchObject({
+    await expect(service.draw(student(1, 100), 1, { poolId: 1, times: 0 })).rejects.toMatchObject({
       status: 400,
       message: 'Times is invalid',
     });
@@ -252,14 +329,17 @@ describe('GachaService', () => {
    * transaction - so this is new behaviour the migration must get right.)
    */
   it('refunds the debit when the pet write fails', async () => {
-    await service.listPools(3);
+    await service.listPools(student(1, 100), 3);
     repository.failInserts = true;
 
-    await expect(service.draw(1, { poolId: 1, times: 1 })).rejects.toThrow('disk I/O error');
+    await expect(service.draw(student(1, 100), 1, { poolId: 1, times: 1 })).rejects.toThrow('disk I/O error');
 
     expect(classroom.students.get(1)?.snapshot.availablePoints).toBe(500);
     expect(repository.collection).toHaveLength(0);
-    expect(classroom.ledger).toHaveLength(0);
+    expect(classroom.ledger).toEqual([
+      { studentId: 1, type: 'GACHA_PULL', amount: -100, description: 'Performed 1x Gacha Pull from 默认' },
+      { studentId: 1, type: 'GACHA_DRAW_ROLLBACK', amount: 100, description: 'gacha.draw.rollback' },
+    ]);
   });
 
   /**
@@ -269,10 +349,10 @@ describe('GachaService', () => {
    * table. It is a typed failure now, and the debit is refunded.
    */
   it('refunds the debit when the rolled rarity has no dictionary entry', async () => {
-    await service.listPools(3);
+    await service.listPools(student(1, 100), 3);
     repository.dictionary = [];
 
-    const failure = await service.draw(1, { poolId: 1, times: 1 }).then(
+    const failure = await service.draw(student(1, 100), 1, { poolId: 1, times: 1 }).then(
       () => null,
       (error: unknown) => error,
     );
@@ -282,18 +362,20 @@ describe('GachaService', () => {
     expect((failure as Error).message).not.toContain('星尘碎片');
     expect((failure as Error).message).toContain('图鉴未配置');
 
-    // Nothing stands: the balance is back where it started, no pet was granted and the ledger is
-    // untouched (the debit and its refund are the port's business, not this domain's ledger).
+    // Nothing stands: the balance is restored and the ledger shows both the debit and compensation.
     expect(classroom.students.get(1)?.snapshot.availablePoints).toBe(500);
     expect(repository.collection).toHaveLength(0);
-    expect(classroom.ledger).toHaveLength(0);
+    expect(classroom.ledger).toEqual([
+      { studentId: 1, type: 'GACHA_PULL', amount: -100, description: 'Performed 1x Gacha Pull from 默认' },
+      { studentId: 1, type: 'GACHA_DRAW_ROLLBACK', amount: 100, description: 'gacha.draw.rollback' },
+    ]);
   });
 
   it('rejects the draw when the port refuses the credit transfer', async () => {
-    await service.listPools(3);
+    await service.listPools(student(1, 100), 3);
     classroom.failCredits = { code: 'insufficient-credits', message: '积分不足' };
 
-    await expect(service.draw(1, { poolId: 1, times: 1 })).rejects.toMatchObject({
+    await expect(service.draw(student(1, 100), 1, { poolId: 1, times: 1 })).rejects.toMatchObject({
       status: 400,
       message: 'Insufficient points',
     });
@@ -420,10 +502,10 @@ describe('createGachaRepository against a real ownership-checked DbApi', () => {
     });
     const service = new GachaService(createGachaRepository(api), classroom, () => 0);
 
-    const pools = await service.listPools(3);
+    const pools = await service.listPools(student(1, 100), 3);
     expect(pools).toHaveLength(1);
 
-    const results = await service.draw(1, { poolId: pools[0].id, times: 1 });
+    const results = await service.draw(student(1, 100), 1, { poolId: pools[0].id, times: 1 });
     expect(results[0].rarity).toBe('SSR');
 
     expect(db.prepare('SELECT COUNT(*) AS n FROM student_pets').get()).toEqual({ n: 1 });

@@ -16,12 +16,12 @@ interface HomeNavProps {
  */
 export default function HomeNav({ onNavigateHome }: HomeNavProps) {
   return (
-    <nav className="sticky top-0 z-50 bg-paper/80 backdrop-blur-xl border-b border-border">
+    <nav className="sticky top-0 z-50 bg-surface-2/80 backdrop-blur-xl border-b border-line-1">
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-ink-1 cursor-pointer"
+          className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-fg-1 cursor-pointer"
           onClick={onNavigateHome}
         >
           <WebsiteIcon className="h-9 w-9 rounded-lg object-cover" />
@@ -31,18 +31,18 @@ export default function HomeNav({ onNavigateHome }: HomeNavProps) {
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="hidden md:flex gap-8 font-medium text-ink-2 text-sm"
+          className="hidden md:flex gap-8 font-medium text-fg-2 text-sm"
         >
-          <Link to="/about" className="hover:text-primary transition-colors">
+          <Link to="/about" className="hover:text-role transition-colors">
             关于我们
           </Link>
-          <Link to="/services" className="hover:text-primary transition-colors">
+          <Link to="/services" className="hover:text-role transition-colors">
             服务介绍
           </Link>
-          <Link to="/news" className="hover:text-primary transition-colors">
+          <Link to="/news" className="hover:text-role transition-colors">
             最新动态
           </Link>
-          <Link to="/contact" className="hover:text-primary transition-colors">
+          <Link to="/contact" className="hover:text-role transition-colors">
             联系我们
           </Link>
         </motion.div>
@@ -53,7 +53,7 @@ export default function HomeNav({ onNavigateHome }: HomeNavProps) {
         >
           <Link
             to="/login"
-            className="px-5 py-2 rounded-lg bg-primary/50 text-white text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 inline-flex items-center gap-2"
+            className="px-5 py-2 rounded-lg bg-brand text-brand-contrast text-sm font-semibold hover:bg-brand-strong transition-all shadow-sm inline-flex items-center gap-2"
           >
             开启旅程 <ArrowRight className="w-4 h-4" />
           </Link>

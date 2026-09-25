@@ -38,6 +38,7 @@
 import type { ClassroomPort, ClassroomRefusal } from '@thinkclass/contracts/domains/classroom';
 import { ApiError } from '@thinkclass/kernel';
 
+import type { RequestActor } from './slg.authorization.js';
 import type { CreateTerritoryPayload, SlgRepository, TerritoryContributionPayload, TerritoryYield } from './slg.types.js';
 
 function positiveInteger(value: unknown, label: string): number {
@@ -46,6 +47,11 @@ function positiveInteger(value: unknown, label: string): number {
     throw new ApiError(400, `${label} is invalid`);
   }
   return number;
+}
+
+/** The roles that reach every class: the admin console. */
+function isStaffAdmin(actor: RequestActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
 }
 
 /**
@@ -80,6 +86,79 @@ export class SlgService {
     private readonly repository: SlgRepository,
     private readonly classroom: ClassroomPort,
   ) {}
+
+  /**
+   * The actor-scope half of authorization: 403 unless `actor` may read this class's map.
+   *
+   * The map is class data, so it is the class's teacher, a student *in* that class, or staff
+   * admin. The class is resolved through `classroom.public`, never from the request: the
+   * pre-migration routes answered any `:classId` to anybody.
+   */
+  async assertClassAccess(actor: RequestActor, classIdInput: unknown): Promise<void> {
+    const classId = positiveInteger(classIdInput, 'Class id');
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      const klass = await this.classroom.getClassById(classId);
+      if (!klass) throw new ApiError(404, '班级未找到');
+      if (klass.teacherId !== actor.id) throw new ApiError(403, '无权限访问该班级');
+      return;
+    }
+
+    if (actor.role === 'student') {
+      if ((await this.ownClassId(actor)) !== classId) throw new ApiError(403, '无权限访问该班级');
+      return;
+    }
+
+    throw new ApiError(403, '无权限访问该班级');
+  }
+
+  /**
+   * 403 unless `actor` teaches this class (staff admin passes).
+   *
+   * Territory creation and resource yield move a whole class's resources, so the class's own
+   * teacher is the narrowest caller - the legacy routes let anybody name any `:classId`.
+   */
+  async assertTeacherClass(actor: RequestActor, classIdInput: unknown): Promise<void> {
+    const classId = positiveInteger(classIdInput, 'Class id');
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role !== 'teacher') throw new ApiError(403, '无权限管理该班级');
+
+    const klass = await this.classroom.getClassById(classId);
+    if (!klass) throw new ApiError(404, '班级未找到');
+    if (klass.teacherId !== actor.id) throw new ApiError(403, '无权限管理该班级');
+  }
+
+  /**
+   * 403 unless `actor` is the student this row belongs to.
+   *
+   * The claim is resolved from the actor - its `studentId` when the host's scope resolver filled
+   * it in, otherwise the student bound to the login's `userId` through `classroom.public` - so a
+   * student cannot contribute, or spend points, on another student's behalf.
+   */
+  async assertSelfStudent(actor: RequestActor, studentIdInput: unknown): Promise<void> {
+    const studentId = positiveInteger(studentIdInput, 'Student id');
+    if (actor.role !== 'student' || (await this.ownStudentId(actor)) !== studentId) {
+      throw new ApiError(403, '无权限使用该学生账号');
+    }
+  }
+
+  /** The student row this login owns, or `null` when the account is unbound. */
+  private async ownStudentId(actor: RequestActor): Promise<number | null> {
+    if (actor.studentId) return actor.studentId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.id ?? null;
+  }
+
+  /** The class the actor's own student row is in, or `null` when it cannot be resolved. */
+  private async ownClassId(actor: RequestActor): Promise<number | null> {
+    if (actor.classId) return actor.classId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.classId ?? null;
+  }
 
   async getMap(classIdInput: unknown) {
     const classId = positiveInteger(classIdInput, 'Class id');
@@ -120,6 +199,7 @@ export class SlgService {
       delta: -amount,
       reason: 'slg.contribute',
       actorId: 0,
+      ledger: { type: 'SLG_CONTRIBUTE', description: `Contributed to territory: ${territory.name}` },
     });
     if (moved.refusal) {
       // The territory row is already committed; put it back so the map and the balance
@@ -129,7 +209,6 @@ export class SlgService {
       throw toApiError(moved.refusal);
     }
 
-    await this.ledger(studentId, 'SLG_CONTRIBUTE', -amount, `Contributed to territory: ${territory.name}`);
     return { contributed: true };
   }
 

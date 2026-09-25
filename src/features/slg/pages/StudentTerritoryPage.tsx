@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Map as MapIcon, Lock, Pickaxe, Trees, Droplets, Coins, ArrowUpCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 import { useContributeTerritoryMutation, useTerritoryMap } from '@/features/slg/hooks/useTerritory';
 import type { ClassResources, Territory } from '@/features/slg/api/slgApi';
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
@@ -33,8 +33,12 @@ import { cn } from '@/lib/utils';
  * to replace - and both unlocking bars are the kit `Progress`, so no width is computed
  * in a page.
  *
- * The `slate` ramp the page was written in is the dark stage pair the rest of P6/P7 uses:
- * a `secondary-foreground` canvas with `primary-foreground` wells and borders over it.
+ * The stage is the inverted surface pair the rest of the game surfaces use: an `fg-1`
+ * canvas with `fg-inverse` wells and borders over it.
+ *
+ * The resource strip is page content rather than a `PageScaffold` action: the immersive
+ * branch of the scaffold renders its children and nothing else (there is no context bar
+ * on an immersive route to portal into), so an action passed to it would be dropped.
  */
 export default function StudentTerritory() {
   const user = useStore(state => state.user);
@@ -47,6 +51,7 @@ export default function StudentTerritory() {
   const [selectedNode, setSelectedNode] = useState<Territory | null>(null);
   const [contributeAmount, setContributeAmount] = useState<string>('');
   const isContributing = contributeMutation.isPending;
+  const shouldReduceMotion = useReducedMotion();
 
   // Dragging Map State
   const mapRef = useRef<HTMLDivElement>(null);
@@ -82,10 +87,12 @@ export default function StudentTerritory() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 p-12 text-ink-3">
-        <Spinner size="lg" label="正在加载地图数据" />
-        加载地图数据中...
-      </div>
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="flex items-center justify-center gap-2 text-fg-3">
+          <Spinner size="lg" label="正在加载地图数据" />
+          加载地图数据中...
+        </div>
+      </PageScaffold>
     );
   }
 
@@ -101,47 +108,55 @@ export default function StudentTerritory() {
 
   const getTypeColor = (type: string) => {
     switch(type) {
-      case 'forest': return 'bg-success border-success/40 shadow-glow-primary';
-      // The mine is the neutral node; `ink-2`/`ink-3` are the token set's greys.
-      case 'mine': return 'bg-ink-2 border-ink-3 shadow-glow-primary';
-      case 'city': return 'bg-warning border-warning/40 shadow-glow-primary';
-      case 'magic_spring': return 'bg-info border-info/40 shadow-glow-primary';
-      default: return 'bg-primary border-primary/40 shadow-glow-primary';
+      case 'forest': return 'bg-success border-success/40 shadow-glow-role';
+      // The mine is the neutral node; `fg-2`/`fg-3` are the token set's greys.
+      case 'mine': return 'bg-fg-2 border-fg-3 shadow-glow-role';
+      case 'city': return 'bg-warning border-warning/40 shadow-glow-role';
+      case 'magic_spring': return 'bg-info border-info/40 shadow-glow-role';
+      default: return 'bg-role border-role/40 shadow-glow-role';
     }
   };
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-100px)] max-w-7xl flex-col p-4 sm:p-8">
-      <PageHeader
-        title="王国版图探索"
-        description="全班合作捐献积分解锁迷雾区域，建造设施产出全班增益资源。"
-        icon={MapIcon}
-        className="mb-6"
-        actions={resources ? (
-          <div className="flex flex-wrap gap-3 rounded-card border border-border bg-paper/80 p-3 shadow-card backdrop-blur-xl">
+    <PageScaffold variant="immersive" className="flex h-dvh flex-col gap-4 px-4 pb-4 pt-16 sm:px-8 sm:pb-8">
+      {/* The immersive shell renders no context bar, so the page keeps its own heading and
+          the class resource strip that used to ride on the page header's actions. */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-card bg-role-soft text-role-ink">
+            <MapIcon aria-hidden="true" className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-bold tracking-tight text-fg-1">王国版图探索</h2>
+            <p className="mt-1 text-sm text-fg-3">全班合作捐献积分解锁迷雾区域，建造设施产出全班增益资源。</p>
+          </div>
+        </div>
+
+        {resources ? (
+          <div className="flex flex-wrap gap-3 rounded-card border border-line-1 bg-surface-2/80 p-3 shadow-card backdrop-blur-xl">
             <Badge variant="outline" className="h-auto gap-2 px-3 py-1 text-sm">
               <Trees className="text-success" />
-              <span className="font-bold text-ink-2">{resources.wood}</span>
+              <span className="font-bold text-fg-2">{resources.wood}</span>
             </Badge>
             <Badge variant="outline" className="h-auto gap-2 px-3 py-1 text-sm">
-              <Pickaxe className="text-ink-3" />
-              <span className="font-bold text-ink-2">{resources.stone}</span>
+              <Pickaxe className="text-fg-3" />
+              <span className="font-bold text-fg-2">{resources.stone}</span>
             </Badge>
             <Badge variant="outline" className="h-auto gap-2 px-3 py-1 text-sm">
               <Droplets className="text-info" />
-              <span className="font-bold text-ink-2">{resources.magic_dust}</span>
+              <span className="font-bold text-fg-2">{resources.magic_dust}</span>
             </Badge>
             <Badge variant="outline" className="h-auto gap-2 px-3 py-1 text-sm">
               <Coins className="text-warning" />
-              <span className="font-bold text-ink-2">{resources.gold}</span>
+              <span className="font-bold text-fg-2">{resources.gold}</span>
             </Badge>
           </div>
-        ) : undefined}
-      />
+        ) : null}
+      </div>
 
       {/* Draggable Map Area */}
       <div 
-        className="relative flex-1 cursor-grab select-none overflow-hidden rounded-panel border border-accent-foreground bg-secondary-foreground shadow-raised active:cursor-grabbing"
+        className="relative min-h-0 flex-1 cursor-grab select-none overflow-hidden rounded-panel border border-role-ink bg-fg-1 shadow-raised active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -165,7 +180,7 @@ export default function StudentTerritory() {
               <motion.div
                 key={node.id}
                 animate={{ left: `calc(50% + ${node.x_pos * 100}px)`, top: `calc(50% + ${node.y_pos * 100}px)` }}
-                whileHover={{ scale: 1.05 }}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
                 className="absolute z-10"
               >
                 <Button
@@ -174,14 +189,14 @@ export default function StudentTerritory() {
                   aria-label={node.name}
                   onClick={(e) => { e.stopPropagation(); setSelectedNode(node); }}
                   className={cn(
-                    'relative size-24 flex-col gap-0 rounded-panel border-4 p-0 text-primary-foreground',
+                    'relative size-24 flex-col gap-0 rounded-panel border-4 p-0 text-fg-inverse',
                     isOwned
                       ? getTypeColor(node.type)
-                      : 'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/40',
+                      : 'border-fg-inverse/20 bg-fg-inverse/10 text-fg-inverse/40',
                   )}
                 >
                   {!isOwned && <Lock className="absolute right-2 top-2 mb-1 size-6 opacity-50" />}
-                  {isOwned && <div className="absolute -right-3 -top-3 flex size-6 items-center justify-center rounded-full border-2 border-paper bg-primary text-xs font-bold text-primary-foreground shadow-card">Lv.{node.level}</div>}
+                  {isOwned && <div className="absolute -right-3 -top-3 flex size-6 items-center justify-center rounded-full border-2 border-surface-2 bg-role text-xs font-bold text-role-contrast shadow-card">Lv.{node.level}</div>}
                   
                   {isOwned ? getTypeIcon(node.type) : <MapIcon className="size-8 opacity-40" />}
                   
@@ -206,8 +221,8 @@ export default function StudentTerritory() {
 
         {/* Center crosshair */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20">
-          <div className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 bg-primary-foreground" />
-          <div className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 bg-primary-foreground" />
+          <div className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 bg-fg-inverse" />
+          <div className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 bg-fg-inverse" />
         </div>
       </div>
 
@@ -219,12 +234,12 @@ export default function StudentTerritory() {
               <DialogHeader>
                 <div className="text-center">
                   <div className={cn(
-                    'mx-auto mb-4 flex size-20 items-center justify-center rounded-panel border-4 text-primary-foreground shadow-raised',
-                    selectedNode.status === 'owned' ? getTypeColor(selectedNode.type) : 'border-border bg-muted/50 text-ink-3',
+                    'mx-auto mb-4 flex size-20 items-center justify-center rounded-panel border-4 text-fg-inverse shadow-raised',
+                    selectedNode.status === 'owned' ? getTypeColor(selectedNode.type) : 'border-line-1 bg-surface-3/50 text-fg-3',
                   )}>
                     {getTypeIcon(selectedNode.type)}
                   </div>
-                  <DialogTitle className="text-2xl font-black text-ink-1">{selectedNode.name}</DialogTitle>
+                  <DialogTitle className="text-2xl font-black text-fg-1">{selectedNode.name}</DialogTitle>
                   <Badge
                     variant={
                       selectedNode.status === 'owned' ? 'success' :
@@ -240,8 +255,8 @@ export default function StudentTerritory() {
 
               <div className="space-y-6">
                 {selectedNode.status !== 'owned' ? (
-                  <div className="rounded-card border border-border bg-muted/50 p-4">
-                    <div className="mb-2 flex justify-between text-sm font-bold text-ink-2">
+                  <div className="rounded-card border border-line-1 bg-surface-3/50 p-4">
+                    <div className="mb-2 flex justify-between text-sm font-bold text-fg-2">
                       <span>探索进度</span>
                       <span>{selectedNode.current_contribution} / {selectedNode.cost_to_unlock}</span>
                     </div>
@@ -293,6 +308,6 @@ export default function StudentTerritory() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageScaffold>
   );
 }

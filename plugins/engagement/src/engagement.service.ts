@@ -38,6 +38,7 @@ import type { IdentityPort } from '@thinkclass/contracts/domains/identity';
 import type { PetPort } from '@thinkclass/contracts/domains/pet';
 import type { KernelContext } from '@thinkclass/plugin-sdk';
 
+import { isStaffAdmin, type RequestActor } from './engagement.authorization.js';
 import type { EngagementRepository } from './engagement.repository.js';
 
 export const DEFAULT_LUCKY_DRAW_COST = 10;
@@ -111,6 +112,219 @@ export class EngagementService {
   private async nameMap(studentIds: number[]): Promise<Record<number, string>> {
     const unique = [...new Set(studentIds.filter((id) => Number.isFinite(id)))];
     return unique.length === 0 ? {} : this.classroom.listStudentNamesByIds(unique);
+  }
+
+  // -- actor scope (route authorization) ------------------------------------
+  //
+  // Every route in this plugin is gated by `requireActorRole` in the controller (401/403) and
+  // then narrowed here. The claim is always resolved through `classroom.public` - never from the
+  // URL, the body or `actor.studentId` - because `students`/`classes` are classroom's tables and
+  // a forged body must not be able to widen what an actor owns:
+  //
+  //   teacher  owns the classes whose `teacher_id` is their user id
+  //   student  owns one student row (the one bound to their login) and that student's class
+  //   parent   owns their linked children and those children's classes
+  //   admin/superadmin own everything (the console)
+  //
+  // `null` from `scopedClassIds`/`scopedStudentIds` means "unrestricted"; an empty array means
+  // "none", and the two must not collapse - the first is the console, the second is an account
+  // with no claim at all.
+
+  /** The classes the actor may name; `null` means every class (admin/superadmin). */
+  async scopedClassIds(actor: RequestActor): Promise<number[] | null> {
+    if (isStaffAdmin(actor)) return null;
+    if (actor.id === null) return [];
+
+    if (actor.role === 'teacher') return this.classroom.listClassIdsByTeacher(actor.id);
+
+    if (actor.role === 'student') {
+      const student = await this.classroom.getStudentByUserId(actor.id);
+      return student ? [student.classId] : [];
+    }
+
+    if (actor.role === 'parent') {
+      const children = await this.classroom.listStudentsByParent(actor.id);
+      return [...new Set(children.map((child) => child.classId))];
+    }
+
+    return [];
+  }
+
+  /** The students the actor may name; `null` means every student (admin/superadmin). */
+  async scopedStudentIds(actor: RequestActor): Promise<number[] | null> {
+    if (isStaffAdmin(actor)) return null;
+    if (actor.id === null) return [];
+
+    if (actor.role === 'student') {
+      const student = await this.classroom.getStudentByUserId(actor.id);
+      return student ? [student.id] : [];
+    }
+
+    if (actor.role === 'parent') {
+      return (await this.classroom.listStudentsByParent(actor.id)).map((child) => child.id);
+    }
+
+    if (actor.role === 'teacher') {
+      const classIds = await this.classroom.listClassIdsByTeacher(actor.id);
+      if (classIds.length === 0) return [];
+      const accounts = await this.classroom.listStudentAccountsByClassIds(classIds);
+      return accounts.map((account) => account.studentId);
+    }
+
+    return [];
+  }
+
+  /** The student row the actor's own login owns (student actors), or `null`. */
+  async ownStudentId(actor: RequestActor): Promise<number | null> {
+    if (actor.role !== 'student' || actor.id === null) return null;
+    const student: StudentSnapshot | null = await this.classroom.getStudentByUserId(actor.id);
+    return student ? student.id : null;
+  }
+
+  /** 403 unless the actor may name this class. Returns the normalized id. */
+  async assertClassAccess(actor: RequestActor, classIdInput: unknown): Promise<number> {
+    const classId = Number(classIdInput);
+    const allowed = await this.scopedClassIds(actor);
+    if (allowed !== null && !allowed.includes(classId)) throw new ApiError(403, '无权限执行该操作');
+    return classId;
+  }
+
+  /** 403 unless the actor may name this student. Returns the normalized id. */
+  async assertStudentAccess(actor: RequestActor, studentIdInput: unknown): Promise<number> {
+    const studentId = Number(studentIdInput);
+    const allowed = await this.scopedStudentIds(actor);
+    if (allowed !== null && !allowed.includes(studentId)) throw new ApiError(403, '无权限执行该操作');
+    return studentId;
+  }
+
+  /** The teacher a class belongs to: how a student's lucky-draw read reaches its own config. */
+  async classTeacherId(classId: number): Promise<number | null> {
+    const cls = await this.classroom.getClassById(classId);
+    return cls?.teacherId ?? null;
+  }
+
+  /**
+   * The display name a route stamps on a row the actor authors.
+   *
+   * Danmaku used to take `sender_name` straight from the body, which let anyone speak under any
+   * student's or teacher's name on a screen the whole class watches. The name is resolved from the
+   * actor instead: a student's decrypted roster name, a teacher's username. There is no path that
+   * reads it from the request.
+   */
+  async displayNameOf(actor: RequestActor): Promise<string> {
+    if (actor.role === 'student') {
+      const studentId = await this.ownStudentId(actor);
+      if (studentId === null) return '同学';
+      const names = await this.classroom.listStudentNamesByIds([studentId]);
+      return names[studentId] ?? '同学';
+    }
+
+    const identity = this.identity();
+    if (actor.id !== null && identity) {
+      const user = await identity.getUserById(actor.id);
+      if (user?.username) return user.username;
+    }
+
+    return actor.role === 'teacher' ? '老师' : '用户';
+  }
+
+  /**
+   * 403 unless the actor may change this family task.
+   *
+   * A parent may touch a task of one of their children; a teacher a task of a student in one of
+   * their classes. A missing row returns `null` rather than throwing, so the caller keeps the
+   * legacy 404 `Task not found` instead of turning it into a 403.
+   */
+  async assertFamilyTaskAccess(actor: RequestActor, id: unknown): Promise<{ student_id: number } | null> {
+    const owner = this.repository.familyTaskOwner(id as never);
+    if (!owner) return null;
+    await this.assertStudentAccess(actor, owner.student_id);
+    return owner;
+  }
+
+  /**
+   * 403 unless the actor *owns* this family task: the parent who created it, or staff.
+   *
+   * `DELETE` is the parent's own cleanup (the matrix's parent（本人）/admin), so it is bound to
+   * `family_tasks.parent_id` rather than to the child - a co-parent linked to the same student is
+   * not the task's owner. A missing row returns `null` and the caller keeps its legacy 404.
+   */
+  async assertFamilyTaskOwner(actor: RequestActor, id: unknown): Promise<{ parent_id: number | null } | null> {
+    const owner = this.repository.familyTaskOwner(id as never);
+    if (!owner) return null;
+    if (!isStaffAdmin(actor) && (actor.id === null || owner.parent_id !== actor.id)) {
+      throw new ApiError(403, '无权限执行该操作');
+    }
+    return owner;
+  }
+
+  /** The announcing teacher, so the controller can limit `DELETE` to the author. */
+  classAnnouncementAuthor(id: unknown): number | null {
+    return this.repository.classAnnouncementAuthor(id as never)?.teacher_id ?? null;
+  }
+
+  /** The praising teacher, for the same reason. */
+  praiseAuthor(id: unknown): number | null {
+    return this.repository.praiseAuthor(id as never)?.teacher_id ?? null;
+  }
+
+  /**
+   * Bind a family-task read to the actor.
+   *
+   * `?studentId=` and `?parentId=` used to be the only filter and were trusted verbatim, so the
+   * route was a reader for any family's tasks. What the caller asks for is now only a *narrowing*
+   * of what they own: a student reads their own tasks, a parent reads their own or one of their
+   * children's, and anything else is refused rather than answered.
+   */
+  async familyTaskQueryFor(actor: RequestActor, query: Record<string, any>): Promise<Record<string, any>> {
+    const requested = query ?? {};
+    const hasStudent = requested.studentId !== undefined && requested.studentId !== null && requested.studentId !== '';
+    const hasParent = requested.parentId !== undefined && requested.parentId !== null && requested.parentId !== '';
+
+    if (actor.role === 'student') {
+      const own = await this.ownStudentId(actor);
+      if (own === null) throw new ApiError(403, '无权限执行该操作');
+      // The query may name themselves; anything else (including a parent id) is refused by being
+      // ignored - the answer is always their own tasks.
+      return { studentId: own };
+    }
+
+    const children = (await this.scopedStudentIds(actor)) ?? [];
+
+    if (hasParent && Number(requested.parentId) !== actor.id) throw new ApiError(403, '无权限执行该操作');
+    if (hasStudent) {
+      const studentId = Number(requested.studentId);
+      if (!children.includes(studentId)) throw new ApiError(403, '无权限执行该操作');
+      return { studentId };
+    }
+
+    // Neither named: the parent's own tasks, which is the matrix's parent（本人）.
+    return { parentId: actor.id };
+  }
+
+  /**
+   * Certificates, narrowed to the actor's roster.
+   *
+   * The route takes an optional `studentId`, which used to be the only filter there was: anyone
+   * could read any student's certificates. Now the query may only *narrow* the actor's own scope -
+   * a student sees their own, a parent their children's, a teacher their classes' - and a
+   * `studentId` outside it is refused rather than answered.
+   */
+  async getCertificatesFor(actor: RequestActor, studentIdQuery?: unknown) {
+    const scope = await this.scopedStudentIds(actor);
+
+    let rows: Array<Record<string, unknown>>;
+    if (studentIdQuery !== undefined && studentIdQuery !== null && studentIdQuery !== '') {
+      const studentId = await this.assertStudentAccess(actor, studentIdQuery);
+      rows = this.repository.certificatesByStudentIds([studentId]);
+    } else if (scope === null) {
+      rows = this.repository.certificates(null);
+    } else {
+      rows = this.repository.certificatesByStudentIds(scope);
+    }
+
+    const names = await this.nameMap(rows.map((row) => Number(row.student_id)));
+    return rows.map((row) => ({ ...row, student_name: names[Number(row.student_id)] ?? null }));
   }
 
   // -- announcements --------------------------------------------------------
@@ -287,7 +501,7 @@ export class EngagementService {
    * start granting titles on rows the old code left alone.
    */
   async getMessages(queryInput: Record<string, any>) {
-    const { classId, type, receiverId, role, involvedId } = queryInput;
+    const { classId, classIds, type, receiverId, role, involvedId } = queryInput;
 
     if (classId && type === 'TREE_HOLE') {
       await this.assertAnyClassFeature(Number(classId), ['enable_tree_hole', 'enable_chat_bubble']);
@@ -295,6 +509,10 @@ export class EngagementService {
 
     const rows = this.repository.messages({
       classId: classId ? (classId as never) : null,
+      // The actor-scoped roster: `classIds` is what a caller supplies instead of a single
+      // `classId` when the actor owns more than one class. `null` keeps the legacy unfiltered
+      // read, which the routes no longer reach - they always pass a resolved roster.
+      classIds: Array.isArray(classIds) ? classIds : null,
       type: type ? (type as never) : null,
       receiverId: receiverId ? (receiverId as never) : null,
       involvedId: involvedId ? (involvedId as never) : null,
@@ -327,8 +545,8 @@ export class EngagementService {
 
     // The `enable_achievements` flag lives on `classes`; one snapshot read for the whole page.
     let achievementsEnabled = false;
-    const classIds = [...new Set(rows.map((row) => Number(row.class_id)).filter((id) => Number.isFinite(id)))];
-    for (const id of classIds) {
+    const rowClassIds = [...new Set(rows.map((row) => Number(row.class_id)).filter((id) => Number.isFinite(id)))];
+    for (const id of rowClassIds) {
       const snapshot = await this.classroom.getClassFeatureSnapshot(id);
       if (snapshot?.enable_achievements) achievementsEnabled = true;
     }
@@ -544,17 +762,12 @@ export class EngagementService {
     if (wonConfig.prize_type === 'POINTS') {
       const winAmount = Number(wonConfig.prize_value) || 0;
       if (winAmount > 0) {
-        await this.classroom.adjustPoints({
+        await this.classroom.awardStudentPoints({
           studentId: student.id,
-          delta: winAmount,
-          reason: `抽奖获得: ${wonConfig.prize_name}`,
-          actorId: student.id,
-        });
-        await this.classroom.recordStudentLedgerEntry({
-          studentId: student.id,
-          type: 'LUCKY_DRAW_WIN',
           amount: winAmount,
+          type: 'LUCKY_DRAW_WIN',
           description: `抽奖获得: ${wonConfig.prize_name}`,
+          actorId: student.id,
         });
         prizeMessage = `恭喜获得 ${winAmount} 积分！`;
       } else {

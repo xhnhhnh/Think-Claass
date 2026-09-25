@@ -1,12 +1,8 @@
 /**
  * Parent-buff repository.
  *
- * The SQL is relocated from `api/modules/platform/platform.service.ts` unchanged; only the
- * connection changes - `ctx.db` instead of the raw `api/db.ts` handle.
- *
- * The "already blessed today?" check is `date(created_at) = ?`, not a range comparison:
- * that is what the original did, and it keeps working because `created_at` is stored by
- * SQLite's CURRENT_TIMESTAMP as a UTC `YYYY-MM-DD HH:MM:SS` string that `date()` parses.
+ * Blessing and login records share parent_activity. The daily guard selects only
+ * PARENT_BUFF rows using Asia/Shanghai dates; a login cannot consume a blessing.
  */
 
 import type { DbApi, SqlParam } from '@thinkclass/plugin-sdk';
@@ -33,7 +29,7 @@ export function createParentBuffRepository(db: DbApi): ParentBuffRepository {
   return {
     findToday(studentId, today) {
       return db.get<{ id: number }>(
-        'SELECT id FROM parent_activity WHERE student_id = ? AND date(created_at) = ?',
+        "SELECT id FROM parent_activity WHERE student_id = ? AND activity_type = 'PARENT_BUFF' AND date(created_at, '+8 hours') = ?",
         [studentId, today],
       );
     },

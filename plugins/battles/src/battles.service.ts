@@ -40,6 +40,7 @@ import type { ClassroomPort, ClassroomRefusal } from '@thinkclass/contracts/doma
 import { ApiError } from '@thinkclass/kernel';
 
 import type { BattlesRepository } from './battles.types.js';
+import type { RequestActor } from './battles.authorization.js';
 
 /**
  * Legacy class-scope feature key.
@@ -77,11 +78,125 @@ function toApiError(refusal: ClassroomRefusal): ApiError {
   }
 }
 
+/** The roles that reach every class and battle: the admin console. */
+function isStaffAdmin(actor: RequestActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
+}
+
 export class BattlesService {
   constructor(
     private readonly repository: BattlesRepository,
     private readonly classroom: ClassroomPort,
   ) {}
+
+  /**
+   * The actor-scope half of authorization for a class's battle list: its teacher, a student of the
+   * class, or staff admin. The class comes from `classroom.public`, never from the request.
+   */
+  async assertClassAccess(actor: RequestActor, classIdInput: unknown): Promise<void> {
+    const classId = positiveInteger(classIdInput, 'Class id');
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      await this.assertTeachesClass(actor, classId, '无权限查看该班级对战');
+      return;
+    }
+
+    if (actor.role === 'student') {
+      if ((await this.ownClassId(actor)) !== classId) throw new ApiError(403, '无权限查看该班级对战');
+      return;
+    }
+
+    throw new ApiError(403, '无权限查看该班级对战');
+  }
+
+  /**
+   * The actor-scope half of authorization for a battle's stats: a teacher of one of the two
+   * classes, a student in one of them, or staff admin.
+   */
+  async assertBattleAccess(actor: RequestActor, battleIdInput: unknown): Promise<void> {
+    const { classIds } = await this.battleClasses(battleIdInput);
+    if (isStaffAdmin(actor)) return;
+
+    if (actor.role === 'teacher') {
+      if (!(await this.teachesAnyClass(actor, classIds))) throw new ApiError(403, '无权限查看该对战');
+      return;
+    }
+
+    if (actor.role === 'student') {
+      const ownClassId = await this.ownClassId(actor);
+      if (ownClassId === null || !classIds.includes(ownClassId)) throw new ApiError(403, '无权限查看该对战');
+      return;
+    }
+
+    throw new ApiError(403, '无权限查看该对战');
+  }
+
+  /**
+   * The actor-scope half of authorization for the writes (accept / reject / end): a teacher of one
+   * of the battle's classes. Staff admin passes.
+   */
+  async assertBattleTeacher(actor: RequestActor, battleIdInput: unknown): Promise<void> {
+    const { classIds } = await this.battleClasses(battleIdInput);
+    if (isStaffAdmin(actor)) return;
+    if (actor.role !== 'teacher' || !(await this.teachesAnyClass(actor, classIds))) {
+      throw new ApiError(403, '无权限管理该对战');
+    }
+  }
+
+  /**
+   * The actor-scope half of authorization for `POST /api/battles`: the battle is opened by *your*
+   * class, so the initiator class must be one the actor teaches. Staff admin passes.
+   */
+  async assertInitiatorClass(actor: RequestActor, classIdInput: unknown): Promise<void> {
+    const classId = positiveInteger(classIdInput, 'Initiator class id');
+    if (isStaffAdmin(actor)) return;
+    if (actor.role !== 'teacher') throw new ApiError(403, '无权限管理该对战');
+    await this.assertTeachesClass(actor, classId, '无权限管理该对战');
+  }
+
+  /** 404 when the class row is gone, 403 when it belongs to another teacher. */
+  private async assertTeachesClass(actor: RequestActor, classId: number, message: string): Promise<void> {
+    const klass = await this.classroom.getClassById(classId);
+    if (!klass) throw new ApiError(404, '班级未找到');
+    if (klass.teacherId !== actor.id) throw new ApiError(403, message);
+  }
+
+  private async teachesAnyClass(actor: RequestActor, classIds: number[]): Promise<boolean> {
+    for (const classId of classIds) {
+      const klass = await this.classroom.getClassById(classId);
+      if (klass && klass.teacherId === actor.id) return true;
+    }
+    return false;
+  }
+
+  /** The class the actor's own student row is in, or `null` when it cannot be resolved. */
+  private async ownClassId(actor: RequestActor): Promise<number | null> {
+    if (actor.classId) return actor.classId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.classId ?? null;
+  }
+
+  /**
+   * The battle's two class ids, with the same 404s the acting methods produce.
+   *
+   * Deliberately *without* the class feature gate: authorization decides whether the caller may
+   * see the battle at all, and the acting method asks the feature question afterwards, so a refused
+   * caller never learns whether the other class has 大乱斗 switched on.
+   */
+  private async battleClasses(battleIdInput: unknown): Promise<{ classIds: number[] }> {
+    const battleId = positiveInteger(battleIdInput, 'Battle id');
+    const battle = this.repository.getBattle(battleId);
+    if (!battle) throw new ApiError(404, 'Battle not found');
+
+    const [named] = await this.withClassNames([battle]);
+    // The legacy lookup joined `classes`, so a battle whose class row had been deleted was already
+    // indistinguishable from a missing battle.
+    if (!named) throw new ApiError(404, 'Battle not found');
+
+    return { classIds: [named.initiator_class_id, named.target_class_id] };
+  }
 
   async listBattles(classIdInput: unknown): Promise<ClassBattle[]> {
     const classId = positiveInteger(classIdInput, 'Class id');

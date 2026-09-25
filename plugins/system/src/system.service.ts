@@ -10,6 +10,8 @@
  * dependencies in `setup()`.
  */
 
+import { ApiError } from '@thinkclass/kernel';
+
 import { BACKUP_TABLES } from './system.repository.js';
 import type { QuestionInput, SystemRepository } from './system.types.js';
 
@@ -20,7 +22,16 @@ export class SystemService {
     return this.repository.listQuestions(teacherId);
   }
 
+  /**
+   * Create a question.
+   *
+   * The guard is new, and it is the difference between a 400 and a 500: `question_bank.title` and
+   * `.answer` are NOT NULL, so an empty body used to reach the insert and answer
+   * `500 服务器内部错误` - which tells the caller nothing about what they got wrong. Found by the e2e
+   * sweep, which probes every endpoint with a deliberately empty body and fails on any 5xx.
+   */
   createQuestion(input: QuestionInput) {
+    if (!input?.title || !input?.answer) throw new ApiError(400, 'title and answer are required');
     return this.repository.createQuestion(input);
   }
 
@@ -36,7 +47,16 @@ export class SystemService {
     return this.repository.listSettings();
   }
 
+  /**
+   * Insert or update one platform setting.
+   *
+   * The guard is new for the same reason as `createQuestion`'s: `settings.key` and `.value` are
+   * NOT NULL, so an empty body answered `500 服务器内部错误` instead of naming the missing field.
+   */
   upsertSetting(input: { key?: string; value?: string; description?: string }) {
+    if (!input?.key) throw new ApiError(400, 'key is required');
+    if (input.value === undefined || input.value === null) throw new ApiError(400, 'value is required');
+
     if (this.repository.findSetting(input.key)) {
       this.repository.updateSetting(input.key, input.value, input.description);
       return;

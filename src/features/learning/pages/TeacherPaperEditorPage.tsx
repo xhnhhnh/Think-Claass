@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { papersApi, type PaperDetail } from '@/features/learning/api/papersApi';
 import { usePaper } from '@/features/learning/hooks/usePapers';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
@@ -136,38 +137,60 @@ export default function TeacherPaperEditor() {
     } catch (e) {}
   };
 
-  if (!paperId) return <div className="text-ink-3">无效试卷</div>;
+  // The editor's one save action, reachable from the command palette too.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-paper-editor:save',
+      label: '保存结构',
+      icon: Save,
+      keywords: ['试卷', '保存', '结构'],
+      run: () => void handleSave(),
+    },
+  ]);
 
-  if (isLoading) {
+  if (!paperId) {
     return (
-      <div className="flex items-center justify-center gap-3 py-20 text-ink-3">
-        <Spinner label="正在加载试卷" />
-        正在加载试卷...
-      </div>
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-dashed border-line-1 bg-surface-2 py-16 text-center text-fg-3">无效试卷</div>
+      </PageScaffold>
     );
   }
 
-  if (!paper) return <div className="text-ink-3">试卷不存在或无权限</div>;
+  if (isLoading) {
+    return (
+      <PageScaffold variant="form" className="flex items-center justify-center gap-3 py-20 text-fg-3">
+        <Spinner label="正在加载试卷" />
+        正在加载试卷...
+      </PageScaffold>
+    );
+  }
+
+  if (!paper) {
+    return (
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-dashed border-line-1 bg-surface-2 py-16 text-center text-fg-3">试卷不存在或无权限</div>
+      </PageScaffold>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={paper.title}
-        description="试卷"
-        icon={FileText}
-        actions={
-          <>
-            <Button variant="outline" onClick={() => navigate('/teacher/papers')}>
-              <ArrowLeft data-icon="inline-start" />
-              返回试卷库
-            </Button>
-            <Button onClick={handleSave}>
-              <Save data-icon="inline-start" />
-              保存结构
-            </Button>
-          </>
-        }
-      />
+    <PageScaffold
+      variant="form"
+      title={paper.title}
+      description="试卷"
+      actions={
+        <Button variant="outline" onClick={() => navigate('/teacher/papers')}>
+          <ArrowLeft data-icon="inline-start" />
+          返回试卷库
+        </Button>
+      }
+      footer={
+        <Button onClick={handleSave}>
+          <Save data-icon="inline-start" />
+          保存结构
+        </Button>
+      }
+    >
 
       <Card>
         <CardContent className="space-y-6">
@@ -184,7 +207,7 @@ export default function TeacherPaperEditor() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="space-y-3 lg:col-span-1">
-              <div className="text-sm font-bold text-ink-2">分区</div>
+              <div className="text-sm font-bold text-fg-2">分区</div>
               {sections.length === 0 && (
                 <EmptyState title="暂无分区（可选）" className="min-h-0 p-6" />
               )}
@@ -202,7 +225,7 @@ export default function TeacherPaperEditor() {
                     size="icon-sm"
                     aria-label={`删除第 ${s.order_no} 分区`}
                     title="删除"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-danger hover:bg-danger/10 hover:text-danger"
                     onClick={() => setSections((prev) => prev.filter((x) => x.order_no !== s.order_no))}
                   >
                     <Trash2 />
@@ -212,11 +235,11 @@ export default function TeacherPaperEditor() {
             </div>
 
             <div className="space-y-4 lg:col-span-2">
-              <div className="text-sm font-bold text-ink-2">题目</div>
+              <div className="text-sm font-bold text-fg-2">题目</div>
               {items.map((it) => (
-                <div key={it.order_no} className="rounded-panel border border-border bg-muted/50 p-5">
+                <div key={it.order_no} className="rounded-panel border border-line-1 bg-surface-3/50 p-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="text-sm font-bold text-ink-1">第 {it.order_no} 题</div>
+                    <div className="text-sm font-bold text-fg-1">第 {it.order_no} 题</div>
                     <div className="flex flex-wrap gap-2">
                       <Select
                         aria-label={`第 ${it.order_no} 题所属分区`}
@@ -322,7 +345,7 @@ export default function TeacherPaperEditor() {
                   href={a.storage_path}
                   target="_blank"
                   rel="noreferrer"
-                  className="block text-sm text-primary hover:underline"
+                  className="block text-sm text-role hover:underline"
                 >
                   {a.storage_path}
                 </a>
@@ -333,6 +356,6 @@ export default function TeacherPaperEditor() {
           )}
         </SectionCard>
       </div>
-    </div>
+    </PageScaffold>
   );
 }

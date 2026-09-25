@@ -6,17 +6,17 @@ import { Toaster } from 'sonner';
 
 import SiteSettingsBootstrap from '@/app/bootstrap/SiteSettingsBootstrap';
 import { queryClient } from '@/app/queryClient';
-import ThemeWrapper from '@/components/ThemeWrapper';
+import RoleTheme from '@/app/theme/RoleTheme';
 
 export default function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-center" richColors />
       <Router>
-        <ThemeWrapper>
+        <RoleTheme>
           <SiteSettingsBootstrap />
           {children}
-        </ThemeWrapper>
+        </RoleTheme>
       </Router>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

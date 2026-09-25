@@ -12,6 +12,9 @@ import { Spinner } from "@/components/ui/spinner";
  * Zeros out the page's indigo/violet: the hero gradient, the two feature cards and
  * the loading spinner all come from tokens now, so this page and the rest of the
  * product are the same colour family.
+ *
+ * Public site, so it wears no console page scaffold: these routes have no console shell
+ * and the page keeps its own `PortalShell` chrome and `<h1>`. Only the vocabulary moved.
  */
 export default function AboutPage() {
   const [aboutData, setAboutData] = useState<{ title: string; content: string } | null>(null);
@@ -38,14 +41,14 @@ export default function AboutPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="overflow-hidden rounded-panel border border-border bg-paper shadow-card"
+        className="overflow-hidden rounded-panel border border-line-1 bg-surface-2 shadow-card"
       >
-        <div className="relative overflow-hidden bg-gradient-to-br from-primary/5 to-accent px-8 py-16 text-center">
+        <div className="relative overflow-hidden bg-gradient-to-br from-role/5 to-role-soft px-8 py-16 text-center">
           <div className="relative z-10">
-            <h1 className="mb-3 text-3xl font-bold text-ink-1 md:text-4xl">
+            <h1 className="mb-3 text-3xl font-bold text-fg-1 md:text-4xl">
               {aboutData?.title || "致力于更好的教育管理"}
             </h1>
-            <p className="mx-auto max-w-2xl text-base text-ink-3">
+            <p className="mx-auto max-w-2xl text-base text-fg-3">
               通过科技赋能教育，让家校沟通更顺畅，让班级管理更高效。
             </p>
           </div>
@@ -54,41 +57,41 @@ export default function AboutPage() {
         <div className="p-8 md:p-12">
           {loading ? (
             <div className="flex justify-center py-12">
-              <Spinner size="lg" label="正在加载关于我们" className="text-primary" />
+              <Spinner size="lg" label="正在加载关于我们" className="text-role" />
             </div>
           ) : (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="prose prose-slate max-w-none leading-relaxed whitespace-pre-line text-ink-2"
+              className="leading-relaxed whitespace-pre-line text-fg-2"
             >
               {aboutData?.content || "暂无关于我们内容的详细介绍。请在后台管理系统中添加。"}
             </motion.div>
           )}
 
-          <div className="mt-12 grid gap-5 border-t border-border pt-10 md:grid-cols-2">
+          <div className="mt-12 grid gap-5 border-t border-line-1 pt-10 md:grid-cols-2">
             <motion.div
               whileHover={{ y: -2 }}
-              className="rounded-panel border border-primary/10 bg-primary/5 p-7 transition-all"
+              className="rounded-panel border border-role/10 bg-role-soft p-7 transition-all"
             >
-              <div className="mb-3 flex size-10 items-center justify-center rounded-card bg-primary text-primary-foreground">
+              <div className="mb-3 flex size-10 items-center justify-center rounded-card bg-role text-role-contrast">
                 <Heart className="size-5" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-ink-1">家校共育</h3>
-              <p className="text-sm leading-relaxed text-ink-3">
+              <h3 className="mb-2 text-lg font-semibold text-fg-1">家校共育</h3>
+              <p className="text-sm leading-relaxed text-fg-3">
                 打破信息孤岛，实现教师与家长之间的无缝对接，共同关注孩子的成长与发展。
               </p>
             </motion.div>
             <motion.div
               whileHover={{ y: -2 }}
-              className="rounded-panel border border-warning/20 bg-warning/10 p-7 transition-all"
+              className="rounded-panel border border-warning/20 bg-warning-soft p-7 transition-all"
             >
-              <div className="mb-3 flex size-10 items-center justify-center rounded-card bg-warning text-primary-foreground">
+              <div className="mb-3 flex size-10 items-center justify-center rounded-card bg-warning text-fg-inverse">
                 <Star className="size-5" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-ink-1">科学评价</h3>
-              <p className="text-sm leading-relaxed text-ink-3">
+              <h3 className="mb-2 text-lg font-semibold text-fg-1">科学评价</h3>
+              <p className="text-sm leading-relaxed text-fg-3">
                 多维度的学生评价体系，发现每个孩子的闪光点，激发内在学习动力。
               </p>
             </motion.div>

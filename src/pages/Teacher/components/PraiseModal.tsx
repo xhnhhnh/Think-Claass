@@ -19,8 +19,8 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
     { id: 'bg-yellow-100', label: '温馨黄' },
     { id: 'bg-blue-100', label: '沉稳蓝' },
     { id: 'bg-success/20', label: '活力绿' },
-    { id: 'bg-destructive/10', label: '浪漫粉' },
-    { id: 'bg-accent/60', label: '神秘紫' }
+    { id: 'bg-danger/10', label: '浪漫粉' },
+    { id: 'bg-role-soft/60', label: '神秘紫' }
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -34,9 +34,9 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-paper/90 backdrop-blur-xl border-white/60">
+      <DialogContent className="sm:max-w-md bg-surface-2/90 backdrop-blur-xl border-line-1">
         <DialogHeader>
-          <DialogTitle className="text-ink-1 text-xl font-bold">发送表扬信</DialogTitle>
+          <DialogTitle className="text-fg-1 text-xl font-bold">发送表扬信</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
@@ -60,7 +60,7 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
                   type="button"
                   onClick={() => setColor(c.id)}
                   className={`w-8 h-8 rounded-full shadow-sm border-2 transition-all ${c.id.replace('bg-', 'bg-').replace('-100', '-300')} ${
-                    color === c.id ? 'border-gray-800 scale-110 ring-2 ring-gray-400/20' : 'border-transparent hover:scale-105'
+                    color === c.id ? 'border-fg-1 scale-110 ring-2 ring-line-strong/30' : 'border-transparent hover:scale-105'
                   }`}
                   title={c.label}
                 />
@@ -70,7 +70,7 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>取消</Button>
-            <Button type="submit" disabled={submitting || !content.trim()} className="bg-yellow-500 hover:bg-yellow-600 text-yellow-950 font-semibold">
+            <Button type="submit" disabled={submitting || !content.trim()} className="bg-warning hover:bg-warning/90 text-fg-inverse font-semibold">
               {submitting ? '发送中...' : '发送表扬信'}
             </Button>
           </div>

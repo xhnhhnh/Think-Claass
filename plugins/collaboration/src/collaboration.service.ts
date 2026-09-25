@@ -55,10 +55,12 @@
 import type { ClassroomPort, ClassroomRefusal, StudentSnapshot } from '@thinkclass/contracts/domains/classroom';
 import { ApiError } from '@thinkclass/kernel';
 
+import { isStaffAdmin, type RequestActor } from './collaboration.authorization.js';
 import type {
   CollaborationRepository,
   PeerReviewFilter,
   PeerReviewInsert,
+  PeerReviewRow,
   TeacherNodeInsert,
   TeacherNodeUpdate,
   TeamQuestFilter,
@@ -132,6 +134,149 @@ export class CollaborationService {
     private readonly repository: CollaborationRepository,
     private readonly classroom: ClassroomPort,
   ) {}
+
+  // -------------------------------------------------------------------------
+  // Actor scope (route authorization)
+  // -------------------------------------------------------------------------
+  //
+  // Every route is gated by `requireActorRole` in the controller (401/403) and then narrowed here.
+  // The claim is always resolved through `classroom.public` - never from the URL, the body or
+  // `actor.studentId` - because `students`/`classes` are classroom's tables and a forged body must
+  // not be able to widen what an actor owns:
+  //
+  //   teacher  owns the classes whose `teacher_id` is their user id
+  //   student  owns one student row (the one bound to their login) and that student's class
+  //   parent   owns their linked children and those children's classes
+  //   admin/superadmin own everything (the console)
+  //
+  // `null` from the two roster helpers means "unrestricted"; an empty array means "none", and the
+  // two must not collapse - the first is the console, the second is an account with no claim.
+
+  /** The classes the actor may name; `null` means every class (admin/superadmin). */
+  async scopedClassIds(actor: RequestActor): Promise<number[] | null> {
+    if (isStaffAdmin(actor)) return null;
+    if (actor.id === null) return [];
+
+    if (actor.role === 'teacher') return this.classroom.listClassIdsByTeacher(actor.id);
+
+    if (actor.role === 'student') {
+      const student = await this.classroom.getStudentByUserId(actor.id);
+      return student ? [student.classId] : [];
+    }
+
+    if (actor.role === 'parent') {
+      const children = await this.classroom.listStudentsByParent(actor.id);
+      return [...new Set(children.map((child) => child.classId))];
+    }
+
+    return [];
+  }
+
+  /** The students the actor may name; `null` means every student (admin/superadmin). */
+  async scopedStudentIds(actor: RequestActor): Promise<number[] | null> {
+    if (isStaffAdmin(actor)) return null;
+    if (actor.id === null) return [];
+
+    if (actor.role === 'student') {
+      const student = await this.classroom.getStudentByUserId(actor.id);
+      return student ? [student.id] : [];
+    }
+
+    if (actor.role === 'parent') {
+      return (await this.classroom.listStudentsByParent(actor.id)).map((child) => child.id);
+    }
+
+    if (actor.role === 'teacher') {
+      const classIds = await this.classroom.listClassIdsByTeacher(actor.id);
+      if (classIds.length === 0) return [];
+      const accounts = await this.classroom.listStudentAccountsByClassIds(classIds);
+      return accounts.map((account) => account.studentId);
+    }
+
+    return [];
+  }
+
+  /** The student row the actor's own login owns (student actors), or `null`. */
+  async ownStudentId(actor: RequestActor): Promise<number | null> {
+    if (actor.role !== 'student' || actor.id === null) return null;
+    const student: StudentSnapshot | null = await this.classroom.getStudentByUserId(actor.id);
+    return student ? student.id : null;
+  }
+
+  /** 403 unless the actor may name this class. Returns the normalized id. */
+  async assertClassAccess(actor: RequestActor, classIdInput: unknown): Promise<number> {
+    const classId = Number(classIdInput);
+    const allowed = await this.scopedClassIds(actor);
+    if (allowed !== null && !allowed.includes(classId)) throw new ApiError(403, '无权限执行该操作');
+    return classId;
+  }
+
+  /** 403 unless the actor may name this student. Returns the normalized id. */
+  async assertStudentAccess(actor: RequestActor, studentIdInput: unknown): Promise<number> {
+    const studentId = Number(studentIdInput);
+    const allowed = await this.scopedStudentIds(actor);
+    if (allowed !== null && !allowed.includes(studentId)) throw new ApiError(403, '无权限执行该操作');
+    return studentId;
+  }
+
+  /** The teacher a class belongs to, for a student-created team quest's `teacher_id`. */
+  async classTeacherId(classId: number): Promise<number | null> {
+    const cls = await this.classroom.getClassById(classId);
+    return cls?.teacherId ?? null;
+  }
+
+  /**
+   * 403 unless the actor may touch this task node's class.
+   *
+   * A missing node returns `null` without a refusal, so the service keeps answering its legacy
+   * `Task node not found` for `PUT`/`DELETE` instead of turning it into a 403.
+   */
+  async assertTeacherNodeAccess(actor: RequestActor, nodeId: unknown): Promise<number | null> {
+    const classId = this.repository.getTeacherNodeClassId(nodeId as never);
+    if (classId === null) return null;
+    await this.assertClassAccess(actor, classId);
+    return classId;
+  }
+
+  /**
+   * 403 unless the actor may touch this team quest's class.
+   *
+   * A missing quest returns `null`: the legacy `Team quest not found` 404 is the service's answer,
+   * not a refusal dressed as one.
+   */
+  async assertTeamQuestAccess(actor: RequestActor, questIdInput: unknown): Promise<number | null> {
+    const questId = Number(questIdInput);
+    if (!Number.isFinite(questId)) return null;
+    const quest = this.repository.getTeamQuest(questId);
+    if (!quest) return null;
+    await this.assertClassAccess(actor, quest.class_id);
+    return quest.class_id;
+  }
+
+  /**
+   * The peer reviews the actor is party to.
+   *
+   * `peer_reviews` has no class column, so the scope is the two student ids on the row: a student
+   * sees the reviews they wrote or received (`本人相关`), a teacher the reviews of their own
+   * students. A query that names somebody outside that set is refused rather than answered, and the
+   * rows the query returns are filtered to it - the legacy query returned the whole table.
+   */
+  async listPeerReviewsFor(actor: RequestActor, queryInput: Record<string, any>): Promise<PeerReviewRow[]> {
+    const scope = await this.scopedStudentIds(actor);
+    const query = queryInput ?? {};
+
+    for (const key of ['reviewer_id', 'reviewee_id']) {
+      const value = query[key];
+      if (value === undefined || value === null || value === '') continue;
+      const id = Number(value);
+      if (scope !== null && !scope.includes(id)) throw new ApiError(403, '无权限执行该操作');
+    }
+
+    const rows = this.listPeerReviews(query);
+    if (scope === null) return rows;
+    const allowed = new Set(scope);
+    return rows.filter((row) => allowed.has(Number(row.reviewer_id)) || allowed.has(Number(row.reviewee_id)));
+  }
 
   // -------------------------------------------------------------------------
   // Task tree (技能树)
@@ -241,13 +386,14 @@ export class CollaborationService {
     this.repository.completeStudentNode(studentId, nodeId);
 
     if (node.points_reward > 0) {
-      await this.classroom.adjustPoints({
+      await this.classroom.awardStudentPoints({
         studentId,
-        delta: node.points_reward,
-        reason: 'task_tree.reward',
+        amount: node.points_reward,
+        type: 'TASK_TREE_REWARD',
+        description: `Completed task node: ${node.title}`,
         actorId: 0,
+        requestId: `task-tree:${studentId}:${nodeId}`,
       });
-      await this.ledger(studentId, 'TASK_TREE_REWARD', node.points_reward, `Completed task node: ${node.title}`);
     }
   }
 
@@ -256,7 +402,7 @@ export class CollaborationService {
   // -------------------------------------------------------------------------
 
   listTeamQuests(queryInput: Record<string, any>) {
-    const { class_id, status } = queryInput ?? {};
+    const { class_id, classIds, status } = queryInput ?? {};
     const filter: TeamQuestFilter = {};
 
     if (class_id !== undefined) {
@@ -264,6 +410,9 @@ export class CollaborationService {
       if (!Number.isFinite(classIdNum)) throw new ApiError(400, 'Invalid class_id');
       filter.classId = classIdNum;
     }
+    // The controller's resolved roster, when the request named no class. Passed through as ids: the
+    // service must not widen an empty roster into "every class".
+    if (Array.isArray(classIds)) filter.classIds = classIds.map(Number);
     if (status !== undefined) {
       if (status !== 'active' && status !== 'completed') throw new ApiError(400, 'Invalid status');
       filter.status = status;
@@ -349,7 +498,7 @@ export class CollaborationService {
   }
 
   listTeamQuestProgress(queryInput: Record<string, any>) {
-    const { quest_id, student_id } = queryInput ?? {};
+    const { quest_id, student_id, studentIds } = queryInput ?? {};
     const filter: TeamQuestProgressFilter = {};
 
     if (quest_id !== undefined) {
@@ -362,6 +511,8 @@ export class CollaborationService {
       if (!Number.isFinite(studentIdNum)) throw new ApiError(400, 'Invalid student_id');
       filter.studentId = studentIdNum;
     }
+    // The controller's resolved roster, when the request named no student.
+    if (Array.isArray(studentIds)) filter.studentIds = studentIds.map(Number);
 
     return this.repository.listTeamQuestProgress(filter);
   }

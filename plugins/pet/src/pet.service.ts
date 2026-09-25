@@ -214,19 +214,13 @@ export class PetService {
       delta: -cost,
       reason: `Consumed for ${actionType}`,
       actorId,
+      ledger: { type: recordType, description: `Consumed for ${actionType}` },
     });
     // The port reports a refusal as data, so the legacy `Not enough points` 400 is reproduced
     // here rather than thrown by the classroom plugin.
     if (payment.refusal) {
       throw new ApiError(400, 'Not enough points');
     }
-
-    await this.classroom.recordStudentLedgerEntry({
-      studentId,
-      type: recordType,
-      amount: -cost,
-      description: `Consumed for ${actionType}`,
-    });
 
     const petBefore = this.repository.getPet(studentId);
     if (!petBefore) {

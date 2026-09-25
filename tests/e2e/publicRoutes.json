@@ -1,0 +1,51 @@
+{
+  "_comment": [
+    "The routes that are anonymous ON PURPOSE - the exemption list for the authorization round.",
+    "",
+    "JSON rather than TypeScript because two very different runtimes read it: the inventory script",
+    "(`node scripts/security/route-authorization-audit.mjs`) and the e2e authorization suite (Vite).",
+    "A `.ts` module is not importable from the first without a build step, and two copies would drift -",
+    "and the copy that drifted would be the one nobody read.",
+    "",
+    "`_reason` keys are required for every entry: the value of this list is that a reviewer can",
+    "disagree with an entry. A path here is not 'not done yet', it is 'must not have an actor check'.",
+    "",
+    "`compatAliases` records snapshot endpoints that no `@Controller` in the tree declares, so the",
+    "inventory can reconcile its own coverage against the API snapshot."
+  ],
+  "publicByDesign": {
+    "POST /api/kernel/auth/login": "the login route itself - it mints the session everything else uses",
+    "POST /api/kernel/auth/logout": "revokes the presented token; anonymous is a no-op, not a leak",
+    "GET /api/health": "liveness probe; returns a version and plugin counts",
+    "GET /api/settings": "the SPA reads site title and payment switches before anyone logs in",
+    "GET /api/kernel/info": "infrastructure summary, no user data; the matrix suggests narrowing it to admin",
+    "GET /api/kernel/plugins": "public plugin descriptors, no user data",
+    "GET /api/kernel/permissions": "the declared permission catalogue, no user data",
+    "POST /api/auth/login": "student/teacher/parent login",
+    "POST /api/auth/register": "registration with an invite code - there is no session yet",
+    "POST /api/auth/activate": "activation happens before a usable session exists",
+    "POST /api/admin/session": "admin console login",
+    "GET /api/classes/invite/:code": "the register form resolves an invite code before logging in",
+    "GET /api/website/home": "public marketing page",
+    "GET /api/website/articles": "public article list",
+    "GET /api/website/articles/:id": "public article body",
+    "POST /api/website/contact": "public contact form",
+    "GET /api/announcements/active": "the public banner",
+    "GET /api/pet/health": "declared public in plugins/pet/plugin.json: plugin id and version only",
+    "POST /api/payment/notify": "the payment provider calls this; it cannot carry a session"
+  },
+  "compatAliases": {
+    "GET /api/class": "/api/classes - second @Controller class over one base",
+    "POST /api/class": "/api/classes - second @Controller class over one base",
+    "GET /api/class/:id": "/api/classes/:id - second @Controller class over one base",
+    "GET /api/class/:id/features": "/api/classes/:id/features - second @Controller class over one base",
+    "GET /api/class/:id/incentive-policy": "/api/classes/:id/incentive-policy - second @Controller class over one base",
+    "GET /api/class/:id/team-ranking": "/api/classes/:id/team-ranking - second @Controller class over one base",
+    "GET /api/class/:id/bigscreen": "/api/classes/:id/bigscreen - second @Controller class over one base",
+    "GET /api/class/:id/guild-ranking": "/api/classes/:id/guild-ranking - second @Controller class over one base",
+    "GET /api/class/invite/:code": "/api/classes/invite/:code - second @Controller class over one base",
+    "PUT /api/class/:id/features": "/api/classes/:id/features - second @Controller class over one base",
+    "PUT /api/class/:id/incentive-policy": "/api/classes/:id/incentive-policy - second @Controller class over one base",
+    "PUT /api/class/:id/settings": "/api/classes/:id/settings - second @Controller class over one base"
+  }
+}

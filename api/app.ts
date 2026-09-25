@@ -45,6 +45,7 @@ import {
   type KernelRuntimeHooks,
   type PluginHostView,
 } from '@thinkclass/kernel';
+import type { Actor } from '@thinkclass/contracts';
 import { createPluginHost } from '@thinkclass/plugin-runtime';
 import { initDb, decrypt } from './db.js'
 import { createDatabaseMaintenance } from './maintenance.js'
@@ -123,6 +124,66 @@ let bootedKernel: Kernel | null = null;
 /** The plugin host, when plugins were mounted. */
 let pluginHost: Awaited<ReturnType<typeof createPluginHost>> | null = null;
 
+/**
+ * How long a resolved `userId -> {studentId, classId}` mapping is reused.
+ *
+ * Short on purpose. The mapping changes when a teacher moves a student to another class or binds an
+ * account to a student row, and those are classroom writes a stale mapping would misreport for up
+ * to this long. Five seconds keeps a burst of page-load requests down to one lookup while staying
+ * well inside "the next page the user opens is correct".
+ */
+const SCOPE_CACHE_TTL_MS = 5_000;
+
+/** Memoised `userId -> scope`. Only scope is cached - the role is re-read from the verified actor. */
+const scopeCache = new Map<number, { studentId?: number; classId?: number; at: number }>();
+
+/**
+ * Resolve a verified actor's domain scope through the classroom plugin's published port.
+ *
+ * Why this lives here rather than in the kernel: `studentId` / `classId` are classroom rows. The
+ * kernel may not know a plugin (G2) nor a table name (G5), so it accepts this function as an option
+ * (`CreateKernelOptions.scopeResolver`) and stays ignorant of both.
+ *
+ * Why it is late-bound: `createKernel()` installs the request-context middleware *before*
+ * `mountPlugins()` runs, so `pluginHost` is still null when that middleware is built. Reading it
+ * per request through this closure is the same indirection `authProviderHolder` uses, for the same
+ * reason.
+ *
+ * Only student and parent actors are resolved. A teacher's or admin's class is a *query* concern
+ * that each route already scopes with an ownership check; inventing one here would silently pin a
+ * multi-class teacher to whichever class happened to be found first.
+ *
+ * This is the fix for the defect that made the pet plugin's permission gate unusable: before it,
+ * `Actor.studentId` was never populated, so `plugins/pet/src/pet.controllers.ts` refused every
+ * student with "当前账号未绑定学生" and `permissionEngine` built a student scope chain out of an
+ * undefined id.
+ */
+async function resolveActorScope(_req: Request, actor: Actor): Promise<Actor | null> {
+  if (actor.role !== 'student' && actor.role !== 'parent') return null;
+
+  const cached = scopeCache.get(actor.userId);
+  if (cached && Date.now() - cached.at < SCOPE_CACHE_TTL_MS) {
+    return { ...actor, studentId: cached.studentId, classId: cached.classId };
+  }
+
+  const classroomPlugin = pluginHost?.active.find((entry) => entry.manifest.id === 'classroom');
+  if (!classroomPlugin) return null;
+
+  const classroom = classroomPlugin.context.use('classroom.public');
+  // A student is the row bound to this login. A parent is linked to one or more children and
+  // `studentId` is single-valued, so the first is used - the same choice `identity.login` makes
+  // when it builds the parent's login payload.
+  const student =
+    actor.role === 'student'
+      ? await classroom.getStudentByUserId(actor.userId)
+      : ((await classroom.listStudentsByParent(actor.userId))[0] ?? null);
+
+  const scope = { studentId: student?.id, classId: student?.classId ?? undefined, at: Date.now() };
+  scopeCache.set(actor.userId, scope);
+
+  return { ...actor, studentId: scope.studentId, classId: scope.classId };
+}
+
 export function getKernel(): Kernel | null {
   return bootedKernel;
 }
@@ -136,6 +197,19 @@ export function getPluginHost(): typeof pluginHost {
  *
  * Identity resolution must run before any route so that `getRequestActor()` sees a
  * verified actor rather than raw headers.
+ *
+ * ## Why this middleware carries the scope resolver
+ *
+ * `createKernel()` already installs a request-context middleware of its own, and that one is handed
+ * `scopeResolver`. This one is installed **after** it, on the same express app, and it is the one
+ * that runs last - so it is the one whose `req.context` every route reads. Without the resolver
+ * here, the kernel's middleware resolved `studentId`/`classId` and this one immediately threw that
+ * away, and every plugin gating on "is this the caller's own student row" refused the students it
+ * was written for. The pet routes answered 403「当前账号未绑定学生」in the shipped composition while
+ * passing their unit tests.
+ *
+ * The duplicated middleware is deliberate (the kernel cannot mount its own routes before it exists),
+ * so the resolver has to be supplied to both. Only the second one is observable.
  */
 function mountKernelInfrastructure(server: Express, kernel: Kernel): void {
   server.use(
@@ -143,6 +217,7 @@ function mountKernelInfrastructure(server: Express, kernel: Kernel): void {
       config: kernel.config,
       sessions: kernel.sessions,
       logger: kernel.logger.child('auth'),
+      resolveScope: resolveActorScope,
     }),
   );
   server.use(
@@ -378,6 +453,11 @@ export async function createApp(): Promise<Express> {
     // not the kernel. Handing the decryptor over lets `classroom.public` publish
     // readable names without any plugin importing `api/**`.
     overrides: { decryptName: decrypt },
+    // `Actor.studentId` / `Actor.classId` are classroom rows, so the kernel cannot fill them in
+    // itself. This is the host-side resolver described at its definition; without it every plugin
+    // that gates on "is this the caller's own student row" - pet's adoption and interaction routes
+    // are the ones that existed - refuses the students it was written for.
+    scopeResolver: resolveActorScope,
   })
 
   // Audit coverage is data, not a branch chain: the descriptors say which operations

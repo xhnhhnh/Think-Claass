@@ -34,10 +34,28 @@ export interface RequestWithContext extends Request {
   actor?: Actor | null;
 }
 
+/**
+ * Fill in an authenticated actor's scope (`studentId`, `classId`).
+ *
+ * A verified session carries only `userId` and `role` (`sessions.verify`), because only the
+ * session store knows them - the student row behind a login belongs to a plugin. So the actor a
+ * request is served with is *extended* after verification by a resolver the host supplies, which
+ * reads the kernel context and reaches a plugin through its published port. The kernel never
+ * learns which plugin that is (G2/G5).
+ *
+ * Returning `null` means "no scope to add"; the resolved actor is used instead.
+ */
+export type ScopeResolver = (req: Request, actor: Actor) => Promise<Actor | null>;
+
 export interface RequestContextOptions {
   config: KernelConfig;
   sessions: SessionService;
   logger?: Logger;
+  /**
+   * Host-supplied scope resolution. Absent means the actor stays as the session store returned it,
+   * which is the honest state of a host that has nothing to extend it with.
+   */
+  resolveScope?: ScopeResolver;
 }
 
 function parseBearer(header: string | undefined): string | null {
@@ -47,9 +65,9 @@ function parseBearer(header: string | undefined): string | null {
 }
 
 export function createRequestContextMiddleware(options: RequestContextOptions) {
-  const { config, sessions, logger } = options;
+  const { config, sessions, logger, resolveScope } = options;
 
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const requestId =
       (req.header('x-request-id') || '').trim() || crypto.randomBytes(8).toString('hex');
 
@@ -80,6 +98,29 @@ export function createRequestContextMiddleware(options: RequestContextOptions) {
       }
     }
 
+    /**
+     * Extend the verified actor with its domain scope.
+     *
+     * Fail-open **on the scope only**, never on identity: if resolving the student behind a login
+     * throws (a plugin is disabled, its port is unavailable, the lookup fails), the request keeps
+     * the actor the session store verified. Swallowing the error into `actor = null` would turn a
+     * transient plugin fault into a wave of 401s, and rethrowing would turn it into a 500 - neither
+     * is honest about "we know who you are, we could not look up your class".
+     */
+    if (actor && resolveScope) {
+      try {
+        const resolved = await resolveScope(req, actor);
+        if (resolved) actor = resolved;
+      } catch (error) {
+        logger?.warn('actor scope resolution failed; serving the unscoped actor', {
+          requestId,
+          path: req.originalUrl,
+          role: actor.role,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     const context: RequestContext = { requestId, actor, authSource };
     (req as RequestWithContext).context = context;
     (req as RequestWithContext).requestId = requestId;
@@ -90,7 +131,9 @@ export function createRequestContextMiddleware(options: RequestContextOptions) {
   };
 }
 
-/** Read the context, throwing when the middleware was not installed. */
+/**
+ * Read the context, throwing when the middleware was not installed.
+ */
 export function getRequestContext(req: Request): RequestContext {
   const context = (req as RequestWithContext).context;
   if (!context) {
@@ -98,10 +141,3 @@ export function getRequestContext(req: Request): RequestContext {
   }
   return context;
 }
-
-/**
- * Attach the caller's scope so a plugin does not have to resolve class/student
- * membership itself. Populated by the identity/classroom foundation plugins in P3;
- * until then it returns the actor unchanged.
- */
-export type ScopeResolver = (actor: Actor) => Promise<Actor>;

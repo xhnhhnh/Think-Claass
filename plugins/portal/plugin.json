@@ -13,12 +13,12 @@
   "provides": {
     "routes": [
       { "method": "GET", "base": "/api/website", "handler": "WebsiteController.getHome", "auth": "public" },
-      { "method": "PUT", "base": "/api/website", "handler": "WebsiteController.updateHome", "auth": "public" },
+      { "method": "PUT", "base": "/api/website", "handler": "WebsiteController.updateHome", "auth": "actor" },
       { "method": "GET", "base": "/api/website", "handler": "WebsiteController.listArticles", "auth": "public" },
       { "method": "GET", "base": "/api/website", "handler": "WebsiteController.getArticle", "auth": "public" },
-      { "method": "POST", "base": "/api/website", "handler": "WebsiteController.createArticle", "auth": "public" },
-      { "method": "PUT", "base": "/api/website", "handler": "WebsiteController.updateArticle", "auth": "public" },
-      { "method": "DELETE", "base": "/api/website", "handler": "WebsiteController.deleteArticle", "auth": "public" },
+      { "method": "POST", "base": "/api/website", "handler": "WebsiteController.createArticle", "auth": "actor" },
+      { "method": "PUT", "base": "/api/website", "handler": "WebsiteController.updateArticle", "auth": "actor" },
+      { "method": "DELETE", "base": "/api/website", "handler": "WebsiteController.deleteArticle", "auth": "actor" },
       { "method": "POST", "base": "/api/website", "handler": "WebsiteController.createContact", "auth": "public" }
     ],
     "events": {
@@ -30,6 +30,7 @@
     "tables": [],
     "adopted": ["articles", "homepage_content", "contact_messages"],
     "_adopted_note": "All three keep their legacy names: `SELECT *` rows from articles are returned to the frontend as-is, so column names (cover_image, is_published, view_count) are the JSON contract.",
-    "reads": []
+    "reads": [],
+    "_auth_note": "The four editor routes (PUT /home, POST|PUT|DELETE /articles*) now require an admin/superadmin actor: 401 for anonymous (未登录或登录已过期), 403 for any other role (无权限执行该操作); the admin console is their only caller, and before this batch an unnamed visitor could rewrite the homepage, publish articles or delete every article. The four public routes (GET /home, GET /articles, GET /articles/:id, POST /contact) stay anonymous on purpose - the marketing site and the contact form are reached before login - and their route declarations above say public for that reason."
   }
 }

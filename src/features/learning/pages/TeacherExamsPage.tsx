@@ -20,9 +20,10 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 
 /**
  * 考试与成绩.
@@ -151,28 +152,38 @@ export default function TeacherExams() {
     return examGradesData.grades.some((grade) => grade.score !== null);
   };
 
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-exams:create',
+      label: '新建考试',
+      icon: PlusCircle,
+      keywords: ['考试', '新建', '成绩'],
+      run: () => setShowCreateModal(true),
+    },
+  ]);
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="考试与成绩"
-        icon={Award}
-        actions={
-          <Button onClick={() => setShowCreateModal(true)}>
-            <PlusCircle data-icon="inline-start" />
-            新建考试
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="dashboard"
+      title="考试与成绩"
+      actions={
+        <Button onClick={() => setShowCreateModal(true)}>
+          <PlusCircle data-icon="inline-start" />
+          新建考试
+        </Button>
+      }
+    >
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-3 rounded-panel border border-border bg-paper py-16 text-ink-3">
+        <div className="flex items-center justify-center gap-3 rounded-panel border border-line-1 bg-surface-2 py-16 text-fg-3">
           <Spinner label="正在加载考试列表" />
           正在加载考试列表...
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="rounded-panel border border-destructive/20 bg-destructive/10 px-6 py-10 text-center text-destructive">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center text-danger">
           考试列表加载失败，请稍后重试
         </div>
       )}
@@ -189,14 +200,14 @@ export default function TeacherExams() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Badge variant="secondary">总分 {exam.total_score}</Badge>
-                    <h3 className="mt-3 text-lg font-bold break-words text-ink-1">{exam.title}</h3>
+                    <h3 className="mt-3 text-lg font-bold break-words text-fg-1">{exam.title}</h3>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`删除${exam.title}`}
                     title="删除"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-danger hover:bg-danger/10 hover:text-danger"
                     disabled={deleteMutation.isPending}
                     onClick={() => handleDeleteExam(exam.id)}
                   >
@@ -204,7 +215,7 @@ export default function TeacherExams() {
                   </Button>
                 </div>
 
-                <div className="flex-grow space-y-2 text-sm text-ink-3">
+                <div className="flex-grow space-y-2 text-sm text-fg-3">
                   <p>考试日期: {exam.exam_date || '未定'}</p>
                   <p>说明: {exam.description || '暂无说明'}</p>
                   <p className="flex items-center gap-2">
@@ -283,22 +294,22 @@ export default function TeacherExams() {
 
           <div className="flex-1 overflow-y-auto">
             {isGradesLoading ? (
-              <div className="flex items-center justify-center gap-3 py-10 text-ink-3">
+              <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
                 <Spinner label="正在加载成绩数据" />
                 正在加载成绩数据...
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex justify-between rounded-card bg-muted/50 px-4 py-2 text-sm font-bold text-ink-2">
+                <div className="flex justify-between rounded-card bg-surface-3/50 px-4 py-2 text-sm font-bold text-fg-2">
                   <span>学生姓名</span>
                   <span>分数</span>
                 </div>
                 {(examGradesData?.grades ?? []).map((grade) => (
                   <div
                     key={grade.student_id}
-                    className="flex items-center justify-between gap-4 border-b border-border px-4 py-2"
+                    className="flex items-center justify-between gap-4 border-b border-line-1 px-4 py-2"
                   >
-                    <span className="font-medium text-ink-1">{grade.student_name}</span>
+                    <span className="font-medium text-fg-1">{grade.student_name}</span>
                     <Input
                       type="number"
                       min="0"
@@ -325,6 +336,6 @@ export default function TeacherExams() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageScaffold>
   );
 }

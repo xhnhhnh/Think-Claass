@@ -9,4 +9,13 @@
 export interface ReportActor {
   id: number | null;
   role: string | null;
+  /**
+   * The student row this login owns, and the class it is in.
+   *
+   * Filled in by the host's scope resolver (`api/app.ts` `resolveActorScope`) for students and
+   * parents; absent when the composition installs no resolver, in which case the service resolves
+   * the same facts through `classroom.public` before answering a class-scoped report.
+   */
+  studentId?: number;
+  classId?: number;
 }

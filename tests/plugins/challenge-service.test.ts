@@ -161,6 +161,11 @@ class FakeClassroom implements ClassroomPort {
     this.adjustments.push({ studentId: input.studentId, delta: input.delta, reason: input.reason });
     return { totalPoints: next.totalPoints, availablePoints: next.availablePoints };
   }
+  async awardStudentPoints(input: { studentId: number; amount: number; type: string; description: string; actorId: number }) {
+    const result = await this.adjustPoints({ studentId: input.studentId, delta: input.amount, reason: input.type === 'BOSS_REWARD' ? 'world_boss.reward' : 'challenge.reward', actorId: input.actorId });
+    await this.recordStudentLedgerEntry({ studentId: input.studentId, type: input.type, amount: input.amount, description: input.description });
+    return result;
+  }
   async transferStudentCredits() {
     throw new Error('challenge spends no credits; it only awards points');
   }

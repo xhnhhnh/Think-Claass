@@ -1,11 +1,13 @@
 import { toast } from 'sonner';
-import { Coins, Edit2, Eye, EyeOff, Package, Trash2 } from 'lucide-react';
+import { Coins, Edit2, Eye, EyeOff, Package, RefreshCw, Trash2 } from 'lucide-react';
 
 import { type BlindBox, type BlindBoxPayload } from '@/features/marketplace/api/shopApi';
 import { CrudPage, type CrudField } from '@/components/crud/CrudPage';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { useTeacherBlindBoxMutation, useTeacherBlindBoxes } from '@/hooks/queries/useTeacherShop';
 import { cn } from '@/lib/utils';
 
@@ -33,13 +35,18 @@ function toBlindBoxPayload(form: BlindBoxForm): BlindBoxPayload {
 }
 
 /**
- * Blind box card.
+ * 盲盒管理.
  *
- * `CrudPage` already owned the header, the form dialog and the delete confirmation;
- * what this file still wrote itself was the tile - a `border-purple-100` /
- * `from-purple-500 to-indigo-600` hero, a `bg-gray-300` inactive state and a
- * `bg-blue-50 text-blue-800` note. Those are `primary` and `info` tokens now, and the
- * probability copy is untouched.
+ * `CrudPage` owns the header, the form dialog and the delete confirmation; what this
+ * file still writes itself is the tile, whose `purple`/`indigo`/`blue` families are the
+ * `role` and `info` tokens now. The probability copy is untouched.
+ *
+ * `CrudPage` still renders its own `PageHeader` (a shared component outside this
+ * batch's write scope): with a shell present it contributes only the create action to
+ * the context bar, and with no shell - what a page test renders - it is the page's one
+ * heading, so the scaffold passes no `title` and nothing is printed twice. The command
+ * reachable from here is the list refresh, because the create dialog lives in
+ * `CrudPage`.
  */
 function renderBlindBoxCard(
   box: BlindBox,
@@ -52,9 +59,9 @@ function renderBlindBoxCard(
   const isActive = box.is_active === 1;
 
   return (
-    <Card className={cn('transition-all hover:shadow-raised', isActive ? 'border-primary/20 shadow-card' : 'opacity-75 grayscale-[0.5]')}>
-      <div className={cn('relative flex h-32 items-center justify-center', isActive ? 'bg-primary' : 'bg-muted')}>
-        <Package className={cn('size-16', isActive ? 'text-primary-foreground opacity-80' : 'text-ink-3')} />
+    <Card className={cn('transition-all hover:shadow-raised', isActive ? 'border-role/20 shadow-card' : 'opacity-75 grayscale-[0.5]')}>
+      <div className={cn('relative flex h-32 items-center justify-center', isActive ? 'bg-role' : 'bg-surface-3')}>
+        <Package className={cn('size-16', isActive ? 'text-role-contrast opacity-80' : 'text-fg-3')} />
         <div className="absolute right-3 top-3">
           <Button
             type="button"
@@ -74,9 +81,9 @@ function renderBlindBoxCard(
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <p className="line-clamp-2 h-10 text-sm text-muted-foreground">{box.description || '神秘的盲盒，开启后可获得随机奖励！'}</p>
-        <div className="flex items-center justify-between rounded-xl border bg-muted/40 p-3">
-          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+        <p className="line-clamp-2 h-10 text-sm text-fg-3">{box.description || '神秘的盲盒，开启后可获得随机奖励！'}</p>
+        <div className="flex items-center justify-between rounded-xl border bg-surface-3/40 p-3">
+          <span className="flex items-center gap-1 text-sm text-fg-3">
             <Coins />
             价格
           </span>
@@ -100,7 +107,7 @@ function renderBlindBoxCard(
 }
 
 export default function TeacherBlindBox() {
-  const { data: boxes = [], isLoading } = useTeacherBlindBoxes();
+  const { data: boxes = [], isLoading, refetch } = useTeacherBlindBoxes();
   const blindBoxMutation = useTeacherBlindBoxMutation();
 
   const handleToggle = async (box: BlindBox) => {
@@ -108,45 +115,57 @@ export default function TeacherBlindBox() {
     toast.success(box.is_active === 1 ? '盲盒已下架' : '盲盒已上架');
   };
 
+  useRegisterPageCommands([
+    {
+      id: 'teacher-blind-box:refresh',
+      label: '刷新盲盒',
+      icon: RefreshCw,
+      keywords: ['盲盒', '刷新', '上架'],
+      run: () => void refetch(),
+    },
+  ]);
+
   return (
-    <CrudPage<BlindBox, BlindBoxForm>
-      title="盲盒管理"
-      description="创建神秘盲盒，让学生用积分兑换随机惊喜奖励"
-      addLabel="上架新盲盒"
-      emptyTitle="暂无盲盒"
-      emptyDescription="快去上架一个吧"
-      icon={Package}
-      items={boxes}
-      isLoading={isLoading}
-      fields={blindBoxFields}
-      createInitialForm={() => ({ name: '', description: '', price: 50, is_active: true })}
-      mapItemToForm={(box) => ({
-        name: box.name,
-        description: box.description || '',
-        price: box.price,
-        is_active: box.is_active === 1,
-      })}
-      getItemId={(box) => box.id}
-      getItemTitle={(box) => box.name}
-      validateForm={(form) => {
-        if (!form.name.trim() || Number(form.price) <= 0) {
-          return '请输入有效名称和价格';
-        }
-        return null;
-      }}
-      onCreate={async (form) => {
-        await blindBoxMutation.mutateAsync({ type: 'create', data: toBlindBoxPayload(form) });
-        toast.success('创建成功');
-      }}
-      onUpdate={async (boxId, form) => {
-        await blindBoxMutation.mutateAsync({ type: 'update', boxId, data: toBlindBoxPayload(form) });
-        toast.success('修改成功');
-      }}
-      onDelete={async (boxId) => {
-        await blindBoxMutation.mutateAsync({ type: 'delete', boxId });
-        toast.success('删除成功');
-      }}
-      renderItem={(box, actions) => renderBlindBoxCard(box, actions, handleToggle)}
-    />
+    <PageScaffold variant="dashboard">
+      <CrudPage<BlindBox, BlindBoxForm>
+        title="盲盒管理"
+        description="创建神秘盲盒，让学生用积分兑换随机惊喜奖励"
+        addLabel="上架新盲盒"
+        emptyTitle="暂无盲盒"
+        emptyDescription="快去上架一个吧"
+        icon={Package}
+        items={boxes}
+        isLoading={isLoading}
+        fields={blindBoxFields}
+        createInitialForm={() => ({ name: '', description: '', price: 50, is_active: true })}
+        mapItemToForm={(box) => ({
+          name: box.name,
+          description: box.description || '',
+          price: box.price,
+          is_active: box.is_active === 1,
+        })}
+        getItemId={(box) => box.id}
+        getItemTitle={(box) => box.name}
+        validateForm={(form) => {
+          if (!form.name.trim() || Number(form.price) <= 0) {
+            return '请输入有效名称和价格';
+          }
+          return null;
+        }}
+        onCreate={async (form) => {
+          await blindBoxMutation.mutateAsync({ type: 'create', data: toBlindBoxPayload(form) });
+          toast.success('创建成功');
+        }}
+        onUpdate={async (boxId, form) => {
+          await blindBoxMutation.mutateAsync({ type: 'update', boxId, data: toBlindBoxPayload(form) });
+          toast.success('修改成功');
+        }}
+        onDelete={async (boxId) => {
+          await blindBoxMutation.mutateAsync({ type: 'delete', boxId });
+          toast.success('删除成功');
+        }}
+        renderItem={(box, actions) => renderBlindBoxCard(box, actions, handleToggle)}
+      />
+    </PageScaffold>
   );
 }

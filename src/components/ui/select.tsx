@@ -35,8 +35,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select(
         ref={ref}
         data-slot="select"
         className={cn(
-          'h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-white py-1 pl-3 pr-9 text-sm text-foreground transition-colors outline-none',
-          'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25',
+          'h-9 w-full min-w-0 appearance-none rounded-lg border border-line-1 bg-surface-2 py-1 pl-3 pr-9 text-sm text-fg-1 transition-colors outline-none',
+          'focus-visible:border-role focus-visible:ring-[3px] focus-visible:ring-role/25',
           'disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50',
           'aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20',
           className,

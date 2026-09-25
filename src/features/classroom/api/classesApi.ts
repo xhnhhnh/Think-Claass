@@ -2,7 +2,19 @@ import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 import type { ClassDto, GroupDto, PresetDto } from '@thinkclass/contracts/domains/classroom';
 import type { ClassFeatures } from '@/lib/classFeatures';
 
+export interface IncentivePolicy {
+  classId: number;
+  schoolStage: 'general' | 'primary' | 'middle' | 'high';
+  parentBonusPercent: number;
+  teamRankingsVisible: boolean;
+}
+
 export const classroomApi = {
+  getIncentivePolicy: (classId: number) => apiGet<{ success: true; policy: IncentivePolicy }>(`/api/classes/${classId}/incentive-policy`),
+  updateIncentivePolicy: (classId: number, data: Omit<IncentivePolicy, 'classId'>) =>
+    apiPut<{ success: true; policy: IncentivePolicy }>(`/api/classes/${classId}/incentive-policy`, data),
+  getTeamRanking: (classId: number, category: 'collaboration' | 'competition') =>
+    apiGet<{ success: true; rankings: Array<{ group_id: number; group_name: string; members: number; score: number }> }>(`/api/classes/${classId}/team-ranking?category=${category}`),
   getClasses: (teacherId?: number) => apiGet<{ success: true; classes: ClassDto[] }>(`/api/classes${teacherId ? `?teacherId=${teacherId}` : ''}`),
 
   createClass: (name: string, teacherId?: number) =>

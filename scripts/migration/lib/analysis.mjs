@@ -94,7 +94,7 @@ export function listSourceFiles(root) {
 
 /** @param {string} p */
 export function isTestFile(p) {
-  return /\.(test|spec)\.(ts|tsx|mts|cts|js|jsx)$/.test(p);
+  return /\.(test|spec)\.(ts|tsx|mts|cts|js|jsx)$/.test(p) || /(^|[\\/])tests[\\/]/.test(p);
 }
 
 /** @param {string} p */

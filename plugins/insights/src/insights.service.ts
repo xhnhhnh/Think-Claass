@@ -59,6 +59,11 @@ function refusalError(refusal: { code: string; message: string } | undefined, fa
   return new ApiError(403, '无权限访问该报告');
 }
 
+/** The roles that reach every class and student: the admin console. */
+function isStaffAdmin(actor: ReportActor): boolean {
+  return actor.role === 'admin' || actor.role === 'superadmin';
+}
+
 export class InsightsService {
   private readonly ctx: KernelContext;
   private readonly classroom: ClassroomPort;
@@ -107,6 +112,20 @@ export class InsightsService {
     throw new ApiError(403, '无权限访问该报告');
   }
 
+  /**
+   * The class the actor's own student row is in.
+   *
+   * The actor's resolved `classId` when the host supplied one, otherwise `classroom.public` by the
+   * login's `userId` - the same two-step `assertStudentAccess` uses for the student-scoped reports,
+   * so a class overview is scoped to the caller on a host that installs no scope resolver too.
+   */
+  private async studentClassId(actor: ReportActor): Promise<number | null> {
+    if (actor.classId) return actor.classId;
+    if (actor.id === null) return null;
+    const student = await this.classroom.getStudentByUserId(actor.id);
+    return student?.classId ?? null;
+  }
+
   /** The praise count, or 0 when the engagement domain is not in this composition. */
   private praiseCount(run: (port: EngagementPort) => Promise<number>): Promise<number> {
     const port = this.engagement();
@@ -126,8 +145,25 @@ export class InsightsService {
     // The legacy flow checked ownership *before* existence for a teacher: a teacher asking about a
     // class that does not exist got 403, and one asking about a colleague's class got 403 too. The
     // port returns `class: null` for both, so the two are distinguished only by the teacher branch.
-    if (actor.role === 'teacher' && actor.id) {
-      if (!inputs.class || inputs.class.teacher_id !== actor.id) {
+    //
+    // The matrix's class-overview ruling is `admin 任意；teacher 本班；parent 孩子；student 本人`, so
+    // the other three branches were added here: before them an anonymous or unrelated caller reached
+    // the report with no check at all.
+    if (!isStaffAdmin(actor)) {
+      if (actor.role === 'teacher' && actor.id) {
+        if (!inputs.class || inputs.class.teacher_id !== actor.id) {
+          throw new ApiError(403, '无权限查看该班级分析');
+        }
+      } else if (actor.role === 'student') {
+        if ((await this.studentClassId(actor)) !== classId) {
+          throw new ApiError(403, '无权限查看该班级分析');
+        }
+      } else if (actor.role === 'parent') {
+        const children = actor.id === null ? [] : await this.classroom.listStudentsByParent(actor.id);
+        if (!children.some((child) => child.classId === classId)) {
+          throw new ApiError(403, '无权限查看该班级分析');
+        }
+      } else {
         throw new ApiError(403, '无权限查看该班级分析');
       }
     }

@@ -32,7 +32,7 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
       return;
     }
     if (rollCallState.isRolling) return;
-    
+
     setRollCallState({ isRolling: true, currentName: '...' });
     rollIntervalRef.current = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * students.length);
@@ -71,42 +71,42 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-gradient-to-br from-primary/5 to-white rounded-card p-4 border border-primary/10 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
-        <Dice5 className="absolute -right-4 -bottom-4 w-24 h-24 text-primary/20" />
-        <h4 className="text-sm font-bold text-ink-3 mb-2 relative z-10">随机点名</h4>
-        <div className="text-2xl font-black text-primary mb-4 relative z-10">
+      <div className="bg-gradient-to-br from-role/5 to-surface-2 rounded-card p-4 border border-role/10 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
+        <Dice5 className="absolute -right-4 -bottom-4 w-24 h-24 text-role/20" />
+        <h4 className="text-sm font-bold text-fg-3 mb-2 relative z-10">随机点名</h4>
+        <div className="text-2xl font-black text-role mb-4 relative z-10">
           {rollCallState.currentName}
         </div>
         <Button
           onClick={rollCallState.isRolling ? handleStopRollCall : handleStartRollCall}
           className={`px-6 py-2 rounded-card text-sm font-bold transition-all relative z-10 shadow-card ${
-            rollCallState.isRolling 
-              ? 'bg-warning/20 text-warning hover:bg-amber-200' 
-              : 'bg-primary text-white hover:bg-primary/90 hover:shadow-raised'
+            rollCallState.isRolling
+              ? 'bg-warning/20 text-warning hover:bg-warning/30'
+              : 'bg-role text-role-contrast hover:bg-role/90 hover:shadow-raised'
           }`}
         >
           {rollCallState.isRolling ? '停！' : '开始抽取'}
         </Button>
       </div>
 
-      <div className="bg-gradient-to-br from-cyan-50 to-white rounded-card p-4 border border-cyan-100 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
-        <Timer className="absolute -right-4 -bottom-4 w-24 h-24 text-cyan-100/50" />
-        <h4 className="text-sm font-bold text-ink-3 mb-2 relative z-10">课堂倒计时</h4>
+      <div className="bg-gradient-to-br from-info-soft to-surface-2 rounded-card p-4 border border-info/30 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
+        <Timer className="absolute -right-4 -bottom-4 w-24 h-24 text-info/30" />
+        <h4 className="text-sm font-bold text-fg-3 mb-2 relative z-10">课堂倒计时</h4>
         <div className="text-3xl font-black text-info mb-4 tracking-wider font-mono relative z-10">
           {formatTimer(timerState.timeLeft)}
         </div>
         <div className="flex space-x-2 relative z-10">
           {!timerState.isActive && timerState.timeLeft === 0 ? (
             <>
-              <Input 
-                type="number" 
-                min="1" 
+              <Input
+                type="number"
+                min="1"
                 max="60"
                 value={timerState.inputMinutes}
                 onChange={(e) => setTimerState(prev => ({ ...prev, inputMinutes: parseInt(e.target.value) || 1 }))}
-                className="w-16 px-2 py-1.5 text-center border border-cyan-200 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none font-medium"
+                className="w-16 px-2 py-1.5 text-center border border-info/30 rounded-card text-sm font-medium"
               />
-              <span className="text-ink-3 self-center text-sm font-medium mr-1">分钟</span>
+              <span className="text-fg-3 self-center text-sm font-medium mr-1">分钟</span>
             </>
           ) : null}
           <Button variant="ghost"
@@ -117,14 +117,14 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
                 handleStartTimer();
               }
             }}
-            className="px-5 py-2 bg-cyan-600 text-white rounded-card text-sm font-bold hover:bg-cyan-700 transition-colors shadow-md hover:shadow-raised"
+            className="px-5 py-2 bg-info text-fg-inverse rounded-card text-sm font-bold hover:bg-info/90 transition-colors shadow-md hover:shadow-raised"
           >
             {timerState.isActive ? '暂停' : (timerState.timeLeft > 0 ? '继续' : '开始')}
           </Button>
           {timerState.timeLeft > 0 && (
             <Button variant="ghost"
               onClick={() => setTimerState(prev => ({ ...prev, timeLeft: 0, isActive: false }))}
-              className="px-4 py-2 bg-muted text-ink-2 rounded-card text-sm font-bold hover:bg-slate-200 transition-colors"
+              className="px-4 py-2 bg-surface-3 text-fg-2 rounded-card text-sm font-bold hover:bg-surface-steel transition-colors"
             >
               重置
             </Button>

@@ -12,7 +12,7 @@ export default function LoginBackground() {
       <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle,hsl(var(--ink-2))_1px,transparent_1px)] bg-[length:24px_24px] opacity-[0.04]" />
 
       {/* Campus accent bar: the brand's three colours, in one place. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-1 bg-gradient-to-r from-emerald-700 via-orange-400 to-sky-500" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-1 bg-brand" />
     </>
   );
 }

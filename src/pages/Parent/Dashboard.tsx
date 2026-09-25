@@ -1,15 +1,22 @@
 import { useStore } from '@/store/useStore';
-import { CheckCircle, Clock, Star, TrendingUp, AlertCircle, ChevronRight, Heart, Sparkles, Wand2 } from 'lucide-react';
+import { CheckCircle, Clock, Star, TrendingUp, ChevronRight, Heart, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 import { useParentBuffMutation, useParentDashboard } from '@/hooks/queries/useParentDashboard';
 import { launchConfetti } from '@/lib/confetti';
 import { CELEBRATION } from '@/lib/celebrationPalette';
-import { defaultClassFeatures } from '@/lib/classFeatures';
+import { useResolvedClassFeatures } from '@/features/classroom/hooks/useResolvedClassFeatures';
 import { getRankTier } from '@/lib/rankTier';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { useQuery } from '@tanstack/react-query';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { classroomApi } from '@/features/classroom/api/classesApi';
+import { MotivationOverview } from '@/features/classroom/components/MotivationOverview';
 
 interface StudentInfo {
   id: number;
@@ -39,15 +46,20 @@ export default function ParentDashboard() {
   const user = useStore(state => state.user);
   const navigate = useNavigate();
   const studentId = user?.studentId ?? null;
-  const classFeatures = user?.classFeatures ?? defaultClassFeatures;
+  // Live class flags, not the login-time snapshot: the two switches below gate a button, and a
+  // teacher turning one on should not require the parent to log in again to see it.
+  const classId = Number(user?.classId ?? user?.class_id) || null;
+  const { features: classFeatures } = useResolvedClassFeatures(classId, { refetchInterval: 5000 });
   const familyTasksEnabled = classFeatures.enable_family_tasks;
   const parentBuffEnabled = classFeatures.enable_parent_buff;
   const { data, isLoading: loading } = useParentDashboard(studentId);
   const castBuffMutation = useParentBuffMutation(studentId);
   const student = (data?.student ?? null) as StudentInfo | null;
+  const summaryQuery = useQuery({ queryKey: ['motivation-summary', studentId], queryFn: () => studentsApi.getSummary(studentId!), enabled: !!studentId });
+  const policyQuery = useQuery({ queryKey: ['incentive-policy', classId], queryFn: () => classroomApi.getIncentivePolicy(classId!), enabled: !!classId });
   const records = ((data?.records ?? []) as Record[]).slice(0, 5);
   const tasks = ((data?.tasks ?? []) as FamilyTask[]).slice(0, 5);
-  const buffActive = !!data?.pet?.has_parent_buff;
+  const buffActive = !!summaryQuery.data?.summary.parentBlessingActive;
   const buffLoading = castBuffMutation.isPending;
 
   const castParentBuff = async () => {
@@ -74,118 +86,154 @@ export default function ParentDashboard() {
     }
   };
 
+  const pendingTasksCount = tasks.filter(t => t.status === 'pending' || t.status === 'completed').length;
+
+  // Called before the two early returns below, so the hook order never changes.
+  useRegisterPageCommands([
+    {
+      id: 'parent-dashboard:report',
+      label: '完整足迹',
+      icon: TrendingUp,
+      keywords: ['成长报告', '记录'],
+      run: () => navigate('/parent/report'),
+    },
+    {
+      id: 'parent-dashboard:tasks',
+      label: '查看家庭任务',
+      icon: CheckCircle,
+      keywords: ['家庭时光', '约定'],
+      run: () => navigate('/parent/tasks'),
+      disabled: !familyTasksEnabled,
+    },
+    {
+      id: 'parent-dashboard:buff',
+      label: '施放母爱的祝福',
+      icon: Wand2,
+      keywords: ['祝福', '积分加成'],
+      run: () => void castParentBuff(),
+      disabled: !parentBuffEnabled || buffActive || buffLoading,
+    },
+  ]);
+
   if (!user?.studentId) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 bg-paper rounded-panel shadow-raised border border-warning/20 p-8 text-center">
-        <div className="w-20 h-20 bg-warning/10 rounded-full flex items-center justify-center mb-6">
-          <Heart className="w-10 h-10 text-primary/80" />
-        </div>
-        <h2 className="text-2xl font-bold text-ink-1 mb-3">等待宝贝加入</h2>
-        <p className="text-ink-3 max-w-md">
-          您的账号尚未绑定宝贝信息，请联系老师获取邀请码进行绑定，开启温馨的家校之旅。
-        </p>
-      </div>
+      <PageScaffold variant="dashboard" title="温馨家园" description="记录孩子的每一步">
+        <EmptyState
+          icon={Heart}
+          className="mx-auto h-80 max-w-5xl"
+          title="等待绑定学生档案"
+          description="您的账号尚未绑定学生档案，请联系老师获取邀请码完成绑定。"
+        />
+      </PageScaffold>
     );
   }
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64 text-ink-3 font-medium">翻阅日记中...</div>;
+    return (
+      <PageScaffold variant="dashboard" title="温馨家园" description="记录孩子的每一步">
+        <div className="flex h-64 items-center justify-center font-medium text-fg-3">翻阅日记中...</div>
+      </PageScaffold>
+    );
   }
 
-  const pendingTasksCount = tasks.filter(t => t.status === 'pending' || t.status === 'completed').length;
-
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-ink-1">温馨家园</h1>
-        <p className="text-ink-3">记录宝贝的每一天</p>
-      </div>
-
+    <PageScaffold variant="dashboard" title="温馨家园" description="记录孩子的每一步">
+      {summaryQuery.data?.summary && <MotivationOverview summary={summaryQuery.data.summary} />}
+      {summaryQuery.isLoading && <p className="rounded-panel border border-line-1 bg-surface-2 p-4 text-sm text-fg-3">正在载入四维成长…</p>}
+      {summaryQuery.isError && <div className="rounded-panel border border-danger/20 bg-danger-soft p-4 text-sm text-danger">四维成长暂时无法加载。<Button variant="outline" className="ml-3" onClick={() => void summaryQuery.refetch()}>重试</Button></div>}
       {student && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-primary via-primary/85 to-warning rounded-panel p-8 text-white shadow-raised shadow-orange-500/20 relative overflow-hidden">
-            <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-              <Star className="w-64 h-64" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="relative col-span-1 overflow-hidden rounded-panel border border-line-1 bg-surface-2 p-8 text-fg-1 shadow-card md:col-span-2">
+            <div className="absolute right-0 top-0 -translate-y-1/4 translate-x-1/4 opacity-10">
+              <Star className="size-64" />
             </div>
             <div className="relative z-10 flex items-start justify-between">
               <div>
-                <h2 className="text-4xl font-bold mb-3">{student.name}</h2>
-                <div className="flex items-center space-x-4 mt-5">
-                  <div className="bg-paper/20 px-5 py-2.5 rounded-card backdrop-blur-md border border-white/20">
-                    <p className="text-amber-50 text-sm font-medium">成长足迹</p>
-                    <p className="font-bold text-xl">{getRankTier(student.total_points)}</p>
+                <h2 className="mb-3 text-4xl font-bold">{student.name}</h2>
+                <div className="mt-5 flex items-center space-x-4">
+                  <div className="rounded-card border border-line-1 bg-surface-3 px-5 py-2.5">
+                    <p className="text-sm font-medium text-fg-2">成长阶段</p>
+                    <p className="text-xl font-bold">{getRankTier(student.total_points)}</p>
                   </div>
-                  <div className="bg-paper/20 px-5 py-2.5 rounded-card backdrop-blur-md border border-white/20">
-                    <p className="text-amber-50 text-sm font-medium">伙伴小队</p>
-                    <p className="font-bold text-xl">{student.group_name || '探索中'}</p>
+                  <div className="rounded-card border border-line-1 bg-surface-3 px-5 py-2.5">
+                    <p className="text-sm font-medium text-fg-2">伙伴小队</p>
+                    <p className="text-xl font-bold">{student.group_name || '探索中'}</p>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-white/20 pt-6">
+            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-line-1 pt-6">
               <div>
-                <p className="text-amber-50 mb-1 font-medium">获得小红花</p>
+                <p className="mb-1 font-medium text-fg-2">累计成长值</p>
                 <p className="text-4xl font-bold">{student.total_points}</p>
               </div>
               <div>
-                <p className="text-amber-50 mb-1 font-medium">可用小红花</p>
-                <p className="text-4xl font-bold text-amber-100">{student.available_points}</p>
+                <p className="mb-1 font-medium text-fg-2">可用积分</p>
+                <p className="text-4xl font-bold text-success">{student.available_points}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-paper rounded-panel p-7 shadow-raised border border-warning/10 flex flex-col justify-between hover:shadow-raised transition-all duration-300">
+          <div className="flex flex-col justify-between rounded-panel border border-warning/10 bg-surface-2 p-7 shadow-raised transition-all duration-300 hover:shadow-raised">
             <div>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-xl font-bold text-ink-1 flex items-center">
-                  <div className="w-10 h-10 bg-green-50 rounded-card flex items-center justify-center mr-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
+              <div className="mb-5 flex items-center justify-between">
+                <h3 className="flex items-center text-xl font-bold text-fg-1">
+                  <div className="mr-3 flex size-10 items-center justify-center rounded-card bg-success-soft">
+                    <CheckCircle className="size-5 text-success" />
                   </div>
                   家庭时光
                 </h3>
               </div>
-              <p className="text-ink-3 text-sm mb-5 leading-relaxed">
-                陪伴是最长情的告白，和宝贝一起完成有趣的家庭小任务吧。
+              <p className="mb-5 text-sm leading-relaxed text-fg-3">
+                一起完成家庭任务，记录每一次交流与合作。
               </p>
-              <div className="bg-warning rounded-card p-4 flex items-center justify-between border border-warning/20">
-                <span className="text-amber-800 font-medium">等待您查收</span>
-                <span className="bg-primary text-primary-foreground px-3 py-1 rounded-xl text-sm font-bold shadow-sm">
+              <div className="flex items-center justify-between rounded-card border border-warning/20 bg-warning p-4">
+                <span className="font-medium text-warning-ink">等待您查收</span>
+                <span className="rounded-xl bg-role px-3 py-1 text-sm font-bold text-role-contrast shadow-card">
                   {pendingTasksCount}
                 </span>
               </div>
             </div>
-            
+
             <div className="mt-6 space-y-3">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={castParentBuff}
-                disabled={!parentBuffEnabled || buffActive || buffLoading}
-                className={`w-full flex items-center justify-center space-x-2 py-3.5 rounded-card font-bold transition-all shadow-md ${
-                  !parentBuffEnabled || buffActive 
-                    ? 'bg-amber-100 text-amber-500 cursor-not-allowed border border-amber-200' 
-                    : 'bg-gradient-to-r from-amber-400 to-orange-400 text-white hover:shadow-raised hover:shadow-orange-400/30'
-                }`}
-              >
-                <Wand2 className="w-5 h-5" />
-                <span>
-                  {!parentBuffEnabled
-                    ? '老师开启后可送祝福'
-                    : buffActive
-                      ? '今日祝福已送达'
-                      : '施放母爱的祝福 (+20%积分)'}
-                </span>
-              </motion.button>
-              
+              {/* The tapped control was a raw `motion.button`; the kit's `Button` is the
+                  element, and the spring is the `motion.div` around it. */}
+              <motion.div whileTap={{ scale: 0.95 }}>
+                <Button
+                  type="button"
+                  onClick={castParentBuff}
+                  disabled={!parentBuffEnabled || buffActive || buffLoading}
+                  /* `min-h` rather than `h-auto`: the kit's `h-control` is emitted after
+                     the height utilities, so only a min-height can restore the 3.5rem this
+                     call-to-action had as a raw `motion.button`. */
+                  className={`flex min-h-[3.5rem] w-full items-center justify-center space-x-2 rounded-card py-3.5 font-bold shadow-card transition-all ${
+                    !parentBuffEnabled || buffActive
+                      ? 'border border-warning/30 bg-warning-soft text-warning-ink'
+                      : 'bg-gradient-to-r from-role to-role-ink text-role-contrast hover:shadow-raised hover:shadow-role/30'
+                  }`}
+                >
+                  <Wand2 className="size-5" />
+                  <span>
+                    {!parentBuffEnabled
+                      ? '老师开启后可送祝福'
+                      : buffActive
+                        ? '今日祝福已送达'
+                        : `送上今日祝福（教师评分加成 ${policyQuery.data?.policy.parentBonusPercent ?? 0}%）`}
+                  </span>
+                </Button>
+              </motion.div>
+
               {familyTasksEnabled ? (
                 <Button
-                onClick={() => navigate('/parent/tasks')}
-                className="w-full flex items-center justify-center space-x-2 bg-muted/50 hover:bg-muted text-ink-2 py-3.5 rounded-card font-medium transition-colors"
-              >
-                <span>查看家庭任务</span>
-                <ChevronRight className="w-4 h-4" />
+                  type="button"
+                  onClick={() => navigate('/parent/tasks')}
+                  className="flex h-auto w-full items-center justify-center space-x-2 bg-surface-3 font-medium text-fg-2 transition-colors hover:bg-surface-steel"
+                >
+                  <span>查看家庭任务</span>
+                  <ChevronRight className="size-4" />
                 </Button>
               ) : (
-                <div className="rounded-card border border-warning/20 bg-warning px-4 py-3 text-center text-sm font-medium text-amber-700">
+                <div className="rounded-card border border-warning/20 bg-warning-soft px-4 py-3 text-center text-sm font-medium text-warning-ink">
                   老师开启家庭任务后，这里会出现亲子约定
                 </div>
               )}
@@ -194,19 +242,20 @@ export default function ParentDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* 近期记录 */}
-        <div className="bg-paper rounded-panel shadow-raised border border-warning/10 p-7">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-ink-1 flex items-center">
-              <div className="w-10 h-10 bg-primary/5 rounded-card flex items-center justify-center mr-3">
-                <TrendingUp className="w-5 h-5 text-primary" />
+        <div className="rounded-panel border border-warning/10 bg-surface-2 p-7 shadow-raised">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="flex items-center text-xl font-bold text-fg-1">
+              <div className="mr-3 flex size-10 items-center justify-center rounded-card bg-role-soft">
+                <TrendingUp className="size-5 text-role" />
               </div>
               闪光时刻
             </h3>
-            <Button 
+            <Button
+              type="button"
               onClick={() => navigate('/parent/report')}
-              className="text-sm text-primary hover:text-primary font-medium px-3 py-1.5 bg-primary rounded-xl transition-colors"
+              className="h-auto rounded-xl bg-role px-3 py-1.5 text-sm font-medium text-role-contrast transition-colors hover:bg-role/90"
             >
               完整足迹
             </Button>
@@ -214,44 +263,45 @@ export default function ParentDashboard() {
           <div className="space-y-4">
             {records.length > 0 ? (
               records.map(record => (
-                <div key={record.id} className="flex items-center justify-between p-4 bg-muted/50 hover:bg-muted/50 rounded-card transition-colors border border-transparent hover:border-border">
+                <div key={record.id} className="flex items-center justify-between rounded-card border border-transparent bg-surface-3/50 p-4 transition-colors hover:border-line-1 hover:bg-surface-3">
                   <div className="flex items-center">
-                    <div className={`p-2.5 rounded-xl mr-4 ${record.amount > 0 ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
-                      {record.amount > 0 ? <Star className="w-5 h-5" /> : <TrendingUp className="w-5 h-5 transform rotate-180" />}
+                    <div className={`mr-4 rounded-xl p-2.5 ${record.amount > 0 ? 'bg-success-soft text-success' : 'bg-role-soft text-role'}`}>
+                      {record.amount > 0 ? <Star className="size-5" /> : <TrendingUp className="size-5 rotate-180" />}
                     </div>
                     <div>
-                      <p className="font-medium text-ink-1">{record.description}</p>
-                      <p className="text-xs text-ink-3 mt-1.5">
+                      <p className="font-medium text-fg-1">{record.description}</p>
+                      <p className="mt-1.5 text-xs text-fg-3">
                         {new Date(record.created_at).toLocaleString()}
                       </p>
                     </div>
                   </div>
-                  <span className={`font-bold text-lg ${record.amount > 0 ? 'text-green-500' : 'text-primary'}`}>
+                  <span className={`text-lg font-bold ${record.amount > 0 ? 'text-success' : 'text-role'}`}>
                     {record.amount > 0 ? '+' : ''}{record.amount}
                   </span>
                 </div>
               ))
             ) : (
-              <div className="text-center py-10 bg-muted/50 rounded-card border border-dashed border-border">
-                <p className="text-ink-3">还没有新的记录哦</p>
+              <div className="rounded-card border border-dashed border-line-1 bg-surface-3/50 py-10 text-center">
+                <p className="text-fg-3">还没有新的记录哦</p>
               </div>
             )}
           </div>
         </div>
 
         {/* 近期任务 */}
-        <div className="bg-paper rounded-panel shadow-raised border border-warning/10 p-7">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-ink-1 flex items-center">
-              <div className="w-10 h-10 bg-warning/10 rounded-card flex items-center justify-center mr-3">
-                <Clock className="w-5 h-5 text-amber-500" />
+        <div className="rounded-panel border border-warning/10 bg-surface-2 p-7 shadow-raised">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="flex items-center text-xl font-bold text-fg-1">
+              <div className="mr-3 flex size-10 items-center justify-center rounded-card bg-warning-soft">
+                <Clock className="size-5 text-warning" />
               </div>
               最近的约定
             </h3>
             {familyTasksEnabled ? (
-              <Button 
+              <Button
+                type="button"
                 onClick={() => navigate('/parent/tasks')}
-                className="text-sm text-warning hover:text-warning font-medium px-3 py-1.5 bg-warning rounded-xl transition-colors"
+                className="h-auto rounded-xl bg-warning-soft px-3 py-1.5 text-sm font-medium text-warning-ink transition-colors hover:bg-warning/20"
               >
                 所有约定
               </Button>
@@ -260,18 +310,18 @@ export default function ParentDashboard() {
           <div className="space-y-4">
             {tasks.length > 0 ? (
               tasks.map(task => (
-                <div key={task.id} className="flex items-center justify-between p-4 bg-muted/50 hover:bg-muted/50 rounded-card transition-colors border border-transparent hover:border-border">
+                <div key={task.id} className="flex items-center justify-between rounded-card border border-transparent bg-surface-3/50 p-4 transition-colors hover:border-line-1 hover:bg-surface-3">
                   <div>
-                    <h4 className="font-medium text-ink-1">{task.title}</h4>
-                    <div className="flex items-center mt-2.5 space-x-2">
-                      <span className="text-xs font-medium px-2.5 py-1 bg-amber-100/50 text-amber-700 rounded-lg border border-amber-200/50">
+                    <h4 className="font-medium text-fg-1">{task.title}</h4>
+                    <div className="mt-2.5 flex items-center space-x-2">
+                      <span className="rounded-lg border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning-ink">
                         {task.points} 朵小红花
                       </span>
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-lg border ${
-                        task.status === 'pending' ? 'bg-muted/50 text-ink-2 border-border' :
-                        task.status === 'completed' ? 'bg-info text-primary border-primary/20' :
-                        task.status === 'approved' ? 'bg-green-100/50 text-green-600 border-green-200/50' :
-                        'bg-primary/10 text-primary border-primary/20'
+                      <span className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
+                        task.status === 'pending' ? 'border-line-1 bg-surface-3/50 text-fg-2' :
+                        task.status === 'completed' ? 'border-info/30 bg-info-soft text-info-ink' :
+                        task.status === 'approved' ? 'border-success/30 bg-success-soft text-success' :
+                        'border-role/30 bg-role-soft text-role-ink'
                       }`}>
                         {task.status === 'pending' ? '进行中' :
                          task.status === 'completed' ? '待查看' :
@@ -282,8 +332,8 @@ export default function ParentDashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-10 bg-muted/50 rounded-card border border-dashed border-border">
-                <p className="text-ink-3">
+              <div className="rounded-card border border-dashed border-line-1 bg-surface-3/50 py-10 text-center">
+                <p className="text-fg-3">
                   {familyTasksEnabled ? '没有进行中的约定' : '家庭任务开启后，这里会同步亲子约定'}
                 </p>
               </div>
@@ -291,6 +341,6 @@ export default function ParentDashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </PageScaffold>
   );
 }

@@ -26,6 +26,7 @@ let host: PluginHost | null = null;
 let server: Server;
 let base: string;
 let token: string;
+let studentToken: string;
 
 beforeAll(async () => {
   kernel = await createKernel({
@@ -40,6 +41,27 @@ beforeAll(async () => {
     // list rather than a hand-picked migration is what makes this test exercise the real boot
     // path: the kernel composition applies the same chain the legacy one does.
     migrations: APP_MIGRATIONS,
+    /**
+     * The actor-scope resolver `api/app.ts` installs, for the same reason it exists there: a
+     * verified session carries only `userId` + `role`, and `Actor.studentId` (the `students` row)
+     * is what the migrated economy routes use to decide whether a caller may touch a student's
+     * balance. Without it a student token is refused with 403 - correct fail-closed behaviour, but
+     * not the production path this suite is here to exercise.
+     */
+    scopeResolver: async (_req, actor) => {
+      if (actor.role !== 'student' && actor.role !== 'parent') return null;
+      const classroom = host?.active
+        .find((entry) => entry.manifest.id === 'classroom')
+        ?.context.use('classroom.public');
+      if (!classroom) return null;
+
+      const studentRow =
+        actor.role === 'student'
+          ? await classroom.getStudentByUserId(actor.userId)
+          : ((await classroom.listStudentsByParent(actor.userId))[0] ?? null);
+
+      return { ...actor, studentId: studentRow?.id, classId: studentRow?.classId };
+    },
     mountPlugins: async (hooks) => {
       host = await createPluginHost({
         ...hooks,
@@ -76,6 +98,11 @@ beforeAll(async () => {
 
   const session = kernel.sessions.issue({ userId: 7, role: 'teacher', classId: 1, ttlMs: 60_000 });
   token = session.token;
+
+  // Student 10's login (`students.user_id = 100`). The economy asset routes are student-self
+  // only - `docs/security/route-authorization-matrix.md` rules the whole deposit/withdraw/trade
+  // family `student（本人）` - so the tests that move a balance act as the student.
+  studentToken = kernel.sessions.issue({ userId: 100, role: 'student', ttlMs: 60_000 }).token;
 });
 
 afterAll(async () => {
@@ -84,11 +111,12 @@ afterAll(async () => {
   await kernel.shutdown();
 });
 
-const api = async (method: string, path: string, body?: unknown) => {
+/** One request as the teacher. Pass `asStudent` for the routes only the student themselves may call. */
+const api = async (method: string, path: string, body?: unknown, asStudent = false) => {
   const res = await fetch(base + path, {
     method,
     headers: {
-      authorization: `Bearer ${token}`,
+      authorization: `Bearer ${asStudent ? studentToken : token}`,
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -112,6 +140,7 @@ describe('plugin discovery and activation', () => {
     // break this test for the wrong reason.
     expect(host!.active.map((entry) => entry.manifest.id).sort()).toEqual([
       'admin',
+      'ai-study',
       'assignments',
       'battles',
       'challenge',
@@ -121,6 +150,7 @@ describe('plugin discovery and activation', () => {
       'economy',
       'engagement',
       'gacha',
+      'homework',
       'identity',
       'insights',
       'learning',
@@ -163,6 +193,7 @@ describe('plugin discovery and activation', () => {
     const rows = host!.stateStore.list();
     expect(rows.map((r) => `${r.id}:${r.state}`).sort()).toEqual([
       'admin:active',
+      'ai-study:active',
       'assignments:active',
       'battles:active',
       'challenge:active',
@@ -172,6 +203,7 @@ describe('plugin discovery and activation', () => {
       'economy:active',
       'engagement:active',
       'gacha:active',
+      'homework:active',
       'identity:active',
       'insights:active',
       'learning:active',
@@ -194,43 +226,58 @@ describe('plugin discovery and activation', () => {
     // ends in, and publishing it is what makes the payment half migratable next.
     // `engagement.public` joins in P4.3b.12: `praises` moved to that plugin in P4.3b.10, and the
     // insights read model needs a praise count and the newest snippets without touching the table.
+    // `homework.public` joins in the AI round: the console owns the five `ai_*` settings and the
+    // homework plugin owns the provider they configure, so the state line and the connection test
+    // are the only things that cross between them.
+    // `learning.public` joins in the AI 智学 round: `plugins/ai-study` needs the question bank, the
+    // knowledge graph and the wrong-question book - eighteen tables that guardrail G1 forbids it
+    // reading - and the mastery *write* has to stay inside their owner.
     expect(host!.services.list().map((s) => s.name).sort()).toEqual([
       'classroom.public',
       'engagement.public',
+      'homework.public',
       'identity.public',
+      'learning.public',
       'parent_buff.public',
       'pet.public',
     ]);
   });
 
   it('registers the declared permissions only', () => {
-    // classroom declares the class-scope capability catalogue (19 legacy flags);
-    // pet declares its two feature permissions. Nothing else may appear.
+    // classroom declares the class-scope capability catalogue (20 legacy flags, `enable_ai_study`
+    // being the newest); pet declares its two feature permissions; homework declares its four
+    // (publish / grade / submit / ai); ai-study declares its three (practice / insight / assign).
+    // Nothing else may appear.
     const keys = kernel.permissions.list().map((p) => p.key);
     const classroomKeys = keys.filter((key) => key.startsWith('classroom.'));
     const petKeys = keys.filter((key) => key.startsWith('pet.'));
+    const homeworkKeys = keys.filter((key) => key.startsWith('homework.'));
 
-    expect(classroomKeys).toHaveLength(19);
+    expect(classroomKeys).toHaveLength(20);
     expect(classroomKeys).toContain('classroom.enable_shop');
     expect(petKeys).toEqual(['pet.adopt', 'pet.interact']);
-    expect(keys).toHaveLength(21);
+    // Sorted on this side because `permissions.list()` reports registration order, which is the
+    // resolver's concern rather than this test's - comparing unsorted would make it fail for the
+    // wrong reason if the activation order ever changed.
+    expect([...homeworkKeys].sort()).toEqual(['homework.ai', 'homework.grade', 'homework.publish', 'homework.submit']);
+    expect(keys).toHaveLength(29);
 
     // Every declared permission is attributed to the plugin that declared it.
     const owners = new Set(kernel.permissions.list().map((p) => p.pluginId));
-    expect([...owners].sort()).toEqual(['classroom', 'pet']);
+    expect([...owners].sort()).toEqual(['ai-study', 'classroom', 'homework', 'pet']);
   });
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(20);
-    expect(body.kernel.plugins.active).toBe(20);
+    expect(body.kernel.plugins.total).toBe(22);
+    expect(body.kernel.plugins.active).toBe(22);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['admin', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['admin', 'ai-study', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'homework', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
   });
 
   it('serves the admin console in the kernel composition too', async () => {
@@ -320,7 +367,15 @@ describe('plugin HTTP surface', () => {
   });
 
   it('distinguishes an unknown student (404) from a student with no pet (200, null)', async () => {
-    const unknown = await api('GET', '/api/pet/students/999');
+    // Credentialed as staff: the pet routes enforce the matrix's `student（本人）/ parent（孩子）/
+    // teacher（本班）` rule, so an anonymous caller is refused with 401 before the service runs, and
+    // a 401 cannot tell an unknown student apart from an unknown route - which is what this test is
+    // about. `requireActorRole` admits admin, so this stays a test of the service's 404.
+    const adminToken = kernel.sessions.issue({ userId: 7, role: 'superadmin', ttlMs: 60_000 }).token;
+    const unknown = await fetch(`${base}/api/pet/students/999`, {
+      headers: { authorization: `Bearer ${adminToken}` },
+    }).then(async (res) => ({ status: res.status, body: (await res.json().catch(() => null)) as any }));
+
     expect(unknown.status).toBe(404);
     expect(unknown.body.message).toBe('Student not found');
   });
@@ -403,7 +458,7 @@ describe('cross-plugin collaboration', () => {
       'student_groups',
       'point_presets',
     ]);
-    expect(classroomManifest.data.tables).toEqual([]);
+    expect(classroomManifest.data.tables).toEqual(['p_classroom_point_events', 'p_classroom_incentive_policies']);
   });
 
   it('challenge takes its boss damage from pet.public, resolved late', async () => {
@@ -505,7 +560,10 @@ describe('economy, migrated to a plugin', () => {
     enableEconomy(1, true);
     kernel.db.prepare(`UPDATE students SET available_points = 100 WHERE id = 10`).run();
 
-    const deposited = await api('POST', '/api/economy/students/10/bank/deposits', { amount: 40 });
+    // As the student themselves: the asset-write family is `student（本人）` per the matrix, so a
+    // teacher deposit is refused with 403 (that refusal is asserted in the student's own suite,
+    // `tests/plugins/economy-authorization.test.ts`).
+    const deposited = await api('POST', '/api/economy/students/10/bank/deposits', { amount: 40 }, true);
     expect(deposited.status).toBe(201);
 
     const student = kernel.db.prepare(`SELECT available_points FROM students WHERE id = 10`).get() as {
@@ -534,7 +592,7 @@ describe('economy, migrated to a plugin', () => {
     enableEconomy(1, true);
     kernel.db.prepare(`UPDATE students SET available_points = 10 WHERE id = 10`).run();
 
-    const { status, body } = await api('POST', '/api/economy/students/10/bank/deposits', { amount: 500 });
+    const { status, body } = await api('POST', '/api/economy/students/10/bank/deposits', { amount: 500 }, true);
     expect(status).toBe(400);
     expect(body.message).toContain('余额不足');
 

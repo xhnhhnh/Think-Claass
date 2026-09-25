@@ -14,6 +14,7 @@
 
 export const classFeatureKeys = [
   'enable_achievements',
+  'enable_ai_study',
   'enable_auction_blind_box',
   'enable_challenge',
   'enable_chat_bubble',
@@ -41,6 +42,7 @@ export type ClassFeatures = Record<ClassFeatureKey, boolean>;
 /** Every flag off: the state before a class's settings have loaded. */
 export const defaultClassFeatures: ClassFeatures = {
   'enable_achievements': false,
+  'enable_ai_study': false,
   'enable_auction_blind_box': false,
   'enable_challenge': false,
   'enable_chat_bubble': false,
@@ -63,6 +65,7 @@ export const defaultClassFeatures: ClassFeatures = {
 
 export const classFeatureLabels: Record<ClassFeatureKey, string> = {
   'enable_achievements': '成就系统',
+  'enable_ai_study': 'AI 智学',
   'enable_auction_blind_box': '拍卖盲盒',
   'enable_challenge': '挑战模式',
   'enable_chat_bubble': '聊天气泡',

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 
 import { useWorldBossMutation, useWorldBosses } from '@/features/challenge/hooks/useChallenge';
 import type { WorldBossDto } from '@/features/challenge/types';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Progress } from '@/components/ui/progress';
 import { SkeletonList } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
@@ -78,35 +79,46 @@ export default function TeacherWorldBoss() {
   const activeBoss = bosses.find(b => b.status === 'active');
   const historyBosses = bosses.filter(b => b.status !== 'active');
 
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-world-boss:summon',
+      label: activeBoss ? '当前已有存活的BOSS' : '召唤新BOSS',
+      icon: Plus,
+      keywords: ['BOSS', '召唤', '挑战'],
+      disabled: !!activeBoss,
+      run: () => setIsModalOpen(true),
+    },
+  ]);
+
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="世界BOSS管理"
-        description="召唤全班级别的超级大魔王，让学生们合作击败它获取奖励"
-        icon={Swords}
-        actions={
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            disabled={!!activeBoss}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            <Plus data-icon="inline-start" />
-            {activeBoss ? '当前已有存活的BOSS' : '召唤新BOSS'}
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="dashboard"
+      title="世界BOSS管理"
+      description="召唤全班级别的超级大魔王，让学生们合作击败它获取奖励"
+      actions={
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          disabled={!!activeBoss}
+          className="bg-danger text-fg-inverse hover:bg-danger/90"
+        >
+          <Plus data-icon="inline-start" />
+          {activeBoss ? '当前已有存活的BOSS' : '召唤新BOSS'}
+        </Button>
+      }
+    >
 
       {/* Active Boss Status */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-panel border border-destructive/20 bg-paper shadow-card"
+        className="relative overflow-hidden rounded-panel border border-danger/20 bg-surface-2 shadow-card"
       >
-        <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-destructive to-warning" />
+        <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-danger to-warning" />
         <div className="p-6">
           <div className="mb-6 flex items-center justify-between">
-            <h3 className="flex items-center text-lg font-bold text-ink-1">
-              <ShieldAlert className="mr-2 size-5 text-destructive" />
+            <h3 className="flex items-center text-lg font-bold text-fg-1">
+              <ShieldAlert className="mr-2 size-5 text-danger" />
               当前战况
             </h3>
             <Button
@@ -123,21 +135,21 @@ export default function TeacherWorldBoss() {
           {loading ? (
             <SkeletonList count={3} itemClassName="h-4" />
           ) : activeBoss ? (
-            <div className="rounded-card border border-destructive/20 bg-destructive/10 p-6">
+            <div className="rounded-card border border-danger/20 bg-danger/10 p-6">
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h4 className="flex items-center text-2xl font-black text-destructive">
+                  <h4 className="flex items-center text-2xl font-black text-danger">
                     {activeBoss.name}
                     <Badge variant="destructive" className="ml-3 font-bold">Lv.{activeBoss.level}</Badge>
                   </h4>
-                  <p className="mt-1 text-ink-2">{activeBoss.description || '这只怪物非常可怕...'}</p>
+                  <p className="mt-1 text-fg-2">{activeBoss.description || '这只怪物非常可怕...'}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`删除 ${activeBoss.name}`}
                   title="删除"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-danger hover:bg-danger/10 hover:text-danger"
                   onClick={() => setDeleteTarget(activeBoss.id)}
                 >
                   <Trash2 />
@@ -145,7 +157,7 @@ export default function TeacherWorldBoss() {
               </div>
 
               <div className="mt-8 space-y-2">
-                <div className="flex justify-between text-sm font-bold text-ink-1">
+                <div className="flex justify-between text-sm font-bold text-fg-1">
                   <span>剩余血量</span>
                   <span>{activeBoss.hp} / {activeBoss.max_hp}</span>
                 </div>
@@ -154,7 +166,7 @@ export default function TeacherWorldBoss() {
                   label="剩余血量"
                   tone="destructive"
                 />
-                <p className="mt-2 text-center text-xs text-ink-3">学生在前端挑战页面发起攻击将实时扣除此血量</p>
+                <p className="mt-2 text-center text-xs text-fg-3">学生在前端挑战页面发起攻击将实时扣除此血量</p>
               </div>
             </div>
           ) : (
@@ -169,17 +181,17 @@ export default function TeacherWorldBoss() {
 
       {/* History */}
       <div className="space-y-4">
-        <h3 className="flex items-center text-lg font-bold text-ink-1">
+        <h3 className="flex items-center text-lg font-bold text-fg-1">
           <Trophy className="mr-2 size-5 text-warning" />
           击杀记录
         </h3>
         <DataTable<WorldBossDto>
           columns={[
-            { key: 'name', header: 'BOSS 名称', className: 'font-medium text-ink-1' },
+            { key: 'name', header: 'BOSS 名称', className: 'font-medium text-fg-1' },
             {
               key: 'level',
               header: '等级 / 总血量',
-              className: 'text-ink-2',
+              className: 'text-fg-2',
               render: (boss) => `Lv.${boss.level} / ${boss.max_hp} HP`,
             },
             {
@@ -197,7 +209,7 @@ export default function TeacherWorldBoss() {
                   size="icon-sm"
                   aria-label={`删除 ${boss.name}`}
                   title="删除"
-                  className="text-ink-3 hover:bg-destructive/10 hover:text-destructive"
+                  className="text-fg-3 hover:bg-danger/10 hover:text-danger"
                   onClick={() => setDeleteTarget(boss.id)}
                 >
                   <Trash2 />
@@ -211,7 +223,7 @@ export default function TeacherWorldBoss() {
             <EmptyState
               icon={Trophy}
               title="暂无历史击杀记录"
-              className="bg-paper"
+              className="bg-surface-2"
             />
           }
         />
@@ -222,7 +234,7 @@ export default function TeacherWorldBoss() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <Swords className="mr-2 size-5 text-destructive" />
+              <Swords className="mr-2 size-5 text-danger" />
               召唤世界BOSS
             </DialogTitle>
           </DialogHeader>
@@ -269,7 +281,7 @@ export default function TeacherWorldBoss() {
                 />
               </FormField>
             </div>
-            <p className="mt-2 text-xs text-ink-3">* 击败后全班学生将获得 Level × 50 的积分奖励</p>
+            <p className="mt-2 text-xs text-fg-3">* 击败后全班学生将获得 Level × 50 的积分奖励</p>
 
             <DialogFooter>
               <Button
@@ -281,7 +293,7 @@ export default function TeacherWorldBoss() {
               </Button>
               <Button
                 type="submit"
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="bg-danger text-fg-inverse hover:bg-danger/90"
               >
                 确认召唤
               </Button>
@@ -304,6 +316,6 @@ export default function TeacherWorldBoss() {
           setDeleteTarget(null);
         }}
       />
-    </div>
+    </PageScaffold>
   );
 }

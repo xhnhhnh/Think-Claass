@@ -33,6 +33,7 @@
     "tables": [],
     "adopted": ["territories", "class_resources"],
     "_adopted_note": "Both carry their legacy names because `SELECT *` rows are returned straight through to the frontend (id, status, current_contribution, cost_to_unlock, x_pos, y_pos). Renaming them is a coordinated migration, tracked as namespace debt by guardrail G10. `students` and `records` are deliberately absent: they belong to classroom and are reached through classroom.public.",
-    "reads": []
+    "reads": [],
+    "_auth_note": "All eight routes now resolve the caller from the kernel request context: 401 for anonymous (未登录或登录已过期), 403 for a role that may not call the route (无权限执行该操作). They are also scoped - the map is readable only by the class's teacher or a student in that class, territory creation and yield only by the class's teacher (admin/superadmin pass), and a contribution only by the student row the caller's own login owns, so the URL's :studentId / :classId are never treated as identity. The pre-migration surface answered every one of these to an anonymous caller."
   }
 }

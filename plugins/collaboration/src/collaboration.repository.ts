@@ -179,7 +179,12 @@ export function createCollaborationRepository(db: DbApi): CollaborationRepositor
       let query = 'SELECT * FROM team_quests WHERE 1=1';
       const params: Array<number | string> = [];
 
-      if (filter.classId !== undefined) {
+      if (filter.classIds !== undefined) {
+        // A resolved roster: no classes means no rows, not every row.
+        if (filter.classIds.length === 0) return [];
+        query += ` AND class_id IN (${filter.classIds.map(() => '?').join(',')})`;
+        params.push(...filter.classIds);
+      } else if (filter.classId !== undefined) {
         query += ' AND class_id = ?';
         params.push(filter.classId);
       }
@@ -271,7 +276,12 @@ export function createCollaborationRepository(db: DbApi): CollaborationRepositor
         query += ' AND quest_id = ?';
         params.push(filter.questId);
       }
-      if (filter.studentId !== undefined) {
+      if (filter.studentIds !== undefined) {
+        // A resolved roster: a student who owns nobody gets no rows, not every row.
+        if (filter.studentIds.length === 0) return [];
+        query += ` AND student_id IN (${filter.studentIds.map(() => '?').join(',')})`;
+        params.push(...filter.studentIds);
+      } else if (filter.studentId !== undefined) {
         query += ' AND student_id = ?';
         params.push(filter.studentId);
       }

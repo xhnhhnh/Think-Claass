@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Globe, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 import { portalApi } from '@/features/portal/api/portalApi';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +18,10 @@ import { Textarea } from '@/components/ui/textarea';
  * Six hand-styled fields with a blue focus ring, a `max-w-4xl` card with its own
  * arbitrary shadow, and a save button wearing a blue-to-indigo gradient - all replaced
  * by the kit, so the console's one accent colour is the console's accent colour.
+ *
+ * The measure is the scaffold's now (`variant="detail"`), the heading is its `title`
+ * (suppressed while the shell owns the `h1`), and 保存内容 is a command-palette command
+ * as well as the form's submit button.
  */
 export default function AdminWebsite() {
   const [loading, setLoading] = useState(true);
@@ -65,8 +70,9 @@ export default function AdminWebsite() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /** `event` is optional so the command palette can run the same save the form's button does. */
+  const handleSubmit = async (event?: React.FormEvent) => {
+    event?.preventDefault();
     setSaving(true);
     try {
       const data = await portalApi.updateHomeContent(sections);
@@ -82,19 +88,28 @@ export default function AdminWebsite() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader title="网站设置" description="管理前台展示页面的主要内容" icon={Globe} />
+  useRegisterPageCommands([
+    {
+      id: 'admin-website:save',
+      label: '保存内容',
+      icon: Save,
+      keywords: ['网站设置', '首页内容', '保存'],
+      run: () => void handleSubmit(),
+      disabled: saving,
+    },
+  ]);
 
+  return (
+    <PageScaffold variant="detail" title="网站设置" description="管理前台展示页面的主要内容">
       {loading ? (
         <div className="flex h-64 items-center justify-center">
-          <Spinner size="lg" label="正在加载网站内容" className="text-primary" />
+          <Spinner size="lg" label="正在加载网站内容" className="text-role" />
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <SectionCard title="首页内容编辑" description="这些内容展示在官网首页与关于我们页面">
             <div className="space-y-4">
-              <h4 className="border-b border-border pb-2 text-base font-medium text-ink-1">
+              <h4 className="border-b border-line-1 pb-2 text-base font-medium text-fg-1">
                 Hero 横幅区域
               </h4>
               <FormField label="主标题">
@@ -125,7 +140,7 @@ export default function AdminWebsite() {
             </div>
 
             <div className="mt-8 space-y-4">
-              <h4 className="border-b border-border pb-2 text-base font-medium text-ink-1">关于我们</h4>
+              <h4 className="border-b border-line-1 pb-2 text-base font-medium text-fg-1">关于我们</h4>
               <FormField label="标题">
                 <Input
                   type="text"
@@ -150,7 +165,7 @@ export default function AdminWebsite() {
             <Button type="submit" disabled={saving}>
               {saving ? (
                 <>
-                  <Spinner label="正在保存" className="text-primary-foreground" />
+                  <Spinner label="正在保存" className="text-role-contrast" />
                   保存中...
                 </>
               ) : (
@@ -163,6 +178,6 @@ export default function AdminWebsite() {
           </div>
         </form>
       )}
-    </div>
+    </PageScaffold>
   );
 }

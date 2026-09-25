@@ -122,6 +122,9 @@ describe('TeacherDashboard', () => {
     );
     mocks.useClasses.mockReturnValue({
       data: [{ id: 1, name: '一年级一班' }],
+      // The dashboard consults the same query for the first-run wizard, which shows only when the
+      // account has no classes at all. Loaded-but-empty is a different state from loading.
+      isLoading: false,
     });
     mocks.useStudents.mockReturnValue({
       data: [],
@@ -153,7 +156,7 @@ describe('TeacherDashboard', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText('课堂功能控制')).toBeInTheDocument();
+    expect(await screen.findByText('班级策略与功能设置')).toBeInTheDocument();
     expect(screen.getByText('feature-panel-1-compact')).toBeInTheDocument();
   });
 });

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Building2, CheckCircle, Copy, Key, Plus, Server, Trash2 } from 'lucide-react';
+import { Building2, CheckCircle, Copy, Key, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { DataTable } from '@/components/ui/data-table';
@@ -17,8 +18,9 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
+import { Segmented } from '@/components/ui/segmented';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -43,9 +45,12 @@ interface School {
  * Two tabs over two tables, two hand-rolled modals, two `window.confirm` calls and a
  * segmented control built from template-literal class strings. All of it is the kit
  * now: `DataTable` for both lists (with their loading and empty states), `Dialog` for
- * the two forms, `ConfirmDialog` for both deletions, and the tab control is a pair of
- * `Button`s so its active state resolves through the theme rather than a ternary of
- * indigo classes.
+ * the two forms, `ConfirmDialog` for both deletions, and the tab control is the kit's
+ * `Segmented` in the scaffold's toolbar rather than a ternary of indigo classes.
+ *
+ * The heading is the scaffold's `title`, which the shell suppresses while it renders the
+ * route's `h1`; the two create actions are command-palette commands, disabled while the
+ * other tab is showing.
  */
 export default function AdminOpenApi() {
   const [activeTab, setActiveTab] = useState<'API_KEYS' | 'SCHOOLS'>('API_KEYS');
@@ -188,38 +193,63 @@ export default function AdminOpenApi() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        title="开发者与校园"
-        description="管理系统开放 API 密钥与合作入驻的校园信息"
-        icon={Server}
-        actions={
-          <div className="flex rounded-lg border border-border bg-muted/50 p-1">
-            <Button
-              type="button"
-              variant={activeTab === 'API_KEYS' ? 'default' : 'ghost'}
-              size="sm"
-              aria-pressed={activeTab === 'API_KEYS'}
-              onClick={() => setActiveTab('API_KEYS')}
-            >
-              <Key data-icon="inline-start" />
-              API 密钥
-            </Button>
-            <Button
-              type="button"
-              variant={activeTab === 'SCHOOLS' ? 'default' : 'ghost'}
-              size="sm"
-              aria-pressed={activeTab === 'SCHOOLS'}
-              onClick={() => setActiveTab('SCHOOLS')}
-            >
-              <Building2 data-icon="inline-start" />
-              合作校园
-            </Button>
-          </div>
-        }
-      />
+  useRegisterPageCommands([
+    {
+      id: 'admin-open-api:create-key',
+      label: '生成新密钥',
+      icon: Key,
+      keywords: ['API', '密钥', '开放平台'],
+      run: () => setIsKeyModalOpen(true),
+      disabled: activeTab !== 'API_KEYS',
+    },
+    {
+      id: 'admin-open-api:create-school',
+      label: '添加校园',
+      icon: Building2,
+      keywords: ['校园', '合作', '入驻'],
+      run: () => setIsSchoolModalOpen(true),
+      disabled: activeTab !== 'SCHOOLS',
+    },
+  ]);
 
+  return (
+    <PageScaffold
+      variant="list"
+      title="开发者与校园"
+      description="管理系统开放 API 密钥与合作入驻的校园信息"
+      toolbar={
+        /*
+          The two tabs were a pair of `Button`s assembled at the call site. A one-of-N
+          control is the kit's `Segmented`, which owns the group semantics, the active
+          state and the arrow-key handling that the hand-rolled version never had.
+        */
+        <Segmented<'API_KEYS' | 'SCHOOLS'>
+          label="管理对象"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            {
+              value: 'API_KEYS',
+              label: (
+                <>
+                  <Key aria-hidden="true" className="size-4" />
+                  API 密钥
+                </>
+              ),
+            },
+            {
+              value: 'SCHOOLS',
+              label: (
+                <>
+                  <Building2 aria-hidden="true" className="size-4" />
+                  合作校园
+                </>
+              ),
+            },
+          ]}
+        />
+      }
+    >
       <SectionCard
         title={activeTab === 'API_KEYS' ? '密钥列表' : '校园列表'}
         contentClassName="p-0"
@@ -237,13 +267,13 @@ export default function AdminOpenApi() {
           <DataTable<ApiKey>
             className="rounded-none border-0"
             columns={[
-              { key: 'name', header: '应用名称', className: 'font-medium text-ink-1' },
+              { key: 'name', header: '应用名称', className: 'font-medium text-fg-1' },
               {
                 key: 'api_key',
                 header: 'API 密钥 (sk_...)',
                 render: (key) => (
                   <div className="flex items-center">
-                    <code className="rounded border border-border bg-muted px-3 py-1 font-mono text-sm text-ink-2">
+                    <code className="rounded border border-line-1 bg-surface-3 px-3 py-1 font-mono text-sm text-fg-2">
                       {key.api_key.substring(0, 10)}...{key.api_key.substring(key.api_key.length - 4)}
                     </code>
                     <Button
@@ -251,7 +281,7 @@ export default function AdminOpenApi() {
                       size="icon-xs"
                       aria-label={`复制密钥 ${key.name}`}
                       title="复制完整密钥"
-                      className="ml-3 text-ink-3 hover:text-primary"
+                      className="ml-3 text-fg-3 hover:text-role"
                       onClick={() => copyToClipboard(key.api_key)}
                     >
                       {copiedKey === key.api_key ? (
@@ -266,7 +296,7 @@ export default function AdminOpenApi() {
               {
                 key: 'created_at',
                 header: '生成时间',
-                className: 'text-sm text-ink-3',
+                className: 'text-sm text-fg-3',
                 render: (key) => new Date(key.created_at).toLocaleString(),
               },
               {
@@ -278,7 +308,7 @@ export default function AdminOpenApi() {
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`删除密钥 ${key.name}`}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-danger hover:bg-danger-soft hover:text-danger"
                     onClick={() => setKeyToDelete(key)}
                   >
                     <Trash2 />
@@ -298,10 +328,10 @@ export default function AdminOpenApi() {
               {
                 key: 'name',
                 header: '学校名称',
-                className: 'font-bold text-ink-1',
+                className: 'font-bold text-fg-1',
                 render: (school) => (
                   <div className="flex items-center">
-                    <span className="mr-3 flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-black text-primary">
+                    <span className="mr-3 flex size-8 items-center justify-center rounded-full bg-role/10 text-xs font-black text-role">
                       {school.name.substring(0, 1)}
                     </span>
                     {school.name}
@@ -311,7 +341,7 @@ export default function AdminOpenApi() {
               {
                 key: 'description',
                 header: '简介',
-                className: 'max-w-xs truncate text-sm text-ink-2',
+                className: 'max-w-xs truncate text-sm text-fg-2',
                 render: (school) => (
                   <span title={school.description}>{school.description || '-'}</span>
                 ),
@@ -319,13 +349,13 @@ export default function AdminOpenApi() {
               {
                 key: 'contact_info',
                 header: '联系方式',
-                className: 'text-sm text-ink-2',
+                className: 'text-sm text-fg-2',
                 render: (school) => school.contact_info || '-',
               },
               {
                 key: 'created_at',
                 header: '入驻时间',
-                className: 'text-sm text-ink-3',
+                className: 'text-sm text-fg-3',
                 render: (school) => new Date(school.created_at).toLocaleDateString(),
               },
               {
@@ -337,7 +367,7 @@ export default function AdminOpenApi() {
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`删除校园 ${school.name}`}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="text-danger hover:bg-danger-soft hover:text-danger"
                     onClick={() => setSchoolToDelete(school)}
                   >
                     <Trash2 />
@@ -378,7 +408,7 @@ export default function AdminOpenApi() {
               <Button type="submit" disabled={submitting}>
                 {submitting ? (
                   <>
-                    <Spinner label="正在生成" className="text-primary-foreground" />
+                    <Spinner label="正在生成" className="text-role-contrast" />
                     生成中...
                   </>
                 ) : (
@@ -430,7 +460,7 @@ export default function AdminOpenApi() {
               <Button type="submit" disabled={submitting}>
                 {submitting ? (
                   <>
-                    <Spinner label="正在添加" className="text-primary-foreground" />
+                    <Spinner label="正在添加" className="text-role-contrast" />
                     添加中...
                   </>
                 ) : (
@@ -467,6 +497,6 @@ export default function AdminOpenApi() {
         destructive
         onConfirm={handleDeleteSchool}
       />
-    </div>
+    </PageScaffold>
   );
 }

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Edit, FileText, Plus, Trash2 } from 'lucide-react';
 
 import { portalApi } from '@/features/portal/api/portalApi';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -37,10 +38,11 @@ interface Article {
 /**
  * 文章管理.
  *
- * `AdminTeachersPage`'s shape again: `PageHeader` + `DataTable` (loading and empty live
- * in the table) + `Dialog` for the form + `ConfirmDialog` for the delete. The page used
- * to write its own `<table>` (six `<th>`, a hand-styled chip per row), its own spinner,
- * its own "暂无文章" block, a fixed-overlay modal and a blocking `confirm()`.
+ * `AdminTeachersPage`'s shape again: `PageScaffold variant="list"` + `DataTable`
+ * (loading and empty live in the table) + `Dialog` for the form + `ConfirmDialog` for
+ * the delete. The page used to write its own `<table>` (six `<th>`, a hand-styled chip
+ * per row), its own spinner, its own "暂无文章" block, a fixed-overlay modal and a
+ * blocking `confirm()`.
  *
  * The category `<select>` stays a native select through the kit's `Select`, which is a
  * styled native element on purpose - the form's contract does not change.
@@ -164,23 +166,31 @@ export default function AdminArticles() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="文章管理"
-        description="管理前台网站展示的文章内容"
-        icon={FileText}
-        actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus data-icon="inline-start" />
-            发布新文章
-          </Button>
-        }
-      />
+  useRegisterPageCommands([
+    {
+      id: 'admin-articles:create',
+      label: '发布新文章',
+      icon: Plus,
+      keywords: ['文章', '新闻', '新增'],
+      run: () => handleOpenModal(),
+    },
+  ]);
 
+  return (
+    <PageScaffold
+      variant="list"
+      title="文章管理"
+      description="管理前台网站展示的文章内容"
+      actions={
+        <Button onClick={() => handleOpenModal()}>
+          <Plus data-icon="inline-start" />
+          发布新文章
+        </Button>
+      }
+    >
       <DataTable<Article>
         columns={[
-          { key: 'title', header: '标题', className: 'font-medium text-ink-1' },
+          { key: 'title', header: '标题', className: 'font-medium text-fg-1' },
           {
             key: 'category',
             header: '分类',
@@ -201,13 +211,13 @@ export default function AdminArticles() {
           {
             key: 'view_count',
             header: '阅读量',
-            className: 'text-ink-2',
+            className: 'text-fg-2',
             render: (article) => article.view_count || 0,
           },
           {
             key: 'created_at',
             header: '创建时间',
-            className: 'text-ink-3',
+            className: 'text-fg-3',
             render: (article) => new Date(article.created_at).toLocaleString(),
           },
           {
@@ -230,7 +240,7 @@ export default function AdminArticles() {
                   size="icon-sm"
                   aria-label={`删除${article.title}`}
                   title="删除"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="text-danger hover:bg-danger-soft hover:text-danger"
                   onClick={() => setDeleteTarget(article)}
                 >
                   <Trash2 />
@@ -247,7 +257,7 @@ export default function AdminArticles() {
             icon={FileText}
             title="暂无文章"
             description="点击上方按钮发布第一篇文章"
-            className="bg-card"
+            className="bg-surface-2"
           />
         }
       />
@@ -345,6 +355,6 @@ export default function AdminArticles() {
         isPending={isDeleting}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageScaffold>
   );
 }

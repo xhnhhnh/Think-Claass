@@ -123,6 +123,16 @@ function placeholders(count: number): string {
 }
 
 /**
+ * The ceiling on one candidate-pool read, enforced in the repository.
+ *
+ * A personalisation request needs tens of questions, not thousands; the number is here rather than
+ * only in the caller because `listCandidateQuestions` is the one statement in this file that can
+ * return the whole bank, and a bound that lives only at the call site is a bound the next caller
+ * does not have.
+ */
+const CANDIDATE_LIMIT_MAX = 200;
+
+/**
  * Prisma's `update` / `delete` on an absent row throws P2025, which the pre-migration
  * error translator rendered as HTTP 500. Preserve the status; the message is ours.
  */
@@ -134,6 +144,44 @@ export interface PaperListFilter {
   teacherId?: number;
   classId?: number;
   status?: string;
+}
+
+/**
+ * The question-bank pool a consumer may draw practice from.
+ *
+ * `limit` is required rather than optional, and the implementation clamps it as well: this is the
+ * only query in the repository that can return "the whole bank", and a caller that forgot a bound
+ * would turn one practice request into an unbounded read.
+ *
+ * A `null` difficulty in a row is **admitted** by a window filter rather than excluded. A bank that
+ * never fills `questions.difficulty` would otherwise have an empty candidate pool, which reads to a
+ * teacher as "智学 is broken" rather than "your questions have no difficulty set" - and the scoring
+ * engine treats `null` as the neutral 3 anyway, so admitting it changes the ranking, not its honesty.
+ */
+export interface CandidateQuestionFilter {
+  subjectId: number | null;
+  nodeIds: number[];
+  types: string[];
+  difficultyMin: number | null;
+  difficultyMax: number | null;
+  excludeQuestionIds: number[];
+  limit: number;
+}
+
+/** One `question_knowledge` row, projected to the two ids. */
+export interface QuestionKnowledgePair {
+  question_id: number;
+  node_id: number;
+}
+
+/** A student's record on one knowledge node, for the personalisation engine. */
+export interface KnowledgeProgressRow {
+  node_id: number;
+  name: string;
+  importance: number | null;
+  wrong_count: number;
+  attempt_count: number;
+  correct_count: number;
 }
 
 export interface PaperCreateInput {
@@ -275,6 +323,14 @@ export interface LearningRepository {
   listQuestionKnowledgeNodeIds(questionId: number): number[];
   listQuestionsByNodeIds(excludeQuestionId: number, nodeIds: number[]): QuestionRow[];
   listQuestionsBySubjectType(excludeQuestionId: number, subjectId: number | null, type: string): QuestionRow[];
+
+  // -- the `learning.public` port (`plugins/ai-study`) ----------------------
+  getQuestion(id: number): QuestionRow | null;
+  listQuestionsByIds(questionIds: number[]): QuestionRow[];
+  listQuestionKnowledgeMap(questionIds: number[]): QuestionKnowledgePair[];
+  listCandidateQuestions(filter: CandidateQuestionFilter): QuestionRow[];
+  listKnowledgeProgress(studentId: number): KnowledgeProgressRow[];
+  countGradedObjectiveAnswers(studentId: number): { correct: number; total: number };
 
   // -- study plans ----------------------------------------------------------
   getActiveStudyPlan(studentId: number): StudyPlanWithItems | null;
@@ -470,6 +526,34 @@ export function createLearningRepository(db: DbApi): LearningRepository {
 
     listSubjects() {
       return mapRows<SubjectRow>('subjects', db.query('SELECT * FROM subjects ORDER BY id ASC'));
+    },
+
+    /**
+     * One question by id, for the port's answer judging.
+     *
+     * A dedicated getter rather than `listQuestionsByNodeIds`-style reuse: `recordPracticeOutcome`
+     * needs the row whatever its subject, type or node, and filtering by any of those would make the
+     * port decline to judge questions the rest of the system can see.
+     */
+    getQuestion(id) {
+      return mapRow<QuestionRow>('questions', db.get('SELECT * FROM questions WHERE id = ?', [id]));
+    },
+
+    /**
+     * The questions a stored practice set names.
+     *
+     * A missing id is simply absent from the result rather than an error: a consumer renders the
+     * items it can resolve, and a question removed by the admin cascade must not turn a saved set
+     * into a 500. Returns `[]` for an empty list instead of emitting `IN ()`, which SQLite parses as
+     * a syntax error.
+     */
+    listQuestionsByIds(questionIds) {
+      const unique = Array.from(new Set(questionIds.filter((id) => Number.isFinite(id))));
+      if (unique.length === 0) return [];
+      return mapRows<QuestionRow>(
+        'questions',
+        db.query(`SELECT * FROM questions WHERE id IN (${placeholders(unique.length)}) ORDER BY id ASC`, unique),
+      );
     },
 
     createSubject(input) {
@@ -960,6 +1044,130 @@ export function createLearningRepository(db: DbApi): LearningRepository {
         'questions',
         db.query(`SELECT * FROM questions WHERE ${parts.join(' AND ')} ORDER BY id DESC LIMIT 5`, params),
       );
+    },
+
+    // -- the `learning.public` port -----------------------------------------
+
+    /**
+     * The nodes each of these questions is filed under, in one query.
+     *
+     * Exists so the signal reader is not "one query per wrong question": a student's book is the
+     * input to a scoring loop, and a per-row lookup there is the classic N+1 that only shows up on
+     * the class that has been using the product longest.
+     */
+    listQuestionKnowledgeMap(questionIds) {
+      const unique = Array.from(new Set(questionIds.filter((id) => Number.isFinite(id))));
+      if (unique.length === 0) return [];
+      const rows = db.query<{ question_id: number; node_id: number }>(
+        `SELECT question_id, node_id FROM question_knowledge
+          WHERE question_id IN (${placeholders(unique.length)})
+          ORDER BY question_id ASC, node_id ASC`,
+        unique,
+      );
+      return rows.map((row) => ({ question_id: row.question_id, node_id: row.node_id }));
+    },
+
+    /**
+     * The candidate pool, filtered and bounded.
+     *
+     * `ORDER BY id ASC` rather than a relevance expression: the *ranking* is the engine's job
+     * (`plugins/ai-study`), and a SQL `LIMIT` over an unordered query would hand the engine an
+     * arbitrary subset that changes between calls - which would make the same request produce
+     * different practice sets, the one property the engine must not have.
+     */
+    listCandidateQuestions(filter) {
+      const parts: string[] = [];
+      const params: SqlParam[] = [];
+
+      if (filter.subjectId !== null) {
+        parts.push('subject_id = ?');
+        params.push(filter.subjectId);
+      }
+      if (filter.nodeIds.length > 0) {
+        parts.push(
+          `id IN (SELECT question_id FROM question_knowledge
+                   WHERE node_id IN (${placeholders(filter.nodeIds.length)}))`,
+        );
+        params.push(...filter.nodeIds);
+      }
+      if (filter.types.length > 0) {
+        parts.push(`type IN (${placeholders(filter.types.length)})`);
+        params.push(...filter.types);
+      }
+      // A NULL difficulty passes a window filter - see `CandidateQuestionFilter`.
+      if (filter.difficultyMin !== null) {
+        parts.push('(difficulty IS NULL OR difficulty >= ?)');
+        params.push(filter.difficultyMin);
+      }
+      if (filter.difficultyMax !== null) {
+        parts.push('(difficulty IS NULL OR difficulty <= ?)');
+        params.push(filter.difficultyMax);
+      }
+      if (filter.excludeQuestionIds.length > 0) {
+        parts.push(`id NOT IN (${placeholders(filter.excludeQuestionIds.length)})`);
+        params.push(...filter.excludeQuestionIds);
+      }
+
+      // Clamped here as well as by the caller: this is the one query in the file that could return
+      // the whole bank, so the bound is enforced where the SQL is built rather than trusted.
+      const limit = Math.min(Math.max(Math.floor(filter.limit) || 0, 1), CANDIDATE_LIMIT_MAX);
+      const where = parts.length > 0 ? `WHERE ${parts.join(' AND ')}` : '';
+      return mapRows<QuestionRow>(
+        'questions',
+        db.query(`SELECT * FROM questions ${where} ORDER BY id ASC LIMIT ?`, [...params, limit]),
+      );
+    },
+
+    /**
+     * The student's record per knowledge node they have got something wrong on.
+     *
+     * Nodes with no wrong question are deliberately absent: an untouched node and a mastered one are
+     * both "nothing to review", and the engine's weak-spot factor reads a missing row as exactly
+     * that. `attempt_count` / `correct_count` come from the attempts table, which is the only place
+     * practice history lives.
+     */
+    listKnowledgeProgress(studentId) {
+      return db.query<KnowledgeProgressRow>(
+        `SELECT kn.id AS node_id,
+                kn.name AS name,
+                kn.importance AS importance,
+                COUNT(DISTINCT wq.id) AS wrong_count,
+                COALESCE(SUM(attempts.total), 0) AS attempt_count,
+                COALESCE(SUM(attempts.correct), 0) AS correct_count
+           FROM knowledge_nodes kn
+           JOIN question_knowledge qk ON qk.node_id = kn.id
+           JOIN wrong_questions wq ON wq.question_id = qk.question_id AND wq.student_id = ?
+           LEFT JOIN (
+                SELECT wrong_question_id,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) AS correct
+                  FROM wrong_question_attempts
+              GROUP BY wrong_question_id
+           ) attempts ON attempts.wrong_question_id = wq.id
+       GROUP BY kn.id, kn.name, kn.importance
+       ORDER BY kn.id ASC`,
+        [studentId],
+      );
+    },
+
+    /**
+     * How the student has done on graded objective questions, across every paper.
+     *
+     * `is_correct IS NOT NULL` is the filter rather than a `questions.is_subjective` join:
+     * `submitPaper` writes the column only for what it actually judged, so a null there is the
+     * authoritative "nobody marked this" - including every subjective answer. Counting those as
+     * wrong would make a student who writes good prose look like a failing one.
+     */
+    countGradedObjectiveAnswers(studentId) {
+      const row = db.get<{ total: number; correct: number | null }>(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN pa.is_correct = 1 THEN 1 ELSE 0 END) AS correct
+           FROM paper_answers pa
+           JOIN paper_submissions ps ON ps.id = pa.submission_id
+          WHERE ps.student_id = ? AND pa.is_correct IS NOT NULL`,
+        [studentId],
+      );
+      return { correct: Number(row?.correct ?? 0), total: Number(row?.total ?? 0) };
     },
 
     // -- study plans --------------------------------------------------------

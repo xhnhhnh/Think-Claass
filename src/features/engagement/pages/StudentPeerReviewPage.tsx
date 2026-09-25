@@ -1,19 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
-import { Star, MessageSquareHeart, UserCircle2, Send, CheckCircle2, Sparkles, Ghost, Users } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  CheckCircle2,
+  Ghost,
+  MessageSquareHeart,
+  Send,
+  Sparkles,
+  Star,
+  UserCircle2,
+  Users,
+} from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+
+import { useRegisterPageCommands } from '@/app/commands/registry';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Spinner } from '@/components/ui/spinner';
+import { StatCard } from '@/components/ui/stat-card';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { launchConfetti } from '@/lib/confetti';
 import { CELEBRATION } from '@/lib/celebrationPalette';
-import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
-import { FormField } from '@/components/ui/form-field';
-import { PageHeader } from '@/components/ui/page-header';
-import { Spinner } from '@/components/ui/spinner';
-import { StatCard } from '@/components/ui/stat-card';
-import { Textarea } from '@/components/ui/textarea';
 
 interface PendingPeer {
   id: number;
@@ -24,17 +36,34 @@ const PRESET_TAGS = [
   "字迹工整", "乐于助人", "创意满分", "进步很大", "回答积极", "团队担当", "耐心细致"
 ];
 
+/**
+ * 同伴互评 (the page calls itself 同学夸夸榜).
+ *
+ * A `list` page: the page's own `PageHeader` is gone - with a shell above it that
+ * component prints no heading anyway, and the scaffold now owns both the heading and
+ * the description. The `title` is the route table's label, because that is the one
+ * list of paths and labels the shell's `h1` is read from. What is left is the
+ * master-detail pair: the pending peers on the left, the review form on the right,
+ * each on the tokens and each keeping its entrance.
+ *
+ * The five star buttons keep their exact `aria-label`s (`给<名字>打<N>分`) and the
+ * submit button its label; the submission, the confetti and the list mutation are
+ * untouched. The submit is also a palette command, and it runs through a ref holding
+ * the latest handler because it reads `comment`/`isAnonymous`/`score` - the registry
+ * re-registers only when `id`/`disabled` move.
+ */
 export default function StudentPeerReview() {
   const user = useStore((state) => state.user);
   const [pendingPeers, setPendingPeers] = useState<PendingPeer[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [selectedPeer, setSelectedPeer] = useState<PendingPeer | null>(null);
   const [score, setScore] = useState<number>(0);
   const [hoverScore, setHoverScore] = useState<number>(0);
   const [comment, setComment] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   const fetchPendingPeers = async () => {
     try {
@@ -103,47 +132,48 @@ export default function StudentPeerReview() {
     }
   };
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      {/* Header */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="relative overflow-hidden rounded-panel border-b-8 border-primary/30 bg-paper p-10 shadow-card"
-      >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary to-accent-foreground opacity-10" />
-        <div className="pointer-events-none absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
-        <div className="relative z-10 flex flex-col items-center justify-between gap-6 md:flex-row">
-          <PageHeader
-            title="同学夸夸榜"
-            description="发现他人的闪光点，真诚的赞美能带来双倍的积分奖励哦！"
-            icon={MessageSquareHeart}
-            className="flex-1"
-          />
-          <StatCard
-            label="本周待评人数"
-            icon={Users}
-            value={pendingPeers.length}
-            className="shrink-0 border-b-8 border-r-4 border-l-4 border-t-4 border-primary/30 shadow-raised"
-          />
-        </div>
-      </motion.div>
+  // The latest handler, so the palette submits the comment and the anonymity flag as
+  // they are now rather than as they were when the command was registered.
+  const submitRef = useRef(handleSubmit);
+  useEffect(() => {
+    submitRef.current = handleSubmit;
+  });
 
-      <div className="grid gap-8 md:grid-cols-12">
-        {/* Left: Pending List */}
+  useRegisterPageCommands([
+    {
+      id: 'peer-review:submit',
+      label: '发送评价并领奖',
+      icon: Send,
+      disabled: submitting || score === 0 || !selectedPeer,
+      run: () => void submitRef.current(),
+    },
+  ]);
+
+  return (
+    <PageScaffold
+      variant="list"
+      title="同伴互评"
+      description="发现他人的闪光点，真诚的赞美能带来双倍的积分奖励哦！"
+    >
+      <div className="sm:max-w-xs">
+        <StatCard icon={Users} label="本周待评人数" value={pendingPeers.length} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-12">
+        {/* Left: pending peers */}
         <motion.div
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: -16 }) }}
+          animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
           transition={{ delay: 0.1 }}
-          className="h-fit rounded-panel border-b-4 border-border bg-paper p-6 shadow-card md:col-span-4"
+          className="h-fit rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card md:col-span-4"
         >
-          <h3 className="mb-6 flex items-center text-xl font-bold text-ink-1">
-            <Users className="mr-2 size-5 text-primary" />
+          <h3 className="mb-4 flex items-center text-lg font-bold text-fg-1">
+            <Users aria-hidden="true" className="mr-2 size-5 text-role" />
             待评价的魔法师
           </h3>
-          
+
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-ink-3">
+            <div className="flex items-center justify-center gap-2 py-10 text-fg-3">
               <Spinner label="正在寻找待评价的同学" />
               <span>寻找中...</span>
             </div>
@@ -165,18 +195,22 @@ export default function StudentPeerReview() {
                     setScore(0);
                     setComment('');
                   }}
-                  className={`h-auto w-full justify-start rounded-card border-2 p-4 text-left transition-all duration-300 ${
+                  className={cn(
+                    'h-auto w-full justify-start rounded-card border-2 p-4 text-left transition-all duration-300',
                     selectedPeer?.id === peer.id
-                      ? 'relative z-10 scale-105 border-primary bg-primary/5 shadow-card hover:bg-primary/5'
-                      : 'border-border bg-paper hover:border-primary/30 hover:bg-muted/50'
-                  }`}
+                      ? 'relative z-10 scale-105 border-role bg-role-soft shadow-card hover:bg-role-soft'
+                      : 'border-line-1 bg-surface-2 hover:border-role/30 hover:bg-surface-3',
+                  )}
                 >
-                  <div className={`mr-3 flex size-10 items-center justify-center rounded-full text-lg font-bold ${
-                    selectedPeer?.id === peer.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-ink-2'
-                  }`}>
+                  <div
+                    className={cn(
+                      'mr-3 flex size-10 items-center justify-center rounded-full text-lg font-bold',
+                      selectedPeer?.id === peer.id ? 'bg-role text-role-contrast' : 'bg-surface-3 text-fg-2',
+                    )}
+                  >
                     {peer.name.charAt(0)}
                   </div>
-                  <span className={`font-bold ${selectedPeer?.id === peer.id ? 'text-primary' : 'text-ink-2'}`}>
+                  <span className={cn('font-bold', selectedPeer?.id === peer.id ? 'text-role-ink' : 'text-fg-2')}>
                     {peer.name}
                   </span>
                 </Button>
@@ -185,10 +219,10 @@ export default function StudentPeerReview() {
           )}
         </motion.div>
 
-        {/* Right: Review Form */}
+        {/* Right: review form */}
         <motion.div
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { x: 16 }) }}
+          animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
           transition={{ delay: 0.2 }}
           className="md:col-span-8"
         >
@@ -196,30 +230,30 @@ export default function StudentPeerReview() {
             {selectedPeer ? (
               <motion.div
                 key="form"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="relative isolate overflow-hidden rounded-panel border-b-4 border-primary/20 bg-paper p-8 shadow-card md:p-10"
+                initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.97 }) }}
+                animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1 }) }}
+                exit={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.97 }) }}
+                className="relative isolate overflow-hidden rounded-panel border border-line-1 bg-surface-2 p-8 shadow-card md:p-10"
               >
-                <div className="absolute right-0 top-0 -z-10 size-40 rounded-bl-[100%] bg-primary/5"></div>
-                
-                <div className="mb-10 text-center">
-                  <div className="mb-4 inline-flex items-center justify-center rounded-card bg-primary/5 p-2">
-                    <UserCircle2 className="size-16 text-primary" />
+                <div className="absolute right-0 top-0 -z-10 size-40 rounded-bl-[100%] bg-role-soft" />
+
+                <div className="mb-8 text-center">
+                  <div className="mb-4 inline-flex items-center justify-center rounded-card bg-role-soft p-2">
+                    <UserCircle2 aria-hidden="true" className="size-16 text-role-ink" />
                   </div>
-                  <h3 className="text-3xl font-black text-ink-1">
-                    正在评价: <span className="bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">{selectedPeer.name}</span>
+                  <h3 className="text-2xl font-black text-fg-1">
+                    正在评价: <span className="text-role-ink">{selectedPeer.name}</span>
                   </h3>
-                  <p className="mt-2 text-ink-3">打分越高，TA获得的奖励积分就越多哦！</p>
+                  <p className="mt-2 text-fg-3">打分越高，TA获得的奖励积分就越多哦！</p>
                 </div>
 
-                {/* Star Rating */}
-                <div className="mb-10 flex justify-center space-x-2 md:space-x-4">
+                {/* Star rating */}
+                <div className="mb-8 flex justify-center space-x-2 md:space-x-4">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <motion.div
                       key={star}
-                      whileHover={{ scale: 1.2, rotate: 10 }}
-                      whileTap={{ scale: 0.9 }}
+                      whileHover={shouldReduceMotion ? undefined : { scale: 1.2, rotate: 10 }}
+                      whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
                     >
                       <Button
                         variant="ghost"
@@ -231,18 +265,20 @@ export default function StudentPeerReview() {
                         className="size-12 rounded-full hover:bg-transparent md:size-16"
                       >
                         <Star
-                          className={`size-12 transition-all duration-300 md:size-16 ${
+                          aria-hidden="true"
+                          className={cn(
+                            'size-12 transition-all duration-300 md:size-16',
                             star <= (hoverScore || score)
                               ? 'fill-warning text-warning drop-shadow-md'
-                              : 'fill-muted text-border'
-                          }`}
+                              : 'fill-surface-3 text-line-strong',
+                          )}
                         />
                       </Button>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* Comment Section */}
+                {/* Comment section */}
                 <div className="mb-8 space-y-4">
                   {/* Shortcut chips sit above the field on purpose: `FormField` renders its
                       children inside the `<label>`, and a clickable chip nested in a label
@@ -253,7 +289,7 @@ export default function StudentPeerReview() {
                         key={tag}
                         variant="ghost"
                         onClick={() => handleTagClick(tag)}
-                        className="h-auto rounded-card border border-primary/20 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 hover:text-primary"
+                        className="h-auto rounded-card border border-role/20 bg-role-soft px-3 py-1.5 text-sm font-medium text-role-ink hover:bg-role-soft hover:text-role-ink"
                       >
                         + {tag}
                       </Button>
@@ -263,7 +299,7 @@ export default function StudentPeerReview() {
                   <FormField
                     label={
                       <span className="flex items-center text-lg font-bold">
-                        <Sparkles className="mr-2 size-5 text-primary" />
+                        <Sparkles aria-hidden="true" className="mr-2 size-5 text-role" />
                         留下你的夸夸语录 (选填)
                       </span>
                     }
@@ -277,18 +313,22 @@ export default function StudentPeerReview() {
                   </FormField>
                 </div>
 
-                {/* Anonymous Toggle & Submit */}
-                <div className="flex flex-col items-center justify-between gap-4 border-t-2 border-dashed border-border pt-6 sm:flex-row">
+                {/* Anonymous toggle & submit */}
+                <div className="flex flex-col items-center justify-between gap-4 border-t-2 border-dashed border-line-1 pt-6 sm:flex-row">
                   <Button
                     variant="ghost"
                     onClick={() => setIsAnonymous(!isAnonymous)}
-                    className={`h-auto rounded-card px-4 py-2 ${
+                    className={cn(
+                      'h-auto rounded-card px-4 py-2',
                       isAnonymous
-                        ? 'bg-ink-1 text-paper hover:bg-ink-2 hover:text-paper'
-                        : 'bg-muted/50 text-ink-3 hover:bg-muted hover:text-ink-1'
-                    }`}
+                        ? 'bg-fg-1 text-fg-inverse hover:bg-fg-1 hover:text-fg-inverse'
+                        : 'bg-surface-3 text-fg-3 hover:bg-surface-steel hover:text-fg-1',
+                    )}
                   >
-                    <Ghost className={`mr-2 size-5 ${isAnonymous ? 'text-paper' : 'text-ink-3'}`} />
+                    <Ghost
+                      aria-hidden="true"
+                      className={cn('mr-2 size-5', isAnonymous ? 'text-fg-inverse' : 'text-fg-3')}
+                    />
                     <span className="text-sm font-bold">
                       {isAnonymous ? '已开启匿名模式' : '公开我的名字'}
                     </span>
@@ -297,13 +337,9 @@ export default function StudentPeerReview() {
                   <Button
                     onClick={handleSubmit}
                     disabled={submitting || score === 0}
-                    className={`h-auto w-full rounded-card px-8 py-4 text-lg font-black transition-all sm:w-auto ${
-                      score > 0
-                        ? 'bg-gradient-to-r from-primary to-accent-foreground text-primary-foreground hover:-translate-y-1'
-                        : 'bg-muted text-ink-3'
-                    }`}
+                    className="h-auto w-full rounded-card px-8 py-4 text-lg font-black sm:w-auto"
                   >
-                    <Send className="mr-2 size-5" />
+                    <Send aria-hidden="true" className="mr-2 size-5" />
                     发送评价并领奖
                   </Button>
                 </div>
@@ -319,13 +355,13 @@ export default function StudentPeerReview() {
                   icon={MessageSquareHeart}
                   title="请在左侧选择一位同学"
                   description="给出评价后，你们双方都能获得积分奖励哦！"
-                  className="h-full min-h-[400px] border-4 border-dashed bg-paper/50"
+                  className="h-full min-h-[400px] border-dashed"
                 />
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
       </div>
-    </div>
+    </PageScaffold>
   );
 }

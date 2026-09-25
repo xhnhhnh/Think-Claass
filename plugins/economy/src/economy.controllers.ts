@@ -15,130 +15,171 @@
  *
  * Collapsing either into the other is a breaking API change, not a cleanup.
  *
- * Authorization is intentionally NOT added here. HANDOFF §10 records that only routes
- * calling `requireActorRole` are protected and most read the actor directly; changing
- * that is the "systematic authorization" work that lands with plugin permission
- * declarations, not with a relocation. Adding checks here would silently change the
- * contract this round is supposed to preserve.
+ * Authorization was the "systematic authorization" work HANDOFF §10 deferred, and it is
+ * now here (`./economy.authorization.js`: 401 before every validation message, 403 for a
+ * known caller without the role). Every route resolves the caller from the kernel's verified
+ * request context, and the service narrows the answer to what that caller owns:
+ *
+ *   - balance / portfolio / overview reads: student (own row), parent (linked child),
+ *     teacher (own class), admin;
+ *   - the asset-write family (deposit, withdraw, buy, sell - every alias): student, own row
+ *     only. A teacher or admin no longer moves a student's points through these routes at all;
+ *   - class stock boards: the class's teacher and its students;
+ *   - interest settlement: admin/superadmin (the cron path is a direct call, not this route);
+ *   - teacher stock CRUD: the owning teacher, or admin.
+ *
+ * The identity of the subject therefore comes from the actor plus the roster, never from the
+ * path alone - which is what made "anonymous can pass any studentId" possible before.
  */
 
-import { Body, Controller, Delete, Get, Inject, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, Req } from '@nestjs/common';
+import type { Request } from 'express';
 
+import { requireActorRole } from './economy.authorization.js';
 import { EconomyService } from './economy.service.js';
 
 function ok<T>(data: T, legacyPayload: Record<string, unknown> = {}) {
   return { success: true, data, ...legacyPayload };
 }
 
+/** A student's assets: their own row, their linked parent, or a teacher of their class. */
+const ASSET_READERS = ['student', 'parent', 'teacher', 'admin', 'superadmin'];
+
+/** A class's stock board is read by its own teacher and its students. */
+const CLASS_READERS = ['student', 'teacher', 'admin', 'superadmin'];
+
+/** Stock administration and the interest settlement button. */
+const STAFF = ['teacher', 'admin', 'superadmin'];
+
 @Controller('api/economy')
 export class EconomyController {
   constructor(@Inject(EconomyService) private readonly economyService: EconomyService) {}
 
   @Post('bank/trigger-interest')
-  async legacyTriggerInterest() {
+  async legacyTriggerInterest(@Req() req: Request) {
+    requireActorRole(req, ['admin', 'superadmin']);
     this.economyService.triggerInterest();
     return { success: true };
   }
 
   @Get('bank/:studentId')
-  async legacyBank(@Param('studentId') studentId: string) {
-    return { success: true, account: await this.economyService.getBankAccount(studentId) };
+  async legacyBank(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ASSET_READERS);
+    return { success: true, account: await this.economyService.getBankAccount(actor, studentId) };
   }
 
   @Post('bank/deposit/:studentId')
-  async legacyDeposit(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    await this.economyService.deposit(studentId, body);
+  async legacyDeposit(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    await this.economyService.deposit(actor, studentId, body);
     return { success: true };
   }
 
   @Post('bank/withdraw/:studentId')
-  async legacyWithdraw(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    await this.economyService.withdraw(studentId, body);
+  async legacyWithdraw(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    await this.economyService.withdraw(actor, studentId, body);
     return { success: true };
   }
 
   @Get('stocks/:classId')
-  async legacyStocks(@Param('classId') classId: string) {
-    return { success: true, stocks: await this.economyService.listStocks(classId) };
+  async legacyStocks(@Req() req: Request, @Param('classId') classId: string) {
+    const actor = requireActorRole(req, CLASS_READERS);
+    return { success: true, stocks: await this.economyService.listStocks(actor, classId) };
   }
 
   @Get('portfolio/:studentId')
-  async legacyPortfolio(@Param('studentId') studentId: string) {
-    return { success: true, portfolio: await this.economyService.listPortfolio(studentId) };
+  async legacyPortfolio(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ASSET_READERS);
+    return { success: true, portfolio: await this.economyService.listPortfolio(actor, studentId) };
   }
 
   @Post('stocks/buy/:studentId')
-  async legacyBuy(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    await this.economyService.buyStock(studentId, body as never);
+  async legacyBuy(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    await this.economyService.buyStock(actor, studentId, body as never);
     return { success: true };
   }
 
   @Post('stocks/sell/:studentId')
-  async legacySell(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    await this.economyService.sellStock(studentId, body as never);
+  async legacySell(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    await this.economyService.sellStock(actor, studentId, body as never);
     return { success: true };
   }
 
   @Get('students/:studentId/overview')
-  async overview(@Param('studentId') studentId: string, @Query('classId') classId?: string) {
-    return ok(await this.economyService.getStudentOverview(studentId, classId));
+  async overview(@Req() req: Request, @Param('studentId') studentId: string, @Query('classId') classId?: string) {
+    const actor = requireActorRole(req, ASSET_READERS);
+    return ok(await this.economyService.getStudentOverview(actor, studentId, classId));
   }
 
   @Get('students/:studentId/bank')
-  async bank(@Param('studentId') studentId: string) {
-    const account = await this.economyService.getBankAccount(studentId);
+  async bank(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ASSET_READERS);
+    const account = await this.economyService.getBankAccount(actor, studentId);
     return ok({ account }, { account });
   }
 
   @Post('students/:studentId/bank/deposits')
-  async deposit(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    return ok(await this.economyService.deposit(studentId, body));
+  async deposit(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    return ok(await this.economyService.deposit(actor, studentId, body));
   }
 
   @Post('students/:studentId/bank/withdrawals')
-  async withdraw(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    return ok(await this.economyService.withdraw(studentId, body));
+  async withdraw(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    return ok(await this.economyService.withdraw(actor, studentId, body));
   }
 
   @Get('classes/:classId/stocks')
-  async stocks(@Param('classId') classId: string) {
-    const stocks = await this.economyService.listStocks(classId);
+  async stocks(@Req() req: Request, @Param('classId') classId: string) {
+    const actor = requireActorRole(req, CLASS_READERS);
+    const stocks = await this.economyService.listStocks(actor, classId);
     return ok({ stocks }, { stocks });
   }
 
   @Get('students/:studentId/portfolio')
-  async portfolio(@Param('studentId') studentId: string) {
-    const portfolio = await this.economyService.listPortfolio(studentId);
+  async portfolio(@Req() req: Request, @Param('studentId') studentId: string) {
+    const actor = requireActorRole(req, ASSET_READERS);
+    const portfolio = await this.economyService.listPortfolio(actor, studentId);
     return ok({ portfolio }, { portfolio });
   }
 
   @Post('students/:studentId/stocks/buy')
-  async buy(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    return ok(await this.economyService.buyStock(studentId, body as never));
+  async buy(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    return ok(await this.economyService.buyStock(actor, studentId, body as never));
   }
 
   @Post('students/:studentId/stocks/sell')
-  async sell(@Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
-    return ok(await this.economyService.sellStock(studentId, body as never));
+  async sell(@Req() req: Request, @Param('studentId') studentId: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, ['student']);
+    return ok(await this.economyService.sellStock(actor, studentId, body as never));
   }
 
   @Post('bank/interest')
-  async triggerInterest() {
+  async triggerInterest(@Req() req: Request) {
+    requireActorRole(req, ['admin', 'superadmin']);
     return ok(this.economyService.triggerInterest());
   }
 
   @Post('teacher/stocks')
-  async createStock(@Body() body: Record<string, unknown>) {
-    return ok(await this.economyService.createStock(body as never));
+  async createStock(@Req() req: Request, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, STAFF);
+    return ok(await this.economyService.createStock(actor, body as never));
   }
 
   @Put('teacher/stocks/:id')
-  async updateStock(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    return ok(await this.economyService.updateStock(id, body));
+  async updateStock(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const actor = requireActorRole(req, STAFF);
+    return ok(await this.economyService.updateStock(actor, id, body));
   }
 
   @Delete('teacher/stocks/:id')
-  async deleteStock(@Param('id') id: string) {
-    return ok(await this.economyService.deleteStock(id));
+  async deleteStock(@Req() req: Request, @Param('id') id: string) {
+    const actor = requireActorRole(req, STAFF);
+    return ok(await this.economyService.deleteStock(actor, id));
   }
 }

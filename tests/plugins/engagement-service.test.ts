@@ -96,6 +96,11 @@ function createPorts() {
       calls.adjustments.push({ studentId, delta, reason });
       return { totalPoints: 0, availablePoints: 0 };
     },
+    async awardStudentPoints({ studentId, amount, type, description }) {
+      calls.adjustments.push({ studentId, delta: amount, reason: description });
+      calls.ledger.push({ studentId, type, amount });
+      return { totalPoints: 0, availablePoints: 0 };
+    },
     async transferStudentCredits() {
       return { value: { availablePoints: 0 } };
     },

@@ -1,13 +1,13 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link2, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
 import { useKnowledgeEdges, useKnowledgeNodes, useSubjects } from '@/features/learning/hooks/useKnowledge';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
@@ -134,51 +134,58 @@ export default function TeacherKnowledgeGraph() {
     }
   };
 
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-knowledge-graph:create-subject',
+      label: '新增学科',
+      icon: Plus,
+      keywords: ['学科', '知识点', '图谱'],
+      run: () => setShowSubjectDialog(true),
+    },
+  ]);
+
   if (isSubjectsLoading) {
     return (
-      <div className="flex items-center justify-center gap-3 py-20 text-ink-3">
+      <PageScaffold variant="dashboard" className="flex items-center justify-center gap-3 py-20 text-fg-3">
         <Spinner label="正在加载学科" />
         正在加载学科...
-      </div>
+      </PageScaffold>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="知识点图谱"
-        description="支持层级与前置依赖（prerequisite）"
-        icon={Link2}
-        actions={
-          <Button variant="outline" onClick={() => setShowSubjectDialog(true)}>
-            新增学科
-          </Button>
-        }
-      />
-
-      <Card>
-        <CardContent>
-          <Toolbar
-            filters={
-              <>
-                <Select
-                  aria-label="选择学科"
-                  wrapperClassName="w-full sm:w-56"
-                  value={selectedSubjectId ?? ''}
-                  onChange={(e) => setSelectedSubjectId(e.target.value ? Number(e.target.value) : null)}
-                >
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-                {!subjects.length && <div className="text-sm text-ink-3">请先新增学科</div>}
-              </>
-            }
-          />
-        </CardContent>
-      </Card>
+    <PageScaffold
+      variant="dashboard"
+      title="知识点图谱"
+      description="支持层级与前置依赖（prerequisite）"
+      actions={
+        <Button variant="outline" onClick={() => setShowSubjectDialog(true)}>
+          新增学科
+        </Button>
+      }
+      toolbar={
+        <Toolbar
+          filters={
+            <>
+              <Select
+                aria-label="选择学科"
+                wrapperClassName="w-full sm:w-56"
+                value={selectedSubjectId ?? ''}
+                onChange={(e) => setSelectedSubjectId(e.target.value ? Number(e.target.value) : null)}
+              >
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+              {!subjects.length && <div className="text-sm text-fg-3">请先新增学科</div>}
+            </>
+          }
+        />
+      }
+    >
 
       {!!selectedSubjectId && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -215,7 +222,7 @@ export default function TeacherKnowledgeGraph() {
             </div>
 
             {isNodesLoading ? (
-              <div className="flex items-center justify-center gap-3 py-10 text-ink-3">
+              <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
                 <Spinner label="正在加载节点" />
                 正在加载节点...
               </div>
@@ -224,17 +231,17 @@ export default function TeacherKnowledgeGraph() {
             ) : (
               <div className="space-y-2">
                 {nodes.map((n) => (
-                  <div key={n.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-muted/50 p-4">
+                  <div key={n.id} className="flex items-center justify-between gap-3 rounded-card border border-line-1 bg-surface-3/50 p-4">
                     <div className="min-w-0">
-                      <div className="truncate font-semibold text-ink-1">{n.name}</div>
-                      <div className="text-xs text-ink-3">ID: {n.id} {n.parent_id ? `· 父节点: ${n.parent_id}` : ''}</div>
+                      <div className="truncate font-semibold text-fg-1">{n.name}</div>
+                      <div className="text-xs text-fg-3">ID: {n.id} {n.parent_id ? `· 父节点: ${n.parent_id}` : ''}</div>
                     </div>
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       aria-label={`删除知识点${n.name}`}
                       title="删除"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="text-danger hover:bg-danger/10 hover:text-danger"
                       onClick={() => setNodeToDelete(n.id)}
                     >
                       <Trash2 />
@@ -294,8 +301,8 @@ export default function TeacherKnowledgeGraph() {
             ) : (
               <div className="space-y-2">
                 {edges.map((e) => (
-                  <div key={e.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-muted/50 p-4">
-                    <div className="text-sm text-ink-2">
+                  <div key={e.id} className="flex items-center justify-between gap-3 rounded-card border border-line-1 bg-surface-3/50 p-4">
+                    <div className="text-sm text-fg-2">
                       {e.from_node_id} → {e.to_node_id} · {e.edge_type}
                     </div>
                     <Button
@@ -303,7 +310,7 @@ export default function TeacherKnowledgeGraph() {
                       size="icon-sm"
                       aria-label={`删除关系${e.from_node_id}到${e.to_node_id}`}
                       title="删除"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="text-danger hover:bg-danger/10 hover:text-danger"
                       onClick={() => setEdgeToDelete(e.id)}
                     >
                       <Trash2 />
@@ -364,6 +371,6 @@ export default function TeacherKnowledgeGraph() {
         isPending={isDeleting}
         onConfirm={handleDeleteEdge}
       />
-    </div>
+    </PageScaffold>
   );
 }

@@ -12,6 +12,7 @@
  */
 
 export type * from './admin.js';
+export type * from './ai-study.js';
 export type * from './auth.js';
 export type * from './battles.js';
 export type * from './challenge.js';
@@ -21,6 +22,7 @@ export type * from './dungeon.js';
 export type * from './economy.js';
 export type * from './engagement.js';
 export type * from './gacha.js';
+export type * from './homework.js';
 export type * from './identity.js';
 export type * from './insights.js';
 export type * from './learning.js';

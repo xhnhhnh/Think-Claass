@@ -68,7 +68,13 @@ describe('runtime configuration', () => {
 
     // And the login route that sits outside the layout. Found by component rather than by
     // `endsWith('/login')`, which also matches the unrelated `/login` route.
-    const login = flatRoutesWithAdmin().find((route) => route.component === '@/pages/Admin/Login');
+    //
+    // The component path here is the real module, not a `src/pages/Admin` shim: those four
+    // one-line forwarding files were deleted in the UI-R C phase, which is also what removed
+    // the last of the legacy `src/pages/Admin` tree.
+    const login = flatRoutesWithAdmin().find(
+      (route) => route.component === '@/features/admin/pages/AdminLoginPage',
+    );
     expect(login?.path).toBe('/control-room/login');
   });
 
@@ -93,6 +99,11 @@ describe('runtime configuration', () => {
 
     expect(flat).toHaveLength(9);
     expect(layouts).toHaveLength(4);
-    expect(flat.length + layouts.length + children).toBe(80);
+    // 84 rather than the JSX tree's 80: the opening-guide round added `settings` to the student and
+    // the parent areas and `profile` to the admin console, and the homework round added five (the
+    // teacher list and grade sheet, the student list, attempt page and result page). This test's
+    // subject is that the injected path neither drops nor duplicates a route, so it moves with the
+    // table rather than pinning a number of its own.
+    expect(flat.length + layouts.length + children).toBe(92);
   });
 });

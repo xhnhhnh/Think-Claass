@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { Award, Trophy, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Award, Trophy } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Spinner } from '@/components/ui/spinner';
 
 import { certificatesApi } from '@/features/engagement/api/certificatesApi';
 
@@ -12,10 +16,21 @@ interface Certificate {
   created_at: string;
 }
 
+/**
+ * 荣誉奖状.
+ *
+ * A `list` page: the gold banner that repeated the page title is gone - the shell's
+ * context bar prints it - and its one line of copy is the scaffold's description.
+ * The award cards keep their spring entrance and their small hover tilt (dropped
+ * under `prefers-reduced-motion`), and the gold family is the `warning` token rather
+ * than `yellow-*`/`orange-*`, so it follows the palette instead of being a fixed
+ * shade. The fetch, its `user` dependency and every string are unchanged.
+ */
 export default function StudentCertificates() {
   const user = useStore((state) => state.user);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (user?.studentId) {
@@ -40,91 +55,62 @@ export default function StudentCertificates() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
-      </div>
+      <PageScaffold variant="list" className="flex items-center justify-center py-20">
+        <Spinner size="lg" label="正在加载奖状" className="text-warning" />
+      </PageScaffold>
     );
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-5xl mx-auto space-y-8"
-    >
-      {/* Header */}
-      <motion.div 
-        initial={{ y: -20 }}
-        animate={{ y: 0 }}
-        className="bg-paper rounded-panel p-10 shadow-raised border-b-8 border-yellow-200 flex flex-col md:flex-row justify-between items-center relative overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-400 opacity-10 pointer-events-none"></div>
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
-        
-        <div className="relative z-10 mb-6 md:mb-0 text-center md:text-left">
-          <h2 className="text-5xl font-black text-gray-900 mb-4 drop-shadow-sm flex items-center justify-center md:justify-start">
-            <Award className="w-12 h-12 text-yellow-500 mr-4" />
-            荣誉奖状
-          </h2>
-          <p className="text-xl text-gray-600 font-bold">快来看看你都获得了哪些闪亮的荣誉吧！</p>
-        </div>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {certificates.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="col-span-full bg-paper rounded-[3rem] p-16 text-center border-8 border-dashed border-gray-200 shadow-sm"
-          >
-            <div className="inline-flex items-center justify-center p-8 bg-gray-100 rounded-full mb-6 shadow-inner">
-              <Trophy className="h-16 w-16 text-gray-400" />
-            </div>
-            <h3 className="text-3xl font-black text-gray-600">荣誉墙空空如也</h3>
-            <p className="text-xl font-bold text-gray-400 mt-4">继续努力学习，争取早日拿到你的第一张奖状吧！</p>
-          </motion.div>
-        ) : (
-          certificates.map((cert, index) => (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: index * 0.1, type: "spring", stiffness: 200 }}
-              whileHover={{ scale: 1.05, rotate: index % 2 === 0 ? 2 : -2 }}
-              key={cert.id} 
-              className="bg-paper rounded-panel shadow-raised overflow-hidden relative group border-4 border-yellow-300 transform transition-transform"
+    <PageScaffold variant="list" title="荣誉奖状" description="快来看看你都获得了哪些闪亮的荣誉吧！">
+      {certificates.length === 0 ? (
+        <EmptyState
+          icon={Trophy}
+          title="荣誉墙空空如也"
+          description="继续努力学习，争取早日拿到你的第一张奖状吧！"
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {certificates.map((cert, index) => (
+            <motion.div
+              key={cert.id}
+              initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.94, y: 16 }) }}
+              animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1, y: 0 }) }}
+              transition={{ delay: index * 0.08, type: 'spring', stiffness: 200 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.03, rotate: index % 2 === 0 ? 1.5 : -1.5 }}
+              className="overflow-hidden rounded-panel border border-warning/40 bg-surface-2 shadow-card"
             >
-              {/* 金边质感背景 */}
-              <div className="absolute inset-0 bg-gradient-to-br from-yellow-100 via-orange-50 to-yellow-200 opacity-80"></div>
-              
-              <div className="relative z-10 p-8 flex flex-col h-full items-center text-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-6 shadow-raised border-4 border-white">
-                  <Award className="w-12 h-12 text-white" />
-                </div>
-                
-                <h3 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-red-600 mb-2 drop-shadow-sm leading-tight">
-                  {cert.title}
-                </h3>
-                
-                <div className="w-16 h-1 bg-yellow-400 rounded-full my-4"></div>
-                
-                <p className="text-gray-700 font-medium text-lg mb-6 flex-1 leading-relaxed">
-                  {cert.description || '表现优异，特发此状，以资鼓励。'}
-                </p>
-                
-                <div className="mt-auto pt-6 border-t-2 border-dashed border-yellow-300/50 w-full">
-                  <p className="text-sm font-bold text-orange-400 uppercase tracking-widest">
-                    授予日期
+              {/* The gold wash is the token scale, not a fixed `yellow-*` gradient. */}
+              <div className="bg-gradient-to-br from-warning-soft via-surface-3 to-warning-soft/70 p-8">
+                <div className="flex flex-col items-center text-center">
+                  <div className="mb-5 flex size-20 items-center justify-center rounded-full border-4 border-surface-2 bg-gradient-to-br from-warning to-warning-ink shadow-raised">
+                    <Award aria-hidden="true" className="size-10 text-warning-soft" />
+                  </div>
+
+                  <h3 className="text-2xl font-black leading-tight text-warning-ink">
+                    {cert.title}
+                  </h3>
+
+                  <div className="my-4 h-1 w-16 rounded-pill bg-warning/60" />
+
+                  <p className="text-base font-medium leading-relaxed text-fg-2">
+                    {cert.description || '表现优异，特发此状，以资鼓励。'}
                   </p>
-                  <p className="text-gray-600 font-bold mt-1">
-                    {new Date(cert.created_at).toLocaleDateString()}
-                  </p>
+
+                  <div className="mt-6 w-full border-t-2 border-dashed border-warning/40 pt-5">
+                    <p className="text-xs font-bold uppercase tracking-widest text-warning-ink">
+                      授予日期
+                    </p>
+                    <p className="mt-1 font-bold text-fg-2">
+                      {new Date(cert.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               </div>
             </motion.div>
-          ))
-        )}
-      </div>
-    </motion.div>
+          ))}
+        </div>
+      )}
+    </PageScaffold>
   );
 }

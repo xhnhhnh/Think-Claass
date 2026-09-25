@@ -26,10 +26,23 @@ describe('route table', () => {
   const layoutRoutes = layoutRoutesFn();
 
   it('keeps the route count the JSX tree had', () => {
-    // 80 <Route> elements: 9 flat, 4 layouts, 67 children (28 teacher, 23 student, 6 parent, 10 admin).
+    // 80 <Route> elements in the JSX tree this table replaced: 9 flat, 4 layouts, 67 children
+    // (28 teacher, 23 student, 6 parent, 10 admin). The opening-guide round added three more
+    // children - `settings` for the student and the parent areas and `profile` for the console -
+    // because a route table that gives only some roles a settings page is what made
+    // 「重新开始引导」 unreachable for the others. Teacher kept its existing `settings` path.
+    //
+    // The homework round added five, all of them new screens rather than aliases: the teacher list
+    // and its grade sheet, plus the student list, attempt page and result page. The two legacy
+    // `assignments` routes are *kept* - as unlabelled aliases of the new homework pages, so old
+    // bookmarks and the mobile dock still land somewhere - which is why the total grew by five
+    // rather than shrinking by the two pages that were deleted. 71 -> 76 children, 84 -> 89 routes.
+    //
+    // The AI 智学 round added three more: the teacher board, the student's set page and the student's
+    // answering screen. 76 -> 79 children, 89 -> 92 routes.
     const children = layoutRoutes.reduce((total, layout) => total + layout.children.length, 0);
-    expect(children).toBe(67);
-    expect(flatRoutes.length + layoutRoutes.length + children).toBe(80);
+    expect(children).toBe(79);
+    expect(flatRoutes.length + layoutRoutes.length + children).toBe(92);
   });
 
   it('keeps every layout path', () => {
@@ -56,6 +69,7 @@ describe('route table', () => {
       [
         '',
         'add-student',
+        'ai-study',
         'analysis',
         'assignments',
         'attendance',
@@ -68,6 +82,8 @@ describe('route table', () => {
         'economy',
         'exams',
         'features',
+        'homework',
+        'homework/:id/grade',
         'knowledge',
         'lucky-draw-config',
         'papers',
@@ -91,16 +107,20 @@ describe('route table', () => {
     const labelled = teacher.children.filter((child) => child.label).map((child) => child.path);
     const unlabelled = teacher.children.filter((child) => !child.label).map((child) => child.path);
 
-    // 25 menu entries, matching the old hand-written navItems array.
-    expect(labelled).toHaveLength(25);
-    // Reachable but not linked, exactly as before.
-    expect([...unlabelled].sort()).toEqual(['add-student', 'papers/:id/edit', 'task-tree']);
+    // 25 menu entries, matching the old hand-written navItems array. 作业管理 moved from
+    // `/teacher/assignments` to `/teacher/homework`, which keeps the count and the dock slot: the
+    // legacy path is still routed, but as an unlabelled alias of the same page.
+    expect(labelled).toHaveLength(26);
+    // Reachable but not linked, exactly as before - plus `assignments` (the alias) and the grade
+    // sheet, which is opened from a row on the homework list.
+    expect([...unlabelled].sort()).toEqual(['add-student', 'assignments', 'homework/:id/grade', 'papers/:id/edit', 'task-tree']);
   });
 
   it('keeps the student child paths, including the parameterised ones', () => {
     const student = layoutRoutes.find((layout) => layout.path === '/student')!;
     expect([...student.children.map((child) => child.path)].sort()).toEqual(
       [
+        '',
         'pet',
         'shop',
         'auction',
@@ -118,12 +138,18 @@ describe('route table', () => {
         'interactive-wall',
         'peer-review',
         'guild-pk',
+        'homework',
+        'homework/:id',
+        'homework/:id/result',
         'papers',
         'papers/:id',
         'wrong-questions',
         'plan',
+        'ai-study',
+        'ai-study/:id',
         'assignments',
         'team-quests',
+        'settings',
       ].sort(),
     );
   });
@@ -132,10 +158,18 @@ describe('route table', () => {
     const student = layoutRoutes.find((layout) => layout.path === '/student')!;
     const labelled = student.children.filter((child) => child.label).map((child) => child.path);
 
-    // 22 menu entries, matching the old hand-written allNavItems array; `papers/:id` is the one
-    // route that is reachable without being linked.
-    expect(labelled).toHaveLength(22);
-    expect(student.children.filter((child) => !child.label).map((child) => child.path)).toEqual(['papers/:id']);
+    // 24 menu entries include the growth overview. 我的作业 took the slot `/student/assignments` held,
+    // so the count is unchanged; the legacy path stays routed as an unlabelled alias.
+    expect(labelled).toHaveLength(25);
+    // Sorted on both sides: this compares the *set*, and the array order is the menu order, which
+    // the layout owns - an assertion on it would make a menu reordering fail a routing test.
+    expect([...student.children.filter((child) => !child.label).map((child) => child.path)].sort()).toEqual([
+      'ai-study/:id',
+      'assignments',
+      'homework/:id',
+      'homework/:id/result',
+      'papers/:id',
+    ]);
   });
 
   it('keeps the parent and admin child paths', () => {
@@ -147,6 +181,7 @@ describe('route table', () => {
       'tasks',
       'leave-request',
       'assignments',
+      'settings',
     ]);
 
     const admin = layoutRoutes.find((layout) => layout.path === '/beiadmin')!;
@@ -163,6 +198,7 @@ describe('route table', () => {
         'codes',
         'openapi',
         'reset',
+        'profile',
       ].sort(),
     );
   });
@@ -187,7 +223,7 @@ describe('route table', () => {
       .map((child) => child.path)
       .sort();
 
-    // 14 student flags gated by a route, plus the parent one.
+    // 15 student flags gated by a route, plus the parent one.
     expect(gated).toEqual(
       [
         'shop',
@@ -204,6 +240,7 @@ describe('route table', () => {
         'interactive-wall',
         'peer-review',
         'guild-pk',
+        'ai-study',
         'tasks',
       ].sort(),
     );

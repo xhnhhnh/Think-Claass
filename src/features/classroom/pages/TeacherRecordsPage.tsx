@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { ArrowDownRight, ArrowUpRight, Clock } from 'lucide-react';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { SectionCard } from '@/components/ui/section-card';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
+import { Toolbar } from '@/components/ui/toolbar';
 
 interface ScoreRecord {
   id: number;
@@ -50,6 +52,11 @@ const TYPE_META: Record<string, { label: string; variant: 'info' | 'success' | '
  *
  * `ScoreRecord`, not `Record`: the row interface used to shadow the built-in
  * utility type, which the generic `DataTableColumn<Record>` cannot tolerate.
+ *
+ * The list shape: `PageScaffold variant="list"` owns the width, the type filter lives in
+ * the scaffold's sticky `toolbar` slot, and `DataTable` keeps its own loading and empty
+ * states - the hand-built `SectionCard` around it was a second container, and a second
+ * heading, for the same content.
  */
 export default function TeacherRecords() {
   const [records, setRecords] = useState<ScoreRecord[]>([]);
@@ -73,19 +80,30 @@ export default function TeacherRecords() {
     fetchRecords();
   }, []);
 
+  // The page has no button of its own; its one action is re-reading the ledger.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-records:refresh',
+      label: '刷新记录',
+      icon: Clock,
+      keywords: ['积分', '兑换', '明细'],
+      run: () => void fetchRecords(),
+    },
+  ]);
+
   const filteredRecords = records.filter(record => filterType === 'ALL' || record.type === filterType);
 
   const columns: Array<DataTableColumn<ScoreRecord>> = [
     {
       key: 'created_at',
       header: '时间',
-      className: 'text-ink-3',
+      className: 'text-fg-3',
       render: (record) => new Date(record.created_at).toLocaleString(),
     },
     {
       key: 'student_name',
       header: '学生',
-      className: 'font-medium text-ink-1',
+      className: 'font-medium text-fg-1',
     },
     {
       key: 'type',
@@ -98,13 +116,13 @@ export default function TeacherRecords() {
     {
       key: 'description',
       header: '描述',
-      className: 'text-ink-3',
+      className: 'text-fg-3',
     },
     {
       key: 'amount',
       header: '积分变动',
       render: (record) => (
-        <div className={`flex items-center font-medium ${record.amount > 0 ? 'text-primary' : 'text-destructive'}`}>
+        <div className={`flex items-center font-medium ${record.amount > 0 ? 'text-role' : 'text-danger'}`}>
           {record.amount > 0 ? (
             <ArrowUpRight aria-hidden="true" className="mr-1 h-4 w-4" />
           ) : (
@@ -117,24 +135,23 @@ export default function TeacherRecords() {
   ];
 
   return (
-    <SectionCard
-      title={
-        <span className="flex items-center">
-          <Clock aria-hidden="true" className="mr-2 h-5 w-5 text-ink-3" />
-          近期积分与兑换记录
-        </span>
-      }
-      actions={
-        <Select
-          aria-label="筛选记录类型"
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          wrapperClassName="w-40"
-        >
-          {FILTER_OPTIONS.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
+    <PageScaffold
+      variant="list"
+      toolbar={
+        <Toolbar
+          filters={
+            <Select
+              aria-label="筛选记录类型"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              wrapperClassName="w-40"
+            >
+              {FILTER_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </Select>
+          }
+        />
       }
     >
       <DataTable<ScoreRecord>
@@ -142,16 +159,16 @@ export default function TeacherRecords() {
         rows={filteredRecords}
         getRowKey={(record) => record.id}
         isLoading={loading}
-        rowClassName={() => 'hover:bg-muted/50'}
+        rowClassName={() => 'hover:bg-surface-3/50'}
         empty={
           <EmptyState
             icon={Clock}
             title="暂无记录"
             description="当前筛选条件下没有积分或兑换记录"
-            className="bg-paper"
+            className="bg-surface-2"
           />
         }
       />
-    </SectionCard>
+    </PageScaffold>
   );
 }

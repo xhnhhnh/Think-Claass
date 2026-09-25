@@ -12,7 +12,6 @@ import {
   HardDrive,
   RefreshCw,
   School,
-  Server,
   ShieldAlert,
   Target,
   Upload,
@@ -23,9 +22,10 @@ import { toast } from 'sonner';
 import { ADMIN_PATH } from '@/constants';
 import { adminClient } from '@/features/admin/api/adminClient';
 import { useAdminStatsQuery, useDatabaseImportMutation } from '@/features/admin/hooks/useAdminSystem';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Spinner } from '@/components/ui/spinner';
 import { FileInput } from '@/components/ui/file-input';
@@ -44,7 +44,10 @@ import { cn } from '@/lib/utils';
  * language now, so the override block has nothing left to correct and is deleted.
  *
  * `系统仪表盘`, `导出数据`, `导入数据` and `系统重置` are unchanged:
- * `Admin/Dashboard.test.tsx` finds the page by all four.
+ * `Admin/Dashboard.test.tsx` finds the page by all four. The heading comes from
+ * `PageScaffold title`, which suppresses it while a shell owns the `h1` - so the test's
+ * standalone render still has one and production still prints it exactly once - and the
+ * four actions are command-palette commands as well as context-bar buttons.
  */
 function formatBytes(bytes: number) {
   if (bytes === 0) return '0 B';
@@ -111,50 +114,88 @@ export default function AdminDashboardPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="系统仪表盘"
-        description="实时监控系统运行状态与数据统计"
-        icon={Server}
-        actions={
-          <>
-            <FileInput
-              ref={fileInputRef}
-              accept=".sqlite"
-              onChange={handleImport}
-              label="选择要导入的数据文件"
-            />
-            <Button variant="outline" onClick={() => setExportOpen(true)}>
-              <Download data-icon="inline-start" />
-              导出数据
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importDatabaseMutation.isPending}
-            >
-              <Upload data-icon="inline-start" />
-              {importDatabaseMutation.isPending ? '导入中...' : '导入数据'}
-            </Button>
-            <Button variant="outline" onClick={() => refetch()} disabled={isPending || isRefetching}>
-              <RefreshCw data-icon="inline-start" className={cn((isPending || isRefetching) && 'animate-spin')} />
-              刷新数据
-            </Button>
-            <Button variant="destructive" onClick={() => navigate(`${ADMIN_PATH}/reset`)}>
-              <ShieldAlert data-icon="inline-start" />
-              系统重置
-            </Button>
-          </>
-        }
-      />
+  useRegisterPageCommands([
+    {
+      id: 'admin-dashboard:export',
+      label: '导出数据',
+      icon: Download,
+      keywords: ['数据库', '备份', '导出'],
+      run: () => setExportOpen(true),
+    },
+    {
+      id: 'admin-dashboard:import',
+      label: '导入数据',
+      icon: Upload,
+      keywords: ['数据库', '恢复', '导入'],
+      run: () => fileInputRef.current?.click(),
+      disabled: importDatabaseMutation.isPending,
+    },
+    {
+      id: 'admin-dashboard:refresh',
+      label: '刷新数据',
+      icon: RefreshCw,
+      keywords: ['统计', '刷新'],
+      run: () => void refetch(),
+      disabled: isPending || isRefetching,
+    },
+    {
+      id: 'admin-dashboard:reset',
+      label: '系统重置',
+      icon: ShieldAlert,
+      keywords: ['重置', '清空', '高危'],
+      run: () => navigate(`${ADMIN_PATH}/reset`),
+    },
+  ]);
 
+  return (
+    <PageScaffold
+      variant="dashboard"
+      title="系统仪表盘"
+      description="实时监控系统运行状态与数据统计"
+      actions={
+        <>
+          <FileInput
+            ref={fileInputRef}
+            accept=".sqlite"
+            onChange={handleImport}
+            label="选择要导入的数据文件"
+          />
+          <Button variant="outline" onClick={() => setExportOpen(true)}>
+            <Download data-icon="inline-start" />
+            导出数据
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importDatabaseMutation.isPending}
+          >
+            <Upload data-icon="inline-start" />
+            {importDatabaseMutation.isPending ? '导入中...' : '导入数据'}
+          </Button>
+          <Button variant="outline" onClick={() => refetch()} disabled={isPending || isRefetching}>
+            <RefreshCw data-icon="inline-start" className={cn((isPending || isRefetching) && 'animate-spin')} />
+            刷新数据
+          </Button>
+          <Button variant="destructive" onClick={() => navigate(`${ADMIN_PATH}/reset`)}>
+            <ShieldAlert data-icon="inline-start" />
+            系统重置
+          </Button>
+        </>
+      }
+    >
       {!stats && isPending ? (
         <div className="flex h-64 items-center justify-center">
-          <Spinner size="lg" label="正在加载系统统计" className="text-primary" />
+          <Spinner size="lg" label="正在加载系统统计" className="text-role" />
         </div>
       ) : stats ? (
         <div className="space-y-6">
+          <section aria-label="待处理事项" className="rounded-panel border border-line-1 bg-surface-2 p-5 shadow-card">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-semibold text-fg-1">待处理事项</h2><p className="text-sm text-fg-3">先处理影响内容发布和教师加入的事项。</p></div><span className="text-xs text-fg-3">统计数据每 30 秒更新</span></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button variant="outline" className="h-auto justify-between p-4" onClick={() => navigate(`${ADMIN_PATH}/articles`)}><span>待发布文章</span><strong className="tabular-nums text-warning">{stats.database.draftArticles ?? 0}</strong></Button>
+              <Button variant="outline" className="h-auto justify-between p-4" onClick={() => navigate(`${ADMIN_PATH}/teachers`)}><span>待激活教师</span><strong className="tabular-nums text-warning">{stats.database.inactiveTeachers ?? 0}</strong></Button>
+            </div>
+          </section>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             <StatCard label="总用户数" value={stats.database.totalUsers} icon={Users} tone="primary" />
             <StatCard label="教师人数" value={stats.database.teachers} icon={School} tone="info" />
@@ -177,50 +218,50 @@ export default function AdminDashboardPage() {
             <div className="space-y-6">
               <div>
                 <div className="mb-2 flex justify-between">
-                  <span className="flex items-center text-sm font-medium text-ink-2">
+                  <span className="flex items-center text-sm font-medium text-fg-2">
                     <Cpu className="mr-2 size-4" />
                     CPU 使用率 ({stats.server.cpuCount} 核)
                   </span>
-                  <span className="text-sm font-bold text-ink-1">{stats.server.cpuUsage}%</span>
+                  <span className="text-sm font-bold text-fg-1">{stats.server.cpuUsage}%</span>
                 </div>
                 <ProgressBar value={stats.server.cpuUsage} label={`CPU 使用率 ${stats.server.cpuUsage}%`} />
               </div>
 
               <div>
                 <div className="mb-2 flex justify-between">
-                  <span className="flex items-center text-sm font-medium text-ink-2">
+                  <span className="flex items-center text-sm font-medium text-fg-2">
                     <HardDrive className="mr-2 size-4" />
                     内存使用率
                   </span>
-                  <span className="text-sm font-bold text-ink-1">{stats.server.memUsage}%</span>
+                  <span className="text-sm font-bold text-fg-1">{stats.server.memUsage}%</span>
                 </div>
                 <ProgressBar value={stats.server.memUsage} label={`内存使用率 ${stats.server.memUsage}%`} />
-                <p className="mt-2 text-right text-xs text-ink-3">
+                <p className="mt-2 text-right text-xs text-fg-3">
                   {formatBytes(stats.server.usedMem)} / {formatBytes(stats.server.totalMem)}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
-                <div className="rounded-card border border-border bg-muted/40 p-4">
-                  <div className="mb-2 flex items-center text-sm text-ink-3">
+              <div className="grid grid-cols-2 gap-4 border-t border-line-1 pt-4">
+                <div className="rounded-card border border-line-1 bg-surface-3/50 p-4">
+                  <div className="mb-2 flex items-center text-sm text-fg-3">
                     <Clock className="mr-2 size-4" />
                     运行时长
                   </div>
-                  <p className="font-semibold text-ink-1">{formatUptime(stats.server.uptime)}</p>
+                  <p className="font-semibold text-fg-1">{formatUptime(stats.server.uptime)}</p>
                 </div>
-                <div className="rounded-card border border-border bg-muted/40 p-4">
-                  <div className="mb-2 flex items-center text-sm text-ink-3">
+                <div className="rounded-card border border-line-1 bg-surface-3/50 p-4">
+                  <div className="mb-2 flex items-center text-sm text-fg-3">
                     <Activity className="mr-2 size-4" />
                     运行平台
                   </div>
-                  <p className="font-semibold uppercase text-ink-1">{stats.server.platform}</p>
+                  <p className="font-semibold uppercase text-fg-1">{stats.server.platform}</p>
                 </div>
               </div>
             </div>
           </SectionCard>
         </div>
       ) : (
-        <div className="rounded-panel border border-destructive/30 bg-destructive/10 p-6 text-destructive">
+        <div className="rounded-panel border border-danger/30 bg-danger-soft p-6 text-danger">
           暂时无法获取系统统计数据，请稍后重试。
         </div>
       )}
@@ -256,6 +297,6 @@ export default function AdminDashboardPage() {
         isPending={importDatabaseMutation.isPending}
         onConfirm={runImport}
       />
-    </div>
+    </PageScaffold>
   );
 }

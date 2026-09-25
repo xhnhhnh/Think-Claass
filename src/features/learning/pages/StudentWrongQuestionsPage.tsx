@@ -1,12 +1,25 @@
 import { useState } from 'react';
-import { LoaderCircle, Sparkles, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CheckCircle2, FileText, Sparkles } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Spinner } from '@/components/ui/spinner';
 
 import { wrongQuestionsApi } from '@/features/learning/api/wrongQuestionsApi';
 import { useWrongQuestions } from '@/features/learning/hooks/useWrongQuestions';
 
+/**
+ * 错题本.
+ *
+ * A `list` page: the intro card that repeated the page title is gone - the shell's
+ * context bar prints it - and its one line of copy moved into the scaffold's
+ * description slot. The two mutations, the query invalidation and the expansion
+ * state are untouched; the surfaces and the two buttons are on the tokens.
+ */
 export default function StudentWrongQuestions() {
   const queryClient = useQueryClient();
   const { data: wrongs = [], isLoading } = useWrongQuestions();
@@ -31,65 +44,71 @@ export default function StudentWrongQuestions() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-ink-3">
-        <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
-        正在加载错题本...
-      </div>
+      <PageScaffold variant="list" className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center gap-3 text-fg-3">
+          <Spinner size="lg" label="正在加载错题本" />
+          正在加载错题本...
+        </div>
+      </PageScaffold>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-paper/80 backdrop-blur-xl p-6 rounded-panel border border-white/60 shadow-card">
-        <div className="text-lg font-bold text-ink-1 mb-2">错题本</div>
-        <div className="text-sm text-ink-3">系统会根据错题推荐相似题，并逐步生成你的练习计划</div>
-      </div>
-
-      {wrongs.length === 0 && <div className="py-16 text-center text-ink-3">暂无错题</div>}
-
-      {wrongs.length > 0 && (
+    <PageScaffold
+      variant="list"
+      title="错题本"
+      description="系统会根据错题推荐相似题，并逐步生成你的练习计划"
+    >
+      {wrongs.length === 0 ? (
+        <EmptyState icon={FileText} title="暂无错题" />
+      ) : (
         <div className="space-y-4">
           {wrongs.map((w) => (
-            <div key={w.id} className="bg-paper/80 backdrop-blur-xl p-6 rounded-panel border border-white/60 shadow-card">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div
+              key={w.id}
+              className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card transition-colors hover:border-role/30"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
-                  <div className="font-bold text-ink-1 truncate">{w.questions.stem}</div>
-                  <div className="text-sm text-ink-3">
-                    错误次数：{w.wrong_count} · 掌握度：{w.mastery_score ?? 0}
+                  <div className="truncate font-bold text-fg-1">{w.questions.stem}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge variant="warning">错误次数：{w.wrong_count}</Badge>
+                    <Badge variant="info">掌握度：{w.mastery_score ?? 0}</Badge>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="ghost"
-                    onClick={() => handleGenerate(w.id)}
-                    className="px-4 py-2 rounded-card text-sm font-medium bg-primary/5 text-primary border border-primary/10 hover:bg-primary/10 flex items-center"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
+                <div className="flex flex-wrap gap-2 md:shrink-0">
+                  <Button variant="outline" onClick={() => handleGenerate(w.id)}>
+                    <Sparkles aria-hidden="true" className="size-4" />
                     相似题
                   </Button>
-                  <Button variant="ghost"
+                  <Button
+                    variant="outline"
                     onClick={() => handleMarkCorrect(w.id)}
-                    className="px-4 py-2 rounded-card text-sm font-medium bg-success/10 text-success border border-success/20 hover:bg-success/20 flex items-center"
+                    className="border-success/30 text-success-ink hover:bg-success-soft hover:text-success-ink"
                   >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    <CheckCircle2 aria-hidden="true" className="size-4" />
                     我已掌握
                   </Button>
                 </div>
               </div>
 
               {expandedId === w.id && (
-                <div className="mt-4">
-                  <div className="text-sm font-bold text-ink-2 mb-2">推荐题</div>
+                <div className="mt-4 rounded-card border border-line-2 bg-surface-3/50 p-4">
+                  <div className="mb-2 text-sm font-bold text-fg-2">推荐题</div>
                   {generated[w.id]?.length ? (
                     <div className="space-y-2">
                       {generated[w.id].map((q) => (
-                        <div key={q.id} className="bg-paper/70 border border-white/60 rounded-panel p-4">
-                          <div className="text-sm font-semibold text-ink-1">{q.stem}</div>
-                          <div className="text-xs text-ink-3">题型：{q.type}</div>
+                        <div
+                          key={q.id}
+                          className="rounded-card border border-line-1 bg-surface-2 p-4"
+                        >
+                          <div className="text-sm font-semibold text-fg-1">{q.stem}</div>
+                          <div className="mt-1 text-xs text-fg-3">题型：{q.type}</div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-ink-3">暂无可推荐题目</div>
+                    <div className="text-sm text-fg-3">暂无可推荐题目</div>
                   )}
                 </div>
               )}
@@ -97,6 +116,6 @@ export default function StudentWrongQuestions() {
           ))}
         </div>
       )}
-    </div>
+    </PageScaffold>
   );
 }

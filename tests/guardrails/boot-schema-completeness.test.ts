@@ -98,6 +98,11 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     'enable_gacha',
     'enable_economy',
     'enable_dungeon',
+    // Added by `0000h_ai_study_feature_column`: the switch `plugins/ai-study` gates every request on.
+    // Without the column the capability resolver falls back to a row key that does not exist, every
+    // request answers 403 该功能当前已关闭, and nothing can turn it on - the silent-disabled-feature
+    // failure this list exists to catch.
+    'enable_ai_study',
     'pet_selection_mode',
     'settings',
     'invite_code',

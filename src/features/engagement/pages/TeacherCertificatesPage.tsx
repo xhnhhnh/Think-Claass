@@ -8,6 +8,7 @@ import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { certificatesApi } from '@/features/engagement/api/certificatesApi';
 import { launchConfetti } from '@/lib/confetti';
 import { CELEBRATION } from '@/lib/celebrationPalette';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,7 +20,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
@@ -132,43 +133,51 @@ export default function TeacherCertificates() {
     cert.student_name.includes(searchTerm) || cert.title.includes(searchTerm)
   );
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <PageHeader
-        title="荣誉奖状"
-        description="为表现优异的学生颁发专属荣誉"
-        icon={Award}
-        actions={
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-gradient-to-r from-primary to-warning text-primary-foreground hover:from-primary hover:to-warning"
-          >
-            <Plus data-icon="inline-start" />
-            颁发新奖状
-          </Button>
-        }
-      />
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-certificates:issue',
+      label: '颁发新奖状',
+      icon: Plus,
+      keywords: ['奖状', '荣誉', '颁发'],
+      run: () => setIsModalOpen(true),
+    },
+  ]);
 
-      {/* Search & Stats */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-center">
-        <div className="flex-1 rounded-panel border border-border bg-paper/80 p-4 shadow-card backdrop-blur-xl">
-          <Toolbar
-            search={{
-              value: searchTerm,
-              onChange: setSearchTerm,
-              placeholder: '搜索学生姓名或荣誉称号...',
-            }}
-            searchLabel="搜索学生姓名或荣誉称号"
-          />
-        </div>
-        <StatCard
-          label="累计颁发"
-          value={certificates.length}
-          icon={Award}
-          tone="warning"
-          className="md:w-64"
+  return (
+    <PageScaffold
+      variant="list"
+      title="荣誉奖状"
+      description="为表现优异的学生颁发专属荣誉"
+      actions={
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-gradient-to-r from-role to-warning text-role-contrast hover:from-role hover:to-warning"
+        >
+          <Plus data-icon="inline-start" />
+          颁发新奖状
+        </Button>
+      }
+      toolbar={
+        <Toolbar
+          search={{
+            value: searchTerm,
+            onChange: setSearchTerm,
+            placeholder: '搜索学生姓名或荣誉称号...',
+          }}
+          searchLabel="搜索学生姓名或荣誉称号"
         />
-      </div>
+      }
+    >
+
+      {/* Stats */}
+      <StatCard
+        label="累计颁发"
+        value={certificates.length}
+        icon={Award}
+        tone="warning"
+        className="md:w-64"
+      />
 
       {/* Certificates List */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -188,7 +197,7 @@ export default function TeacherCertificates() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               key={cert.id}
-              className="overflow-hidden rounded-card border border-border bg-paper shadow-card transition-all hover:shadow-raised"
+              className="overflow-hidden rounded-card border border-line-1 bg-surface-2 shadow-card transition-all hover:shadow-raised"
             >
               <div className="relative border-b border-warning/20 bg-gradient-to-br from-warning/15 to-warning/5 p-6 text-center">
                 <div className="absolute top-4 right-4 opacity-20">
@@ -198,10 +207,10 @@ export default function TeacherCertificates() {
                 <p className="relative z-10 text-sm font-medium text-warning/80">授予：{cert.student_name}</p>
               </div>
               <div className="p-6">
-                <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-ink-2">
+                <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-fg-2">
                   {cert.description || '表现优异，特发此状，以资鼓励。'}
                 </p>
-                <div className="flex items-center text-xs text-ink-3">
+                <div className="flex items-center text-xs text-fg-3">
                   <Calendar className="mr-1.5 size-4" />
                   {new Date(cert.created_at).toLocaleDateString()}
                 </div>
@@ -216,7 +225,7 @@ export default function TeacherCertificates() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <Award className="mr-2 size-5 text-primary" />
+              <Award className="mr-2 size-5 text-role" />
               颁发荣誉奖状
             </DialogTitle>
           </DialogHeader>
@@ -265,7 +274,7 @@ export default function TeacherCertificates() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-gradient-to-r from-primary to-info text-primary-foreground hover:from-primary hover:to-info"
+                className="bg-gradient-to-r from-role to-info text-role-contrast hover:from-role hover:to-info"
               >
                 {submitting ? (
                   <>
@@ -282,6 +291,6 @@ export default function TeacherCertificates() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageScaffold>
   );
 }

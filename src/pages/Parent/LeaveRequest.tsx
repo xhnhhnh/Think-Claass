@@ -14,11 +14,12 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateLeaveMutation, useLeaves } from '@/features/classroom/hooks/useLeaves';
 import { useStore } from '@/store/useStore';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 
 /**
  * `created_at` is SQLite's `CURRENT_TIMESTAMP`, i.e. UTC in `YYYY-MM-DD HH:MM:SS`; the bare
@@ -53,6 +54,10 @@ function formatSubmittedAt(createdAt: string) {
  * `老师查看中` is `info` rather than the amber it was written in: the row is with the
  * teacher, and `warning` is what the rejected state means here. A status the server has but
  * this page does not name is printed as-is instead of being folded into one of the three.
+ *
+ * The shape is `PageScaffold variant="list"` and the heading is its `title` (suppressed
+ * while the shell renders the route's `h1`); 写新假条 is a command-palette command as
+ * well as a context-bar button.
  */
 export default function ParentLeaveRequest() {
   const user = useStore((state) => state.user);
@@ -105,7 +110,7 @@ export default function ParentLeaveRequest() {
       case 'approved': return <CheckCircle2 aria-hidden="true" className="size-5 text-success" />;
       case 'rejected': return <XCircle aria-hidden="true" className="size-5 text-warning" />;
       case 'pending': return <Clock4 aria-hidden="true" className="size-5 text-info" />;
-      default: return <Clock aria-hidden="true" className="size-5 text-ink-3" />;
+      default: return <Clock aria-hidden="true" className="size-5 text-fg-3" />;
     }
   };
 
@@ -118,30 +123,42 @@ export default function ParentLeaveRequest() {
     }
   };
 
+  // Registered before the early return below so the hook order is stable.
+  useRegisterPageCommands([
+    {
+      id: 'parent-leave:create',
+      label: '写新假条',
+      icon: PlusCircle,
+      keywords: ['请假', '假条', '新增'],
+      run: () => setIsModalOpen(true),
+    },
+  ]);
+
   if (!studentId) {
     return (
-      <EmptyState
-        icon={Heart}
-        className="mx-auto max-w-xl"
-        title="等待宝贝加入"
-        description="您的账号还没有绑定宝贝信息，绑定后就能为宝贝提交假条了。"
-      />
+      <PageScaffold variant="list" title="请假假条" description="为宝贝向老师请个假，记录缺席的日子">
+        <EmptyState
+          icon={Heart}
+          className="mx-auto max-w-xl"
+          title="等待宝贝加入"
+          description="您的账号还没有绑定宝贝信息，绑定后就能为宝贝提交假条了。"
+        />
+      </PageScaffold>
     );
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader
-        title="请假假条"
-        description="为宝贝向老师请个假，记录缺席的日子"
-        icon={Calendar}
-        actions={
-          <Button type="button" onClick={() => setIsModalOpen(true)}>
-            <PlusCircle data-icon="inline-start" />
-            写新假条
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="list"
+      title="请假假条"
+      description="为宝贝向老师请个假，记录缺席的日子"
+      actions={
+        <Button type="button" onClick={() => setIsModalOpen(true)}>
+          <PlusCircle data-icon="inline-start" />
+          写新假条
+        </Button>
+      }
+    >
 
       <SectionCard
         className="gap-0"
@@ -154,49 +171,49 @@ export default function ParentLeaveRequest() {
         }
       >
         {isLoading ? (
-          <div className="flex items-center justify-center p-10 text-ink-3">
+          <div className="flex items-center justify-center p-10 text-fg-3">
             <LoaderCircle className="mr-3 size-5 animate-spin" />
             正在获取假条记录...
           </div>
         ) : error ? (
-          <div className="p-10 text-center text-red-600">假条记录加载失败，请稍后重试。</div>
+          <div className="p-10 text-center text-danger">假条记录加载失败，请稍后重试。</div>
         ) : requests.length > 0 ? (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-line-1">
             {requests.map((request) => (
               <div key={request.id} className="p-5 sm:p-6">
                 <div className="flex flex-wrap items-center gap-3">
                   {getStatusIcon(request.status)}
                   {getStatusText(request.status)}
-                  <span className="text-sm font-medium tracking-wider text-ink-3">
+                  <span className="text-sm font-medium tracking-wider text-fg-3">
                     提交于 {formatSubmittedAt(request.created_at)}
                   </span>
                 </div>
 
-                <div className="mt-4 rounded-panel border border-border bg-muted/50 p-5">
-                  <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                <div className="mt-4 rounded-panel border border-line-1 bg-surface-3/50 p-5">
+                  <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-fg-3">
                     请假时间
                   </span>
-                  <p className="text-[15px] font-bold text-ink-2">
-                    {request.start_date} <span className="mx-2 font-normal text-ink-3">至</span> {request.end_date}
+                  <p className="text-[15px] font-bold text-fg-2">
+                    {request.start_date} <span className="mx-2 font-normal text-fg-3">至</span> {request.end_date}
                   </p>
                 </div>
 
                 <div className="mt-4">
-                  <span className="mb-2 flex items-center text-xs font-bold uppercase tracking-widest text-ink-3">
+                  <span className="mb-2 flex items-center text-xs font-bold uppercase tracking-widest text-fg-3">
                     <FileText aria-hidden="true" className="mr-1.5 size-3.5" />
                     请假事由
                   </span>
-                  <p className="rounded-panel border border-border bg-paper p-4 text-[15px] leading-relaxed text-ink-2">
+                  <p className="rounded-panel border border-line-1 bg-surface-2 p-4 text-[15px] leading-relaxed text-fg-2">
                     {request.reason}
                   </p>
                 </div>
 
                 {request.review_comment ? (
                   <div className="mt-4">
-                    <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-3">
+                    <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-fg-3">
                       老师回复
                     </span>
-                    <p className="rounded-panel border border-border bg-paper p-4 text-[15px] leading-relaxed text-ink-2">
+                    <p className="rounded-panel border border-line-1 bg-surface-2 p-4 text-[15px] leading-relaxed text-fg-2">
                       {request.review_comment}
                     </p>
                   </div>
@@ -261,6 +278,6 @@ export default function ParentLeaveRequest() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageScaffold>
   );
 }

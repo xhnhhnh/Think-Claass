@@ -6,8 +6,10 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
+import { Toolbar } from '@/components/ui/toolbar';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import type { SaveAttendanceRecordPayload } from '@/features/classroom/api/attendanceApi';
 import { useAttendance, useSaveAttendanceMutation } from '@/features/classroom/hooks/useAttendance';
 import { useLeaves, useUpdateLeaveMutation } from '@/features/classroom/hooks/useLeaves';
@@ -24,20 +26,20 @@ interface AttendanceOption {
 
 /** The states this page records; the value is stored verbatim in `attendance_records.status`. */
 const ATTENDANCE_OPTIONS: AttendanceOption[] = [
-  { value: 'present', label: '出勤', icon: CheckCircle, activeClassName: 'border-primary/20 bg-primary/10 text-primary' },
-  { value: 'absent', label: '缺勤', icon: XCircle, activeClassName: 'border-destructive/30 bg-destructive/20 text-destructive' },
-  { value: 'late', label: '迟到', icon: Clock, activeClassName: 'border-orange-200 bg-warning/20 text-orange-700' },
-  { value: 'leave', label: '请假', icon: AlertCircle, activeClassName: 'border-blue-200 bg-blue-100 text-blue-700' },
+  { value: 'present', label: '出勤', icon: CheckCircle, activeClassName: 'border-role/20 bg-role/10 text-role' },
+  { value: 'absent', label: '缺勤', icon: XCircle, activeClassName: 'border-danger/30 bg-danger/20 text-danger' },
+  { value: 'late', label: '迟到', icon: Clock, activeClassName: 'border-warning/30 bg-warning/20 text-warning-ink' },
+  { value: 'leave', label: '请假', icon: AlertCircle, activeClassName: 'border-info/30 bg-info-soft text-info-ink' },
 ];
 
 const INACTIVE_STATUS_CLASS =
-  'border-border bg-paper/80 text-ink-2 backdrop-blur-xl hover:bg-muted/60';
+  'border-line-1 bg-surface-2/80 text-fg-2 backdrop-blur-xl hover:bg-surface-3/60';
 
 /** Status labels; an unknown status keeps its own text instead of a guessed one. */
 const LEAVE_STATUS_META: Record<string, { label: string; className: string }> = {
-  pending: { label: '待审批', className: 'bg-warning/20 text-orange-700' },
-  approved: { label: '已批准', className: 'bg-primary/10 text-primary' },
-  rejected: { label: '已拒绝', className: 'bg-destructive/20 text-destructive' },
+  pending: { label: '待审批', className: 'bg-warning/20 text-warning-ink' },
+  approved: { label: '已批准', className: 'bg-role/10 text-role' },
+  rejected: { label: '已拒绝', className: 'bg-danger/20 text-danger' },
 };
 
 /** Today as `YYYY-MM-DD` in local time, the format `attendance_records.date` stores. */
@@ -133,56 +135,72 @@ export default function TeacherAttendance() {
     toast.success(status === 'approved' ? '已批准请假申请' : '已拒绝请假申请');
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="考勤与请假"
-        description={currentDate}
-        icon={CalendarCheck}
-        actions={
-          <div className="flex space-x-2 rounded-card bg-muted/50 p-1">
-            <Button variant="ghost"
-              onClick={() => setActiveTab('take')}
-              className={`rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeTab === 'take' ? 'bg-paper/80 text-primary shadow-card backdrop-blur-xl' : 'text-ink-2 hover:text-ink-1'
-              }`}
-            >
-              考勤打卡
-            </Button>
-            <Button variant="ghost"
-              onClick={() => setActiveTab('leaves')}
-              className={`flex items-center rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeTab === 'leaves' ? 'bg-paper/80 text-primary shadow-card backdrop-blur-xl' : 'text-ink-2 hover:text-ink-1'
-              }`}
-            >
-              请假审批
-              {hasPendingLeave && (
-                <span className="ml-1.5 h-2 w-2 rounded-full bg-destructive"></span>
-              )}
-            </Button>
-          </div>
-        }
-      />
+  // The page's primary action, reachable from the command palette as well as the card header.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-attendance:save',
+      label: '保存今日考勤',
+      icon: UserCheck,
+      keywords: ['考勤', '打卡', '保存'],
+      disabled: saveAttendanceMutation.isPending,
+      run: () => void handleSaveAttendance(),
+    },
+  ]);
 
-      {classes.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto rounded-card border border-white/60 bg-paper/80 p-4 shadow-card backdrop-blur-xl">
-          <span className="mr-2 shrink-0 text-sm font-bold text-ink-3">选择班级:</span>
-          {classes.map((cls) => (
-            <Button variant="ghost"
-              key={cls.id}
-              onClick={() => handleClassChange(cls.id)}
-              className={cn(
-                'shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                selectedClassId === cls.id
-                  ? 'bg-gradient-to-r from-primary to-cyan-500 text-white shadow-card'
-                  : 'border border-border bg-muted/50 text-ink-2 hover:bg-muted/60',
-              )}
-            >
-              {cls.name}
-            </Button>
-          ))}
+  return (
+    <PageScaffold
+      variant="list"
+      title="考勤与请假"
+      description={currentDate}
+      actions={
+        <div className="flex space-x-2 rounded-card bg-surface-3/50 p-1">
+          <Button variant="ghost"
+            onClick={() => setActiveTab('take')}
+            className={`rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'take' ? 'bg-surface-2/80 text-role shadow-card backdrop-blur-xl' : 'text-fg-2 hover:text-fg-1'
+            }`}
+          >
+            考勤打卡
+          </Button>
+          <Button variant="ghost"
+            onClick={() => setActiveTab('leaves')}
+            className={`flex items-center rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'leaves' ? 'bg-surface-2/80 text-role shadow-card backdrop-blur-xl' : 'text-fg-2 hover:text-fg-1'
+            }`}
+          >
+            请假审批
+            {hasPendingLeave && (
+              <span className="ml-1.5 h-2 w-2 rounded-full bg-danger"></span>
+            )}
+          </Button>
         </div>
-      )}
+      }
+      toolbar={
+        classes.length > 0 ? (
+          <Toolbar
+            filters={
+              <>
+                <span className="mr-2 shrink-0 text-sm font-bold text-fg-3">选择班级:</span>
+                {classes.map((cls) => (
+                  <Button variant="ghost"
+                    key={cls.id}
+                    onClick={() => handleClassChange(cls.id)}
+                    className={cn(
+                      'shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                      selectedClassId === cls.id
+                        ? 'bg-gradient-to-r from-role to-role-ink text-role-contrast shadow-card'
+                        : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/60',
+                    )}
+                  >
+                    {cls.name}
+                  </Button>
+                ))}
+              </>
+            }
+          />
+        ) : undefined
+      }
+    >
 
       {activeTab === 'take' && (
         <SectionCard
@@ -190,18 +208,18 @@ export default function TeacherAttendance() {
           description="选择每个学生的状态后保存；未选择的学生不会写入考勤记录。"
           actions={
             <div className="flex items-center gap-3">
-              <label htmlFor="attendance-date" className="text-sm font-medium text-ink-2">考勤日期:</label>
+              <label htmlFor="attendance-date" className="text-sm font-medium text-fg-2">考勤日期:</label>
               <Input
                 id="attendance-date"
                 type="date"
                 value={currentDate}
                 onChange={(e) => handleDateChange(e.target.value)}
-                className="rounded-card border border-input px-3 py-1.5 focus:border-ring focus:ring-ring sm:text-sm"
+                className="rounded-card border border-line-1 px-3 py-1.5 sm:text-sm"
               />
               <Button
                 onClick={handleSaveAttendance}
                 disabled={saveAttendanceMutation.isPending}
-                className="flex items-center rounded-card bg-gradient-to-r from-primary to-cyan-500 px-5 py-2 font-medium text-white shadow-card transition-colors hover:from-primary/90 hover:to-cyan-600"
+                className="flex items-center rounded-card bg-gradient-to-r from-role to-role-ink px-5 py-2 font-medium text-role-contrast shadow-card transition-colors hover:from-role/90 hover:to-role-ink/90"
               >
                 <UserCheck className="mr-2 h-4 w-4" />
                 保存今日考勤
@@ -210,7 +228,7 @@ export default function TeacherAttendance() {
           }
         >
           {isClassesLoading || (classes.length > 0 && (isStudentsLoading || isAttendanceLoading)) ? (
-            <p className="py-8 text-center text-sm text-ink-3">加载中...</p>
+            <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
           ) : classes.length === 0 ? (
             <EmptyState icon={Users} title="暂无班级数据" description="请先在班级管理中创建班级。" />
           ) : students.length === 0 ? (
@@ -220,8 +238,8 @@ export default function TeacherAttendance() {
               {students.map(student => {
                 const currentStatus = statusOf(student.id);
                 return (
-                  <div key={student.id} className="rounded-card border border-white/60 bg-muted/50 p-4 transition-shadow hover:shadow-md">
-                    <h3 className="mb-3 text-lg font-bold text-ink-1">{student.name}</h3>
+                  <div key={student.id} className="rounded-card border border-line-1 bg-surface-3/50 p-4 transition-shadow hover:shadow-md">
+                    <h3 className="mb-3 text-lg font-bold text-fg-1">{student.name}</h3>
                     <div className="grid grid-cols-2 gap-2">
                       {ATTENDANCE_OPTIONS.map(option => {
                         const Icon = option.icon;
@@ -253,7 +271,7 @@ export default function TeacherAttendance() {
       {activeTab === 'leaves' && (
         <SectionCard title="请假审批">
           {isLeavesLoading ? (
-            <p className="py-8 text-center text-sm text-ink-3">加载中...</p>
+            <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
           ) : leaveRows.length === 0 ? (
             <EmptyState icon={CalendarCheck} title="暂无请假申请" />
           ) : (
@@ -261,21 +279,21 @@ export default function TeacherAttendance() {
               {leaveRows.map(req => {
                 const statusMeta = LEAVE_STATUS_META[req.status];
                 return (
-                  <div key={req.id} className="flex flex-col justify-between gap-4 rounded-card border border-white/60 p-5 md:flex-row md:items-center">
+                  <div key={req.id} className="flex flex-col justify-between gap-4 rounded-card border border-line-1 p-5 md:flex-row md:items-center">
                     <div className="flex-1">
                       <div className="mb-2 flex items-center space-x-3">
-                        <span className="text-lg font-bold text-ink-1">
+                        <span className="text-lg font-bold text-fg-1">
                           {studentNames.get(req.student_id) ?? `学生 #${req.student_id}`}
                         </span>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta?.className ?? 'bg-muted text-ink-2'}`}>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta?.className ?? 'bg-surface-3 text-fg-2'}`}>
                           {statusMeta?.label ?? req.status}
                         </span>
                       </div>
-                      <div className="space-y-1 text-sm text-ink-2">
-                        <p><span className="text-ink-3">请假时间：</span> {req.start_date} 至 {req.end_date}</p>
-                        <p><span className="text-ink-3">请假事由：</span> {req.reason}</p>
+                      <div className="space-y-1 text-sm text-fg-2">
+                        <p><span className="text-fg-3">请假时间：</span> {req.start_date} 至 {req.end_date}</p>
+                        <p><span className="text-fg-3">请假事由：</span> {req.reason}</p>
                         {req.review_comment && (
-                          <p><span className="text-ink-3">审批意见：</span> {req.review_comment}</p>
+                          <p><span className="text-fg-3">审批意见：</span> {req.review_comment}</p>
                         )}
                       </div>
                     </div>
@@ -285,14 +303,14 @@ export default function TeacherAttendance() {
                         <Button variant="ghost"
                           onClick={() => handleLeaveAction(req.id, 'rejected')}
                           disabled={updateLeaveMutation.isPending}
-                          className="rounded-card border border-destructive/30 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+                          className="rounded-card border border-danger/30 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
                         >
                           拒绝
                         </Button>
                         <Button variant="ghost"
                           onClick={() => handleLeaveAction(req.id, 'approved')}
                           disabled={updateLeaveMutation.isPending}
-                          className="rounded-card bg-gradient-to-r from-primary to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:from-primary/90 hover:to-cyan-600"
+                          className="rounded-card bg-gradient-to-r from-role to-role-ink px-4 py-2 text-sm font-medium text-role-contrast shadow-card transition-colors hover:from-role/90 hover:to-role-ink/90"
                         >
                           批准
                         </Button>
@@ -305,6 +323,6 @@ export default function TeacherAttendance() {
           )}
         </SectionCard>
       )}
-    </div>
+    </PageScaffold>
   );
 }

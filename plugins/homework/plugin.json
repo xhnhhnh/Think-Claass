@@ -1,0 +1,191 @@
+{
+  "id": "homework",
+  "name": "作业系统",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "The homework system that replaces the legacy assignments surface: a teacher publishes an assignment built from interactive questions (single / multiple / blank / short), a student answers them or photographs their paper, and the teacher grades it. Carries AI grading, AI question-answering and AI 出题 (draft questions from a topic, inserted into the publish dialog) on the same rows, with the AI provider defaulting to a deterministic mock so the grading and Q&A halves work with no model configured - and 出题 declining honestly rather than inventing placeholder questions.",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "optionalPeers": {
+    "classroom": "^1.0.0"
+  },
+  "provides": {
+    "services": [
+      {
+        "name": "homework.public",
+        "version": "1.0.0",
+        "_note": "The AI provider's state, a connectivity check, and one borrowed completion (`complete`), consumed by `plugins/admin`'s 系统设置 → AI 判分与问答 panel and by `plugins/ai-study`'s re-ranking. The console owns the five `ai_*` settings and this plugin owns the provider those settings configure, so the questions that cross between them are \"is the model you would use actually reachable?\" and \"run this one completion for me\". `getAiState` answers with the *resolved* source (`mock` when a half-configured `http` fell back) plus the fallback's reason, so the resolution rule stays in `resolveHomeworkProvider` instead of being copied into the console - and `complete` is the same argument applied to a second AI surface: a plugin that needs a model borrows this one rather than re-implementing provider resolution. `complete` carries the caller's own prompt and no 判分/问答/出题 vocabulary, so homework learns nothing about who is calling. Neither `testAiConnection` nor `complete` ever throws: an unreachable model is a line the operator or the caller reads, not a 500. A consumer must resolve it per call (`ctx.tryUse`) - this plugin is `required: false` and sorts after `admin`, so a value captured during `setup()` would be null for the life of the process."
+      }
+    ],
+    "permissions": [
+      {
+        "key": "homework.publish",
+        "scope": "class",
+        "default": true,
+        "label": "发布与编辑作业"
+      },
+      {
+        "key": "homework.grade",
+        "scope": "class",
+        "default": true,
+        "label": "批改作业"
+      },
+      {
+        "key": "homework.submit",
+        "scope": "student",
+        "default": true,
+        "label": "提交作业"
+      },
+      {
+        "key": "homework.ai",
+        "scope": "student",
+        "default": true,
+        "label": "使用 AI 判分与问答"
+      }
+    ],
+    "routes": [
+      {
+        "method": "GET",
+        "base": "/api/homework",
+        "handler": "HomeworkController.listHomeworks",
+        "auth": "actor"
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework",
+        "handler": "HomeworkController.createHomework",
+        "auth": "actor",
+        "permissions": ["homework.publish"]
+      },
+      {
+        "method": "GET",
+        "base": "/api/homework/my",
+        "handler": "HomeworkController.listMyHomeworks",
+        "auth": "actor"
+      },
+      {
+        "method": "GET",
+        "base": "/api/homework/:id",
+        "handler": "HomeworkController.getHomework",
+        "auth": "actor"
+      },
+      {
+        "method": "PUT",
+        "base": "/api/homework/:id",
+        "handler": "HomeworkController.updateHomework",
+        "auth": "actor",
+        "permissions": ["homework.publish"]
+      },
+      {
+        "method": "DELETE",
+        "base": "/api/homework/:id",
+        "handler": "HomeworkController.deleteHomework",
+        "auth": "actor",
+        "permissions": ["homework.publish"]
+      },
+      {
+        "method": "GET",
+        "base": "/api/homework/:id/submissions",
+        "handler": "HomeworkController.listSubmissions",
+        "auth": "actor"
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework/:id/ai-grade",
+        "handler": "HomeworkController.aiGrade",
+        "auth": "actor",
+        "permissions": ["homework.ai"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework/ai/questions",
+        "handler": "HomeworkController.generateQuestions",
+        "auth": "actor",
+        "permissions": ["homework.ai"]
+      },
+      {
+        "method": "GET",
+        "base": "/api/homework/:id/qa",
+        "handler": "HomeworkController.listQa",
+        "auth": "actor"
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework/:id/qa",
+        "handler": "HomeworkController.askQa",
+        "auth": "actor",
+        "permissions": ["homework.ai"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework/:id/attempt",
+        "handler": "HomeworkController.startAttempt",
+        "auth": "actor",
+        "permissions": ["homework.submit"]
+      },
+      {
+        "method": "GET",
+        "base": "/api/homework/submissions/:id",
+        "handler": "HomeworkController.getSubmission",
+        "auth": "actor"
+      },
+      {
+        "method": "PUT",
+        "base": "/api/homework/submissions/:id",
+        "handler": "HomeworkController.gradeSubmission",
+        "auth": "actor",
+        "permissions": ["homework.grade"]
+      },
+      {
+        "method": "PUT",
+        "base": "/api/homework/submissions/:id/answers",
+        "handler": "HomeworkController.saveAnswers",
+        "auth": "actor",
+        "permissions": ["homework.submit"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework/submissions/:id/photos",
+        "handler": "HomeworkController.uploadPhoto",
+        "auth": "actor",
+        "permissions": ["homework.submit"]
+      },
+      {
+        "method": "POST",
+        "base": "/api/homework/submissions/:id/submit",
+        "handler": "HomeworkController.submitAttempt",
+        "auth": "actor",
+        "permissions": ["homework.submit"]
+      }
+    ],
+    "events": {
+      "emits": [],
+      "subscribes": []
+    },
+    "migrations": [],
+    "_migrations_note": "Deliberately empty, and the DDL still lives in this plugin's directory (`migrations/0001_init.sql`) - it is registered in `api/schema/appMigrations.ts` as `0001_homework_tables` instead of here. Two reasons, both structural rather than stylistic. (1) The app schema is what guardrail G13 builds and checks: it runs `APP_MIGRATIONS` and then asserts that *every* Prisma model has a table, so DDL that only the plugin runner applies would fail that check unless it were declared in both places. (2) Migrations are content-addressed - `runMigrations` refuses to start when a migration's SQL text changes after it was applied - so the same SQL registered under two ids would have to be kept byte-identical forever. One registration avoids inventing a rule the repo would then have to remember. The file stays here because it is this plugin's schema, and every table it creates is namespaced `p_homework_`."
+  },
+  "data": {
+    "tables": [
+      "p_homework_assignments",
+      "p_homework_questions",
+      "p_homework_submissions",
+      "p_homework_answers",
+      "p_homework_photos",
+      "p_homework_qa_messages"
+    ],
+    "_tables_note": "Six namespaced tables, so nothing is adopted and the G10 legacy-adoption ratchet does not move. There is deliberately NO foreign key to `classes` or `students`: those tables belong to the classroom plugin, a cross-owner foreign key is the schema coupling the plugin boundary exists to prevent, and referential integrity for `class_id` / `student_id` is the classroom port's job - the same ruling `plugins/pet/migrations/0001_init.sql` records for its own `student_id`.",
+    "adopted": [],
+    "reads": ["students", "classes", "assignments", "student_assignments"],
+    "_reads_note": "`students` is read to expand a class into a grade sheet and to label it with names; the column is AES-encrypted at rest, so the host's `config.decryptName` is injected exactly as `plugins/assignments` does for the same reason - absent decryptor means identity. `classes` is read only to answer whether a class exists, so a homework cannot be published against a typo'd id. `assignments` and `student_assignments` are the LEGACY tables of the deprecated assignments plugin, declared read-only for two purposes: the one-shot data migration script, and the read-bridge below. Nothing here ever writes them - the ownership check would refuse it, and the deprecation note in `plugins/assignments` says so from the other side.",
+    "_read_bridge_note": "GET /api/homework and GET /api/homework/my union in the legacy rows so that switching the frontend over does not hide pre-migration work before the data migration has been run on a deployment. The bridge is one-directional (legacy rows are copied on publish, never edited in place), is marked `legacy: true` in the payload, and disappears with the legacy tables in P7.",
+    "_auth_note": "Every route is `auth: \"actor\"`, and all seventeen gate the caller inside the controller (`homework.authorization.ts`) before any validation runs: 401 `未登录或登录已过期` for a request with no verified actor, 403 `无权限执行该操作` for a role the route does not list. The service then narrows what a permitted caller may see or touch - a teacher to the rows carrying their own `teacher_id`, a student or parent to the `studentId` the kernel resolved for their login. A query naming another student or class is refused, never silently ignored. `teacher_id` and `student_id` on a create are derived from the actor and a body copy is discarded. `POST /api/homework/ai/questions` is the seventeenth and the AI round's second addition: it is the only route with no `:id`, because generation writes nothing - see `_generate_note`.",
+    "_envelope_note": "All of these are NEW routes, so unlike `plugins/assignments` there is no legacy envelope to preserve: `ok(data)` is `{ success: true, data }` and nothing else, with no flattened duplicate keys. Do not \"restore\" the spread-into-the-envelope shape here; that redundancy is the old plugin's inherited defect, not a convention. Writes answer `{ success: true, data: { ... } }` with a real body (ids, or the updated row), and Nest's default status codes apply - POST 201, PUT/DELETE 200 - which is why no `@HttpCode` appears anywhere in the controllers.",
+    "_ai_note": "AI is an assist, never a gate. The provider is resolved from platform settings (`ai_provider`, defaulting to `mock`) so this plugin needs no kernel configuration field and the kernel keeps knowing no business vocabulary. When no model is configured the mock provider still grades objective questions deterministically and declines to judge the rest with a low confidence, and the mock refuses 出题 outright - generation has no deterministic fallback, and template filler would be placeholders one click from being published to a class. Every AI response carries `data.ai = { source, available, confidence, message }` so the UI can say why the AI half is missing. An AI failure never rolls back the write it was attached to and never fabricates a score. The same provider is borrowed by `plugins/ai-study` through `homework.public.complete` - a generic completion the caller prompts - which is why a deployment with no model still has a working 智学 surface: it falls back to `plugins/ai-study`'s own rule ranking instead of failing.",
+    "_generate_note": "`POST /api/homework/ai/questions` is the only route here without a `:id`, and that is the design rather than an oversight: generation happens in the publish dialog (where the homework does not exist yet) and in the edit dialog (where it does), nothing reads or writes a row, and keying it on an id would mean two routes or a client that has to know which one it holds. `context_title` carries the half-typed 作业标题 instead. Nothing is persisted: candidates come back for the dialog to insert, and they are written only when the teacher presses 发布/保存, so an abandoned generation leaves no rows. Every candidate is put through `normaliseQuestions` - the same validation a hand-written publish payload passes - which is what makes it impossible for a model to introduce a question the manual editor would have refused; candidates that fail are counted into `data.skipped` rather than raised, because one malformed question out of ten must not discard the other nine. ## The three templates and the token budget: 选择题 / 多选题 / 填空题 each have a template in `homework.templates.ts` - a JSON skeleton plus two rules - so a request states the shape it wants (~40 tokens) instead of describing all four shapes in prose on every call (~380). `short` is deliberately not generatable: its answer is prose and its marking is a rubric, which is exactly what a template cannot pin down, so a draft of one is text a teacher rewrites; it remains fully authorable by hand and appears nowhere in the type select. The parser enforces the requested type, so a reply that ignores the template is dropped and counted rather than mixed into the paper, and the request carries `max_tokens` (count x 160, clamped 400..2400) so a model that decides to reason out loud cannot bill for a page. The console's type list is a mirror of `GENERATABLE_TYPES` and guardrail G21 (`tests/guardrails/homework-generate-types.test.ts`) fails if the two drift."
+  }
+}

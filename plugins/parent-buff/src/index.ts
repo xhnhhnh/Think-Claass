@@ -10,8 +10,11 @@
  * "migrate infrastructure as if it were a domain" mistake §9 of the handoff warns about -
  * so only the business half moves here and `/api/payment/*` stays where it is for now.
  *
- * No `dependsOn`: the row it writes references a student, but nothing here reads students or
- * classes - the foreign key is the database's business, not a port's.
+ * No `dependsOn` on classroom for the *write*: the row it writes references a student, but nothing
+ * here reads students or classes - the foreign key is the database's business, not a port's. That
+ * changed with route authorization: the blessing is bound to a parent's own child, and the
+ * parent/child link lives in classroom's `parent_students`, so `classroom.public` is now a
+ * dependency and is declared in `plugin.json`.
  */
 
 import type { Provider } from '@nestjs/common';
@@ -32,7 +35,14 @@ export default definePlugin({
   providers,
 
   async setup(ctx: KernelContext) {
-    const instance = new ParentBuffService(createParentBuffRepository(ctx.db));
+    // `ctx.use` throws when classroom is absent. This plugin declares it in `dependsOn` because the
+    // blessing is a claim about a family: `POST /api/parent-buff` may only be cast for a parent's
+    // own child, and `parent_students` (the link that decides that) is classroom's table, so the
+    // answer comes through classroom's published port rather than from `Actor.studentId` - a
+    // host-supplied hint that is single-valued for a parent with several children.
+    const classroom = ctx.use('classroom.public');
+
+    const instance = new ParentBuffService(createParentBuffRepository(ctx.db), classroom);
     service = instance;
     providers.push({ provide: ParentBuffService, useValue: instance });
 

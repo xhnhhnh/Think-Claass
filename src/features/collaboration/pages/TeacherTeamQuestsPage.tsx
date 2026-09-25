@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { teamQuestsApi, type TeamQuest } from '@/features/collaboration/api/teamQuestsApi';
 import { useTeamQuestGroupProgress, useTeamQuests } from '@/features/collaboration/hooks/useTeamQuests';
 import { useStore } from '@/store/useStore';
+import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -111,31 +112,41 @@ export default function TeacherTeamQuests() {
     setShowProgressModal(true);
   };
 
+  // The page's primary action, reachable from the command palette as well as the context bar.
+  useRegisterPageCommands([
+    {
+      id: 'teacher-team-quests:create',
+      label: '发布团队任务',
+      icon: PlusCircle,
+      keywords: ['团队任务', '发布', '协作'],
+      run: () => setShowCreateModal(true),
+    },
+  ]);
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="团队任务"
-        icon={Target}
-        actions={
-          <Button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            <PlusCircle data-icon="inline-start" />
-            发布团队任务
-          </Button>
-        }
-      />
+    <PageScaffold
+      variant="dashboard"
+      title="团队任务"
+      actions={
+        <Button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-danger text-fg-inverse hover:bg-danger/90"
+        >
+          <PlusCircle data-icon="inline-start" />
+          发布团队任务
+        </Button>
+      }
+    >
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 rounded-panel border border-border bg-paper/80 py-16 text-ink-3 backdrop-blur-xl">
+        <div className="flex items-center justify-center gap-2 rounded-panel border border-line-1 bg-surface-2/80 py-16 text-fg-3 backdrop-blur-xl">
           <Spinner label="正在加载团队任务" />
           正在加载团队任务...
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="rounded-panel border border-destructive/20 bg-destructive/10 px-6 py-10 text-center text-destructive">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center text-danger">
           团队任务加载失败，请稍后重试
         </div>
       )}
@@ -147,15 +158,15 @@ export default function TeacherTeamQuests() {
               key={quest.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="relative flex h-full flex-col rounded-panel border border-border bg-paper/80 p-6 backdrop-blur-xl transition-shadow hover:shadow-raised"
+              className="relative flex h-full flex-col rounded-panel border border-line-1 bg-surface-2/80 p-6 backdrop-blur-xl transition-shadow hover:shadow-raised"
             >
               <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="rounded-card bg-destructive/10 p-2 text-destructive">
+                  <div className="rounded-card bg-danger/10 p-2 text-danger">
                     <Award className="size-6" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-ink-1">{quest.title}</h3>
+                    <h3 className="text-lg font-bold text-fg-1">{quest.title}</h3>
                     <Badge variant={quest.status === 'active' ? 'info' : 'secondary'}>
                       {quest.status === 'active' ? '进行中' : '已结束'}
                     </Badge>
@@ -167,14 +178,14 @@ export default function TeacherTeamQuests() {
                   aria-label={`删除团队任务 ${quest.title}`}
                   title="删除"
                   disabled={deleteMutation.isPending}
-                  className="text-ink-3 hover:bg-destructive/10 hover:text-destructive"
+                  className="text-fg-3 hover:bg-danger/10 hover:text-danger"
                   onClick={() => handleDeleteQuest(quest.id)}
                 >
                   <Trash2 />
                 </Button>
               </div>
 
-              <div className="mb-6 flex-grow text-sm text-ink-2">
+              <div className="mb-6 flex-grow text-sm text-fg-2">
                 <p className="mb-2">{quest.description || '暂无任务描述'}</p>
                 <div className="mt-4 flex flex-wrap gap-4">
                   <Badge variant="warning" className="h-auto px-3 py-1.5">
@@ -186,7 +197,7 @@ export default function TeacherTeamQuests() {
                     <span className="font-bold">{quest.target_score} 次/组</span>
                   </Badge>
                 </div>
-                <div className="mt-4 space-y-1 text-xs text-ink-3">
+                <div className="mt-4 space-y-1 text-xs text-fg-3">
                   <p>开始时间：{quest.start_date || '未设置'}</p>
                   <p>截止时间：{quest.end_date || '未设置'}</p>
                 </div>
@@ -206,7 +217,7 @@ export default function TeacherTeamQuests() {
             <EmptyState
               icon={Target}
               title="暂无发布的团队任务"
-              className="col-span-full bg-paper/80"
+              className="col-span-full bg-surface-2/80"
             />
           )}
         </div>
@@ -269,7 +280,7 @@ export default function TeacherTeamQuests() {
               <Button
                 type="submit"
                 disabled={createMutation.isPending}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="bg-danger text-fg-inverse hover:bg-danger/90"
               >
                 {createMutation.isPending ? '发布中...' : '确认发布'}
               </Button>
@@ -289,13 +300,13 @@ export default function TeacherTeamQuests() {
             </DialogHeader>
 
             <div className="space-y-2">
-              <p className="text-xs text-ink-3">总体进度：{currentQuestOverallPercent}%</p>
+              <p className="text-xs text-fg-3">总体进度：{currentQuestOverallPercent}%</p>
               <Progress value={currentQuestOverallPercent} label="总体进度" />
             </div>
 
             <div className="max-h-[50vh] space-y-5 overflow-y-auto">
               {isProgressLoading && (
-                <div className="flex items-center justify-center gap-2 py-10 text-ink-3">
+                <div className="flex items-center justify-center gap-2 py-10 text-fg-3">
                   <Spinner label="正在加载进度" />
                   正在加载进度...
                 </div>
@@ -317,13 +328,13 @@ export default function TeacherTeamQuests() {
                   const isCompleted = progress.contribution_score >= currentQuest.target_score;
 
                   return (
-                    <div key={`${progress.group_id ?? 'ungrouped'}-${progress.group_name}`} className="rounded-card border border-border bg-muted/50 p-4">
+                    <div key={`${progress.group_id ?? 'ungrouped'}-${progress.group_name}`} className="rounded-card border border-line-1 bg-surface-3/50 p-4">
                       <div className="mb-2 flex items-center justify-between">
-                        <span className="flex items-center text-lg font-bold text-ink-1">
+                        <span className="flex items-center text-lg font-bold text-fg-1">
                           {progress.group_name}
                           {isCompleted && <CheckCircle className="ml-2 size-5 text-success" />}
                         </span>
-                        <span className={cn('font-bold', isCompleted ? 'text-success' : 'text-ink-2')}>
+                        <span className={cn('font-bold', isCompleted ? 'text-success' : 'text-fg-2')}>
                           {progress.contribution_score} / {currentQuest.target_score}
                         </span>
                       </div>
@@ -348,6 +359,6 @@ export default function TeacherTeamQuests() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </PageScaffold>
   );
 }

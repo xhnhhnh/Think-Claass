@@ -27,6 +27,15 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import { ApiError } from '@thinkclass/kernel';
 import type { ClassroomPort, StudentSnapshot } from '@thinkclass/contracts/domains/classroom';
+import type {
+  LearningCandidateFilter,
+  LearningKnowledgeProgress,
+  LearningPort,
+  LearningPracticeOutcome,
+  LearningQuestionOption,
+  LearningQuestionRef,
+  LearningStudentSignals,
+} from '@thinkclass/contracts/domains/learning';
 
 import type { LearningRepository } from './learning.repository.js';
 import type {
@@ -76,6 +85,62 @@ function parseJsonMaybe(value: unknown) {
   } catch {
     return trimmed;
   }
+}
+
+/**
+ * The comparison the *practice* path uses - stricter in one place, looser in another.
+ *
+ * Looser: a one-element array is unwrapped, so `["b"]` and `"b"` are the same claim about a
+ * single-choice question. That asymmetry is real in this database (a choice key is stored as whatever
+ * the teacher's editor produced), and without the unwrapping the 智学 practice flow would mark a
+ * correct pick wrong - the failure mode that matters most here. A multi-choice answer compares as a
+ * sorted array, so the order the student clicked in is not part of the answer.
+ *
+ * Stricter: nothing else is normalised, and the caller additionally declines to judge when the
+ * question carries no reference answer at all (see `recordPracticeOutcome`). `submitPaper` keeps its
+ * own `normalizeAnswer` comparison untouched: that path has shipped, its behaviour is the exam
+ * contract, and redefining "correct" for a paper already in a student's history is not this feature's
+ * business.
+ */
+function normalizePracticeAnswer(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    const parts = value.map((entry) => String(entry).trim()).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0];
+    return JSON.stringify([...parts].sort());
+  }
+  return normalizeAnswer(value);
+}
+
+/**
+ * `questions.options_json` -> the option list the port publishes.
+ *
+ * Tolerant on purpose, and the tolerance is bounded to shape rather than to meaning: a row whose
+ * JSON is a plain string, an array of strings or a malformed object yields `[]` rather than throwing,
+ * because a question the teacher mistyped must not be able to fail a whole practice request. What it
+ * does *not* do is invent an id: an option with no readable `id` is dropped, since an answer keyed on
+ * a made-up id could never be matched back to what the student picked.
+ */
+function toQuestionOptions(raw: string | null): LearningQuestionOption[] {
+  const parsed = parseJsonMaybe(raw);
+  if (!Array.isArray(parsed)) return [];
+
+  const options: LearningQuestionOption[] = [];
+  for (const entry of parsed) {
+    if (typeof entry === 'string') {
+      // A bare string list ("A" / "B") is what an early import produced; the index is the id.
+      options.push({ id: String.fromCharCode(97 + options.length), text: entry });
+      continue;
+    }
+    if (!entry || typeof entry !== 'object') continue;
+    const record = entry as { id?: unknown; text?: unknown; label?: unknown };
+    const id = record.id === undefined || record.id === null ? '' : String(record.id);
+    const text = typeof record.text === 'string' ? record.text : String(record.text ?? record.label ?? '');
+    if (!id) continue;
+    options.push({ id, text });
+  }
+  return options;
 }
 
 /**
@@ -612,20 +677,53 @@ export class LearningService {
     const spentSecNum = spent_sec === undefined || spent_sec === null ? 0 : Number(spent_sec);
     const source = typeof practice_source === 'string' ? practice_source : 'practice';
 
+    this.applyPracticeOutcome({
+      wrongQuestionId: idNum,
+      masteryScore: wrong.mastery_score ?? 0,
+      isCorrect,
+      spentSec: Number.isFinite(spentSecNum) ? spentSecNum : 0,
+      source,
+    });
+  }
+
+  /**
+   * What one practice answer does to a wrong-question row - in one place, on purpose.
+   *
+   * Three callers now depend on this arithmetic agreeing: the wrong-question book's own practice
+   * route, `submitPaper`'s `+1 wrong_count / -0.1 mastery` path (which deliberately keeps its
+   * different step, because failing an exam is not the same event as missing a practice question),
+   * and the `learning.public` port that `plugins/ai-study` writes through. The mastery number is
+   * what the student sees in 错题本, so a second implementation of it in another plugin would show
+   * up as a book that disagrees with itself.
+   *
+   * The attempt row and the mastery update are one transaction: half of this pair would leave a
+   * history entry with no effect, or an effect with no history.
+   */
+  private applyPracticeOutcome(input: {
+    wrongQuestionId: number;
+    masteryScore: number;
+    isCorrect: boolean;
+    spentSec: number;
+    source: string;
+  }): { masteryScore: number; cleared: boolean } {
+    const nextMastery = Math.min(1, Math.max(0, input.masteryScore + (input.isCorrect ? 0.2 : -0.1)));
+    const cleared = input.isCorrect && nextMastery >= 0.95;
+
     this.repository.transaction(() => {
       this.repository.createWrongQuestionAttempt({
-        wrongQuestionId: idNum,
-        practiceSource: source,
-        isCorrect: isCorrect ? 1 : 0,
-        spentSec: Number.isFinite(spentSecNum) ? spentSecNum : 0,
+        wrongQuestionId: input.wrongQuestionId,
+        practiceSource: input.source,
+        isCorrect: input.isCorrect ? 1 : 0,
+        spentSec: input.spentSec,
       });
 
-      const nextMastery = Math.min(1, Math.max(0, (wrong.mastery_score ?? 0) + (isCorrect ? 0.2 : -0.1)));
-      this.repository.recordWrongQuestionAttempt(idNum, {
+      this.repository.recordWrongQuestionAttempt(input.wrongQuestionId, {
         masteryScore: nextMastery,
-        clearedAt: isCorrect && nextMastery >= 0.95 ? new Date() : null,
+        clearedAt: cleared ? new Date() : null,
       });
     });
+
+    return { masteryScore: nextMastery, cleared };
   }
 
   async generateWrongQuestionPractice(actor: Actor, idInput: string) {
@@ -678,5 +776,181 @@ export class LearningService {
     if (found.plan.student_id !== student.id) throw new ApiError(403, '无权限修改该任务');
 
     return this.repository.updateStudyPlanItem(idNum, status);
+  }
+
+  // -- the `learning.public` port -------------------------------------------
+  //
+  // Read by `plugins/ai-study` (guardrail G1 forbids it reading these eighteen tables, and declaring
+  // a `data.reads` would still leave the writes impossible). The methods are deliberately *rows in,
+  // DTO out*: a consumer gets no repository handle and no `ctx.db`, so the ownership check in the db
+  // handle remains the proof that nothing outside this plugin ever runs SQL against these tables.
+  //
+  // There is no authorization here and there must not be: a port has no request actor, so the caller
+  // proves "this student is mine to ask about" through `classroom.public` first - the same split
+  // `PetAuthorization` records. What this side guarantees is only that a missing student answers
+  // `null` rather than an empty signal set, because "no such student" and "a student with nothing to
+  // review" lead a consumer to two different screens.
+
+  /** The student's wrong-question book, knowledge-node record and graded-answer accuracy. */
+  async getStudentSignals(studentId: number): Promise<LearningStudentSignals | null> {
+    const student = await this.classroom.getStudentById(studentId);
+    if (!student) return null;
+
+    // `listWrongQuestions` answers only *uncleared* rows (`cleared_at IS NULL`), which is exactly the
+    // set the engine should re-pick: a question the student has taken over 0.95 is one they have
+    // learned, and offering it again is how a recommendation system looks broken.
+    const wrong = this.repository.listWrongQuestions(studentId);
+    const nodePairs = this.repository.listQuestionKnowledgeMap(wrong.map((row) => row.question_id));
+
+    const nodesByQuestion = new Map<number, number[]>();
+    for (const pair of nodePairs) {
+      const list = nodesByQuestion.get(pair.question_id);
+      if (list) list.push(pair.node_id);
+      else nodesByQuestion.set(pair.question_id, [pair.node_id]);
+    }
+
+    const knowledgeProgress: LearningKnowledgeProgress[] = this.repository
+      .listKnowledgeProgress(studentId)
+      .map((row) => ({
+        nodeId: row.node_id,
+        name: row.name,
+        importance: row.importance,
+        wrongCount: Number(row.wrong_count ?? 0),
+        attemptCount: Number(row.attempt_count ?? 0),
+        correctCount: Number(row.correct_count ?? 0),
+      }));
+
+    return {
+      studentId,
+      wrongQuestions: wrong.map((row) => ({
+        questionId: row.question_id,
+        wrongCount: row.wrong_count,
+        // `mastery_score` has a DDL default of 0 but is nullable in the type; the engine wants a
+        // number it can subtract, and "no record" is 0 mastery, not "unknown".
+        masteryScore: typeof row.mastery_score === 'number' ? row.mastery_score : 0,
+        lastWrongAt: row.last_wrong_at,
+        nodeIds: nodesByQuestion.get(row.question_id) ?? [],
+      })),
+      knowledgeProgress,
+      recentPaperAccuracy: this.repository.countGradedObjectiveAnswers(studentId),
+    };
+  }
+
+  /** The candidate pool, as refs that carry no answer key - see the contract's header. */
+  listCandidates(filter: LearningCandidateFilter): LearningQuestionRef[] {
+    return this.repository.listCandidateQuestions(filter).map((row) => this.toQuestionRef(row));
+  }
+
+  /** Resolve a stored set's question ids. Missing ids are absent from the answer, not an error. */
+  listQuestionsByIds(questionIds: number[]): LearningQuestionRef[] {
+    return this.repository.listQuestionsByIds(questionIds).map((row) => this.toQuestionRef(row));
+  }
+
+  /** Which nodes these questions belong to, so a consumer can score them without a query per row. */
+  listQuestionKnowledgeMap(questionIds: number[]): Array<{ questionId: number; nodeId: number }> {
+    return this.repository
+      .listQuestionKnowledgeMap(questionIds)
+      .map((pair) => ({ questionId: pair.question_id, nodeId: pair.node_id }));
+  }
+
+  /**
+   * One row -> the outward ref.
+   *
+   * The single place `answer_json` and `explanation` are dropped. Having exactly one mapper is what
+   * makes "no consumer can see an answer key" a property of the code rather than a habit: both
+   * `listCandidates` and `listQuestionsByIds` go through it, so adding a third reader cannot forget.
+   */
+  private toQuestionRef(row: QuestionRow): LearningQuestionRef {
+    return {
+      id: row.id,
+      teacherId: row.teacher_id,
+      subjectId: row.subject_id,
+      type: row.type,
+      stem: row.stem,
+      options: toQuestionOptions(row.options_json),
+      difficulty: row.difficulty,
+      isSubjective: (row.is_subjective ?? 0) === 1,
+      defaultPoints: row.default_points ?? 0,
+    };
+  }
+
+  toPort(): LearningPort {
+    return {
+      getStudentSignals: (studentId) => this.getStudentSignals(studentId),
+      // `async` even though the work is synchronous: the port is an async boundary because the
+      // implementations behind it read a database, and a caller that had to know which of the five
+      // methods happened to be sync would be a caller that breaks the first time one of them is not.
+      listCandidates: async (filter) => this.listCandidates(filter),
+      listQuestionsByIds: async (questionIds) => this.listQuestionsByIds(questionIds),
+      listQuestionKnowledgeMap: async (questionIds) => this.listQuestionKnowledgeMap(questionIds),
+      listSubjects: async () => this.repository.listSubjects(),
+      listKnowledgeNodes: async (subjectId) => this.repository.listKnowledgeNodes(subjectId),
+      recordPracticeOutcome: async (input) => this.recordPracticeOutcome(input),
+    };
+  }
+
+  /**
+   * Judge one practice answer, then fold it into the book.
+   *
+   * Two refusals, both deliberate, and both narrower than `submitPaper`'s behaviour:
+   *
+   *   - a **subjective** question is never judged (`isCorrect: null`), because the server has no
+   *     rubric grader for these rows and a 0 would be a mark it invented;
+   *   - a question with **no reference answer configured** is never judged as correct either. The
+   *     exam path currently compares two empty strings and calls that correct, which is a legacy
+   *     behaviour on a surface that already carries known debt; a new surface must not copy it, or
+   *     "you got it right" would mean "nobody set an answer".
+   *
+   * A declined outcome records **nothing**: no attempt row, no mastery change. Writing a `-0.1`
+   * against an answer nobody marked is the same class of lie as a fabricated score.
+   */
+  recordPracticeOutcome(input: {
+    studentId: number;
+    questionId: number;
+    answerJson: string | null;
+    spentSec: number;
+    source: string;
+  }): LearningPracticeOutcome {
+    const question = this.repository.getQuestion(input.questionId);
+    const existing = this.repository.getWrongQuestionByQuestion(input.studentId, input.questionId);
+    const currentMastery = existing && typeof existing.mastery_score === 'number' ? existing.mastery_score : 0;
+
+    if (!question || (question.is_subjective ?? 0) === 1) {
+      return { isCorrect: null, masteryScore: existing ? currentMastery : null, cleared: false };
+    }
+
+    const expected = normalizePracticeAnswer(parseJsonMaybe(question.answer_json));
+    if (!expected) {
+      return { isCorrect: null, masteryScore: existing ? currentMastery : null, cleared: false };
+    }
+
+    const isCorrect = expected === normalizePracticeAnswer(parseJsonMaybe(input.answerJson));
+
+    if (!existing) {
+      if (isCorrect) {
+        // Right on a question that was never wrong: there is no book row to move, and creating one
+        // just to record a correct answer would put a question the student has never missed into
+        // 错题本.
+        return { isCorrect: true, masteryScore: null, cleared: false };
+      }
+      // The same shape `submitPaper` produces for a first miss, so the practice flow feeds the
+      // student's real book rather than a parallel one.
+      this.repository.createWrongQuestion({ studentId: input.studentId, questionId: input.questionId });
+    }
+
+    const created = this.repository.getWrongQuestionByQuestion(input.studentId, input.questionId);
+    if (!created) return { isCorrect, masteryScore: null, cleared: false };
+
+    const outcome = this.applyPracticeOutcome({
+      wrongQuestionId: created.id,
+      masteryScore: typeof created.mastery_score === 'number' ? created.mastery_score : currentMastery,
+      isCorrect,
+      spentSec: Math.max(0, Math.floor(input.spentSec) || 0),
+      // Provenance, so a book entry can say where a mastery step came from. `input.source` is the
+      // caller's own label (`ai_study`) rather than one this plugin invents.
+      source: input.source,
+    });
+
+    return { isCorrect, masteryScore: outcome.masteryScore, cleared: outcome.cleared };
   }
 }
