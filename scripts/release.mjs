@@ -27,7 +27,7 @@
  * `--dry-run` (or simply not passing a bump) prints the plan and changes nothing.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -43,8 +43,25 @@ const GATES = [
   ['npm run guard', 'guardrails'],
 ];
 
-function run(command, args) {
-  execFileSync(command, args, { cwd: ROOT, stdio: 'inherit' });
+/**
+ * Runs one gate with its output going straight to this terminal.
+ *
+ * `shell: true` is required, not cosmetic, and the command is passed as a single string because of
+ * it. Node's CVE-2024-27980 fix made `execFileSync('npm.cmd', ...)` throw EINVAL on Windows - the
+ * old call shape could never work there, and `npm run release` is the only supported way to cut a
+ * version (docs/versioning.md §3), so on Windows the documented process failed before the first
+ * gate. A shell resolves `npm` to `npm.cmd` without this script naming the extension itself.
+ *
+ * The command stays one string rather than command+args: with `shell: true` Node concatenates
+ * arguments instead of escaping them (and warns about it, DEP0190). The gates above are literals
+ * under this script's control, so there is nothing to escape.
+ */
+function run(command) {
+  const result = spawnSync(command, { cwd: ROOT, stdio: 'inherit', shell: true });
+  if (result.error) throw result.error;
+  // A gate that does not exit 0 must stop the release: the version is not written for a tree that
+  // failed its own acceptance gates.
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
 /** Git output is read, never streamed: every use is a decision (`status`, `tag --list`). */
@@ -161,8 +178,7 @@ function main() {
   // 3. Gates before anything is written.
   for (const [command, label] of GATES) {
     console.log(`\n=== ${label}: ${command}`);
-    const [bin, ...rest] = command.split(' ');
-    run(bin === 'npm' ? (process.platform === 'win32' ? 'npm.cmd' : 'npm') : bin, rest);
+    run(command);
   }
 
   // 4. Version, in one place.
