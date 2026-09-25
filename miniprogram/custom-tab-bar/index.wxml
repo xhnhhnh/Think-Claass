@@ -1,0 +1,12 @@
+<view class="tabbar {{teacher ? 'tabbar--teacher' : ''}}" wx:if="{{ready && tabs.length}}">
+  <view
+    class="tabbar__item {{active === item.pagePath ? 'is-active' : ''}}"
+    wx:for="{{tabs}}"
+    wx:key="key"
+    data-path="{{item.pagePath}}"
+    bindtap="onTap"
+  >
+    <view class="tabbar__mark"></view>
+    <view class="tabbar__text">{{item.text}}</view>
+  </view>
+</view>

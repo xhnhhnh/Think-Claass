@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "班级",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "loading-block": "/components/loading-block/index",
+    "empty-state": "/components/empty-state/index",
+    "custom-tab-bar": "/custom-tab-bar/index"
+  }
+}

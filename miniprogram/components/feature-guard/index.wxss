@@ -1,0 +1,54 @@
+.guard {
+  padding: 72rpx 48rpx;
+  text-align: center;
+}
+
+.guard__art {
+  width: 120rpx;
+  height: 120rpx;
+  margin: 0 auto 28rpx;
+  border-radius: 36rpx;
+  background: #F1EFE7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A padlock drawn from two shapes: the body and its shackle. */
+.guard__lock {
+  position: relative;
+  width: 44rpx;
+  height: 34rpx;
+  border-radius: 8rpx;
+  background: #C9C2B0;
+}
+
+.guard__lock::after {
+  content: '';
+  position: absolute;
+  left: 9rpx;
+  top: -20rpx;
+  width: 26rpx;
+  height: 26rpx;
+  border: 6rpx solid #C9C2B0;
+  border-bottom: none;
+  border-radius: 14rpx 14rpx 0 0;
+  box-sizing: border-box;
+}
+
+.guard__title {
+  font-size: 30rpx;
+  color: #404F64;
+  margin-bottom: 10rpx;
+}
+
+.guard__text {
+  font-size: 25rpx;
+  color: #6E7D91;
+  line-height: 1.6;
+}
+
+.guard__btn {
+  display: inline-flex;
+  margin-top: 28rpx;
+}

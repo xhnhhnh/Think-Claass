@@ -1,0 +1,113 @@
+<view class="page page--tabbar page--dispatchbar">
+  <feature-guard
+    wx:if="{{featuresReady}}"
+    flag="enable_ai_study"
+    features="{{features}}"
+    show-retry="{{true}}"
+    bind:retry="onRetry"
+  >
+    <!-- no class on this account -->
+    <empty-state
+      wx:if="{{!loading && !error && !classId}}"
+      title="还没有分配班级"
+      description="账号关联班级后，这里会显示班级的薄弱知识点和派发建议。"
+    />
+
+    <block wx:else>
+      <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{5}}" text="正在分析班级学情…" />
+
+      <block wx:else>
+        <view class="card error-card" wx:if="{{error}}">
+          <view class="card__title">看板没能加载出来</view>
+          <view class="card__sub">{{error}}</view>
+          <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+        </view>
+
+        <block wx:else>
+          <!-- coverage -->
+          <view class="card head">
+            <view class="head__title">班级智学看板</view>
+            <view class="head__sub">
+              已分析 {{studentsConsidered}} / {{studentsTotal}} 名学生
+            </view>
+            <view class="head__note" wx:if="{{truncated}}">为保证速度，本次只分析了部分学生，多刷几次可以覆盖更多。</view>
+            <view class="head__note" wx:if="{{aiMessage}}">{{aiMessage}}</view>
+          </view>
+
+          <!-- weak nodes -->
+          <view class="card">
+            <view class="card__title mb-16">班级薄弱知识点</view>
+
+            <view class="node" wx:for="{{weakNodes}}" wx:key="node_id">
+              <view class="row--between">
+                <view class="node__name">{{item.name}}</view>
+                <view class="tiny">{{item.importanceText}}</view>
+              </view>
+              <view class="node__meta mt-8">
+                <view class="chip chip--danger">{{item.wrong_count}} 次错题</view>
+                <view class="chip chip--muted">{{item.student_count}} 人涉及</view>
+              </view>
+            </view>
+
+            <empty-state
+              wx:if="{{!weakNodes.length}}"
+              title="暂时没有集中错题"
+              description="等学生做完智学练习后，这里会显示班级的薄弱知识点。"
+              tone="success"
+            />
+          </view>
+
+          <!-- suggestions -->
+          <view class="card">
+            <view class="row--between mb-16">
+              <view class="card__title">派发建议</view>
+              <view class="link" wx:if="{{suggestions.length}}" bindtap="onSelectAll">
+                {{selectedCount ? '取消全选' : '全选可派发'}}
+              </view>
+            </view>
+
+            <view
+              class="suggest {{item.selected ? 'suggest--on' : ''}} {{item.hasOpenSet ? 'suggest--locked' : ''}}"
+              wx:for="{{suggestions}}"
+              wx:key="studentId"
+              data-id="{{item.studentId}}"
+              bindtap="onToggleStudent"
+            >
+              <view class="suggest__box {{item.selected ? 'suggest__box--on' : ''}}"></view>
+              <view class="grow">
+                <view class="row row--gap">
+                  <view class="suggest__name">{{item.name}}</view>
+                  <view class="chip chip--muted" wx:if="{{item.hasOpenSet}}">已有练单</view>
+                </view>
+                <view class="tiny mt-8">{{item.nodeName}} · 错 {{item.wrongCount}} 题</view>
+                <view class="suggest__reason">{{item.reason}}</view>
+              </view>
+            </view>
+
+            <empty-state
+              wx:if="{{!suggestions.length}}"
+              title="没有需要派发的学生"
+              description="最近的错题还不足以给出建议，等学生多练几组再来看看。"
+            />
+          </view>
+        </block>
+      </block>
+    </block>
+  </feature-guard>
+
+  <loading-block wx:else mode="skeleton" rows="{{3}}" text="正在检查功能开关…" />
+
+  <!-- dispatch bar -->
+  <view class="dispatchbar" wx:if="{{featuresReady && !loading && suggestions.length}}">
+    <view class="dispatchbar__row">
+      <view class="dispatchbar__label">题量</view>
+      <input class="dispatchbar__size" type="number" value="{{size}}" bindinput="onSizeInput" placeholder="5" placeholder-class="placeholder" />
+      <input class="dispatchbar__hint" value="{{hint}}" bindinput="onHintInput" placeholder="给 AI 的提示（可留空）" placeholder-class="placeholder" />
+    </view>
+    <view class="btn btn--teacher btn--block {{assigning ? 'btn--disabled' : ''}}" bindtap="onAssign">
+      {{assigning ? '派发中…' : (selectedCount ? '为 ' + selectedCount + ' 名学生派发练习' : '请先选择学生')}}
+    </view>
+  </view>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

@@ -23,6 +23,7 @@ import type { IdentityPort } from './domains/identity.js';
 import type { LearningPort } from './domains/learning.js';
 import type { ParentActivityRecorder } from './domains/parent-buff.js';
 import type { PetPort } from './domains/pet.js';
+import type { WechatPort } from './domains/wechat.js';
 
 export interface ServiceContracts {
   /** Marker entry so the interface is never empty. */
@@ -88,6 +89,18 @@ export interface ServiceContracts {
    * - `dependsOn` expresses that, and a `ctx.use` that throws is the honest outcome.
    */
   'learning.public': LearningPort;
+  /**
+   * Supplied by the `wechat` feature plugin.
+   *
+   * One question: does this account hold a WeChat binding? The account-deletion path needs it so a
+   * `p_wechat_accounts` row does not outlive the `users` row it points at - and `users` is identity's
+   * table, so the check has to come from the plugin that owns the binding rather than from a query
+   * nobody declared.
+   *
+   * Optional in the same sense as `parent_buff.public`: the mini program is a feature a deployment
+   * may not ship, and a shop, a class or an account must work identically when it is absent.
+   */
+  'wechat.public': WechatPort;
 }
 
 export type ServiceName = keyof ServiceContracts & string;

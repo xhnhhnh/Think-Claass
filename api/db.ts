@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
 
-import { createLogger, runMigrations, type Migration } from '@thinkclass/kernel';
+import { createLogger, loadConfig, runMigrations, type Migration } from '@thinkclass/kernel';
 
 /**
  * The database file this layer opens.
@@ -19,7 +19,17 @@ const dbPath = process.env.DATABASE_FILE
 type DatabaseInstance = InstanceType<typeof Database>;
 
 function configureDb(connection: DatabaseInstance) {
-  connection.pragma('journal_mode = WAL');
+  // WAL is the default and the right journal on a local disk. `DATABASE_SKIP_WAL` moves the file to
+  // the rollback journal for a deployment whose database lives on a mounted network filesystem, where
+  // WAL's shared-memory file and locking assumptions do not hold - see `KernelConfig.databaseSkipWal`.
+  //
+  // Read through `loadConfig` rather than `process.env` directly so this connection and the kernel's
+  // cannot disagree about the flag: `envFlag` accepts `1|true|yes|on`, and a hand-rolled `=== '1'`
+  // check here would leave the two connections in one process on different journals. It is also set
+  // explicitly in both directions, because `journal_mode` is a persistent property of the file - a
+  // database created in WAL stays in WAL otherwise, and the switch would look applied while
+  // `PRAGMA journal_mode` still answered `wal`.
+  connection.pragma(loadConfig().databaseSkipWal ? 'journal_mode = DELETE' : 'journal_mode = WAL');
   connection.pragma('synchronous = NORMAL');
   connection.pragma('cache_size = -20000');
   connection.pragma('busy_timeout = 5000');

@@ -1,0 +1,141 @@
+<view class="page detail {{editable ? 'page--footbar' : ''}}">
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{6}}" text="正在打开作业…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">作业没能打开</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <!-- header -->
+      <view class="card">
+        <view class="h2">{{title}}</view>
+        <view class="body mt-8" wx:if="{{description}}">{{description}}</view>
+
+        <view class="row--wrap row--gap mt-16">
+          <view class="chip chip--{{dueTone === 'muted' ? 'brand' : dueTone}}">{{dueText}}</view>
+          <view class="chip" wx:if="{{statusText}}">{{statusText}}</view>
+          <view class="chip">共 {{totalPoints}} 分</view>
+        </view>
+
+        <view class="result" wx:if="{{scoreText}}">
+          <view class="result__score">{{scoreText}}</view>
+          <view class="result__label">本次得分</view>
+          <view class="result__feedback" wx:if="{{teacherFeedback}}">老师评语：{{teacherFeedback}}</view>
+          <view class="result__ai" wx:if="{{aiFeedback}}">AI 评语：{{aiFeedback}}</view>
+        </view>
+
+        <view class="notice mt-16" wx:if="{{!editable && !scoreText}}">
+          <view class="tiny">这份作业已经不能再修改了。如果还有疑问，可以问问老师。</view>
+        </view>
+      </view>
+
+      <!-- questions -->
+      <view class="card question" wx:for="{{questions}}" wx:key="id">
+        <view class="row--between">
+          <view class="row row--gap">
+            <view class="question__no">{{item.order}}</view>
+            <view class="chip chip--brand">{{item.typeText}}</view>
+          </view>
+          <view class="tiny">{{item.points}} 分</view>
+        </view>
+
+        <view class="question__stem">{{item.stem}}</view>
+
+        <!-- single choice -->
+        <block wx:if="{{item.type === 'single'}}">
+          <view
+            class="option {{option.selected ? 'option--selected' : ''}}"
+            wx:for="{{item.options}}"
+            wx:for-item="option"
+            wx:for-index="optionIndex"
+            wx:key="id"
+            data-index="{{index}}"
+            data-option="{{option.id}}"
+            bindtap="onSingleTap"
+          >
+            <view class="option__mark">{{option.id}}</view>
+            <view class="option__text">{{option.text}}</view>
+          </view>
+        </block>
+
+        <!-- multiple choice -->
+        <block wx:elif="{{item.type === 'multiple'}}">
+          <view class="tiny mb-8">可以选多个</view>
+          <view
+            class="option {{option.selected ? 'option--selected' : ''}}"
+            wx:for="{{item.options}}"
+            wx:for-item="option"
+            wx:for-index="optionIndex"
+            wx:key="id"
+            data-index="{{index}}"
+            data-option="{{option.id}}"
+            bindtap="onMultipleTap"
+          >
+            <view class="option__box {{option.selected ? 'option__box--on' : ''}}"></view>
+            <view class="option__text">{{option.text}}</view>
+          </view>
+        </block>
+
+        <!-- blank -->
+        <block wx:elif="{{item.type === 'blank'}}">
+          <input
+            wx:if="{{editable}}"
+            class="answer-input"
+            value="{{item.text}}"
+            placeholder="在这里填写答案"
+            placeholder-class="answer-placeholder"
+            data-index="{{index}}"
+            bindinput="onTextInput"
+          />
+          <view class="answer-read" wx:else>{{item.answerText}}</view>
+        </block>
+
+        <!-- short answer -->
+        <block wx:else>
+          <textarea
+            wx:if="{{editable}}"
+            class="answer-textarea"
+            value="{{item.text}}"
+            placeholder="写下你的思路或解答过程"
+            placeholder-class="answer-placeholder"
+            maxlength="2000"
+            data-index="{{index}}"
+            bindinput="onTextInput"
+          />
+          <view class="answer-read answer-read--multi" wx:else>{{item.answerText}}</view>
+        </block>
+
+        <!-- graded feedback -->
+        <view class="mark" wx:if="{{item.scoreText}}">
+          <view class="row--between">
+            <view class="chip chip--{{item.correct === 1 ? 'success' : (item.correct === 0 ? 'danger' : 'muted')}}">
+              {{item.correct === 1 ? '答对了' : (item.correct === 0 ? '答错了' : '已评分')}}
+            </view>
+            <view class="mark__score">{{item.scoreText}}</view>
+          </view>
+          <view class="mark__text" wx:if="{{item.teacherComment}}">老师：{{item.teacherComment}}</view>
+          <view class="mark__text mark__text--ai" wx:if="{{item.aiComment}}">AI：{{item.aiComment}}</view>
+        </view>
+      </view>
+    </block>
+  </block>
+
+  <!-- action bar -->
+  <view class="footbar" wx:if="{{!loading && !error && editable}}">
+    <view class="footbar__progress">
+      <view class="tiny">已作答 {{answeredCount}}/{{questions.length}} 题</view>
+      <view class="bar footbar__bar"><view class="bar__fill" style="width: {{questions.length ? answeredCount * 100 / questions.length : 0}}%"></view></view>
+    </view>
+    <view class="footbar__actions">
+      <view class="btn btn--ghost footbar__save {{saving ? 'btn--disabled' : ''}}" bindtap="onSaveDraft">
+        {{saving ? '保存中…' : '保存草稿'}}
+      </view>
+      <view class="btn btn--primary footbar__submit {{submitting ? 'btn--disabled' : ''}}" bindtap="onSubmit">
+        {{submitting ? '提交中…' : '提交作业'}}
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "作业详情",
+  "usingComponents": {
+    "loading-block": "/components/loading-block/index",
+    "empty-state": "/components/empty-state/index"
+  }
+}

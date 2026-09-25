@@ -134,6 +134,17 @@ const CASCADE_TABLES = [
   'p_ai_study_answers',
   'p_ai_study_items',
   'p_ai_study_sets',
+
+  /*
+   * The WeChat mini program's two `p_wechat_*` tables, appended for the same reason as ai-study's.
+   * `p_wechat_accounts` is account-scoped by `user_id` and deliberately has no foreign key to
+   * `users` - the plugin boundary forbids a cross-owner key, so nothing at the database level would
+   * remove it. Without a rule here a deleted student would leave a binding behind, and an account id
+   * reused later would silently inherit that WeChat login. `p_wechat_login_tickets` carries no
+   * `user_id` at all: the rule removes them through the openids it is about to delete.
+   */
+  'p_wechat_accounts',
+  'p_wechat_login_tickets',
 ];
 
 /** `operation_logs` is the kernel's; see the header. */

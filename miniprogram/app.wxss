@@ -1,0 +1,422 @@
+/**
+ * Global stylesheet: the design tokens, the layout primitives and the four component-ish classes
+ * (card, chip, button, list row) that every page reuses.
+ *
+ * ## Why literal colours instead of CSS variables
+ *
+ * WXSS does support `var()`, but `page { --x }` scoping behaves differently across base-library
+ * versions and the WeChat devtools simulator, and a token that silently does not resolve leaves a
+ * page unstyled with no error anywhere. These are the web client's tokens
+ * (`src/index.css`, light theme) written as literals:
+ *
+ *   brand          #17583E   hsl(155 58% 22%)
+ *   brand-strong   #0F4230   pressed states
+ *   brand-soft     #E4F0E9   selected chips, icon plates
+ *   teacher        #1C5C87   the teacher role accent
+ *   page           #FBFAF6   warm paper, not white
+ *   card           #FFFFFF
+ *   fg-1/2/3       #0F1729 / #404F64 / #6E7D91
+ *   line           #E9E1D3
+ *   success/warn/danger/info  #307E50 / #D8790E / #DE3B35 / #2191C4
+ */
+
+page {
+  background: #FBFAF6;
+  color: #0F1729;
+  font-size: 28rpx;
+  line-height: 1.55;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+view,
+text,
+button,
+input,
+textarea {
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.page {
+  min-height: 100vh;
+  padding: 24rpx 24rpx 40rpx;
+}
+
+/* Room for the custom tab bar (fixed, ~110rpx + safe area). */
+.page--tabbar {
+  padding-bottom: 200rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row--between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.row--top {
+  display: flex;
+  align-items: flex-start;
+}
+
+.row--wrap {
+  flex-wrap: wrap;
+}
+
+.row--gap {
+  gap: 16rpx;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+/* ------------------------------------------------------------------ type */
+
+.h1 {
+  font-size: 44rpx;
+  font-weight: 600;
+  letter-spacing: -0.5rpx;
+}
+
+.h2 {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.h3 {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.body {
+  font-size: 28rpx;
+  color: #404F64;
+}
+
+.muted {
+  color: #6E7D91;
+  font-size: 26rpx;
+}
+
+.tiny {
+  color: #6E7D91;
+  font-size: 24rpx;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ card */
+
+.card {
+  background: #FFFFFF;
+  border: 1rpx solid #E9E1D3;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 10rpx rgba(15, 23, 41, 0.03);
+}
+
+.card--flat {
+  box-shadow: none;
+}
+
+.card--brand {
+  background: #17583E;
+  border-color: #17583E;
+  color: #FFFFFF;
+}
+
+.card__title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.card__sub {
+  color: #6E7D91;
+  font-size: 25rpx;
+}
+
+/* A coloured rail down the left edge of a card, used to mark a state without a badge. */
+.card--rail {
+  border-left: 8rpx solid #17583E;
+}
+
+.card--rail-warn {
+  border-left-color: #D8790E;
+}
+
+.card--rail-danger {
+  border-left-color: #DE3B35;
+}
+
+/* ------------------------------------------------------------------ chips */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 40rpx;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  line-height: 1;
+  background: #F1EFE7;
+  color: #404F64;
+}
+
+.chip--brand {
+  background: #E4F0E9;
+  color: #17583E;
+}
+
+.chip--success {
+  background: #E4F0E9;
+  color: #2A6B45;
+}
+
+.chip--muted {
+  background: #F1EFE7;
+  color: #6E7D91;
+}
+
+.chip--warn {
+  background: #FBEEDD;
+  color: #A85A08;
+}
+
+.chip--danger {
+  background: #FBE6E5;
+  color: #B32B26;
+}
+
+.chip--info {
+  background: #E2F1F8;
+  color: #176D93;
+}
+
+.chip--teacher {
+  background: #E3EDF4;
+  color: #1C5C87;
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  padding: 0 32rpx;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  background: #F1EFE7;
+  color: #0F1729;
+  border: none;
+}
+
+.btn--primary {
+  background: #17583E;
+  color: #FFFFFF;
+}
+
+.btn--teacher {
+  background: #1C5C87;
+  color: #FFFFFF;
+}
+
+.btn--ghost {
+  background: transparent;
+  border: 2rpx solid #E9E1D3;
+  color: #404F64;
+}
+
+.btn--danger {
+  background: #FFFFFF;
+  border: 2rpx solid #F3C9C7;
+  color: #B32B26;
+}
+
+.btn--sm {
+  height: 64rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  border-radius: 16rpx;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--disabled,
+.btn[disabled] {
+  opacity: 0.5;
+}
+
+/* Inline text button - for "查看全部", "换一批" and other low-emphasis actions. */
+.link {
+  color: #17583E;
+  font-size: 27rpx;
+}
+
+/* ------------------------------------------------------------------ lists */
+
+.list-row {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.list-row:last-child {
+  border-bottom: none;
+}
+
+.list-row__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-row__value {
+  color: #6E7D91;
+  font-size: 26rpx;
+  margin-left: 16rpx;
+}
+
+.divider {
+  height: 1rpx;
+  background: #E9E1D3;
+  margin: 24rpx 0;
+}
+
+/* ------------------------------------------------------------------ stats */
+
+.stat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.stat {
+  flex: 1 1 40%;
+  min-width: 200rpx;
+  background: #FFFFFF;
+  border: 1rpx solid #E9E1D3;
+  border-radius: 20rpx;
+  padding: 22rpx;
+}
+
+.stat__value {
+  font-size: 40rpx;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stat__label {
+  color: #6E7D91;
+  font-size: 24rpx;
+  margin-top: 4rpx;
+}
+
+/* A slim progress bar, used for the growth/participation dimensions. */
+.bar {
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: #F1EFE7;
+  overflow: hidden;
+}
+
+.bar__fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: #17583E;
+}
+
+.bar__fill--teacher {
+  background: #1C5C87;
+}
+
+/* ------------------------------------------------------------------ states */
+
+.state {
+  padding: 80rpx 40rpx;
+  text-align: center;
+  color: #6E7D91;
+}
+
+.state__title {
+  font-size: 30rpx;
+  color: #404F64;
+  margin-bottom: 8rpx;
+}
+
+.state__text {
+  font-size: 25rpx;
+  line-height: 1.6;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #F1EFE7 25%, #E9E1D3 37%, #F1EFE7 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 12rpx;
+}
+
+.skeleton__line {
+  height: 28rpx;
+  margin-bottom: 18rpx;
+}
+
+.skeleton__line--short {
+  width: 45%;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ------------------------------------------------------------------ spacing */
+
+.mt-8 { margin-top: 8rpx; }
+.mt-16 { margin-top: 16rpx; }
+.mt-24 { margin-top: 24rpx; }
+.mt-32 { margin-top: 32rpx; }
+.mb-8 { margin-bottom: 8rpx; }
+.mb-16 { margin-bottom: 16rpx; }
+.mb-24 { margin-bottom: 24rpx; }
+.ml-16 { margin-left: 16rpx; }
+.w-100 { width: 100%; }

@@ -1,0 +1,118 @@
+<view class="page page--tabbar">
+  <!-- identity -->
+  <view class="card profile">
+    <view class="row">
+      <view class="profile__avatar">{{name}}</view>
+      <view class="grow ml-16">
+        <view class="profile__name">{{name}}</view>
+        <view class="row row--gap mt-8">
+          <view class="chip {{isTeacher ? 'chip--teacher' : 'chip--brand'}}">{{roleLabel}}</view>
+          <view class="chip chip--muted">@{{username}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{3}}" text="正在加载账号信息…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">部分信息没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <!-- points (students only) -->
+    <view class="card" wx:if="{{student}}">
+      <view class="card__title mb-16">我的学分</view>
+      <view class="stat-grid">
+        <view class="stat">
+          <view class="stat__value">{{student.total_points}}</view>
+          <view class="stat__label">累计获得</view>
+        </view>
+        <view class="stat">
+          <view class="stat__value">{{student.available_points}}</view>
+          <view class="stat__label">当前可用</view>
+        </view>
+      </view>
+      <view class="tiny mt-16" wx:if="{{student.group_name}}">所在小组：{{student.group_name}}</view>
+    </view>
+
+    <!-- teacher shortcut -->
+    <view class="card" wx:if="{{isTeacher}}">
+      <view class="row--between">
+        <view>
+          <view class="card__title">我的班级</view>
+          <view class="card__sub">查看学生名单、批量加减分与作业情况</view>
+        </view>
+        <view class="btn btn--sm btn--teacher" bindtap="onGoClass">进入班级</view>
+      </view>
+    </view>
+
+    <!-- 奖状: only when the class has the achievements feature on -->
+    <feature-guard
+      wx:if="{{featuresReady}}"
+      flag="enable_achievements"
+      features="{{features}}"
+    >
+      <view class="card">
+        <view class="row--between mb-16">
+          <view class="card__title">我的奖状</view>
+          <view class="tiny">{{certificates.length}} 张</view>
+        </view>
+
+        <view class="cert" wx:for="{{certificates}}" wx:key="id">
+          <view class="cert__title">{{item.title}}</view>
+          <view class="cert__desc" wx:if="{{item.description}}">{{item.description}}</view>
+          <view class="tiny mt-8">{{item.dateText}}</view>
+        </view>
+
+        <view class="tiny" wx:if="{{certificatesError}}">{{certificatesError}}</view>
+        <empty-state
+          wx:elif="{{!certificates.length}}"
+          title="还没有奖状"
+          description="继续加油，老师会为你颁发奖状的。"
+        />
+      </view>
+    </feature-guard>
+
+    <!-- account settings -->
+    <view class="card">
+      <view class="card__title mb-8">账号设置</view>
+
+      <view class="list-row" bindtap="onToggleEdit">
+        <view class="list-row__label">修改账号资料</view>
+        <view class="list-row__value">{{editing ? '收起' : '修改'}}</view>
+      </view>
+
+      <view class="form" wx:if="{{editing}}">
+        <view class="field">
+          <view class="field__label">账号</view>
+          <input class="field__input" value="{{formUsername}}" bindinput="onUsernameInput" placeholder="登录账号" placeholder-class="field__placeholder" />
+        </view>
+        <view class="field field--last">
+          <view class="field__label">新密码</view>
+          <input
+            class="field__input"
+            password
+            value="{{formPassword}}"
+            bindinput="onPasswordInput"
+            placeholder="不修改就留空"
+            placeholder-class="field__placeholder"
+          />
+        </view>
+        <view class="btn btn--primary btn--block mt-16 {{saving ? 'btn--disabled' : ''}}" bindtap="onSaveProfile">
+          {{saving ? '保存中…' : '保存'}}
+        </view>
+      </view>
+
+      <view class="list-row" bindtap="onUnbind">
+        <view class="list-row__label">解绑微信</view>
+        <view class="list-row__value">下次需重新绑定</view>
+      </view>
+    </view>
+
+    <view class="btn btn--danger btn--block {{busy ? 'btn--disabled' : ''}}" bindtap="onLogout">退出登录</view>
+    <view class="tiny foot">Think-Class · 班级成长助手</view>
+  </block>
+</view>

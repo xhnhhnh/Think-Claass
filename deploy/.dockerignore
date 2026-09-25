@@ -1,0 +1,49 @@
+# Docker 构建上下文排除清单。
+#
+# 这份文件放在 deploy/ 下是仓库布局决定的，因此**它不是自动生效的那一份**：
+# BuildKit（Docker 23+ 默认）在 `docker build -f deploy/Dockerfile .` 时优先读
+# `deploy/Dockerfile.dockerignore`（内容与本文件相同）。两份内容保持一致。
+# 如果你的构建日志显示上下文里仍然带着 node_modules，说明 builder 没读这两份，
+# 请在仓库根目录再放一份同样的 `.dockerignore`（根目录不在本次改动范围内）。
+#
+# 原则：凡是"运行时才产生、或者只属于本机"的东西都不进镜像。
+
+# 依赖在镜像里由 `npm ci` 重新装。拷进来会把宿主机（可能是 macOS/Windows）的
+# better-sqlite3 二进制带进去，容器里直接加载失败。
+node_modules
+
+# 版本库不是运行时数据，而且会让上下文大出一个数量级。
+.git
+.github
+.gitignore
+
+# dist 由镜像自己 `npm run build` 生成，见 deploy/Dockerfile。
+dist
+
+# 运行时产物：日志、更新备份、以及本地调试留下的临时目录。
+logs
+backups
+.tmp
+.worktrees
+release_build
+
+# 数据库与它的边车文件（-wal / -shm / -journal）。本机数据绝不能进镜像：
+# 镜像一旦发布，里面的学生数据就跟着镜像走了。
+database.sqlite*
+
+# 上传的照片同理，而且生产上它应该是挂载卷（CFS / 宿主目录）。
+uploads
+
+# 密钥与凭据：`.env` 含 ENCRYPTION_KEY、超管密码、WECHAT_SECRET。
+# 排除它，环境变量只能由平台注入 —— 这正是不让它进镜像层的原因。
+# `.env.example` 是纯注释模板，不排除。
+.env
+
+# 打包/下载产物。
+*.zip
+SHA256SUMS
+
+# 与运行无关的杂项。
+.trae
+changes.patch
+release-notes-*.md

@@ -248,6 +248,7 @@ describe('legacy composition serves plugin routes', () => {
       'portal',
       'slg',
       'system',
+      'wechat',
     ]);
   });
 

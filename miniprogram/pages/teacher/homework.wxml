@@ -1,0 +1,112 @@
+<view class="page page--tabbar">
+  <!-- publish -->
+  <view class="card publish">
+    <view class="row--between" bindtap="onToggleForm">
+      <view>
+        <view class="card__title">发布新作业</view>
+        <view class="card__sub">填写标题和截止时间，题目可在电脑端补充</view>
+      </view>
+      <view class="publish__toggle">{{showForm ? '收起' : '展开'}}</view>
+    </view>
+
+    <view class="form" wx:if="{{showForm}}">
+      <view class="field">
+        <view class="field__label">标题</view>
+        <input class="field__input" value="{{title}}" bindinput="onTitleInput" placeholder="例如：第五单元 · 分数的意义" placeholder-class="placeholder" />
+      </view>
+
+      <view class="field">
+        <view class="field__label">说明</view>
+        <textarea
+          class="field__textarea"
+          value="{{description}}"
+          bindinput="onDescriptionInput"
+          placeholder="要做什么、注意什么，可以写在这里"
+          placeholder-class="placeholder"
+          maxlength="500"
+        />
+      </view>
+
+      <view class="field-row">
+        <view class="field field--half">
+          <view class="field__label">截止日期</view>
+          <picker mode="date" value="{{dueDate}}" start="{{today}}" bindchange="onDateChange">
+            <view class="field__picker">{{dueDate || '选择日期'}}</view>
+          </picker>
+        </view>
+        <view class="field field--half">
+          <view class="field__label">截止时间</view>
+          <picker mode="time" value="{{dueTime}}" bindchange="onTimeChange">
+            <view class="field__picker">{{dueTime}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="field field--last">
+        <view class="field__label">奖励学分</view>
+        <input class="field__input" type="number" value="{{rewardPoints}}" bindinput="onRewardInput" placeholder="0" placeholder-class="placeholder" />
+      </view>
+
+      <view class="btn btn--teacher btn--block mt-16 {{submitting ? 'btn--disabled' : ''}}" bindtap="onCreate">
+        {{submitting ? '发布中…' : '发布作业'}}
+      </view>
+    </view>
+  </view>
+
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{4}}" text="正在加载作业…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">作业没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:elif="{{list.length}}">
+      <view class="card item" wx:for="{{list}}" wx:key="id">
+        <view class="row--between">
+          <view class="grow">
+            <view class="item__title">{{item.title}}</view>
+            <view class="item__desc clamp-2" wx:if="{{item.description}}">{{item.description}}</view>
+          </view>
+          <view class="chip chip--{{item.statusTone}}">{{item.statusText}}</view>
+        </view>
+
+        <view class="row--wrap row--gap mt-16">
+          <view class="chip chip--muted">{{item.questionCount}} 题</view>
+          <view class="chip chip--muted" wx:if="{{item.rewardPoints}}">+{{item.rewardPoints}} 学分</view>
+          <view class="chip {{item.dueTone === 'danger' ? 'chip--danger' : 'chip--muted'}}">{{item.dueText}}</view>
+        </view>
+
+        <view class="sheet-toggle" data-id="{{item.id}}" bindtap="onToggleSheet">
+          {{item.expanded ? '收起提交情况' : '查看提交情况'}}
+        </view>
+
+        <view class="sheet" wx:if="{{item.expanded}}">
+          <loading-block wx:if="{{item.sheetLoading}}" mode="skeleton" rows="{{2}}" text="正在加载提交情况…" />
+
+          <block wx:elif="{{item.rows.length}}">
+            <view class="grade" wx:for="{{item.rows}}" wx:for-item="row" wx:key="submissionId">
+              <view class="grow">
+                <view class="grade__name">{{row.studentName}}</view>
+                <view class="tiny" wx:if="{{row.submittedText}}">提交于 {{row.submittedText}}</view>
+              </view>
+              <view class="chip chip--{{row.statusTone}}">{{row.statusText}}</view>
+              <view class="grade__score" wx:if="{{row.scoreText}}">{{row.scoreText}}</view>
+            </view>
+          </block>
+
+          <view class="tiny" wx:else>还没有学生提交。</view>
+        </view>
+      </view>
+    </block>
+
+    <empty-state
+      wx:else
+      title="还没有发布过作业"
+      description="点上面的「发布新作业」，先给学生留一个任务吧。"
+    />
+  </block>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

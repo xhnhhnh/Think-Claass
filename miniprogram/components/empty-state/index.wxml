@@ -1,0 +1,14 @@
+<view class="empty">
+  <!-- No image asset: the illustration is three CSS shapes, which keeps the package free of
+       binary files and lets it take the brand colour from the stylesheet. -->
+  <view class="empty__art {{tone === 'success' ? 'empty__art--success' : ''}}">
+    <view class="empty__circle"></view>
+    <view class="empty__bar"></view>
+    <view class="empty__bar empty__bar--short"></view>
+  </view>
+
+  <view class="empty__title">{{title}}</view>
+  <view class="empty__text" wx:if="{{description}}">{{description}}</view>
+
+  <view class="btn btn--sm btn--ghost empty__action" wx:if="{{actionText}}" bindtap="onAction">{{actionText}}</view>
+</view>

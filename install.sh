@@ -152,16 +152,46 @@ download_latest_release() {
     rm -f think-class-release.zip
 }
 
+# Student names are encrypted at rest and the key has no default anywhere in the source (guardrail
+# G18), so every installation generates its own. `update.sh` deliberately never regenerates it: a new
+# key silently makes every already-encrypted name unreadable.
+generate_encryption_key() {
+    if command -v node >/dev/null 2>&1; then
+        node -e "process.stdout.write(require('node:crypto').randomBytes(16).toString('hex'))"
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 16
+    else
+        die "无法生成 ENCRYPTION_KEY：请安装 node 或 openssl 后重试。"
+    fi
+}
+
 write_env() {
     log "写入 .env..."
+    local encryption_key=""
+    if [ -f .env ]; then
+        encryption_key=$(grep '^ENCRYPTION_KEY=' .env | tail -n 1 | cut -d '=' -f 2- | tr -d '\r"' || true)
+    fi
+    if [ -z "$encryption_key" ]; then
+        encryption_key=$(generate_encryption_key)
+        log "已生成 ENCRYPTION_KEY。请立即备份 .env — 丢失该密钥后，已加密的学生姓名将无法恢复。"
+    else
+        log "保留现有 .env 中的 ENCRYPTION_KEY（重新安装不会更换密钥）。"
+    fi
+
+    # `VITE_API_URL` used to be written here and was dead: the frontend reads `VITE_API_BASE_URL`
+    # (`src/lib/api.ts`), and the same-origin default needs no variable at all. Pointing a build at
+    # an absolute `http://` origin is actively harmful behind TLS, so the value is documented, not set.
     cat > .env <<ENV
 SUPERADMIN_USERNAME=$SUPERADMIN_USERNAME
 SUPERADMIN_PASSWORD=$SUPERADMIN_PASSWORD
-VITE_API_URL=http://$USER_DOMAIN
 VITE_ADMIN_PATH=$ADMIN_PATH
 CURRENT_VERSION=$LATEST_TAG
 PORT=$PORT
+ENCRYPTION_KEY=$encryption_key
 $DEFAULT_DATABASE_URL
+# 前端默认同源调用 /api；仅当 API 与前端不同源时才需要 VITE_API_BASE_URL。
+# 它是构建期变量（改了要重新 npm run build），且不要在 HTTPS 站点上指向 http://。
+# VITE_API_BASE_URL=https://$USER_DOMAIN
 ENV
 }
 
@@ -171,7 +201,12 @@ build_project() {
         log "构建前端静态资源..."
         npm run build
     fi
-    replace_custom_admin_path "$ADMIN_PATH"
+
+    # There is deliberately no post-build admin-path rewrite here. The console path is runtime
+    # configuration now (`ADMIN_PATH` / `VITE_ADMIN_PATH` reach `window.__TC_CONFIG__` through
+    # `loadConfig` + the SPA fallback), and `replace_custom_admin_path` no longer exists in
+    # deploy-common.sh. Calling it here killed every fresh install at this line - after the release
+    # had been unpacked, but before PM2 and Nginx were configured.
 }
 
 setup_pm2_startup() {

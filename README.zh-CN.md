@@ -24,7 +24,7 @@ HTTP 外壳；每一个业务域都以插件形式交付，由插件自己声明
 | 前端 | React 18、TypeScript、Vite 6、Tailwind CSS 3、TanStack Query 5、Zustand |
 | 后端 | NestJS 11 + Express 4、TypeScript，通过 `tsx` 运行 |
 | 数据库 | SQLite（`better-sqlite3`）；迁移只前进且带校验和 |
-| 插件 | [`plugins/`](plugins) 下 22 个 —— 见下方列表 |
+| 插件 | [`plugins/`](plugins) 下 23 个 —— 见下方列表 |
 
 README 刻意不重复版本号：项目已经往前走了两个大版本，它还在写着 `1.6.7`。那是 `package.json` 的职责。
 
@@ -52,13 +52,18 @@ tests/              Vitest 套件：app、backend、guardrails
 docs/              设计记录与迁移档案
 ```
 
-22 个插件域：
+23 个插件域：
 
 ```text
 admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
 engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
-pet  portal  slg  system
+pet  portal  slg  system  wechat
 ```
+
+`wechat` 是微信小程序的身份面：把 `wx.login` 的一次性 code 换成 openid、把 openid 绑到已有账号并签发
+内核会话，拥有 `p_wechat_accounts` / `p_wechat_login_tickets` 两张表，凭据校验与登录体组装都走
+`identity.public`。它是可选插件（`required: false`）：没有 `WECHAT_APPID` / `WECHAT_SECRET` 的部署照常
+启动，两条登录路由回答 503。部署与发布教程见 [docs/wechat/](docs/wechat/README.md)。
 
 `api/modules/` 已不存在 —— 现在每个域都是插件。
 
@@ -168,7 +173,11 @@ npm run start        # 只有 API
 | `PLUGIN_DIRS` | `plugins,plugins-ext` | 扫描插件 manifest 的目录 |
 | `SESSION_TTL_MS` | 7 天 | 会话有效期 |
 | `ALLOW_LEGACY_HEADER_AUTH` | `false` | 接受 `x-user-role` / `x-user-id` 作为身份。这两个头由客户端提供、无法验证，所以打开它之后任何调用者都能变成任何用户 —— 包括 `superadmin` —— 每个端点的授权检查都退化成建议。默认关闭；只有确实仍需要这座桥的部署才设 `1`（每一次经桥的请求都会被记录）。见 [`packages/kernel/src/auth`](packages/kernel/src/auth) |
+| `DATABASE_SKIP_WAL` | 未设置（WAL 开） | 以回滚日志而不是 WAL 打开 SQLite。默认关闭，因为 WAL 才是本地磁盘的正确选择；数据库文件位于网络挂载（小程序的云托管把 CFS 挂到 `/data`）时打开它 —— 那里不满足 WAL 对共享内存文件与锁的假设。`journal_mode` 是写在文件里的属性，所以这个开关会两个方向都显式设置模式：请用 `PRAGMA journal_mode` 验证，而不是看开关 |
 | `THINK_CLASS_ROOT` | `process.cwd()` | 部署根目录 |
+| `WECHAT_APPID` | 未设置 | 小程序 AppID。由 `plugins/wechat` 在调用时读取；它与密钥任一缺失时，`/api/wechat/login` 与 `/api/wechat/bind` 回 503 并在消息里点名这两个变量。任何地方都没有默认值 —— AppSecret 只能留在服务端（[`plugins/wechat/src/wechat.gateway.ts`](plugins/wechat/src/wechat.gateway.ts)） |
+| `WECHAT_SECRET` | 未设置 | 小程序 AppSecret，只用于服务端的 `code2session` 调用。它不会到达任何客户端，且 `api.weixin.qq.com` 不允许被配置成小程序的服务器域名 |
+| `WECHAT_ALLOW_DEV_LOGIN` | 未设置 | 设为 `1` 时 `/api/wechat/login` 接受 `{ "devOpenid": "..." }` 代替真实的 `wx.login` code，让客户端可以在 AppID 审核通过前先开发。`NODE_ENV=production` 时一律拒绝，且每次使用都会记录日志 |
 
 本仓库里没有任何东西设置这两个组装开关：`install.sh`、`update.sh`、`update.ps1`、`pack.sh`、
 `nodemon.json` 与 `package.json` 都没设置，PM2 启动器也是按原样带着环境跑 `npm run start`
@@ -254,7 +263,7 @@ npm run lint            # 仅本地；不在发布工作流里
 被 `backend` 项目收集（[`vitest.backend.config.ts:29`](vitest.backend.config.ts)），因此受 `npm test`
 强制；它会启动一个真实子进程来钉住默认值**以及它的两个边界**：在子进程环境里同时删掉
 `KERNEL_ENABLED` 与 `PLUGINS_ENABLED` 时，`/api/kernel/info` 必须报告 `pluginsEnabled: true`、
-`/api/kernel/plugins` 必须列出 20 个插件、`/api/website/home` 必须回 200，且 `/api/pets/999` 必须走到
+`/api/kernel/plugins` 必须列出 23 个插件、`/api/website/home` 必须回 200，且 `/api/pets/999` 必须走到
 宠物控制器自己的 `Student not found` 而不是 Nest 的 `Cannot GET` 兜底；legacy + `PLUGINS_ENABLED=0`
 必须**启动失败**，并在消息里点名该变量；而 `KERNEL_ENABLED=1 PLUGINS_ENABLED=0`（纯内核）仍须启动，
 用 `kernel.plugins.total === 0` 回应 `/api/health`，且 `/api/students` 回的是内核自己的 `NOT_FOUND`
@@ -315,6 +324,7 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | 跨域级联删除由谁拥有、按什么顺序执行 |
 | [docs/versioning.md](docs/versioning.md) | 版本规则、发布流水线，以及它修掉的三个断点 |
 | [CHANGELOG.md](CHANGELOG.md) | 每个版本面向用户的变更 |
+| [docs/wechat/](docs/wechat/README.md) | 微信小程序：云托管与自有服务器部署、竞赛/发布清单、排错 |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | 更早的重构笔记 |
 | [后端接口说明/API接口文档.md](后端接口说明/API接口文档.md) | 接口参考笔记 |
 

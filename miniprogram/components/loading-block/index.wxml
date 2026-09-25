@@ -1,0 +1,12 @@
+<view class="loading {{compact ? 'loading--compact' : ''}}">
+  <block wx:if="{{mode === 'spinner'}}">
+    <view class="loading__spinner"></view>
+    <view class="loading__text">{{text}}</view>
+  </block>
+
+  <block wx:else>
+    <view class="loading__text loading__text--left">{{text}}</view>
+    <view class="skeleton skeleton__line" wx:for="{{lines}}" wx:key="*this"></view>
+    <view class="skeleton skeleton__line skeleton__line--short"></view>
+  </block>
+</view>

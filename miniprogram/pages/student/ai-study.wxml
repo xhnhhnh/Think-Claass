@@ -1,0 +1,117 @@
+<view class="page {{setInfo && !result && !loading ? 'page--footbar' : ''}}">
+  <feature-guard
+    wx:if="{{featuresReady}}"
+    flag="enable_ai_study"
+    features="{{features}}"
+    show-retry="{{true}}"
+    bind:retry="onRetry"
+  >
+    <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{5}}" text="正在准备今天的练习…" />
+
+    <block wx:else>
+      <view class="card error-card" wx:if="{{error}}">
+        <view class="card__title">练习没能加载出来</view>
+        <view class="card__sub">{{error}}</view>
+        <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+      </view>
+
+      <block wx:else>
+        <!-- header: what this set is and where it came from -->
+        <view class="card card--brand head">
+          <view class="row--between">
+            <view class="head__title">今日智学</view>
+            <view class="head__badge" wx:if="{{setInfo}}">{{setInfo.source === 'assigned' ? '老师派发' : '自主练习'}}</view>
+          </view>
+          <view class="head__sub" wx:if="{{setInfo}}">
+            生成于 {{setInfo.createdAt}} · {{answeredCount}}/{{items.length}} 题已作答
+          </view>
+          <view class="head__sub" wx:else>根据你的错题和掌握度，生成一份专属练习。</view>
+          <view class="head__ai" wx:if="{{aiMessage}}">{{aiMessage}}</view>
+        </view>
+
+        <!-- result -->
+        <view class="card result" wx:if="{{result}}">
+          <view class="result__title">本次结果</view>
+          <view class="result__summary">{{resultSummary}}</view>
+          <view class="tiny mt-8">错题的掌握度已回写，之后的练习会更贴近你的薄弱点。</view>
+          <view class="btn btn--primary w-100 mt-24" bindtap="onGenerate">{{generating ? '生成中…' : '再练一组'}}</view>
+        </view>
+
+        <block wx:if="{{!setInfo}}">
+          <empty-state
+            title="今天还没有练习"
+            description="点下面的按钮，根据最近的错题生成一份专属练习。"
+            action-text="{{generating ? '生成中…' : '生成今日练习'}}"
+            bind:action="onGenerate"
+          />
+        </block>
+
+        <!-- items -->
+        <block wx:else>
+          <view class="card item" wx:for="{{items}}" wx:key="id">
+            <view class="row--between">
+              <view class="row row--gap">
+                <view class="item__no">{{item.order}}</view>
+                <view class="chip chip--info" wx:if="{{item.aiRanked}}">AI 挑选</view>
+                <view class="chip" wx:else>推荐</view>
+              </view>
+              <view class="tiny">{{item.points}} 分</view>
+            </view>
+
+            <!-- The reason is the feature's whole point: it turns "five questions" into "these five". -->
+            <view class="item__reason">{{item.reason}}</view>
+            <view class="item__stem">{{item.stem}}</view>
+
+            <block wx:if="{{item.hasOptions}}">
+              <view class="tiny mb-8" wx:if="{{item.multiple}}">可以选多个</view>
+              <view
+                class="option {{option.selected ? 'option--selected' : ''}}"
+                wx:for="{{item.options}}"
+                wx:for-item="option"
+                wx:for-index="optionIndex"
+                wx:key="id"
+                data-index="{{index}}"
+                data-option="{{option.id}}"
+                bindtap="onOptionTap"
+              >
+                <view class="option__mark">{{option.id}}</view>
+                <view class="option__text">{{option.text}}</view>
+              </view>
+            </block>
+
+            <textarea
+              wx:else
+              class="answer"
+              value="{{item.text}}"
+              placeholder="写下你的答案"
+              placeholder-class="answer-placeholder"
+              disabled="{{!!result}}"
+              maxlength="2000"
+              data-index="{{index}}"
+              bindinput="onTextInput"
+            />
+
+            <view class="judge" wx:if="{{result}}">
+              <view class="chip chip--success" wx:if="{{item.judged === 1}}">答对了</view>
+              <view class="chip chip--danger" wx:elif="{{item.judged === 0}}">答错了，已记入错题本</view>
+              <view class="chip chip--muted" wx:else>待老师判断，未改动掌握度</view>
+            </view>
+          </view>
+        </block>
+      </block>
+    </block>
+  </feature-guard>
+
+  <loading-block wx:else mode="skeleton" rows="{{3}}" text="正在检查功能开关…" />
+
+  <view class="footbar" wx:if="{{featuresReady && setInfo && !result && !loading}}">
+    <view class="row--between">
+      <view class="tiny">已作答 {{answeredCount}}/{{items.length}} 题</view>
+      <view class="tiny">{{aiAvailable ? 'AI 已参与挑选' : '使用规则推荐'}}</view>
+    </view>
+    <view class="footbar__actions">
+      <view class="btn btn--ghost footbar__save {{saving ? 'btn--disabled' : ''}}" bindtap="onSave">{{saving ? '保存中…' : '保存'}}</view>
+      <view class="btn btn--primary footbar__submit {{submitting ? 'btn--disabled' : ''}}" bindtap="onSubmit">{{submitting ? '交卷中…' : '交卷'}}</view>
+    </view>
+  </view>
+</view>

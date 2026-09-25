@@ -1,0 +1,80 @@
+<view class="page page--tabbar">
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{5}}" text="正在加载作业…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">作业没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <!-- 待完成 -->
+      <view class="section">
+        <view class="row--between mb-16">
+          <view class="h2">待完成</view>
+          <view class="tiny">{{pending.length}} 项</view>
+        </view>
+
+        <view
+          class="card homework {{item.returned ? 'homework--returned' : ''}}"
+          wx:for="{{pending}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onCardTap"
+        >
+          <view class="row--between">
+            <view class="grow">
+              <view class="homework__title">{{item.title}}</view>
+              <view class="homework__desc clamp-2" wx:if="{{item.description}}">{{item.description}}</view>
+            </view>
+          </view>
+
+          <view class="row--wrap row--gap mt-16">
+            <view class="chip chip--{{item.statusTone}}">{{item.statusText}}</view>
+            <view class="chip">{{item.questionCount}} 题</view>
+            <view class="chip chip--brand" wx:if="{{item.rewardPoints}}">+{{item.rewardPoints}} 学分</view>
+          </view>
+
+          <view class="homework__due due--{{item.dueTone}} mt-16">{{item.dueText}}</view>
+        </view>
+
+        <empty-state
+          wx:if="{{!pending.length}}"
+          title="没有待完成的作业"
+          description="现在可以休息一下，或者去看看已经完成的作业。"
+          tone="success"
+        />
+      </view>
+
+      <!-- 已完成 -->
+      <view class="section" wx:if="{{done.length}}">
+        <view class="row--between mb-16">
+          <view class="h2">已完成</view>
+          <view class="tiny">{{done.length}} 项</view>
+        </view>
+
+        <view
+          class="card homework homework--done"
+          wx:for="{{done}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onCardTap"
+        >
+          <view class="row--between">
+            <view class="grow">
+              <view class="homework__title">{{item.title}}</view>
+              <view class="homework__desc clamp-2" wx:if="{{item.feedback}}">老师评语：{{item.feedback}}</view>
+            </view>
+            <view class="homework__score" wx:if="{{item.scoreText}}">{{item.scoreText}}</view>
+          </view>
+
+          <view class="row--wrap row--gap mt-16">
+            <view class="chip chip--{{item.statusTone}}">{{item.statusText}}</view>
+            <view class="chip">{{item.questionCount}} 题</view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </block>
+</view>

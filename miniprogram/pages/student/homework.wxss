@@ -1,0 +1,53 @@
+.section {
+  margin-bottom: 32rpx;
+}
+
+.homework {
+  padding: 28rpx;
+}
+
+.homework--returned {
+  border-left: 8rpx solid #DE3B35;
+}
+
+.homework--done {
+  opacity: 0.92;
+}
+
+.homework__title {
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.homework__desc {
+  font-size: 25rpx;
+  color: #6E7D91;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+.homework__due {
+  font-size: 25rpx;
+  color: #6E7D91;
+}
+
+.homework__score {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #17583E;
+  margin-left: 24rpx;
+  white-space: nowrap;
+}
+
+.due--warning {
+  color: #D8790E;
+}
+
+.due--danger {
+  color: #DE3B35;
+}
+
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}

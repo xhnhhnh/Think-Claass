@@ -1,0 +1,125 @@
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}
+
+/* ------------------------------------------------------------------ publish */
+
+.publish {
+  border-left: 8rpx solid #1C5C87;
+}
+
+.publish__toggle {
+  font-size: 27rpx;
+  color: #1C5C87;
+}
+
+.form {
+  margin-top: 24rpx;
+  padding-top: 8rpx;
+  border-top: 1rpx solid #F1EFE7;
+}
+
+.field {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.field--last {
+  border-bottom: none;
+}
+
+.field-row {
+  display: flex;
+  gap: 24rpx;
+}
+
+.field--half {
+  flex: 1;
+}
+
+.field__label {
+  font-size: 24rpx;
+  color: #6E7D91;
+  margin-bottom: 8rpx;
+}
+
+.field__input {
+  width: 100%;
+  height: 64rpx;
+  font-size: 30rpx;
+}
+
+.field__textarea {
+  width: 100%;
+  min-height: 140rpx;
+  font-size: 29rpx;
+  line-height: 1.6;
+}
+
+.field__picker {
+  height: 64rpx;
+  line-height: 64rpx;
+  font-size: 30rpx;
+  color: #0F1729;
+}
+
+.placeholder {
+  color: #B3ADA0;
+  font-size: 27rpx;
+}
+
+/* ------------------------------------------------------------------ list */
+
+.item {
+  padding: 28rpx;
+}
+
+.item__title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.item__desc {
+  font-size: 25rpx;
+  color: #6E7D91;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+.sheet-toggle {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #F1EFE7;
+  font-size: 27rpx;
+  color: #1C5C87;
+}
+
+.sheet {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: #FBFAF6;
+}
+
+.grade {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.grade:last-child {
+  border-bottom: none;
+}
+
+.grade__name {
+  font-size: 29rpx;
+}
+
+.grade__score {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #17583E;
+  margin-left: 12rpx;
+}

@@ -1,0 +1,34 @@
+.loading {
+  padding: 40rpx 8rpx;
+}
+
+.loading--compact {
+  padding: 16rpx 0;
+}
+
+.loading__text {
+  color: #6E7D91;
+  font-size: 26rpx;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.loading__text--left {
+  text-align: left;
+}
+
+.loading__spinner {
+  width: 56rpx;
+  height: 56rpx;
+  margin: 0 auto;
+  border: 6rpx solid #E4F0E9;
+  border-top-color: #17583E;
+  border-radius: 50%;
+  animation: loading-spin 0.9s linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

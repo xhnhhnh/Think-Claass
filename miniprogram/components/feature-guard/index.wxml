@@ -1,0 +1,12 @@
+<block wx:if="{{allowed}}">
+  <slot></slot>
+</block>
+
+<view class="guard" wx:else>
+  <view class="guard__art">
+    <view class="guard__lock"></view>
+  </view>
+  <view class="guard__title">{{title}}</view>
+  <view class="guard__text">{{description || hint}}</view>
+  <view class="btn btn--sm btn--ghost guard__btn" wx:if="{{showRetry}}" bindtap="onRetry">重新检查</view>
+</view>

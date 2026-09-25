@@ -1,0 +1,130 @@
+<view class="page page--tabbar">
+  <!-- greeting + level -->
+  <view class="card card--brand hero">
+    <view class="hero__greeting">{{greeting}}，{{name}}</view>
+    <view class="hero__date">{{today}}</view>
+    <view class="hero__level" wx:if="{{summary}}">
+      <view class="hero__level-name">{{summary.level}}</view>
+      <view class="hero__credits">可用学分 {{summary.availableCredits}}</view>
+    </view>
+    <view class="hero__level" wx:elif="{{!loading}}">
+      <view class="hero__level-name">今天也要加油</view>
+      <view class="hero__credits">学分和等级需要老师关联学生账号后显示</view>
+    </view>
+  </view>
+
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{4}}" text="正在加载你的成长数据…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">数据没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <!-- announcement -->
+    <view class="card announce" wx:if="{{announcement}}">
+      <view class="row--between">
+        <view class="chip chip--info">班级公告</view>
+        <view class="tiny">{{announcement.title}}</view>
+      </view>
+      <view class="announce__body">{{announcement.content}}</view>
+    </view>
+
+    <!-- growth dimensions -->
+    <view class="card" wx:if="{{summary}}">
+      <view class="row--between mb-16">
+        <view class="card__title">我的成长</view>
+        <view class="tiny" wx:if="{{summary.parentBlessingActive}}">家长祝福 +{{summary.parentBonusPercent}}%</view>
+      </view>
+
+      <view class="dim">
+        <view class="row--between">
+          <view class="dim__name">成长值</view>
+          <view class="dim__value">{{summary.growth}}</view>
+        </view>
+        <view class="bar"><view class="bar__fill" style="width: {{summary.growth}}%"></view></view>
+      </view>
+
+      <view class="dim">
+        <view class="row--between">
+          <view class="dim__name">合作</view>
+          <view class="dim__value">{{summary.collaboration}}</view>
+        </view>
+        <view class="bar"><view class="bar__fill" style="width: {{summary.collaboration}}%"></view></view>
+      </view>
+
+      <view class="dim">
+        <view class="row--between">
+          <view class="dim__name">竞争</view>
+          <view class="dim__value">{{summary.competition}}</view>
+        </view>
+        <view class="bar"><view class="bar__fill" style="width: {{summary.competition}}%"></view></view>
+      </view>
+
+      <view class="dim dim--last">
+        <view class="row--between">
+          <view class="dim__name">参与</view>
+          <view class="dim__value">{{summary.participation}}</view>
+        </view>
+        <view class="bar"><view class="bar__fill" style="width: {{summary.participation}}%"></view></view>
+      </view>
+    </view>
+
+    <!-- homework due -->
+    <view class="card">
+      <view class="row--between">
+        <view class="card__title">待完成作业</view>
+        <view class="link" bindtap="onGoHomework">全部 {{openCount}}</view>
+      </view>
+
+      <block wx:if="{{todos.length}}">
+        <view
+          class="todo"
+          wx:for="{{todos}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onTodoTap"
+        >
+          <view class="grow">
+            <view class="todo__title ellipsis">{{item.title}}</view>
+            <view class="todo__due due--{{item.dueTone}}">{{item.dueText}}</view>
+          </view>
+          <view class="chip chip--warn" wx:if="{{item.statusText}}">{{item.statusText}}</view>
+        </view>
+      </block>
+
+      <empty-state
+        wx:else
+        title="作业都做完啦"
+        description="现在没有需要完成的作业，去看看吧。"
+        action-text="查看全部作业"
+        tone="success"
+        bind:action="onGoHomework"
+      />
+    </view>
+
+    <!-- quick entries: each one is hidden (not guarded) when its class feature is off -->
+    <view class="card">
+      <view class="card__title mb-16">去哪儿看看</view>
+      <view class="quick">
+        <view class="quick__item" bindtap="onGoHomework">
+          <view class="quick__dot quick__dot--brand"></view>
+          <view class="quick__label">我的作业</view>
+        </view>
+        <view class="quick__item" wx:if="{{showAiStudy}}" bindtap="onGoAiStudy">
+          <view class="quick__dot quick__dot--info"></view>
+          <view class="quick__label">AI 智学</view>
+        </view>
+        <view class="quick__item" wx:if="{{showShop}}" bindtap="onGoShop">
+          <view class="quick__dot quick__dot--warn"></view>
+          <view class="quick__label">积分商城</view>
+        </view>
+        <view class="quick__item" wx:if="{{showAchievements}}" bindtap="onGoAchievements">
+          <view class="quick__dot quick__dot--success"></view>
+          <view class="quick__label">我的奖状</view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

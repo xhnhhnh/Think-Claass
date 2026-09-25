@@ -5,7 +5,10 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', '.tmp'] },
+  // `miniprogram` is the native WeChat client: it has no React, no browser globals and its own
+  // `typings/wx.d.ts`, so the web config's plugin set has nothing to say about it. It is linted by
+  // `npx tsc --noEmit -p miniprogram/tsconfig.json` instead (see miniprogram/README.md).
+  { ignores: ['dist', '.tmp', 'miniprogram'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

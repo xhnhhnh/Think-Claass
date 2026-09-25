@@ -1,0 +1,78 @@
+<view class="page page--tabbar page--writebar">
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{5}}" text="正在加载学生名单…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">名单没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <!-- class summary -->
+      <view class="card summary">
+        <view class="row--between">
+          <view>
+            <view class="summary__title">{{classId ? '我的班级' : '全部学生'}}</view>
+            <view class="summary__sub">共 {{students.length}} 名学生 · 平均 {{averagePoints}} 分</view>
+          </view>
+          <view class="btn btn--sm btn--ghost" bindtap="onToggleAll">
+            {{selectedCount === students.length && students.length ? '取消全选' : '全选'}}
+          </view>
+        </view>
+      </view>
+
+      <!-- roster -->
+      <view class="card roster" wx:if="{{students.length}}">
+        <view
+          class="student {{item.selected ? 'student--on' : ''}}"
+          wx:for="{{students}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onToggleStudent"
+        >
+          <view class="student__box {{item.selected ? 'student__box--on' : ''}}"></view>
+          <view class="grow">
+            <view class="student__name">{{item.name}}</view>
+            <view class="tiny" wx:if="{{item.group_name}}">{{item.group_name}}</view>
+          </view>
+          <view class="student__points">
+            <view class="student__total">{{item.total_points}}</view>
+            <view class="tiny">可用 {{item.available_points}}</view>
+          </view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:else
+        title="还没有学生"
+        description="学生用邀请码加入班级后，就会出现在这里。"
+      />
+    </block>
+  </block>
+
+  <!-- batch write bar: pinned above the tab bar -->
+  <view class="writebar" wx:if="{{!loading && students.length}}">
+    <view class="writebar__row">
+      <view class="mode">
+        <view class="mode__item {{mode === 'add' ? 'is-active' : ''}}" data-mode="add" bindtap="onModeTap">加分</view>
+        <view class="mode__item {{mode === 'minus' ? 'is-active mode__item--minus' : ''}}" data-mode="minus" bindtap="onModeTap">减分</view>
+      </view>
+      <input class="writebar__amount" type="number" value="{{amount}}" bindinput="onAmountInput" placeholder="分值" placeholder-class="placeholder" />
+    </view>
+
+    <input class="writebar__reason" value="{{reason}}" bindinput="onReasonInput" placeholder="原因，例如：课堂表现好" placeholder-class="placeholder" />
+
+    <scroll-view class="presets" scroll-x>
+      <view class="presets__inner">
+        <view class="chip preset" wx:for="{{presets}}" wx:key="*this" data-reason="{{item}}" bindtap="onPresetTap">{{item}}</view>
+      </view>
+    </scroll-view>
+
+    <view class="btn btn--block {{mode === 'minus' ? 'btn--danger' : 'btn--primary'}} {{submitting ? 'btn--disabled' : ''}}" bindtap="onSubmit">
+      {{submitting ? '提交中…' : (selectedCount ? '为 ' + selectedCount + ' 名学生' + (mode === 'minus' ? '减分' : '加分') : '请先选择学生')}}
+    </view>
+  </view>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

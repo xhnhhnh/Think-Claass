@@ -1,0 +1,32 @@
+<view class="page login">
+  <view class="login__brand">
+    <view class="login__logo">
+      <view class="login__logo-dot"></view>
+      <view class="login__logo-bar"></view>
+    </view>
+    <view class="login__name">Think-Class</view>
+    <view class="login__slogan">班级成长助手</view>
+  </view>
+
+  <view class="card login__card">
+    <view class="card__title">用微信登录</view>
+    <view class="card__sub">第一次使用，需要用老师发的账号和密码绑定一次微信；以后打开就能直接进入。</view>
+
+    <view class="btn btn--primary btn--block login__button {{busy ? 'btn--disabled' : ''}}" bindtap="onWechatLogin">
+      {{busy ? '正在登录…' : '微信一键登录'}}
+    </view>
+
+    <view class="login__error" wx:if="{{error}}">
+      <view class="login__error-text">{{error}}</view>
+      <view class="btn btn--sm btn--ghost login__retry" bindtap="onRetry">再试一次</view>
+    </view>
+
+    <view class="login__dev" wx:if="{{configurationHint}}">
+      <view class="tiny">如果是刚部署的服务端，请检查环境变量 WECHAT_APPID / WECHAT_SECRET 是否已设置。本地联调可以在服务端设置 WECHAT_ALLOW_DEV_LOGIN=1，并在 miniprogram/config/index.ts 里填写 DEV_LOGIN_OPENID 后重试。</view>
+    </view>
+  </view>
+
+  <view class="login__foot">
+    <view class="tiny">登录遇到问题？请联系你的老师重置账号密码。</view>
+  </view>
+</view>

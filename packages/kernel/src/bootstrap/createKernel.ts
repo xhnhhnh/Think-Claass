@@ -171,8 +171,11 @@ export async function createKernel(options: CreateKernelOptions = {}): Promise<K
   });
 
   // --- storage -------------------------------------------------------------
+  // `wal: false` on an in-memory database (there is nothing to journal) and on a deployment that
+  // asked for it: a database file on a mounted network filesystem cannot carry WAL's shared-memory
+  // file or its locking assumptions. See `KernelConfig.databaseSkipWal`.
   const db = openDatabase(options.inMemoryDatabase ? ':memory:' : config.databaseFile, {
-    wal: !options.inMemoryDatabase,
+    wal: !options.inMemoryDatabase && !config.databaseSkipWal,
     logger,
   });
   const migrations = runMigrations(db, [...kernelMigrations, ...(options.migrations ?? [])], { logger });

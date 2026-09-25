@@ -161,6 +161,7 @@ describe('plugin discovery and activation', () => {
       'portal',
       'slg',
       'system',
+      'wechat',
     ]);
   });
 
@@ -214,6 +215,7 @@ describe('plugin discovery and activation', () => {
       'portal:active',
       'slg:active',
       'system:active',
+      'wechat:active',
     ]);
   });
 
@@ -232,6 +234,9 @@ describe('plugin discovery and activation', () => {
     // `learning.public` joins in the AI 智学 round: `plugins/ai-study` needs the question bank, the
     // knowledge graph and the wrong-question book - eighteen tables that guardrail G1 forbids it
     // reading - and the mastery *write* has to stay inside their owner.
+    // `wechat.public` joins in the mini program round: `plugins/wechat` owns the openid binding and
+    // the account-deletion path asks it whether an account holds one, so a binding cannot outlive the
+    // `users` row it points at.
     expect(host!.services.list().map((s) => s.name).sort()).toEqual([
       'classroom.public',
       'engagement.public',
@@ -240,6 +245,7 @@ describe('plugin discovery and activation', () => {
       'learning.public',
       'parent_buff.public',
       'pet.public',
+      'wechat.public',
     ]);
   });
 
@@ -269,15 +275,15 @@ describe('plugin discovery and activation', () => {
 
   it('reports the plugin summary through /api/health', async () => {
     const { body } = await api('GET', '/api/health');
-    expect(body.kernel.plugins.total).toBe(22);
-    expect(body.kernel.plugins.active).toBe(22);
+    expect(body.kernel.plugins.total).toBe(23);
+    expect(body.kernel.plugins.active).toBe(23);
     expect(body.kernel.plugins.degraded).toBe(0);
   });
 
   it('exposes the frontend projection', async () => {
     const { body } = await api('GET', '/api/kernel/plugins');
     const ids = body.data.map((entry: { id: string }) => entry.id).sort();
-    expect(ids).toEqual(['admin', 'ai-study', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'homework', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system']);
+    expect(ids).toEqual(['admin', 'ai-study', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon', 'economy', 'engagement', 'gacha', 'homework', 'identity', 'insights', 'learning', 'marketplace', 'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system', 'wechat']);
   });
 
   it('serves the admin console in the kernel composition too', async () => {

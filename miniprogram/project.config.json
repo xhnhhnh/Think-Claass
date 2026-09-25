@@ -1,0 +1,35 @@
+{
+  "description": "Think-Class 微信小程序客户端（原生小程序 + TypeScript，无 npm 运行时依赖）",
+  "appid": "touristappid",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "projectname": "think-class-miniprogram",
+  "libVersion": "latest",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "minified": false,
+    "postcss": true,
+    "coverView": true,
+    "nodeModules": false,
+    "autoAudits": false,
+    "checkInvalidKey": true,
+    "checkSiteMap": true,
+    "uploadWithSourceMap": true,
+    "compileHotReLoad": true,
+    "useCompilerPlugins": ["typescript"]
+  },
+  "condition": {
+    "miniprogram": {
+      "list": [
+        { "name": "登录页", "pathName": "pages/login/login", "query": "", "scene": null },
+        { "name": "绑定账号", "pathName": "pages/bind/bind", "query": "ticket=demo-ticket", "scene": null },
+        { "name": "学生 · 成长总览", "pathName": "pages/student/home", "query": "", "scene": null },
+        { "name": "学生 · 我的作业", "pathName": "pages/student/homework", "query": "", "scene": null },
+        { "name": "学生 · 积分商城", "pathName": "pages/student/shop", "query": "", "scene": null },
+        { "name": "教师 · 班级", "pathName": "pages/teacher/class", "query": "", "scene": null }
+      ]
+    }
+  }
+}

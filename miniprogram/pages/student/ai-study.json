@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "AI 智学",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "loading-block": "/components/loading-block/index",
+    "empty-state": "/components/empty-state/index",
+    "feature-guard": "/components/feature-guard/index"
+  }
+}

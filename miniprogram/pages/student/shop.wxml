@@ -1,0 +1,94 @@
+<view class="page page--tabbar">
+  <feature-guard
+    wx:if="{{featuresReady}}"
+    flag="enable_shop"
+    features="{{features}}"
+    show-retry="{{true}}"
+    bind:retry="onRetry"
+  >
+    <!-- balance + pane switch -->
+    <view class="card balance">
+      <view class="row--between">
+        <view>
+          <view class="balance__label">可用学分</view>
+          <view class="balance__value">{{balance === null ? '—' : balance}}</view>
+        </view>
+        <view class="balance__hint">兑换后请把券码给老师核销</view>
+      </view>
+    </view>
+
+    <view class="switch">
+      <view class="switch__item {{pane === 'items' ? 'is-active' : ''}}" data-pane="items" bindtap="onPaneTap">商品</view>
+      <view class="switch__item {{pane === 'tickets' ? 'is-active' : ''}}" data-pane="tickets" bindtap="onPaneTap">
+        我的兑换券
+      </view>
+    </view>
+
+    <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{4}}" text="正在加载商城…" />
+
+    <block wx:else>
+      <view class="card error-card" wx:if="{{error}}">
+        <view class="card__title">商城没能加载出来</view>
+        <view class="card__sub">{{error}}</view>
+        <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+      </view>
+
+      <!-- 商品 -->
+      <block wx:elif="{{pane === 'items'}}">
+        <view class="card item" wx:for="{{items}}" wx:key="id">
+          <view class="row--between">
+            <view class="grow">
+              <view class="item__name">{{item.name}}</view>
+              <view class="item__desc">{{item.description}}</view>
+            </view>
+            <view class="item__price">
+              <view class="item__price-value">{{item.price}}</view>
+              <view class="item__price-unit">学分</view>
+            </view>
+          </view>
+
+          <view class="row--between mt-16">
+            <view class="row row--gap">
+              <view class="chip chip--muted" wx:if="{{item.soldOut}}">已兑完</view>
+              <view class="chip" wx:else>剩余 {{item.stock}}</view>
+              <view class="chip chip--danger" wx:if="{{!item.soldOut && !item.affordable}}">学分不够</view>
+            </view>
+            <view
+              class="btn btn--sm {{item.soldOut || !item.affordable || buyingId ? 'btn--ghost btn--disabled' : 'btn--primary'}}"
+              data-id="{{item.id}}"
+              bindtap="onBuy"
+            >
+              {{buyingId === item.id ? '兑换中…' : '兑换'}}
+            </view>
+          </view>
+        </view>
+
+        <empty-state
+          wx:if="{{!items.length}}"
+          title="商城还没有上架物品"
+          description="等老师上架之后，就可以用学分兑换啦。"
+        />
+      </block>
+
+      <!-- 我的兑换券 -->
+      <block wx:else>
+        <view class="card ticket" wx:for="{{tickets}}" wx:key="id">
+          <view class="row--between">
+            <view class="ticket__name">{{item.item_name}}</view>
+            <view class="chip chip--{{item.status === 'used' ? 'muted' : 'success'}}">{{item.statusText}}</view>
+          </view>
+          <view class="ticket__code">{{item.code}}</view>
+          <view class="tiny mt-8">兑换于 {{item.createdText}}{{item.used_at ? ' · 已核销' : ''}}</view>
+        </view>
+
+        <empty-state
+          wx:if="{{!tickets.length}}"
+          title="还没有兑换券"
+          description="去「商品」看看有什么可以兑换的吧。"
+        />
+      </block>
+    </block>
+  </feature-guard>
+
+  <loading-block wx:else mode="skeleton" rows="{{3}}" text="正在检查功能开关…" />
+</view>

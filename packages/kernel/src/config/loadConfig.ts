@@ -22,6 +22,19 @@ export interface KernelConfig {
   staticDir: string;
   /** Absolute path to the uploads directory. */
   uploadsDir: string;
+  /**
+   * Open SQLite **without** WAL (`DATABASE_SKIP_WAL=1`).
+   *
+   * Defaults to false, because WAL is the right journal for a local disk: readers do not block the
+   * writer and the common case is a single process on one machine.
+   *
+   * It has to be switchable because the deployment moved: the WeChat mini program's backend runs as a
+   * container with the database on a mounted network filesystem (CFS), and WAL depends on a shared
+   * memory file plus POSIX locks that those mounts do not reliably provide. Silently corrupting a
+   * school's data is the failure this switch exists to avoid, and `PRAGMA journal_mode` is the way to
+   * verify which one is in force.
+   */
+  databaseSkipWal: boolean;
   /** Admin console base path. Replaces the build-time `sed` rewrite. */
   adminPath: string;
   /**
@@ -107,6 +120,7 @@ export function loadConfig(options: LoadConfigOptions = {}): KernelConfig {
     databaseFile: path.resolve(rootDir, env.DATABASE_FILE ?? 'database.sqlite'),
     staticDir: path.resolve(rootDir, env.STATIC_DIR ?? 'dist'),
     uploadsDir: path.resolve(rootDir, env.UPLOADS_DIR ?? 'uploads'),
+    databaseSkipWal: envFlag(env.DATABASE_SKIP_WAL, false),
     adminPath: env.VITE_ADMIN_PATH || env.ADMIN_PATH || DEFAULTS.adminPath,
     allowLegacyHeaderAuth: envFlag(env.ALLOW_LEGACY_HEADER_AUTH, false),
     sessionTtlMs: envInt(env.SESSION_TTL_MS, DEFAULTS.sessionTtlMs),

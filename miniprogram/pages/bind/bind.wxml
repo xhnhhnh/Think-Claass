@@ -1,0 +1,59 @@
+<view class="page bind">
+  <view class="bind__head">
+    <view class="h1">绑定你的账号</view>
+    <view class="muted mt-8">绑定后，这台微信下次打开就能直接进入，不用再输密码。</view>
+  </view>
+
+  <view class="card">
+    <view class="field">
+      <view class="field__label">我是</view>
+      <view class="roles">
+        <view
+          class="role {{role === item.value ? 'role--on' : ''}}"
+          wx:for="{{roles}}"
+          wx:key="value"
+          data-role="{{item.value}}"
+          bindtap="onRoleTap"
+        >
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field__label">账号</view>
+      <input
+        class="field__input"
+        type="text"
+        value="{{username}}"
+        placeholder="老师发给你的账号"
+        placeholder-class="field__placeholder"
+        bindinput="onUsernameInput"
+      />
+    </view>
+
+    <view class="field field--last">
+      <view class="field__label">密码</view>
+      <input
+        class="field__input"
+        password
+        value="{{password}}"
+        placeholder="初始密码可以问老师"
+        placeholder-class="field__placeholder"
+        bindinput="onPasswordInput"
+      />
+    </view>
+  </view>
+
+  <view class="bind__error" wx:if="{{error}}">
+    <view class="bind__error-text">{{error}}</view>
+    <view class="tiny mt-8" wx:if="{{conflict}}">这个微信已经绑定过其他账号了。请让老师帮忙解绑，或先用原来的账号登录后在「我的」里解绑。</view>
+    <view class="tiny mt-8" wx:else>如果密码记不清了，请联系老师重置；连续输错后可以返回登录页重新开始。</view>
+  </view>
+
+  <view class="btn btn--primary btn--block {{busy ? 'btn--disabled' : ''}}" bindtap="onSubmit">
+    {{busy ? '正在绑定…' : '绑定并进入'}}
+  </view>
+
+  <view class="bind__back" bindtap="onBackToLogin">返回登录</view>
+</view>

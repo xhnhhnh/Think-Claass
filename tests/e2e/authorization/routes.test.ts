@@ -131,10 +131,12 @@ describe('the whole HTTP surface', () => {
     // round: `POST /api/admin/system/ai/test`, the console's connection test, which reaches the
     // model through the `homework.public` port. 321 -> 322: `POST /api/homework/ai/questions`, AI
     // 出题, the only homework route with no `:id`. 322 -> 328 in the AI 智学 round: the six
-    // `/api/ai-study` routes (four student, two teacher). The number moves with
+    // `/api/ai-study` routes (four student, two teacher). 328 -> 332 in the WeChat mini program
+    // round: the four `/api/wechat` routes (two public - the code exchange and the bind - and two
+    // actor routes for the caller's own binding). The number moves with
     // `npm run api:surface:update`, and it is asserted here as well as in the guardrail so the two
     // cannot drift - this one would otherwise keep probing a surface the snapshot no longer describes.
-    expect(endpoints.length).toBe(328);
+    expect(endpoints.length).toBe(332);
   });
 
   it('never answers an anonymous caller with data', async () => {

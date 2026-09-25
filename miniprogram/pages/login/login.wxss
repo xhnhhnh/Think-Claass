@@ -1,0 +1,89 @@
+.login {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 64rpx 40rpx 40rpx;
+}
+
+.login__brand {
+  text-align: center;
+  padding: 40rpx 0 56rpx;
+}
+
+.login__logo {
+  width: 128rpx;
+  height: 128rpx;
+  margin: 0 auto 28rpx;
+  border-radius: 40rpx;
+  background: #17583E;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+
+.login__logo-dot {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: #FFFFFF;
+}
+
+.login__logo-bar {
+  width: 56rpx;
+  height: 10rpx;
+  border-radius: 999rpx;
+  background: #7DB79A;
+}
+
+.login__name {
+  font-size: 46rpx;
+  font-weight: 600;
+  letter-spacing: 0.5rpx;
+}
+
+.login__slogan {
+  color: #6E7D91;
+  font-size: 26rpx;
+  margin-top: 8rpx;
+}
+
+.login__card {
+  padding: 36rpx 32rpx;
+}
+
+.login__button {
+  margin-top: 36rpx;
+}
+
+.login__error {
+  margin-top: 28rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #FBE6E5;
+}
+
+.login__error-text {
+  color: #B32B26;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.login__retry {
+  display: inline-flex;
+  margin-top: 20rpx;
+  background: #FFFFFF;
+}
+
+.login__dev {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #E9E1D3;
+}
+
+.login__foot {
+  margin-top: auto;
+  text-align: center;
+  padding-top: 48rpx;
+}

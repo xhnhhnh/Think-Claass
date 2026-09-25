@@ -31,6 +31,7 @@ import type {
   TeacherDetail,
   TeacherListItem,
 } from './admin.js';
+import type { ClassFeatureFlags } from './auth.js';
 
 /** The subset of a `users` row another plugin is allowed to depend on. */
 export interface UserSnapshot {
@@ -66,6 +67,39 @@ export interface AdminCredentialActor {
   /** Narrowed to the console's two roles: this method answers `null` for anything else. */
   role: AdminRole;
   username: string;
+}
+
+/**
+ * The `user` object `POST /api/auth/login` answers with.
+ *
+ * Structurally the legacy payload: `studentId`/`classId` are what the student-facing clients key
+ * their requests on, and the two legacy spellings (`class_id`, `parentId`) are named rather than left
+ * to an index signature so that a producer of this shape is checked at the call site.
+ */
+export interface LoginUserSnapshot {
+  id: number;
+  role: string;
+  username: string;
+  name?: string | null;
+  studentId?: number | null;
+  parentId?: number | null;
+  classId?: number | null;
+  class_id?: number | null;
+  is_activated?: boolean;
+}
+
+/** The credential pair a login route (or another surface standing in for one) verifies. */
+export interface LoginCredentials {
+  username: string;
+  password: string;
+  /** Narrows the lookup to one role, exactly as the route's body does when it carries a role. */
+  role?: string;
+}
+
+/** What a successful credential check answers with, minus the session token the route adds. */
+export interface LoginResult {
+  user: LoginUserSnapshot;
+  classFeatures: ClassFeatureFlags | null;
 }
 
 /** A teacher row as the account-deletion path needs it. */
@@ -165,6 +199,35 @@ export interface IdentityPort {
    * query-planner detail into a stated rule.
    */
   getFirstUserIdByRole(role: string): Promise<number | null>;
+
+  /**
+   * Verify a username/password pair and build the body `POST /api/auth/login` answers with.
+   *
+   * This exists for the one surface that logs a user in **without** owning `users`: the WeChat mini
+   * program (`plugins/wechat`) binds an openid to an existing account and then has to answer exactly
+   * what the credential login answers, or the two clients drift.
+   *
+   * It is `IdentityService.login` itself rather than a second implementation on purpose - the
+   * parent-login activity record, the plaintext-password upgrade and the class-feature resolution
+   * are behaviour, not plumbing, and a copy would be a second place to change. Rejects with the same
+   * 401-shaped error the route raises (`账号或密码错误，请重试`); it never returns a token, because
+   * minting sessions is the caller's step and `ctx.sessions` is available to every plugin.
+   */
+  loginWithCredentials(credentials: LoginCredentials): Promise<LoginResult>;
+
+  /**
+   * The same body, for an account that has already been authenticated by other means.
+   *
+   * The WeChat mini program's silent re-login is the caller: it holds an openid it has verified
+   * against its own binding table, so there is no password to check, but the client still has to
+   * receive the payload the web login returns. `null` means the account no longer exists - the
+   * caller must treat that as "the binding is stale", not as a server fault.
+   *
+   * It grants nothing on its own: `plugins/wechat` is the only consumer, and it has already
+   * established the account before calling. Issuing a session is a separate step, because
+   * `ctx.sessions` is available to every plugin without going through this port.
+   */
+  getLoginPayload(userId: number): Promise<LoginResult | null>;
 
   /**
    * Activate a user, idempotently.

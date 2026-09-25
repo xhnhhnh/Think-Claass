@@ -1,0 +1,163 @@
+/* The write bar is ~330rpx tall plus the tab bar and the safe area. */
+.page--writebar {
+  padding-bottom: 520rpx;
+}
+
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}
+
+/* ------------------------------------------------------------------ summary */
+
+.summary {
+  border-left: 8rpx solid #1C5C87;
+}
+
+.summary__title {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.summary__sub {
+  font-size: 25rpx;
+  color: #6E7D91;
+  margin-top: 6rpx;
+}
+
+/* ------------------------------------------------------------------ roster */
+
+.roster {
+  padding: 8rpx 28rpx;
+}
+
+.student {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.student:last-child {
+  border-bottom: none;
+}
+
+.student--on .student__name {
+  color: #1C5C87;
+}
+
+.student__box {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 10rpx;
+  border: 2rpx solid #E9E1D3;
+  background: #FFFFFF;
+}
+
+.student__box--on {
+  background: #1C5C87;
+  border-color: #1C5C87;
+}
+
+.student__name {
+  font-size: 30rpx;
+}
+
+.student__points {
+  text-align: right;
+  margin-left: 16rpx;
+}
+
+.student__total {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #17583E;
+  line-height: 1.2;
+}
+
+/* ------------------------------------------------------------------ write bar */
+
+.writebar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 110rpx;
+  z-index: 150;
+  background: #FFFFFF;
+  border-top: 1rpx solid #E9E1D3;
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom) * 0.2);
+}
+
+.writebar__row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.mode {
+  display: flex;
+  padding: 6rpx;
+  border-radius: 999rpx;
+  background: #F1EFE7;
+}
+
+.mode__item {
+  padding: 12rpx 32rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: #6E7D91;
+}
+
+.mode__item.is-active {
+  background: #17583E;
+  color: #FFFFFF;
+}
+
+.mode__item--minus {
+  background: #DE3B35;
+  color: #FFFFFF;
+}
+
+.writebar__amount {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 24rpx;
+  border-radius: 16rpx;
+  background: #FBFAF6;
+  border: 2rpx solid #E9E1D3;
+  font-size: 30rpx;
+  text-align: center;
+}
+
+.writebar__reason {
+  margin-top: 16rpx;
+  height: 76rpx;
+  padding: 0 24rpx;
+  border-radius: 16rpx;
+  background: #FBFAF6;
+  border: 2rpx solid #E9E1D3;
+  font-size: 28rpx;
+}
+
+.placeholder {
+  color: #B3ADA0;
+  font-size: 27rpx;
+}
+
+.presets {
+  margin: 16rpx 0;
+  white-space: nowrap;
+}
+
+.presets__inner {
+  display: inline-flex;
+  gap: 12rpx;
+}
+
+.preset {
+  background: #E3EDF4;
+  color: #1C5C87;
+  height: 52rpx;
+  padding: 0 22rpx;
+}

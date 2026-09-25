@@ -159,12 +159,12 @@ function stop(probe: BootedProbe | null): void {
   if (probe && probe.child.exitCode === null) probe.child.kill();
 }
 
-/** The 21 in-repo plugin ids the default composition must activate. */
+/** The 23 in-repo plugin ids the default composition must activate. */
 const PLUGIN_IDS = [
   'admin',
   'ai-study', 'assignments', 'battles', 'challenge', 'classroom', 'collaboration', 'dungeon',
   'economy', 'engagement', 'gacha', 'homework', 'identity', 'insights', 'learning', 'marketplace',
-  'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system',
+  'parent-buff', 'payment', 'pet', 'portal', 'slg', 'system', 'wechat',
 ].sort();
 
 describe('the default composition serves business routes', () => {

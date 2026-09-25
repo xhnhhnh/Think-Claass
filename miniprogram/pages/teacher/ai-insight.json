@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "智学看板",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "loading-block": "/components/loading-block/index",
+    "empty-state": "/components/empty-state/index",
+    "feature-guard": "/components/feature-guard/index",
+    "custom-tab-bar": "/custom-tab-bar/index"
+  }
+}

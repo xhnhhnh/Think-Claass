@@ -1,0 +1,150 @@
+.page--dispatchbar {
+  padding-bottom: 300rpx;
+}
+
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}
+
+/* ------------------------------------------------------------------ head */
+
+.head {
+  border-left: 8rpx solid #1C5C87;
+}
+
+.head__title {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.head__sub {
+  font-size: 26rpx;
+  color: #404F64;
+  margin-top: 8rpx;
+}
+
+.head__note {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #6E7D91;
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------------ weak nodes */
+
+.node {
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.node:last-child {
+  border-bottom: none;
+}
+
+.node__name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.node__meta {
+  display: flex;
+  gap: 12rpx;
+}
+
+/* ------------------------------------------------------------------ suggestions */
+
+.suggest {
+  display: flex;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.suggest:last-child {
+  border-bottom: none;
+}
+
+.suggest--on .suggest__name {
+  color: #1C5C87;
+}
+
+.suggest--locked {
+  opacity: 0.7;
+}
+
+.suggest__box {
+  width: 40rpx;
+  height: 40rpx;
+  margin-top: 4rpx;
+  border-radius: 10rpx;
+  border: 2rpx solid #E9E1D3;
+  background: #FFFFFF;
+}
+
+.suggest__box--on {
+  background: #1C5C87;
+  border-color: #1C5C87;
+}
+
+.suggest__name {
+  font-size: 30rpx;
+}
+
+.suggest__reason {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: #6E7D91;
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------------ dispatch bar */
+
+.dispatchbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 110rpx;
+  z-index: 150;
+  background: #FFFFFF;
+  border-top: 1rpx solid #E9E1D3;
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom) * 0.2);
+}
+
+.dispatchbar__row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.dispatchbar__label {
+  font-size: 26rpx;
+  color: #6E7D91;
+}
+
+.dispatchbar__size {
+  width: 110rpx;
+  height: 68rpx;
+  padding: 0 16rpx;
+  border-radius: 14rpx;
+  background: #FBFAF6;
+  border: 2rpx solid #E9E1D3;
+  font-size: 28rpx;
+  text-align: center;
+}
+
+.dispatchbar__hint {
+  flex: 1;
+  height: 68rpx;
+  padding: 0 20rpx;
+  border-radius: 14rpx;
+  background: #FBFAF6;
+  border: 2rpx solid #E9E1D3;
+  font-size: 26rpx;
+}
+
+.placeholder {
+  color: #B3ADA0;
+  font-size: 25rpx;
+}

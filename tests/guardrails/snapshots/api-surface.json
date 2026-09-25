@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-25T12:07:13.825Z",
-  "count": 328,
+  "generatedAt": "2026-09-25T14:03:06.078Z",
+  "count": 332,
   "endpoints": [
     "DELETE /api/admin/announcements/:id",
     "DELETE /api/admin/users/:id",
@@ -157,6 +157,7 @@
     "GET /api/website/articles",
     "GET /api/website/articles/:id",
     "GET /api/website/home",
+    "GET /api/wechat/me",
     "GET /api/wrong-questions/my",
     "POST /api/admin/announcements",
     "POST /api/admin/codes",
@@ -277,6 +278,9 @@
     "POST /api/team-quests/progress",
     "POST /api/website/articles",
     "POST /api/website/contact",
+    "POST /api/wechat/bind",
+    "POST /api/wechat/login",
+    "POST /api/wechat/unbind",
     "POST /api/wrong-questions/:id/attempt",
     "POST /api/wrong-questions/:id/generate",
     "PUT /api/admin/announcements/:id",

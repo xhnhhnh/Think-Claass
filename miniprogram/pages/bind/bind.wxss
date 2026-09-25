@@ -1,0 +1,82 @@
+.bind {
+  padding: 48rpx 40rpx 60rpx;
+}
+
+.bind__head {
+  padding: 16rpx 0 36rpx;
+}
+
+.field {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.field--last {
+  border-bottom: none;
+}
+
+.field__label {
+  font-size: 25rpx;
+  color: #6E7D91;
+  margin-bottom: 10rpx;
+}
+
+.field__input {
+  width: 100%;
+  height: 64rpx;
+  font-size: 32rpx;
+  color: #0F1729;
+}
+
+.field__placeholder {
+  color: #B3ADA0;
+  font-size: 28rpx;
+}
+
+/* Role chooser: three pills, because the server matches the credential by (username, role). */
+.roles {
+  display: flex;
+  gap: 16rpx;
+}
+
+.role {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  border-radius: 16rpx;
+  border: 2rpx solid #E9E1D3;
+  background: #FBFAF6;
+  font-size: 28rpx;
+  color: #6E7D91;
+}
+
+.role--on {
+  border-color: #17583E;
+  background: #E4F0E9;
+  color: #17583E;
+  font-weight: 600;
+}
+
+.bind__error {
+  margin: 24rpx 0 0;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #FBE6E5;
+}
+
+.bind__error-text {
+  color: #B32B26;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.btn {
+  margin-top: 40rpx;
+}
+
+.bind__back {
+  margin-top: 32rpx;
+  text-align: center;
+  color: #6E7D91;
+  font-size: 27rpx;
+}
