@@ -14,17 +14,28 @@
  * reported as `available: false` inside a 200 response rather than thrown. If the AI half of a
  * request fails, the write the teacher asked for has already succeeded and must stay succeeded.
  *
- * ## Why the provider is resolved from platform settings
+ * ## Where the provider's configuration comes from, and in what order
  *
- * The configuration (`ai_provider`, `ai_base_url`, `ai_api_key`, `ai_model`, `ai_timeout_ms`) lives
- * in the `settings` table and is read through `ctx.settings.getPlatform`, so this plugin needs no
- * kernel configuration field - the kernel keeps knowing no business vocabulary (guardrail G5).
- * The keys are operator-editable in the admin console, and `ai_api_key` is masked on the way out
- * so the console never renders a secret back into the browser.
+ * The configuration (`ai_provider`, `ai_base_url`, `ai_api_key`, `ai_model`, `ai_timeout_ms`) has
+ * three layers, resolved in this precedence:
  *
- * The HTTP provider exists and is wired, but is off by default: `ai_provider` defaults to `mock`
- * and refuses to construct when its key or base URL is missing, so a deployment that has not
- * configured a model cannot accidentally call one.
+ *   1. **Environment variables** (`AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`,
+ *      `AI_TIMEOUT_MS`). A process-level override, and the recommended home for a deployment's API
+ *      key: a container's environment is easier to rotate than a row, and it keeps the secret out of
+ *      the database and out of the console's masked round-trip. Empty and whitespace-only values are
+ *      ignored rather than treated as "configured to nothing", so a `AI_PROVIDER=` line left in a
+ *      `.env` cannot silence a working setup.
+ *   2. **Platform settings** - the `settings` table, read through `ctx.settings.getPlatform`, and
+ *      editable in the admin console (系统设置 → AI 判分与问答). This is why the plugin needs no
+ *      kernel configuration field and the kernel keeps knowing no business vocabulary (guardrail
+ *      G5), and why `ai_api_key` is masked on the way out so the console never renders a secret
+ *      back into the browser.
+ *   3. **The defaults below** - `mock`, which is a working configuration rather than a placeholder.
+ *
+ * The HTTP provider exists and is wired, but is off by default: nothing sets the environment
+ * variables and `ai_provider` defaults to `mock`, and the provider refuses to construct when its
+ * key or base URL is missing, so a deployment that has not configured a model cannot accidentally
+ * call one.
  */
 
 import { ApiError } from '@thinkclass/kernel';
@@ -940,14 +951,34 @@ export const AI_SETTING_KEYS = {
 } as const;
 
 /**
- * Pick the provider from platform settings, falling back to the mock.
+ * The environment variables that override the five settings above, in the same order.
+ *
+ * Exported for the same reason `AI_SETTING_KEYS` is: the deployment guides and the tests name these
+ * strings, and a rename has to be a compile error rather than a silently ignored variable.
+ */
+export const AI_ENV_KEYS = {
+  provider: 'AI_PROVIDER',
+  baseUrl: 'AI_BASE_URL',
+  apiKey: 'AI_API_KEY',
+  model: 'AI_MODEL',
+  timeoutMs: 'AI_TIMEOUT_MS',
+} as const;
+
+/**
+ * Pick the provider from the environment first, then platform settings, then the defaults.
+ *
+ * The environment wins because it is the layer an operator controls without a database write - and
+ * because it is the only one that can hold an API key without the value passing through the console
+ * and the settings table. An unset *or blank* variable falls through to the settings table, so a
+ * deployment that exports `AI_PROVIDER=` by accident keeps the behaviour it had before this
+ * override existed.
  *
  * A misconfigured `http` provider degrades to the mock *with a reason attached* rather than failing
  * the request: a teacher pressing 「AI 判分」 with a broken key should still get the objective
  * questions graded and a line saying the model is unreachable, not a 503 and no marks at all.
  */
 export function resolveHomeworkProvider(settings: AiSettingsReader | undefined): ResolvedAiProvider {
-  const read = (key: string): string | undefined => {
+  const fromSettings = (key: string): string | undefined => {
     try {
       const value = settings?.getPlatform?.(key);
       return value === undefined || value === null ? undefined : String(value);
@@ -958,19 +989,25 @@ export function resolveHomeworkProvider(settings: AiSettingsReader | undefined):
     }
   };
 
-  const requested = (read(AI_SETTING_KEYS.provider) ?? 'mock').trim().toLowerCase();
+  const read = (settingKey: string, envKey: string): string | undefined => {
+    const fromEnv = process.env[envKey];
+    if (fromEnv !== undefined && fromEnv.trim() !== '') return fromEnv.trim();
+    return fromSettings(settingKey);
+  };
+
+  const requested = (read(AI_SETTING_KEYS.provider, AI_ENV_KEYS.provider) ?? 'mock').trim().toLowerCase();
   if (requested !== 'http') {
     return { provider: createMockProvider(), reason: null };
   }
 
   try {
     const provider = createHttpProvider({
-      baseUrl: read(AI_SETTING_KEYS.baseUrl) ?? '',
-      apiKey: read(AI_SETTING_KEYS.apiKey) ?? '',
-      model: read(AI_SETTING_KEYS.model) ?? 'deepseek-chat',
+      baseUrl: read(AI_SETTING_KEYS.baseUrl, AI_ENV_KEYS.baseUrl) ?? '',
+      apiKey: read(AI_SETTING_KEYS.apiKey, AI_ENV_KEYS.apiKey) ?? '',
+      model: read(AI_SETTING_KEYS.model, AI_ENV_KEYS.model) ?? 'deepseek-chat',
       // A model call is on a request's critical path, so the ceiling is deliberately modest; an
       // AbortController in `complete()` enforces it.
-      timeoutMs: Number(read(AI_SETTING_KEYS.timeoutMs)) || 20_000,
+      timeoutMs: Number(read(AI_SETTING_KEYS.timeoutMs, AI_ENV_KEYS.timeoutMs)) || 20_000,
     });
     return { provider, reason: null };
   } catch (error) {

@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@thinkclass/kernel';
 
 import {
+  AI_ENV_KEYS,
   AI_GENERATE_SYSTEM_PROMPT,
   AI_SETTING_KEYS,
   buildGeneratePrompt,
@@ -497,6 +498,78 @@ describe('resolveHomeworkProvider', () => {
       },
     };
     expect(resolveHomeworkProvider(throwing).provider.source).toBe('mock');
+  });
+
+  describe('the environment override', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('builds the http provider from the environment alone, with no settings store', () => {
+      // The deployment case this override exists for: an operator exports the four variables and
+      // never touches the database, so the API key lives in the container's environment rather than
+      // in a `settings` row the console can read back.
+      vi.stubEnv(AI_ENV_KEYS.provider, 'http');
+      vi.stubEnv(AI_ENV_KEYS.baseUrl, 'https://api.example.com/v1');
+      vi.stubEnv(AI_ENV_KEYS.apiKey, 'secret');
+      vi.stubEnv(AI_ENV_KEYS.model, 'deepseek-chat');
+
+      const resolved = resolveHomeworkProvider(undefined);
+      expect(resolved.provider.source).toBe('http');
+      expect(resolved.reason).toBeNull();
+    });
+
+    it('wins over the settings table when the two disagree', () => {
+      vi.stubEnv(AI_ENV_KEYS.provider, 'http');
+      vi.stubEnv(AI_ENV_KEYS.apiKey, 'from-env');
+
+      const resolved = resolveHomeworkProvider(
+        settingsOf({
+          [AI_SETTING_KEYS.provider]: 'mock',
+          [AI_SETTING_KEYS.baseUrl]: 'https://api.example.com/v1',
+          [AI_SETTING_KEYS.apiKey]: 'from-settings',
+        }),
+      );
+      expect(resolved.provider.source).toBe('http');
+      expect(resolved.reason).toBeNull();
+    });
+
+    it('falls through to the settings table when a variable is set but blank', () => {
+      // A `.env` line of `AI_PROVIDER=` must not be able to silence a configured deployment.
+      vi.stubEnv(AI_ENV_KEYS.provider, '');
+      vi.stubEnv(AI_ENV_KEYS.baseUrl, '   ');
+
+      const resolved = resolveHomeworkProvider(
+        settingsOf({
+          [AI_SETTING_KEYS.provider]: 'http',
+          [AI_SETTING_KEYS.baseUrl]: 'https://api.example.com/v1',
+          [AI_SETTING_KEYS.apiKey]: 'from-settings',
+        }),
+      );
+      expect(resolved.provider.source).toBe('http');
+      expect(resolved.reason).toBeNull();
+    });
+
+    it('completes a half-configured http provider with the missing environment values', () => {
+      // The mixed case: the provider and base URL are environment-only, the key still comes from the
+      // console. Both layers have to be consulted for the provider to construct at all.
+      vi.stubEnv(AI_ENV_KEYS.provider, 'http');
+      vi.stubEnv(AI_ENV_KEYS.baseUrl, 'https://api.example.com/v1');
+
+      const resolved = resolveHomeworkProvider(settingsOf({ [AI_SETTING_KEYS.apiKey]: 'from-settings' }));
+      expect(resolved.provider.source).toBe('http');
+      expect(resolved.reason).toBeNull();
+    });
+
+    it('still reports the missing key as a reason rather than throwing', () => {
+      vi.stubEnv(AI_ENV_KEYS.provider, 'http');
+      vi.stubEnv(AI_ENV_KEYS.baseUrl, 'https://api.example.com/v1');
+      vi.stubEnv(AI_ENV_KEYS.apiKey, '');
+
+      const resolved = resolveHomeworkProvider(settingsOf({}));
+      expect(resolved.provider.source).toBe('mock');
+      expect(resolved.reason).toContain('ai_api_key');
+    });
   });
 });
 
