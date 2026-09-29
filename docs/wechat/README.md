@@ -14,8 +14,14 @@
 | [20-deploy-selfhosted.md](20-deploy-selfhosted.md) | **Track B**：自有服务器（`install.sh` + Nginx + certbot HTTPS） | 已有服务器和备案域名 |
 | [30-release-miniprogram.md](30-release-miniprogram.md) | 小程序后台配置、真机预览、上传、提交审核、发布、回滚 | 后端已经能被小程序访问之后 |
 | [40-troubleshooting.md](40-troubleshooting.md) | 排错清单：域名/证书/TLS/并发/会话/存储，每条给症状→原因→命令 | 出问题的时候 |
+| **[50-ai-capability.md](50-ai-capability.md)** | **上线坐标速查（`TRANSPORT`/`CLOUD_ENV`/`CLOUD_SERVICE` 在哪拿）+ 本项目 AI 能力清单与打开方式 + 微信 AI 生态为什么本轮不能接** | **填坐标之前、写提报材料的 AI 部分之前** |
+| [submission/](submission/) | **提报材料成品**：作品介绍文档（PDF 源）、提审文案与测试账号清单、演示数据种子清单 | **10.17 提报前** |
 
-部署资产（本分支新增）：
+本套文档与 `miniprogram/`、`plugins/wechat/`、`deploy/` 都属于小程序线 **`feat/wechat-miniprogram`**，
+不在 `main` 上 —— 两条分支各自放什么、怎么同步、云托管的构建分支选哪个，见
+[分支分工方案](../branch-strategy.md)。
+
+部署资产（`feat/wechat-miniprogram` 新增）：
 
 | 文件 | 用途 |
 | --- | --- |
@@ -45,7 +51,7 @@
 | 数据持久化 | 必须挂 CFS 到 `/data`，否则重启即丢库（见下方回退条款） | 本地磁盘，`/class/database.sqlite` 与 `/class/uploads` |
 | 并发/副本 | 必须**单副本**（最小=最大=1）：SQLite 只有一个写者 | PM2 单进程，同样是单写者 |
 | 适用主体 | 个人主体也能用：官方 FAQ 明确「微信云托管面向全用户」，且不涉及备案主体资质，注册小程序拿到 AppID 即可（个人主体受限的是**类目**与支付，见 00 文档） | 需要能备案的主体（个人备案可行，但用途与类目受限，见 00 文档） |
-| 代码从哪来 | 你本地的分支源码 → `docker build` → 镜像。**本分支的新代码可以直接上** | `install.sh` 下载的是**最新 GitHub Release**，不是当前分支。本分支未发版前，Track B 装不到 `plugins/wechat`（见下） |
+| 代码从哪来 | 绑定仓库的 **`feat/wechat-miniprogram`** 分支 → `docker build` → 镜像。**该分支的新代码可以直接上** | `install.sh` 下载的是**最新 GitHub Release**，不是分支。`feat/wechat-miniprogram` 未发版前，Track B 装不到 `plugins/wechat`（见下） |
 | 更新方式 | 重新构建镜像 → 控制台发布新版本（容器重建，挂载卷不动） | `bash update.sh` 或超管后台一键更新（校验 SHA256SUMS、失败自动回滚） |
 | 主要风险 | 挂不上持久化存储 → 数据每次重启归零 | 备案、证书链、TLS 版本、安全组任一处出错，小程序请求全部失败 |
 | 推荐场景 | 竞赛提报期的默认选择：**没有备案域名时的唯一快速路径** | 已经有服务器 + 已备案域名，或需要完全掌控数据落盘位置 |
@@ -76,7 +82,7 @@
 
 > **Track B 的一个硬约束**：`install.sh` 是"下载最新 GitHub Release 并解包"的安装器
 > （[`install.sh`](../../install.sh) 的 `download_latest_release()`）。也就是说它装的是**已发版的代码**，
-> 不是当前分支。要用本分支尚未发版的小程序后端，只有两种做法：
+> 不是分支。要用 `feat/wechat-miniprogram` 上尚未发版的小程序后端，只有两种做法：
 > ① 先把后端代码走一次发版流程（tag → CI → Release），再 `install.sh`；
 > ② 不走 `install.sh`，在服务器上直接 `npm ci && npx prisma generate --schema prisma/schema.prisma && npm run build`
 > 然后 `pm2 start npm --name think-class -- run start`。
@@ -98,6 +104,6 @@
   登录与审计日志里的 IP 不可用。
 - SQLite 目前以 WAL 打开（[`packages/kernel/src/storage/connection.ts`](../../packages/kernel/src/storage/connection.ts)，
   以及默认组合里的 [`api/db.ts`](../../api/db.ts#L22)）。WAL 依赖文件锁与共享内存，**不能放在网络/共享存储上**。
-  `DATABASE_SKIP_WAL=1` 是本分支引入的关闭开关 —— 在它落地之前，源码里读不到这个变量，
+  `DATABASE_SKIP_WAL=1` 是 `feat/wechat-miniprogram` 引入的关闭开关 —— 在它落地之前，源码里读不到这个变量，
   所以**不要把数据库放在网络挂载（CFS/NFS）上**；落地后按 [10 文档第 6.2 节](10-deploy-cloudrun.md#62-数据库本身是完整的且没有开-wal)
   的 `PRAGMA journal_mode` 验证确认它生效。

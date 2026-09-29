@@ -186,6 +186,8 @@ Everything else is optional and read from the environment:
 | `WECHAT_APPID` | unset | The mini program's AppID. Read by `plugins/wechat` at call time; while it or the secret is missing, `/api/wechat/login` and `/api/wechat/bind` answer 503 with a message naming both variables. There is no default anywhere — the AppSecret may only live on the server ([`plugins/wechat/src/wechat.gateway.ts`](plugins/wechat/src/wechat.gateway.ts)) |
 | `WECHAT_SECRET` | unset | The mini program's AppSecret, used only for the server-side `code2session` call. Never reaches a client, and `api.weixin.qq.com` must not be configured as a request domain |
 | `WECHAT_ALLOW_DEV_LOGIN` | unset | `1` accepts `{ "devOpenid": "..." }` on `/api/wechat/login` instead of a real `wx.login` code, so the client can be built before the AppID is approved. Refused outright when `NODE_ENV=production`, and every use is logged |
+| `WECHAT_*` (all three) | — | These exist **only on `feat/wechat-miniprogram`**: that branch carries `plugins/wechat`, and this `main` has no WeChat routes, no `miniprogram/`, and no `deploy/`. See [docs/branch-strategy.md](docs/branch-strategy.md) |
+| `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` / `AI_TIMEOUT_MS` | unset (`ai_provider` defaults to `mock`) | Override the five same-named entries under 系统设置 → AI 判分与问答. Configuration is resolved in three layers, and the precedence is **environment > platform settings > built-in default**; with none of the three set, AI is **off** (deterministic mock grading, no model is called). `AI_API_KEY` belongs here and not in the database: a container's environment is easier to rotate than a row, and it skips the console's `ai_api_key` masking round-trip. Blank values are ignored, so `AI_PROVIDER=` cannot break a configured deployment. The endpoint is OpenAI-compatible, `POST {AI_BASE_URL}/chat/completions`, and an unconfigured deployment degrades *with a reason* (a line in a 200 response) rather than a 503. See [docs/wechat/50-ai-capability.md](docs/wechat/50-ai-capability.md) |
 
 The two composition switches are set by nothing in this repository: `install.sh`, `update.sh`,
 `update.ps1`, `pack.sh`, `nodemon.json` and `package.json` set neither, and the PM2 launcher runs
@@ -343,6 +345,7 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | Phase-by-phase records: baseline freeze, kernel, contracts and auth, plugin runtime, capabilities and domains |
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | How cross-domain cascade deletion is owned and ordered |
 | [docs/versioning.md](docs/versioning.md) | Version rules, the release pipeline, and the three breakpoints it fixed |
+| [docs/branch-strategy.md](docs/branch-strategy.md) | Which branch owns what: `main` as the Web release line, `feat/wechat-miniprogram` for the mini program, and how the two stay in step |
 | [CHANGELOG.md](CHANGELOG.md) | User-facing changes per release |
 | [docs/wechat/](docs/wechat/README.md) | The WeChat mini program: 云托管 and self-hosted deployment, the competition/release checklist, troubleshooting |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | Earlier refactor notes |
