@@ -111,7 +111,9 @@ curl -s http://127.0.0.1:3001/api/health
 
 对**没有本地 Docker** 的人，按优先级选：
 
-1. **绑定 GitHub / Gitee 仓库（推荐）**：把分支推到远端，云托管绑定仓库。
+1. **绑定 GitHub / Gitee 仓库（推荐）**：把共享后端推到远端，云托管绑定仓库、**分支选 `main`**
+   —— 后端与 Web 版是同一套代码、同一个数据库，小程序不需要自己的服务端
+   （见[分支分工方案](../branch-strategy.md)）。
    首次发布时填两项：
    - **DockerFile 文件**：指定路径与文件名 —— 本仓库的 Dockerfile 在 **`deploy/Dockerfile`**，
      不在根目录，所以这里必须显式指定（官方原文：有文件则可以指定 Dockerfile 路径和名称）。
@@ -198,7 +200,7 @@ curl -s http://127.0.0.1:3001/api/health
 | `NODE_ENV` | `production` | 镜像里已设；平台若注入别的值，以 `production` 为准 |
 | `DATABASE_FILE` | `/data/database.sqlite` | **运行时的数据库开关**，绝对路径 |
 | `DATABASE_URL` | `file:/data/database.sqlite` | 只给 Prisma CLI 用，应用运行时不用它；写成一致的值避免以后困惑 |
-| `DATABASE_SKIP_WAL` | `1` | **CFS 上必须**：WAL 依赖文件锁与共享内存，在网络挂载上不安全。本分支引入 —— 落地前源码里读不到它，所以请按第 6.2 节的 `PRAGMA journal_mode` 验证，仍是 `wal` 就不要把库放在 CFS 上 |
+| `DATABASE_SKIP_WAL` | `1` | **CFS 上必须**：WAL 依赖文件锁与共享内存，在网络挂载上不安全。该开关在 `main` 上（`44cf037`）—— 更早的构建里读不到它，所以请按第 6.2 节的 `PRAGMA journal_mode` 验证，仍是 `wal` 就不要把库放在 CFS 上 |
 | `ENCRYPTION_KEY` | 32 字节，生成一次 | 丢了 = 已加密的学生姓名永久不可读；同一部署的所有实例必须一致 |
 | `SUPERADMIN_USERNAME` | 你的超管账号 | 首次启动创建；数据库里已有超管行时，两个变量都设置会覆盖账号与密码 |
 | `SUPERADMIN_PASSWORD` | 强密码 | 同上。不要用任何仓库里出现过的字符串 |
@@ -280,7 +282,7 @@ docker run --rm -v "$PWD/<本地数据目录>":/data think-class:1.0.0 \
 
 - `integrity: [ { integrity_check: 'ok' } ]` —— 不是 `ok` 就说明存储层已经损坏，先恢复备份；
 - `journal: [ { journal_mode: 'delete' } ]` —— 说明 `DATABASE_SKIP_WAL=1` 生效了。
-  **如果这里仍是 `wal`**：要么该开关在你的构建里还没生效（本分支新增），要么变量没传到容器。
+  **如果这里仍是 `wal`**：要么该开关在你的构建里还没生效（它在 `main` 上，见第 6 节的开关注释），要么变量没传到容器。
   在它生效之前，不要把数据库放在 CFS 上 —— 这属于第 7 节的回退条件。
 
 ---
@@ -371,5 +373,5 @@ docker build -f deploy/Dockerfile -t think-class:1.0.1 .
 | `UPLOADS_DIR` 在默认组合不生效 | 只设它会导致照片"写进去但访问不到" | 挂载 `/data`，依赖镜像里的 `/app/uploads` 符号链接 |
 | 应用没有 `trust proxy` | 审计/登录日志里的 IP 是 127.0.0.1 | 无（本仓库范围内不可修） |
 | 仓库没有 TLS | 自建服务器必须自己加 | Track A 由平台终止 TLS，所以不受影响 |
-| `DATABASE_SKIP_WAL` 在本分支之前的构建里不存在 | 数据库放在 CFS 上时仍是 WAL（网络存储上不安全） | 用本分支的代码构建镜像，并按第 6.2 节确认 `journal_mode` 为 `delete`；不是就改走 Track B |
+| `DATABASE_SKIP_WAL` 在旧构建里不存在 | 数据库放在 CFS 上时仍是 WAL（网络存储上不安全） | 用 `main` 上含该开关的提交构建镜像，并按第 6.2 节确认 `journal_mode` 为 `delete`；不是就改走 Track B |
 | 小程序客户端没有照片上传 | 作业照片只能在 Web 端传 | 需要就在小程序里补 `wx.uploadFile`（字段名 `file`） |

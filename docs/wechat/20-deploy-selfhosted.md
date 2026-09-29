@@ -43,8 +43,8 @@ wget -O install.sh https://raw.githubusercontent.com/xhnhhnh/Think-Claass/main/i
 # wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh/Think-Claass/main/install.sh && bash install.sh
 ```
 
-> 上面是 README 的官方写法（从 `main` 分支取安装器）。想装**本分支**的代码，
-> 见第 8 节的说明 —— 安装器装的是最新 Release，不是当前分支。
+> 上面是 README 的官方写法（从 `main` 分支取安装器）。想装 `main` 上**尚未发版**的代码，
+> 见第 8 节的说明 —— 安装器装的是最新 Release，不是分支。
 
 脚本会逐条问你，然后按下表的顺序执行（每个函数名都能在 [`install.sh`](../../install.sh) 里找到）：
 
@@ -293,10 +293,11 @@ pm2 start think-class
 
 ---
 
-## 8. 如果必须部署本分支（尚未发版）的代码
+## 8. 如果必须部署 `main` 上尚未发版的代码
 
 `install.sh` 的安装源是**最新 GitHub Release**（[`install.sh`](../../install.sh) 的
-`download_latest_release()`），不是当前分支。要用本分支尚未发版的小程序后端，二选一：
+`download_latest_release()`），不是分支。要用 `main` 上尚未发版的后端代码（例如刚合进去、
+还没发版的 `plugins/wechat`），二选一：
 
 1. **先发版**：走仓库的发版流程（tag → CI → GitHub Release，产物 `think-class-release.zip` + `SHA256SUMS`），
    然后照本文档 `install.sh` 正常装。
@@ -305,8 +306,7 @@ pm2 start think-class
 ```bash
 # 在服务器上，Node 24 已就绪
 sudo mkdir -p /class && sudo chown "$USER" /class && cd /class
-# 把本分支的代码放进来（git clone / scp / rsync 均可），然后：
-npm ci                                          # 不能省 devDependencies：npm run start 用的是 tsx
+# 把 main 的代码放进来（git clone / scp / rsync 均可），然后：npm ci                                          # 不能省 devDependencies：npm run start 用的是 tsx
 npx prisma generate --schema prisma/schema.prisma
 npm run build                                   # 生成 dist/，没有它首页 404
 # 写 .env：至少 PORT / DATABASE_URL / SUPERADMIN_USERNAME / SUPERADMIN_PASSWORD / ENCRYPTION_KEY
@@ -326,7 +326,7 @@ pm2 save
 | 仓库里没有 TLS | 安装完只有 HTTP/80 | 用 [`deploy/nginx/think-class-https.conf`](../../deploy/nginx/think-class-https.conf) + certbot（本文档第 4 节） |
 | 安装器的 Nginx 模板没有 `client_max_body_size` | 照片上传 413（nginx 默认 1MB） | 换成 443 模板，或手动加 `client_max_body_size 12m;` |
 | `install.sh` 不设 `NODE_ENV` | 进程以 development 模式运行 | 在 `.env` 里加 `NODE_ENV=production` 并 `pm2 restart --update-env` |
-| `install.sh` 装的是最新 Release | 本分支未发版时装不到新代码 | 第 8 节：先发版，或手工部署 |
+| `install.sh` 装的是最新 Release | `main` 上未发版时装不到新代码 | 第 8 节：先发版，或手工部署 |
 | 应用没有 `trust proxy` | 登录/审计日志里的 IP 是 127.0.0.1 | 无（本仓库范围内不可修） |
 | SQLite 单写者 | 不能多实例/多进程写同一个库 | 只跑一个 PM2 进程（本方案默认） |
 | `UPLOADS_DIR` 在当前组合不生效 | 只改它无效 | 上传目录固定为 `<安装目录>/uploads`，备份它即可 |

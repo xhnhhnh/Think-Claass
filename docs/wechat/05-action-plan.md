@@ -90,8 +90,10 @@
 
 ## 阶段 C · 代码与本地联调（可与 A、B 并行）
 
-- [ ] 推分支到 GitHub（云托管要从仓库拉代码）：
+- [ ] 小程序客户端推到 GitHub：
       `git push -u origin feat/wechat-miniprogram`
+- [ ] 共享后端推到 GitHub（云托管要从仓库拉代码）：
+      `git push origin main`
 - [ ] 装**微信开发者工具**（[下载页](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)）
 - [ ] 导入项目：目录选仓库里的 **`miniprogram/`**（不是仓库根）
 - [ ] 本地联调需要后端在跑：
@@ -119,6 +121,7 @@
 | 字段 | 填什么 |
 | --- | --- |
 | 代码来源 | **绑定 Github 仓库**（不要选"手动上传代码包"：官方上限 2 MiB，本仓库实测 **86.86 MiB**） |
+| **分支** | **`main`** —— 后端是 Web 与小程序共用的那一套：`plugins/wechat`、`deploy/Dockerfile` 与 `DATABASE_SKIP_WAL` 都在 `main` 上，云托管从它构建；小程序客户端在 `feat/wechat-miniprogram`，不在这里部署（见[分支分工方案](../branch-strategy.md)） |
 | **DockerFile 文件** | **`deploy/Dockerfile`**（我们的 Dockerfile 不在根目录，必须显式指定） |
 | 目标目录 | **留空**（构建上下文必须是仓库根） |
 | 容器端口 | **3001** |

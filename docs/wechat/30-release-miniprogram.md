@@ -158,7 +158,7 @@ export const CLOUD_SERVICE = 'think-class'   // 服务名称，作为 X-WX-SERVI
 
 ### 方式 B：命令行上传（可重复、可进 CI）
 
-用本分支新增的 [`scripts/wechat/upload.mjs`](../../scripts/wechat/upload.mjs)，它封装了 `miniprogram-ci`。
+用 [`scripts/wechat/upload.mjs`](../../scripts/wechat/upload.mjs)（封装了 `miniprogram-ci`，在 `main` 上，两条线都拿得到）。
 
 **第一步：拿上传密钥。** 公众平台 → 开发管理 → 开发设置 → 小程序代码上传 → 生成并下载密钥，
 得到形如 `private.<appid>.key` 的文件。**只能下载一次**，丢了必须在同一页面重置（旧文件立即失效）。

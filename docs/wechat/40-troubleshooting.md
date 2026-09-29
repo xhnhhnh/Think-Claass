@@ -330,7 +330,7 @@ ls -l /class/database.sqlite*
 cd /class && node -e "const D=require('better-sqlite3');const db=new D('database.sqlite',{readonly:true});console.log(db.pragma('journal_mode'));"
 ```
 
-- Track A：最小副本数 = 最大副本数 = **1**，并设 `DATABASE_SKIP_WAL=1`（本分支新增）。
+- Track A：最小副本数 = 最大副本数 = **1**，并设 `DATABASE_SKIP_WAL=1`（该开关在 `main` 上）。
 - Track B：只跑一个 PM2 进程；数据库必须放在**本机磁盘**上，不要放 NFS/SMB/网盘同步目录。
 - 如果 `journal_mode` 仍是 `wal` 而你正把库放在网络存储上：立即改走本机磁盘，或等 `DATABASE_SKIP_WAL` 在你的构建里生效（[10 文档第 7 节](10-deploy-cloudrun.md#7-失败回退挂不上持久化存储就立刻改走-track-b)）。
 
