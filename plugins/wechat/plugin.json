@@ -1,0 +1,46 @@
+{
+  "id": "wechat",
+  "name": "微信小程序接入",
+  "version": "1.0.0",
+  "kernel": "^1",
+  "tier": "feature",
+  "required": false,
+  "isolation": "restricted",
+  "description": "微信小程序的身份面：把 wx.login 的一次性 code 换成 openid，把 openid 绑到已有账号，然后签发内核会话。它拥有 p_wechat_accounts（openid ↔ users.id，一个账号一条）与 p_wechat_login_tickets（绑定票据，10 分钟、一次性）；凭据校验走 identity.public.loginWithCredentials，已绑定账号的静默重登走 identity.public.getLoginPayload —— users 是 identity 的表，本插件从不写它。AppSecret 只能留在服务端：官方明确 api.weixin.qq.com 不允许被配置成小程序的服务器域名，所以 code2session 必须在这里发。缺 WECHAT_APPID / WECHAT_SECRET 时插件照常启动，两条登录路由回答 503 而不是让整个应用起不来。",
+  "entry": {
+    "backend": "./src/index.ts"
+  },
+  "dependsOn": {
+    "identity": "^1.0.0"
+  },
+  "optionalPeers": {},
+  "provides": {
+    "services": [
+      {
+        "name": "wechat.public",
+        "version": "1.0.0",
+        "_note": "One method, getBindingForUser: does this account hold a WeChat binding? The account-deletion path asks it so a p_wechat_accounts row cannot outlive the users row it points at. Login is deliberately NOT a port - no other plugin needs to log anyone in over WeChat."
+      }
+    ],
+    "routes": [
+      { "method": "POST", "base": "/api/wechat/login", "handler": "WechatController.login", "auth": "public" },
+      { "method": "POST", "base": "/api/wechat/bind", "handler": "WechatController.bind", "auth": "public" },
+      { "method": "GET", "base": "/api/wechat/me", "handler": "WechatController.me", "auth": "actor" },
+      { "method": "POST", "base": "/api/wechat/unbind", "handler": "WechatController.unbind", "auth": "actor" }
+    ],
+    "_routes_note": "The two public routes are the only anonymously reachable ones here, and both are anonymous by necessity: `/login` carries a wx.login code (there is no session yet) and `/bind` carries the one-time ticket plus the account password. Every handler still resolves the caller itself where one exists - `/me` and `/unbind` 401 through requireActor - and `tests/e2e/publicRoutes.json` records the two exemptions with their reasons so the authorization audit can disagree with them.",
+    "events": {
+      "emits": [],
+      "subscribes": []
+    },
+    "migrations": [{ "id": "0001_init", "up": "migrations/0001_init.sql" }],
+    "_migrations_note": "Registered through the plugin runtime, like `plugins/ai-study` and unlike `plugins/homework`. These two tables have no Prisma model on purpose: nothing in this plugin goes through Prisma, so adding them to `api/schema/appMigrations.ts` would also mean editing the pinned id list in `tests/guardrails/schema-lives-in-migrations.test.ts` for no gain. The prefix rule (`p_wechat_`) is checked by the runner before the DDL executes."
+  },
+  "data": {
+    "tables": ["p_wechat_accounts", "p_wechat_login_tickets"],
+    "_tables_note": "Two namespaced tables, so nothing is adopted and the G10 legacy-adoption ratchet does not move. `adopted` and `reads` are both empty because every fact this plugin needs from elsewhere - the account row, its decrypted name, its class and the class-feature snapshot - arrives through `identity.public`, so no statement in `wechat.repository.ts` names another plugin's table and the ownership check in `ctx.db` has nothing to permit outside these two.",
+    "adopted": [],
+    "reads": [],
+    "_reads_note": "Empty on purpose - see `_tables_note`. Reading `users` here would make this plugin a second reader of identity's table and would put the login payload composition in two places."
+  }
+}

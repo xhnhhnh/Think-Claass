@@ -1,4 +1,11 @@
-# 路由鉴权矩阵（297 端点）
+# 路由鉴权矩阵（基线 297 端点；当前快照 332）
+
+> **本表已滞后于快照，权威口径是 `npm run auth:audit`。** 下面的 297 行是 2026-09-20 侦察批次的基线，
+> 其后的新增路由只做了增量补录（AI 智学轮补了 `/api/homework/ai/questions` 与
+> `/api/admin/system/ai/test`，微信小程序轮补了 `plugins/wechat` 的 4 条）。当前
+> `tests/guardrails/snapshots/api-surface.json` 是 **332 条端点**，`npm run auth:audit` 最近一次运行：
+> 320 条已归属、21 条「公开（设计）」、**OPEN 0**。完整重生成需要 `.tmp/build-matrix.mjs`，该脚本从未
+> 纳入版本管理，所以本表按轮次增量维护，而不是假装它还是全量。
 
 > 只读侦察产物。**未修改任何业务代码**（本文件之外的写入仅限 `.tmp/**`）。
 
@@ -491,6 +498,15 @@ AI 智学（本轮新增的 6 条路由）。两层门：控制器先做角色�
 | `POST /api/slg/classes/:classId/territories` | `plugins/slg/src/slg.controllers.ts:86` | 无鉴权 | teacher（本班）/admin | `P1`｜匿名可建领地、结算全班产出（改变全班资源）。 |
 | `POST /api/slg/classes/:classId/yield` | `plugins/slg/src/slg.controllers.ts:91` | 无鉴权 | teacher（本班）/admin | `P1`｜匿名可建领地、结算全班产出（改变全班资源）。 |
 
+### `plugins/wechat/src/wechat.controllers.ts`（微信小程序接入，本轮新增）
+
+| METHOD /path | 声明位置 | 鉴权现状 | 应属角色 | 备注 |
+| --- | --- | --- | --- | --- |
+| `POST /api/wechat/login` | `plugins/wechat/src/wechat.controllers.ts:52` | 公开（设计） | 任何人（小程序登录入口） | 收 `wx.login` 的一次性 code，服务端换 openid：已绑定直接签发会话，未绑定返回 10 分钟一次性 ticket。此时尚无会话，必须匿名可调；`tests/e2e/publicRoutes.json` 有对应豁免条目。 |
+| `POST /api/wechat/bind` | `plugins/wechat/src/wechat.controllers.ts:62` | 公开（设计） | 任何人（小程序绑定入口） | 凭 ticket + 账号密码 + 角色完成绑定。ticket 一次性、只存 SHA-256 摘要、消费即失效（错误密码也作废，防止对同一 ticket 反复试密码）；凭据校验走 `identity.public.loginWithCredentials`。 |
+| `GET /api/wechat/me` | `plugins/wechat/src/wechat.controllers.ts:72` | 受控：requireActor | 已登录（任意角色） | 只读调用者自己的绑定状态与登录载荷；匿名 401 `未登录或登录已过期`。 |
+| `POST /api/wechat/unbind` | `plugins/wechat/src/wechat.controllers.ts:82` | 受控：requireActor | 已登录（任意角色） | 只删除调用者自己的绑定行（`WHERE user_id = actor.id`），并记 `WECHAT_UNBIND` 审计；不接受请求体里的任何 id。 |
+
 ## 2. 「故意公开」清单及依据
 
 判定标准：能在**没有会话**的情况下被前端公开页面调用，或本身就是登录/回调入口，且不返回私有数据。
@@ -513,6 +529,8 @@ AI 智学（本轮新增的 6 条路由）。两层门：控制器先做角色�
 | `GET /api/announcements/active` | 站点公告横幅文本；**证据较弱**：当前唯一调用点在登录后的 `CampusShell.tsx:105`（`AnnouncementBanner`）。若产品不需要匿名公告，可收紧为「登录可读」。 |
 | `GET /api/danmaku`（仅读） | 课堂大屏弹幕展示的候选公开项；**证据较弱**：两个调用点都在登录后页面（`TeacherBigscreenPage.tsx:156`、`StudentPetPage.tsx:227`）。建议至少要求登录，或显式豁免且只允许本班。 |
 | `GET /api/gacha/dictionary` | 宠物图鉴（静态内容，无用户数据）；当前无前端匿名调用点，列为「可公开候选」，需产品确认。 |
+| `POST /api/wechat/login` | 微信小程序登录入口：`wx.login` 的一次性 code 此时还没有任何会话可带（`plugins/wechat/src/wechat.controllers.ts:52`）。返回的 openid 结果只体现为「已绑定 → 会话」或「未绑定 → ticket」，响应体里从不出现 openid。 |
+| `POST /api/wechat/bind` | 小程序绑定入口：凭一次性 ticket + 账号密码换取会话（`wechat.controllers.ts:62`）。ticket 是不透明的 32 字节随机串、只存摘要、10 分钟过期、单次使用；密码错误同样作废 ticket，因此不能对同一 ticket 反复试密码。 |
 
 **不建议**列入公开清单的相邻端点：`GET /api/classes/:id`（会带出 `invite_code`，等于把加入班级的凭据公开）、`GET /api/knowledge/*`（课程题库/图谱，建议登录可读）、`GET /api/battles/classes/search`（可枚举全部班级）。
 

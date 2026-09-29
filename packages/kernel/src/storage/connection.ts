@@ -39,7 +39,20 @@ export function openDatabase(file: string, options: OpenDatabaseOptions = {}): D
 
   const db = new BetterSqlite3(file);
 
-  if (options.wal !== false && !isMemory) {
+  if (isMemory) {
+    // Nothing to journal, and SQLite keeps an in-memory database in `memory` mode.
+  } else if (options.wal === false) {
+    /*
+     * Explicitly `DELETE`, not merely "do not set WAL".
+     *
+     * `journal_mode` is a persistent property of the file: a database created by an earlier version
+     * keeps WAL after this switch is turned on, so a deployment that flipped `DATABASE_SKIP_WAL=1`
+     * would believe it had moved off WAL while `PRAGMA journal_mode` still answered `wal`. Switching
+     * back is a supported, safe operation on a file no other connection has open - which is the
+     * situation a container start is in.
+     */
+    db.pragma('journal_mode = DELETE');
+  } else {
     db.pragma('journal_mode = WAL');
   }
   db.pragma('foreign_keys = ON');

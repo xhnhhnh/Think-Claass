@@ -32,7 +32,9 @@
     "POST /api/website/contact": "public contact form",
     "GET /api/announcements/active": "the public banner",
     "GET /api/pet/health": "declared public in plugins/pet/plugin.json: plugin id and version only",
-    "POST /api/payment/notify": "the payment provider calls this; it cannot carry a session"
+    "POST /api/payment/notify": "the payment provider calls this; it cannot carry a session",
+    "POST /api/wechat/login": "the mini program's wx.login carries a one-time code and there is no session yet",
+    "POST /api/wechat/bind": "completes the login from the ticket plus the account password; the ticket is opaque, single use and expires in ten minutes"
   },
   "compatAliases": {
     "GET /api/class": "/api/classes - second @Controller class over one base",

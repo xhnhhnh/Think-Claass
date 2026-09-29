@@ -32,3 +32,4 @@ export type * from './pet.js';
 export type * from './platform.js';
 export type * from './portal.js';
 export type * from './slg.js';
+export type * from './wechat.js';

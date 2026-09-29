@@ -42,6 +42,48 @@ function Get-ReleaseAsset {
     return $null
 }
 
+function Get-ReleaseAssetUrl {
+    param($ReleaseInfo, [string]$Name)
+
+    $asset = $ReleaseInfo.assets | Where-Object { $_.name -eq $Name } | Select-Object -First 1
+    if ($asset) {
+        return $asset.browser_download_url
+    }
+
+    return $null
+}
+
+<#
+    Fail closed, exactly like the Linux path (`verify_release_zip` in scripts/deploy-common.sh):
+    a release without SHA256SUMS is a failed download, not a slow one.
+#>
+function Assert-ReleaseChecksum {
+    param($ReleaseInfo, [string]$ZipPath, [string]$ZipName)
+
+    $sumsUrl = Get-ReleaseAssetUrl -ReleaseInfo $ReleaseInfo -Name "SHA256SUMS"
+    if (-not $sumsUrl) {
+        Stop-WithMessage "The release has no SHA256SUMS asset; refusing to install an unverified package."
+    }
+
+    $sumsFile = "SHA256SUMS"
+    Invoke-WebRequest -Uri $sumsUrl -OutFile $sumsFile
+
+    $line = Get-Content $sumsFile | Where-Object { $_ -match [regex]::Escape($ZipName) } | Select-Object -First 1
+    if (-not $line) {
+        Stop-WithMessage "SHA256SUMS does not list $ZipName; refusing to install an unverified package."
+    }
+
+    $expected = ($line -split '\s+')[0].Trim().ToLower()
+    $actual = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash.ToLower()
+    Remove-Item $sumsFile -Force -ErrorAction SilentlyContinue
+
+    if ($expected -ne $actual) {
+        Stop-WithMessage "Checksum mismatch for $ZipName (expected $expected, got $actual). The update was aborted."
+    }
+
+    Write-Log "Checksum verified: $actual" "Green"
+}
+
 function Test-NodeVersion {
     if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
         Stop-WithMessage "Node.js was not found. Please install Node.js 24 LTS first."
@@ -87,6 +129,21 @@ function Ensure-DatabaseUrl {
     }
 }
 
+function Ensure-EncryptionKey {
+    if (-not (Test-Path ".env")) {
+        return
+    }
+
+    $envContent = Get-Content ".env" -Raw
+    if ($envContent -match "(?m)^ENCRYPTION_KEY=") {
+        return
+    }
+
+    Write-Log ".env is missing ENCRYPTION_KEY; generating one now. Back up .env: losing this key makes existing encrypted student names unreadable." "Yellow"
+    $key = & node -e "process.stdout.write(require('node:crypto').randomBytes(16).toString('hex'))"
+    Add-Content -Path ".env" -Value "`nENCRYPTION_KEY=$key" -Encoding UTF8
+}
+
 function Update-CurrentVersionInEnv {
     param([string]$Tag)
 
@@ -117,26 +174,12 @@ function Backup-LocalData {
     Write-Log "Backup complete." "Green"
 }
 
-function Restore-CustomAdminPath {
-    if (-not (Test-Path ".env")) {
-        return
-    }
-
-    $adminPathLine = Select-String -Path ".env" -Pattern "^VITE_ADMIN_PATH=" | Select-Object -ExpandProperty Line -ErrorAction SilentlyContinue
-    if (-not $adminPathLine) {
-        return
-    }
-
-    $adminPath = $adminPathLine.Split("=")[1].Trim()
-    if ($adminPath -and $adminPath -ne "/beiadmin" -and (Test-Path "dist")) {
-        Write-Log "Restoring custom admin path: $adminPath" "Cyan"
-        Get-ChildItem -Path "dist" -Include "*.js", "*.html" -Recurse | ForEach-Object {
-            $content = Get-Content $_.FullName -Raw
-            $content = $content -replace "/beiadmin", $adminPath
-            Set-Content -Path $_.FullName -Value $content -Encoding UTF8
-        }
-    }
-}
+<#
+    `Restore-CustomAdminPath` used to rewrite dist/**/*.js|html for a custom console path. The path is
+    runtime configuration now (ADMIN_PATH / VITE_ADMIN_PATH -> window.__TC_CONFIG__), and the helper it
+    mirrored, `replace_custom_admin_path`, no longer exists in scripts/deploy-common.sh. Nothing
+    replaces it on this platform either.
+#>
 
 function Restart-Service {
     Write-Log "Restarting PM2 service: $appName" "Cyan"
@@ -163,6 +206,7 @@ try {
 
 Test-NodeVersion
 Ensure-DatabaseUrl
+Ensure-EncryptionKey
 Backup-LocalData
 
 Write-Log "Fetching latest GitHub Release metadata..." "Cyan"
@@ -178,6 +222,7 @@ try {
         Write-Log "Latest release: $latestTag" "Green"
         Write-Log "Downloading release package..." "Cyan"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile
+        Assert-ReleaseChecksum -ReleaseInfo $releaseInfo -ZipPath $zipFile -ZipName $zipFile
 
         Write-Log "Extracting package..." "Cyan"
         if (Test-Path $tempExtractDir) {
@@ -205,7 +250,6 @@ try {
     Stop-WithMessage "Update failed while fetching or applying the release: $_"
 }
 
-Restore-CustomAdminPath
 Restart-Service
 
 Write-Log "=================================================" "Green"

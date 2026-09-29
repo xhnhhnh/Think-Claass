@@ -77,6 +77,21 @@ export default definePlugin({
       async activateUser(input) {
         return instance.activateUser(input);
       },
+      /**
+       * The two credential-facing operations `plugins/wechat` consumes.
+       *
+       * Both keep the composition of a login body in this plugin - `loginWithCredentials` after
+       * verifying a password, `getLoginPayload` for an openid this deployment has already bound to
+       * an account. Neither mints a session: the WeChat plugin issues its own through
+       * `ctx.sessions`, the same store this plugin's login route uses.
+       */
+      async loginWithCredentials(credentials) {
+        const result = await instance.login(credentials);
+        return { user: result.user, classFeatures: result.classFeatures ?? null };
+      },
+      async getLoginPayload(userId) {
+        return instance.getLoginPayload(userId);
+      },
       async verifyAdminCredentials(username, password) {
         return instance.verifyAdminCredentials(username, password);
       },

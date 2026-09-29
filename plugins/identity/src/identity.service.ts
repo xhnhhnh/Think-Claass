@@ -34,6 +34,7 @@ import type {
   TeacherDetail,
   TeacherListItem,
 } from '@thinkclass/contracts/domains/admin';
+import type { ClassFeatureFlags } from '@thinkclass/contracts/domains/auth';
 import type { ClassroomPort } from '@thinkclass/contracts/domains/classroom';
 import type {
   ActivationEventRow as PortActivationEvent,
@@ -112,7 +113,63 @@ export class IdentityService {
       this.repository.updateUserPasswordHash(user.id, hashPassword(String(password)));
     }
 
-    if (role === 'student') {
+    const composed = await this.composeLogin(user);
+
+    // The activity row belongs to parent-buff. Optional port: a disabled blessing feature must
+    // not stop a parent logging in. Recorded on the credential path only - a silent re-login from
+    // an already-bound mini program is not a fresh parent session.
+    if (composed.parentStudentId !== null) {
+      const recorder = this.parentBuff();
+      if (recorder) {
+        await recorder.touchParentLogin(
+          user.id,
+          composed.parentStudentId,
+          new Date().toISOString().split('T')[0],
+        );
+      } else {
+        this.ctx.log.warn('parent login activity not recorded: parent-buff.public unavailable', {
+          userId: user.id,
+        });
+      }
+    }
+
+    return { success: true, ...composed.body };
+  }
+
+  /**
+   * The login body for an account that has **already** been authenticated by other means.
+   *
+   * `plugins/wechat` is the caller: it verifies a bound openid against `p_wechat_accounts` and then
+   * has to answer exactly what `POST /api/auth/login` answers, or the two clients drift. The
+   * composition therefore stays here - one place that assembles a student's decrypted name, both
+   * class-id spellings and the class-feature snapshot - instead of being copied into a second
+   * plugin.
+   *
+   * It grants nothing by itself. The caller must have established which account this is, and issuing
+   * a session is a separate step every plugin can already perform through `ctx.sessions`; `null`
+   * simply means the account is gone.
+   */
+  async getLoginPayload(userId: number) {
+    const user = this.repository.findUserById(userId);
+    if (!user) return null;
+
+    const composed = await this.composeLogin(user);
+    return { user: composed.body.user, classFeatures: composed.body.classFeatures ?? null };
+  }
+
+  /**
+   * Assemble what a login answers with for one `users` row.
+   *
+   * Split out so the credential path and the already-authenticated path cannot disagree about the
+   * body. The returned `body` carries `classFeatures` **only** for the roles that have a class - a
+   * teacher's response has never had that key, and adding it as `null` would be a client-visible
+   * change to a route this refactor is not allowed to make.
+   */
+  private async composeLogin(user: UserRow): Promise<{
+    body: { user: LoginUserPayload; classFeatures?: ClassFeatureFlags | null };
+    parentStudentId: number | null;
+  }> {
+    if (user.role === 'student') {
       const student = await this.classroom.getStudentByUserId(user.id);
       const cls = student ? await this.classroom.getClassById(student.classId) : null;
       const features = student ? await this.classroom.getClassFeatureSnapshot(student.classId) : null;
@@ -129,27 +186,14 @@ export class IdentityService {
         is_activated: !!user.is_activated,
       };
 
-      return { success: true, user: payload, classFeatures: cls ? features : null };
+      return { body: { user: payload, classFeatures: cls ? features : null }, parentStudentId: null };
     }
 
-    if (role === 'parent') {
+    if (user.role === 'parent') {
       const students = await this.classroom.listStudentsByParent(user.id);
       const student = students[0];
       const cls = student ? await this.classroom.getClassById(student.classId) : null;
       const features = student ? await this.classroom.getClassFeatureSnapshot(student.classId) : null;
-
-      if (student) {
-        // The activity row belongs to parent-buff. Optional port: a disabled blessing feature
-        // must not stop a parent logging in.
-        const recorder = this.parentBuff();
-        if (recorder) {
-          await recorder.touchParentLogin(user.id, student.id, new Date().toISOString().split('T')[0]);
-        } else {
-          this.ctx.log.warn('parent login activity not recorded: parent-buff.public unavailable', {
-            userId: user.id,
-          });
-        }
-      }
 
       const payload: LoginUserPayload = {
         id: user.id,
@@ -163,17 +207,22 @@ export class IdentityService {
         is_activated: !!user.is_activated,
       };
 
-      return { success: true, user: payload, classFeatures: cls ? features : null };
+      return {
+        body: { user: payload, classFeatures: cls ? features : null },
+        parentStudentId: student?.id ?? null,
+      };
     }
 
     return {
-      success: true,
-      user: {
-        id: user.id,
-        role: user.role,
-        username: user.username,
-        is_activated: !!user.is_activated,
+      body: {
+        user: {
+          id: user.id,
+          role: user.role,
+          username: user.username,
+          is_activated: !!user.is_activated,
+        },
       },
+      parentStudentId: null,
     };
   }
 
@@ -748,6 +797,11 @@ export function assertIdentityPort(service: IdentityService): IdentityPort {
   return {
     getUserById: (userId) => service.getUserById(userId),
     getFirstUserIdByRole: (role) => service.getFirstUserIdByRole(role),
+    loginWithCredentials: async (credentials) => {
+      const result = await service.login(credentials);
+      return { user: result.user, classFeatures: result.classFeatures ?? null };
+    },
+    getLoginPayload: (userId) => service.getLoginPayload(userId),
     activateUser: (input) => service.activateUser(input),
     verifyAdminCredentials: (username, password) => service.verifyAdminCredentials(username, password),
     listTeachers: () => service.listTeachers(),

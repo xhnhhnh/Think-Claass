@@ -26,7 +26,7 @@ contains no business table names, and plugins never import each other directly.
 | Frontend | React 18, TypeScript, Vite 6, Tailwind CSS 3, TanStack Query 5, Zustand |
 | Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
 | Database | SQLite via `better-sqlite3`; migrations are forward-only and checksummed |
-| Plugins | 22 under [`plugins/`](plugins) — see the list below |
+| Plugins | 23 under [`plugins/`](plugins) — see the list below |
 
 The README deliberately does not repeat the version number: it said `1.6.7` for two major
 releases after the project had moved on. That is what `package.json` is for.
@@ -60,7 +60,7 @@ The 22 plugin domains:
 ```text
 admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
 engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
-pet  portal  slg  system
+pet  portal  slg  system  wechat
 ```
 
 `api/modules/` no longer exists — every domain is a plugin now.
@@ -181,7 +181,13 @@ Everything else is optional and read from the environment:
 | `PLUGIN_DIRS` | `plugins,plugins-ext` | Directories scanned for plugin manifests |
 | `SESSION_TTL_MS` | 7 days | Session lifetime |
 | `ALLOW_LEGACY_HEADER_AUTH` | `false` | Accepts `x-user-role` / `x-user-id` as identity. These headers are client-supplied and cannot be verified, so with this on any caller becomes any user — including `superadmin` — and every per-endpoint authorization check becomes advisory. Closed by default; set `1` only for a deployment that genuinely still needs the bridge (every bridged request is logged). See [`packages/kernel/src/auth`](packages/kernel/src/auth) |
+| `DATABASE_SKIP_WAL` | unset (WAL on) | Open SQLite with the rollback journal instead of WAL. Off by default because WAL is right for a local disk; turn it on when the database file lives on a mounted network filesystem (the mini program's 云托管 container mounts CFS to `/data`), where WAL's shared-memory file and locking assumptions do not hold. `journal_mode` is stored in the file, so the switch sets the mode explicitly in both directions — verify with `PRAGMA journal_mode`, not by reading the flag |
 | `THINK_CLASS_ROOT` | `process.cwd()` | Deployment root |
+| `WECHAT_APPID` | unset | The mini program's AppID. Read by `plugins/wechat` at call time; while it or the secret is missing, `/api/wechat/login` and `/api/wechat/bind` answer 503 with a message naming both variables. There is no default anywhere — the AppSecret may only live on the server ([`plugins/wechat/src/wechat.gateway.ts`](plugins/wechat/src/wechat.gateway.ts)) |
+| `WECHAT_SECRET` | unset | The mini program's AppSecret, used only for the server-side `code2session` call. Never reaches a client, and `api.weixin.qq.com` must not be configured as a request domain |
+| `WECHAT_ALLOW_DEV_LOGIN` | unset | `1` accepts `{ "devOpenid": "..." }` on `/api/wechat/login` instead of a real `wx.login` code, so the client can be built before the AppID is approved. Refused outright when `NODE_ENV=production`, and every use is logged |
+| `WECHAT_*` (all three) | — | These exist **only on `feat/wechat-miniprogram`**: that branch carries `plugins/wechat`, and this `main` has no WeChat routes, no `miniprogram/`, and no `deploy/`. See [docs/branch-strategy.md](docs/branch-strategy.md) |
+| `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` / `AI_TIMEOUT_MS` | unset (`ai_provider` defaults to `mock`) | Override the five same-named entries under 系统设置 → AI 判分与问答. Configuration is resolved in three layers, and the precedence is **environment > platform settings > built-in default**; with none of the three set, AI is **off** (deterministic mock grading, no model is called). `AI_API_KEY` belongs here and not in the database: a container's environment is easier to rotate than a row, and it skips the console's `ai_api_key` masking round-trip. Blank values are ignored, so `AI_PROVIDER=` cannot break a configured deployment. The endpoint is OpenAI-compatible, `POST {AI_BASE_URL}/chat/completions`, and an unconfigured deployment degrades *with a reason* (a line in a 200 response) rather than a 503. See [docs/wechat/50-ai-capability.md](docs/wechat/50-ai-capability.md) |
 
 The two composition switches are set by nothing in this repository: `install.sh`, `update.sh`,
 `update.ps1`, `pack.sh`, `nodemon.json` and `package.json` set neither, and the PM2 launcher runs
@@ -272,7 +278,7 @@ whole business surface 404s. [`tests/plugins/legacy-default-composition.test.ts`
 which the `backend` project collects ([`vitest.backend.config.ts:29`](vitest.backend.config.ts)) and so
 `npm test` enforces, boots a real subprocess to pin the default **and** both edges of it: with `KERNEL_ENABLED` and
 `PLUGINS_ENABLED` both deleted from the child environment, `/api/kernel/info` must report
-`pluginsEnabled: true`, `/api/kernel/plugins` must list the 20 plugins, `/api/website/home` must answer
+`pluginsEnabled: true`, `/api/kernel/plugins` must list the 23 plugins, `/api/website/home` must answer
 200, and `/api/pets/999` must reach the pet controller's own `Student not found` rather than Nest's
 `Cannot GET` catch-all; legacy + `PLUGINS_ENABLED=0` must **fail to start** with a message naming the
 variable; and `KERNEL_ENABLED=1 PLUGINS_ENABLED=0` (kernel-only) must still start and answer
@@ -339,7 +345,9 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | Phase-by-phase records: baseline freeze, kernel, contracts and auth, plugin runtime, capabilities and domains |
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | How cross-domain cascade deletion is owned and ordered |
 | [docs/versioning.md](docs/versioning.md) | Version rules, the release pipeline, and the three breakpoints it fixed |
+| [docs/branch-strategy.md](docs/branch-strategy.md) | Which branch owns what: `main` as the Web release line, `feat/wechat-miniprogram` for the mini program, and how the two stay in step |
 | [CHANGELOG.md](CHANGELOG.md) | User-facing changes per release |
+| [docs/wechat/](docs/wechat/README.md) | The WeChat mini program: 云托管 and self-hosted deployment, the competition/release checklist, troubleshooting |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | Earlier refactor notes |
 | [后端接口说明/API接口文档.md](后端接口说明/API接口文档.md) | API reference notes |
 

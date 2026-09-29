@@ -133,13 +133,32 @@ apply_latest_release() {
     install_project_dependencies
 }
 
-restore_admin_path() {
-    local admin_path="/beiadmin"
-    if [ -f ".env" ] && grep -q "^VITE_ADMIN_PATH=" .env; then
-        admin_path=$(grep "^VITE_ADMIN_PATH=" .env | tail -n 1 | cut -d '=' -f 2-)
+# An update must never invent a new encryption key: replacing an existing one silently makes every
+# already-encrypted student name unreadable. The only repair this performs is filling a key in that is
+# genuinely missing, and it says so loudly. Same rule as install.sh, one direction only.
+ensure_encryption_key() {
+    if [ ! -f .env ]; then
+        warn "未找到 .env，跳过 ENCRYPTION_KEY 检查。"
+        return 0
     fi
-    replace_custom_admin_path "${admin_path:-/beiadmin}"
+    if grep -q '^ENCRYPTION_KEY=' .env; then
+        return 0
+    fi
+
+    local key
+    if command -v node >/dev/null 2>&1; then
+        key=$(node -e "process.stdout.write(require('node:crypto').randomBytes(16).toString('hex'))")
+    else
+        key=$(openssl rand -hex 16)
+    fi
+    warn "检测到 .env 缺少 ENCRYPTION_KEY，已自动补齐。请立即备份 .env — 该密钥一旦丢失，已加密的学生姓名将无法恢复。"
+    printf '\nENCRYPTION_KEY=%s\n' "$key" >> .env
 }
+
+# `restore_admin_path()` used to live here and rewrote `dist/**` for a custom console path. The path
+# is runtime configuration now (`ADMIN_PATH` / `VITE_ADMIN_PATH` -> `window.__TC_CONFIG__`), and the
+# helper it called, `replace_custom_admin_path`, no longer exists in deploy-common.sh - calling it
+# failed every update at this step and triggered a rollback. Nothing replaces it.
 
 rollback() {
     ROLLBACK_ATTEMPTED=1
@@ -165,10 +184,10 @@ main() {
     write_status "running" "正在执行更新前检查。"
     check_runtime
     ensure_database_url
+    ensure_encryption_key
     ensure_commands curl unzip jq tar
     backup_data
     apply_latest_release
-    restore_admin_path
     restart_service
     write_status "succeeded" "更新完成，服务已重启。" "$(read_current_version)" "$LATEST_TAG"
     UPDATE_COMPLETED=1
