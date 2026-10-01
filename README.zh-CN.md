@@ -178,7 +178,7 @@ npm run start        # 只有 API
 | `WECHAT_APPID` | 未设置 | 小程序 AppID。由 `plugins/wechat` 在调用时读取；它与密钥任一缺失时，`/api/wechat/login` 与 `/api/wechat/bind` 回 503 并在消息里点名这两个变量。任何地方都没有默认值 —— AppSecret 只能留在服务端（[`plugins/wechat/src/wechat.gateway.ts`](plugins/wechat/src/wechat.gateway.ts)） |
 | `WECHAT_SECRET` | 未设置 | 小程序 AppSecret，只用于服务端的 `code2session` 调用。它不会到达任何客户端，且 `api.weixin.qq.com` 不允许被配置成小程序的服务器域名 |
 | `WECHAT_ALLOW_DEV_LOGIN` | 未设置 | 设为 `1` 时 `/api/wechat/login` 接受 `{ "devOpenid": "..." }` 代替真实的 `wx.login` code，让客户端可以在 AppID 审核通过前先开发。`NODE_ENV=production` 时一律拒绝，且每次使用都会记录日志 |
-| `WECHAT_*`（上面三个） | — | 只存在于 **`feat/wechat-miniprogram`**：`plugins/wechat` 在该分支上，而这份 `main` 没有微信路由、没有 `miniprogram/`、也没有 `deploy/`。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
+| `WECHAT_*`（上面三个） | — | 它们配置的是**共享后端**：Web 与小程序调同一套 API、读同一个数据库，所以只要部署里含 `plugins/wechat`，微信登录路由就在。这条分支上不保留的只有小程序**客户端**。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
 | `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` / `AI_TIMEOUT_MS` | 未设置（`ai_provider` 默认 `mock`） | 覆盖「系统设置 → AI 判分与问答」里的同名五项。配置读取分三层，优先顺序是**环境变量 > 系统设置 > 内置默认值**；三层都没配时 AI 是**关着**的（走确定性 mock 判分，不调用模型）。`AI_API_KEY` 建议只放这一层：容器的环境变量比数据库里的一行更好轮换，也不必经过后台对 `ai_api_key` 的打码往返。空值被忽略，所以 `AI_PROVIDER=` 不会弄坏已配好的部署。接口是 OpenAI 兼容的 `POST {AI_BASE_URL}/chat/completions`；未配置时的降级带原因（200 响应里一行"缺少 ai_api_key"），不是 503。见 [docs/wechat/50-ai-capability.md](docs/wechat/50-ai-capability.md) |
 
 本仓库里没有任何东西设置这两个组装开关：`install.sh`、`update.sh`、`update.ps1`、`pack.sh`、
