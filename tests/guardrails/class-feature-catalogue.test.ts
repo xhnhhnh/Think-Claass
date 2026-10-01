@@ -223,11 +223,22 @@ describe('G15 the route module map stays derived', () => {
   it('a CRLF copy of the generated file is accepted by --check', () => {
     // The end-to-end version of the test above: the same file, in the shape a Windows checkout has,
     // must satisfy the shipped check rather than only the helper.
+    //
+    // The source is normalised to LF *first*: on a checkout where git already handed us CRLF,
+    // `replace(/\n/g, '\r\n')` would produce `\r\r\n` and the assertion would fail for a reason that
+    // has nothing to do with the check under test. (That is how this test broke the first time it
+    // ran on a CRLF worktree.)
     const original = fs.readFileSync(MAP, 'utf8');
     const crlfCopy = path.join(ROOT, 'src', 'app', 'routing', 'pageModules.generated.crlf-check.tmp.ts');
     try {
-      fs.writeFileSync(crlfCopy, original.replace(/\n/g, '\r\n'), 'utf8');
-      expect(sameText(fs.readFileSync(crlfCopy, 'utf8'), original)).toBe(true);
+      const lf = original.replace(/\r\n/g, '\n');
+      fs.writeFileSync(crlfCopy, lf.replace(/\n/g, '\r\n'), 'utf8');
+      const written = fs.readFileSync(crlfCopy, 'utf8');
+
+      // The copy really is CRLF (otherwise the assertion below proves nothing)...
+      expect(written).toContain('\r\n');
+      // ...and the check still accepts it.
+      expect(sameText(written, original)).toBe(true);
     } finally {
       fs.rmSync(crlfCopy, { force: true });
     }

@@ -1,6 +1,17 @@
 # 分支分工方案 · Think-Class
 
-> **状态**：已定稿并落地（「小程序与主应用分线」轮）
+> **现状（已合并）**：`main` 与 `feat/wechat-miniprogram` 已汇合到同一个提交
+> （`c29713c`，fast-forward，无合并提交）。也就是说**小程序客户端现在也在 `main` 上**，
+> 微信云托管按 `main` 构建的镜像里会包含 `miniprogram/`（它不参与后端构建，只是多了一个目录）。
+> 下面第 1–6 节记录的是这次合并**之前**的两条线分工，保留作为历史；
+> 若以后重新分线开发，仍按第 4 节的方向（`main` 是祖先、只向前合并）执行。
+>
+> **合并带来的两点变化**：`package.json` 的 `miniprogram:check` 与 `release.yml` 里的
+> 「Type-check the mini program」在 `main` 上从此有效（此前 `main` 没有 `miniprogram/`，
+> 那两步被有意留在小程序线上）；`vitest.backend.config.ts` 对 `tests/miniprogram/**` 的 include
+> 也从「匹配不到文件」变成真的会跑。
+
+> **历史状态**：已定稿并落地（「小程序与主应用分线」轮）
 > **适用**：`xhnhhnh/Think-Claass`、微信云托管的构建分支选择、`install.sh` / `update.sh` 部署链路
 > **结论**：Web 与小程序是**两个交互界面**，但共用**同一个后端、同一份数据**。所以后端能力放在
 > 两条分支共享的 `main` 上，`feat/wechat-miniprogram` 只多带小程序**客户端**与它自己的文档。
