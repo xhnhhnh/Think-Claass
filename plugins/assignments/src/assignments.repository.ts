@@ -67,6 +67,14 @@ export interface AssignmentsRepository {
   listStudentAssignments(input: { studentId?: number; assignmentId?: number; teacherId?: number }): StudentAssignment[];
   getStudentAssignment(id: number): StudentAssignment | null;
   updateStudentAssignment(id: number, input: StudentAssignmentUpdatePayload): void;
+  /**
+   * The owning teacher of a class, or undefined when there is no such class.
+   *
+   * `data.reads` gained `classes` for this: both create paths took `class_id` on trust, so a
+   * hand-crafted request could file work - and, for exams, one `student_exams` row per pupil -
+   * under a class the caller has nothing to do with.
+   */
+  getClassTeacher(classId: number): { teacher_id: number | null } | undefined;
 }
 
 export interface ExamsRepository {
@@ -84,6 +92,8 @@ export interface ExamsRepository {
   listStudentExams(input: { studentId?: number; examId?: number; teacherId?: number }): StudentExamRow[];
   updateStudentExam(id: number, input: { score: number | null; feedback?: string | null }): void;
   getStudentExamById(id: number): { id: number; exam_id: number } | null;
+  /** Same contract as the assignments half - see the note on `AssignmentsRepository`. */
+  getClassTeacher(classId: number): { teacher_id: number | null } | undefined;
 }
 
 /**
@@ -207,6 +217,10 @@ export function createAssignmentsRepository(db: DbApi): AssignmentsRepository {
       }
       params.push(id);
       db.run(`UPDATE student_assignments SET ${updates.join(', ')} WHERE id = ?`, params as SqlParam[]);
+    },
+
+    getClassTeacher(classId) {
+      return db.get<{ teacher_id: number | null }>('SELECT teacher_id FROM classes WHERE id = ?', [classId]);
     },
   };
 }
@@ -375,6 +389,10 @@ export function createExamsRepository(
       return (
         db.get<{ id: number; exam_id: number }>('SELECT id, exam_id FROM student_exams WHERE id = ?', [id]) ?? null
       );
+    },
+
+    getClassTeacher(classId) {
+      return db.get<{ teacher_id: number | null }>('SELECT teacher_id FROM classes WHERE id = ?', [classId]);
     },
   };
 }

@@ -1131,16 +1131,22 @@ export class ClassroomService {
   getGuildRanking(req: ServiceRequest, id: string) {
     // The student guild page reads its own class's ranking; the teacher reads the class it owns.
     const actor = this.requireActor(req);
-    this.ensureClassAccess(
-      actor,
-      this.normalizeId(id, 'class'),
-      ['teacher', 'student'],
-      '无权限查看该班级公会榜',
-    );
+    const classId = this.normalizeId(id, 'class');
+    this.ensureClassAccess(actor, classId, ['teacher', 'student'], '无权限查看该班级公会榜');
 
-    const cls = this.repository.classGuildFlag(id);
-    if (!cls) throw new ApiError(404, '班级未找到');
-    if (!cls.enable_guild_pk) return { rankings: [], isEnabled: false };
+    if (!this.repository.findClassRow(id)) throw new ApiError(404, '班级未找到');
+
+    /**
+     * Resolved, not read straight off the column.
+     *
+     * `classes.enable_guild_pk` is only the legacy half: the teacher's 功能开关 panel writes a
+     * capability assignment (`setClassFeatures` dual-writes both), and the resolver answers with the
+     * assignment when one exists. Reading the column directly made this the one flag that ignored
+     * the switch the teacher had just flipped, so a class could be "on" in the picker and off here.
+     * The 200 + `isEnabled: false` shape is the pre-migration contract and stays: the guild page
+     * renders its "暂未开启" panel from it.
+     */
+    if (!this.features.isFeatureEnabled(classId, 'enable_guild_pk')) return { rankings: [], isEnabled: false };
 
     const rankings = this.repository.guildRanking(id);
     return { rankings, isEnabled: true };

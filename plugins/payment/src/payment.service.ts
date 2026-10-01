@@ -195,6 +195,21 @@ export class PaymentService {
   }
 
   /**
+   * Where the channel should call us back.
+   *
+   * `payment_notify_url` has been in the settings schema since the payment keys were added and was
+   * read by nothing: the route always announced the host it happened to be reached at. Deriving that
+   * is a sensible default - a deployment behind a proxy must announce the URL its clients use - so
+   * the console's value is a *preference* and the derived URL is the fallback. It matters because the
+   * channel signs the callback against this URL: an operator who terminates TLS at a different host
+   * than the app sees has to be able to say so.
+   */
+  notifyUrl(fallback: string): string {
+    const configured = setting(this.ctx, 'payment_notify_url', '').trim();
+    return configured === '' ? fallback : configured;
+  }
+
+  /**
    * Create an order: validate the method, ask the channel for a code, then persist order +
    * CREATE transaction in one local transaction.
    *

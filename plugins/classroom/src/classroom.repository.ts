@@ -292,13 +292,6 @@ export function createClassroomRepository(ctx: KernelContext) {
       );
     },
 
-    classGuildFlag(id: unknown): { id: number; enable_guild_pk: unknown } | undefined {
-      return db.get<{ id: number; enable_guild_pk: unknown }>(
-        `SELECT id, enable_guild_pk FROM classes WHERE id = ?`,
-        [id as never],
-      );
-    },
-
     classPetSelectionMode(id: unknown): { pet_selection_mode: string | null } | undefined {
       return db.get<{ pet_selection_mode: string | null }>(
         `SELECT pet_selection_mode FROM classes WHERE id = ?`,

@@ -41,8 +41,11 @@ export class PaymentController {
     if (!actorId) throw new ApiError(403, '未登录');
 
     // Built from the request, exactly as the legacy service did: a deployment behind a proxy that
-    // rewrites the host must keep announcing the URL it is reached at, not a configured guess.
-    const notifyUrl = `${req.protocol}://${req.get('host')}/api/payment/notify`;
+    // rewrites the host must keep announcing the URL it is reached at, not a configured guess. The
+    // operator's `payment_notify_url` wins when it is set - the channel signs against it, so a
+    // deployment that terminates TLS elsewhere has to be able to say so.
+    const derived = `${req.protocol}://${req.get('host')}/api/payment/notify`;
+    const notifyUrl = this.paymentService.notifyUrl(derived);
     const order = await this.paymentService.createOrder({ userId: actorId, method: body?.method, notifyUrl });
 
     return { success: true, message: '订单创建成功', data: paymentOrderPayload(order) };

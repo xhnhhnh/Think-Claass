@@ -108,6 +108,17 @@ export class EngagementService {
     await this.assertClassFeature(student.classId, feature);
   }
 
+  /**
+   * The class-scope gate, for the one controller that resolves the class itself.
+   *
+   * `GET /api/lucky-draw/config` scopes a student to their own class's teacher before the service is
+   * called, so it already holds the class id the gate needs; re-deriving it inside the service would
+   * mean a second lookup that could disagree with the scoping decision.
+   */
+  async assertClassFeatureEnabled(classId: number, feature: string): Promise<void> {
+    await this.assertClassFeature(classId, feature);
+  }
+
   /** Display names for a page of rows, in one port call. */
   private async nameMap(studentIds: number[]): Promise<Record<number, string>> {
     const unique = [...new Set(studentIds.filter((id) => Number.isFinite(id)))];
@@ -504,7 +515,16 @@ export class EngagementService {
     const { classId, classIds, type, receiverId, role, involvedId } = queryInput;
 
     if (classId && type === 'TREE_HOLE') {
-      await this.assertAnyClassFeature(Number(classId), ['enable_tree_hole', 'enable_chat_bubble']);
+      /**
+       * `enable_tree_hole` alone, not `anyOf [tree_hole, chat_bubble]`.
+       *
+       * The any-of rule belongs to the *page* (the interactive wall also carries 班级通知, which has
+       * no flag of its own), but it was applied to the message type too - so a class with only
+       * 聊天气泡 switched on could read and post 树洞心声, which is the one thing that flag is
+       * supposed to be about. The wall's tab now hides itself on the same rule
+       * (`StudentInteractiveWallPage`), so the refusal and the absent tab agree.
+       */
+      await this.assertClassFeature(Number(classId), 'enable_tree_hole');
     }
 
     const rows = this.repository.messages({
@@ -594,7 +614,8 @@ export class EngagementService {
     } = input;
 
     if (type === 'TREE_HOLE') {
-      await this.assertAnyClassFeature(Number(class_id), ['enable_tree_hole', 'enable_chat_bubble']);
+      // See `getMessages`: the type's own flag, not the page's any-of rule.
+      await this.assertClassFeature(Number(class_id), 'enable_tree_hole');
     }
 
     return this.repository.insertMessage({
@@ -717,6 +738,16 @@ export class EngagementService {
     if (!cls) {
       return { status: 404, body: { success: false, message: 'Student not found' } };
     }
+
+    /**
+     * The feature gate, before a single point moves.
+     *
+     * `enable_lucky_draw` was the one class feature with no server-side check at all: a teacher who
+     * switched it off only hid the menu, while the route behind it still charged the pupil and
+     * minted the prize. The other gated surfaces in this plugin (`danmaku`, the tree hole, family
+     * tasks) all refuse with 403 "该功能当前已关闭", and this one answers the same way.
+     */
+    await this.assertClassFeature(student.classId, 'enable_lucky_draw');
 
     const configs = this.repository.luckyDrawConfigs(cls.teacherId as never);
     if (configs.length === 0) {

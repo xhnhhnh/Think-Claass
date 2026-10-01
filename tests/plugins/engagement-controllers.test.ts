@@ -97,6 +97,7 @@ function fakeService() {
     classTeacherId: vi.fn(async () => 5),
     assertClassAccess: vi.fn(async (_actor: unknown, id: unknown) => Number(id)),
     assertStudentAccess: vi.fn(async (_actor: unknown, id: unknown) => Number(id)),
+    assertClassFeatureEnabled: vi.fn(async () => undefined),
     displayNameOf: vi.fn(async () => '小明'),
     familyTaskQueryFor: vi.fn(async () => ({ studentId: 7 })),
     assertFamilyTaskAccess: vi.fn(async () => ({ student_id: 7 })),
@@ -342,6 +343,69 @@ describe('engagement: the wrong role gets 403', () => {
     // And an out-of-class reader is refused by the scope check, not merely logged in.
     service.assertClassAccess.mockRejectedValueOnce(new ApiError(403, '无权限执行该操作'));
     expect((await refuserOf(() => controller.getMessages(student, '99'))).status).toBe(403);
+  });
+});
+
+/**
+ * A switched-off class feature is a refusal, not an outage.
+ *
+ * The legacy catch clauses flatten anything that is not Nest's `HttpException` into
+ * `500 Server error` - and the kernel's `ApiError` is a different class, so every gate refusal used
+ * to reach the page as "服务器错误". These cases pin the statuses the pages rely on: a teacher who
+ * switches the feature off must see the feature's own 403, and a missing row its own 404.
+ */
+describe('engagement: a refused gate answers its own status, never a flattened 500', () => {
+  const FEATURE_OFF = { message: '该功能当前已关闭', status: 403 };
+
+  it('the lucky draw refuses with 403 on both the draw and the prize grid', async () => {
+    const service = fakeService();
+    const controller = new LuckyDrawController(service as never);
+
+    // The draw: the gate runs inside `drawLuckyPrize` and throws (it does not return a status).
+    service.drawLuckyPrize.mockRejectedValueOnce(new ApiError(FEATURE_OFF.status, FEATURE_OFF.message));
+    const res = fakeResponse();
+    await controller.draw(student, {}, res);
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ success: false, message: FEATURE_OFF.message });
+
+    // The read: the controller gates the student's own class before the legacy try clause.
+    service.assertClassFeatureEnabled.mockRejectedValueOnce(new ApiError(FEATURE_OFF.status, FEATURE_OFF.message));
+    expect((await refuserOf(() => controller.getConfig(student, '999'))).status).toBe(403);
+
+    // A teacher configuring their own lottery is not the feature's audience: no class gate there.
+    service.assertClassFeatureEnabled.mockClear();
+    await controller.getConfig(teacher, undefined);
+    expect(service.assertClassFeatureEnabled).not.toHaveBeenCalled();
+  });
+
+  it('the tree hole, danmaku and family tasks keep their gate statuses', async () => {
+    {
+      const service = fakeService();
+      const messages = new MessagesController(service as never);
+      service.getMessages.mockRejectedValueOnce(new ApiError(403, FEATURE_OFF.message));
+      expect((await refuserOf(() => messages.getMessages(student, {}))).status).toBe(403);
+    }
+
+    {
+      const service = fakeService();
+      const danmaku = new DanmakuController(service as never);
+      service.getDanmakuMessages.mockRejectedValueOnce(new ApiError(403, FEATURE_OFF.message));
+      expect((await refuserOf(() => danmaku.getMessages(student, '3'))).status).toBe(403);
+
+      service.createDanmakuMessage.mockRejectedValueOnce(new ApiError(403, FEATURE_OFF.message));
+      expect((await refuserOf(() => danmaku.createMessage(student, { class_id: 3, content: 'c' }))).status).toBe(403);
+    }
+
+    {
+      const service = fakeService();
+      const tasks = new FamilyTasksController(service as never);
+      // A gate refusal, and the missing-student 404 that used to be flattened the same way.
+      service.getFamilyTasks.mockRejectedValueOnce(new ApiError(403, FEATURE_OFF.message));
+      expect((await refuserOf(() => tasks.getTasks(parent, { studentId: '7' }))).status).toBe(403);
+
+      service.getFamilyTasks.mockRejectedValueOnce(new ApiError(404, '学生未找到'));
+      expect((await refuserOf(() => tasks.getTasks(parent, { studentId: '7' }))).status).toBe(404);
+    }
   });
 });
 

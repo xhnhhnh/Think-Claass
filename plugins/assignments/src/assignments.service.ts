@@ -110,6 +110,24 @@ export class AssignmentsService {
   }
 
   /**
+   * The class the caller is filing work into has to exist, and has to be theirs.
+   *
+   * Both create paths used to take `class_id` on trust, because ownership for *reads and updates* is
+   * the row's own `teacher_id` and this plugin declared no read of `classes`. A create is different:
+   * there is no row yet to own, so nothing rejected a class the teacher has no claim on - and for an
+   * exam that is not one wrong foreign key, it is one `student_exams` row per pupil of that class.
+   * `data.reads` therefore gained `classes`, which is a read of a table this plugin already borrowed
+   * `students` from; it still does not depend on `classroom`.
+   */
+  private ensureOwnClass(actor: RequestActor, classId: number, teacherId: number, message: string): void {
+    if (isAdminRole(actor)) return;
+
+    const row = this.repository.getClassTeacher(classId);
+    if (!row) throw new ApiError(404, '班级未找到');
+    if (row.teacher_id !== teacherId) throw new ApiError(403, message);
+  }
+
+  /**
    * `GET /api/assignments` - teacher/admin（限本班）, student（本班）.
    *
    * The class filter comes from the actor for a student and intersects with the teacher's own
@@ -150,6 +168,7 @@ export class AssignmentsService {
   createAssignment(actor: RequestActor, input: AssignmentPayload) {
     const classId = positiveInteger(input.class_id, 'class_id');
     const teacherId = requireActorId(actor);
+    this.ensureOwnClass(actor, classId, teacherId, '无权限为该班级布置作业');
     if (!input.title || typeof input.title !== 'string') throw new ApiError(400, 'Missing title');
     return {
       id: this.repository.createAssignment({
@@ -251,6 +270,22 @@ export class ExamsService {
     }
   }
 
+  /**
+   * The class the exam is filed into has to exist, and has to be the teacher's.
+   *
+   * See the note on `AssignmentsService.ensureOwnClass`: this is the create path, so there is no row
+   * to own yet, and the class's pupils are about to get one `student_exams` row each. The teacher
+   * console used to send `user?.class_id ?? 1` here, which is how a teacher with any class other
+   * than id 1 wrote a whole class's grade sheet into class 1.
+   */
+  private ensureExamClass(actor: RequestActor, classId: number, teacherId: number): void {
+    if (isAdminRole(actor)) return;
+
+    const row = this.repository.getClassTeacher(classId);
+    if (!row) throw new ApiError(404, '班级未找到');
+    if (row.teacher_id !== teacherId) throw new ApiError(403, '无权限为该班级创建考试');
+  }
+
   /** `GET /api/exams` - teacher/admin（本班）. The teacher sees their own exams only. */
   listExams(actor: RequestActor, classIdInput?: unknown) {
     const classId = optionalPositiveInteger(classIdInput, 'class_id');
@@ -277,6 +312,7 @@ export class ExamsService {
   createExam(actor: RequestActor, input: ExamPayload) {
     const classId = positiveInteger(input.class_id, 'class_id');
     const teacherId = requireActorId(actor);
+    this.ensureExamClass(actor, classId, teacherId);
     const totalScore = positiveNumber(input.total_score, 'total_score');
     if (!input.title || typeof input.title !== 'string') throw new ApiError(400, 'Missing title');
 

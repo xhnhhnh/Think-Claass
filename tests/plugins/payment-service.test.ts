@@ -171,6 +171,20 @@ describe('createOrder', () => {
     expect(order).toMatchObject({ amount: 12.5, currency: 'USD', description: '自定描述' });
   });
 
+  it('prefers the configured notify URL and falls back to the derived one', () => {
+    // `payment_notify_url` was in the schema from the start and read by nothing, so an operator who
+    // terminated TLS on another host could not say so - and the channel signs against this URL.
+    const derived = 'https://edge.example.test/api/payment/notify';
+    expect(service.notifyUrl(derived)).toBe(derived);
+
+    setSetting('payment_notify_url', 'https://pay.example.test/api/payment/notify');
+    expect(service.notifyUrl(derived)).toBe('https://pay.example.test/api/payment/notify');
+
+    // Blank is "not configured", not "configure an empty callback".
+    setSetting('payment_notify_url', '   ');
+    expect(service.notifyUrl(derived)).toBe(derived);
+  });
+
   it('starts PENDING instead of AWAITING_PAYMENT outside the mock environment', async () => {
     // The one branch that differs by environment, carried over from the pre-migration service.
     setSetting('payment_environment', 'mock');

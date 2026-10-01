@@ -242,7 +242,15 @@ beforeEach(async () => {
   });
 
   calls = { ledger: [], spends: [], adjustments: [], petGrants: [], userLookups: [] };
-  features = { enable_danmaku: true, enable_tree_hole: true, enable_family_tasks: true, enable_achievements: true };
+  features = {
+    enable_danmaku: true,
+    enable_tree_hole: true,
+    enable_family_tasks: true,
+    enable_achievements: true,
+    // The lucky draw now has the server-side gate it used to lack; the draw's own cases turn it off
+    // explicitly to pin the 403.
+    enable_lucky_draw: true,
+  };
   student = { id: 20, classId: 1, userId: 9, name: '小明', totalPoints: 100, availablePoints: 100, groupId: null };
 
   const ports = createPorts();
@@ -339,6 +347,18 @@ describe('the class gates: 404 for a missing class, 403 when the flag is off', (
     expect(error.message).toBe('学生未找到');
   });
 
+  it('gates the lucky draw, which used to spend points with the feature switched off', async () => {
+    features.enable_lucky_draw = false;
+    const spentBefore = calls.spends.length;
+
+    const error = await apiErrorOf(() => service.drawLuckyPrize(20));
+
+    expect(error.statusCode).toBe(403);
+    expect(error.message).toBe('该功能当前已关闭');
+    // The gate runs before the debit: a refused draw costs nothing.
+    expect(calls.spends).toHaveLength(spentBefore);
+  });
+
   it('gates the parent form on the parent first child class', async () => {
     features.enable_family_tasks = false;
     const error = await apiErrorOf(() => service.getFamilyTasks({ parentId: 8 }));
@@ -353,16 +373,26 @@ describe('the class gates: 404 for a missing class, 403 when the flag is off', (
     expect(noChild.message).toBe('班级未找到');
   });
 
-  it('passes the tree-hole gate when either of its two flags is on', async () => {
+  it('gates 树洞心声 on its own flag, not on the any-of rule the page uses', async () => {
+    // The interactive wall carries 班级通知 as well, which has no flag of its own - so the *route* is
+    // anyOf(tree_hole, chat_bubble). The message type is not: a class with only 聊天气泡 switched on
+    // could read and post tree-hole messages until this became `enable_tree_hole` alone.
     features.enable_tree_hole = false;
     features.enable_chat_bubble = true;
-    expect(await service.createMessage({ class_id: 1, sender_id: 20, content: 'x', type: 'TREE_HOLE' })).toBeDefined();
-
-    features.enable_chat_bubble = false;
-    const error = await apiErrorOf(() =>
+    const refused = await apiErrorOf(() =>
       service.createMessage({ class_id: 1, sender_id: 20, content: 'x', type: 'TREE_HOLE' }),
     );
-    expect(error.statusCode).toBe(403);
+    expect(refused.statusCode).toBe(403);
+    expect(refused.message).toBe('该功能当前已关闭');
+
+    features.enable_tree_hole = true;
+    expect(await service.createMessage({ class_id: 1, sender_id: 20, content: 'x', type: 'TREE_HOLE' })).toBeDefined();
+    // The read is gated the same way: it answers while the flag is on...
+    expect(await service.getMessages({ classId: 1, type: 'TREE_HOLE' })).toHaveLength(1);
+    // ...and refuses once it is off, even though 聊天气泡 is still on.
+    features.enable_tree_hole = false;
+    expect((await apiErrorOf(() => service.getMessages({ classId: 1, type: 'TREE_HOLE' }))).statusCode).toBe(403);
+    expect(features.enable_chat_bubble).toBe(true);
   });
 });
 
