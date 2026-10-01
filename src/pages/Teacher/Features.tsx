@@ -18,7 +18,7 @@ import ClassFeaturePanel from './components/ClassFeaturePanel';
  * which class it is configuring.
  */
 export default function TeacherFeatures() {
-  const { data: classes = [], isLoading, refetch } = useClasses();
+  const { data: classes = [], isLoading, isError, refetch } = useClasses();
   const [classId, setClassId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -42,6 +42,26 @@ export default function TeacherFeatures() {
     return (
       <PageScaffold variant="form" className="flex justify-center py-16">
         <Spinner size="lg" label="正在加载班级" className="text-role" />
+      </PageScaffold>
+    );
+  }
+
+  /**
+   * A failed read is not "you have no classes".
+   *
+   * Without this branch the page told the teacher to go and create a class they already have,
+   * on the one screen whose switches decide what students can see.
+   */
+  if (isError) {
+    return (
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">班级列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有班级，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }

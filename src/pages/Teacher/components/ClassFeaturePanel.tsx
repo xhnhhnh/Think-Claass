@@ -12,13 +12,17 @@ const groups: Array<{ title: string; items: ClassFeatureKey[] }> = [
   { title: '课堂互动', items: ['enable_chat_bubble', 'enable_tree_hole', 'enable_danmaku', 'enable_peer_review', 'enable_achievements'] },
   { title: '商城与经济', items: ['enable_shop', 'enable_auction_blind_box', 'enable_gacha', 'enable_economy'] },
   { title: '战斗与活动', items: ['enable_challenge', 'enable_world_boss', 'enable_guild_pk', 'enable_class_brawl', 'enable_slg', 'enable_dungeon', 'enable_lucky_draw'] },
-  { title: '学业成长', items: ['enable_task_tree'] },
+  // AI 智学 is a class feature like the other nineteen, and this panel is the only place a teacher
+  // can switch one on: it was missing from this list, so `enable_ai_study` had no write path at all
+  // in the web console - the student page, the teacher board and the mini program all read a flag
+  // nobody could set. `class-feature-panel-coverage.test.ts` keeps this list complete now.
+  { title: '学业成长', items: ['enable_task_tree', 'enable_ai_study'] },
   { title: '家校联动', items: ['enable_family_tasks', 'enable_parent_buff'] },
 ];
 
 export default function ClassFeaturePanel({ classId, compact = false }: { classId: number | null; compact?: boolean }) {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useClassFeatures(classId);
+  const { data, isLoading, isError, refetch } = useClassFeatures(classId);
   const [features, setFeatures] = useState<ClassFeatures>(defaultClassFeatures);
 
   useEffect(() => {
@@ -51,6 +55,25 @@ export default function ClassFeaturePanel({ classId, compact = false }: { classI
       <div className="flex items-center justify-center py-12 text-fg-3">
         <LoaderCircle className="mr-3 h-5 w-5 animate-spin" />
         正在加载课堂功能...
+      </div>
+    );
+  }
+
+  /**
+   * A failed read is not "everything is off".
+   *
+   * `defaultClassFeatures` is all-false, so without this branch a request that failed painted every
+   * switch as 「当前已关闭」 - the teacher's honest reading of that is "my settings were reset", and
+   * the next tap would then write that guess back to the server.
+   */
+  if (isError) {
+    return (
+      <div className="rounded-card border border-danger/20 bg-danger/10 p-8 text-center">
+        <p className="font-semibold text-danger">课堂功能开关加载失败</p>
+        <p className="mt-1 text-sm text-fg-3">这不代表功能被关闭。请重试，避免在错误的状态上修改开关。</p>
+        <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+          重新加载
+        </Button>
       </div>
     );
   }

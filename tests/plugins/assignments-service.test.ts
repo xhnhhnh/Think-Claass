@@ -101,6 +101,12 @@ class FakeAssignmentsRepository implements AssignmentsRepository {
     const record = this.studentAssignments.get(id)!;
     this.studentAssignments.set(id, { ...record, ...input });
   }
+  /** Same fixture as the exams fake: class 1/2 are TEACHER's, class 3 is somebody else's. */
+  getClassTeacher(classId: number) {
+    if (classId === 3) return { teacher_id: 3 };
+    if (classId === 1 || classId === 2) return { teacher_id: 2 };
+    return undefined;
+  }
 }
 
 class FakeExamsRepository implements ExamsRepository {
@@ -128,6 +134,15 @@ class FakeExamsRepository implements ExamsRepository {
   }
   listStudentIds() {
     return [{ id: 10 }, { id: 11 }];
+  }
+  /**
+   * The create-path ownership lookup. Class 1 belongs to teacher 2 (the fixture's TEACHER); class 3
+   * belongs to somebody else, which is the case the service has to refuse.
+   */
+  getClassTeacher(classId: number) {
+    if (classId === 3) return { teacher_id: 3 };
+    if (classId === 1 || classId === 2) return { teacher_id: 2 };
+    return undefined;
   }
   createStudentExam(examId: number, studentId: number) {
     this.grades.set(`${examId}:${studentId}`, {
@@ -255,6 +270,20 @@ describe('ExamsService (relocated)', () => {
     ).toThrow('total_score is invalid');
   });
 
+  it('refuses a class that is missing or is not the teacher’s', () => {
+    // The console used to send `user?.class_id ?? 1`, and the server took `class_id` on trust: a
+    // teacher whose class is not id 1 wrote the exam - and one grade row per pupil - into class 1.
+    expect(() => service.createExam(TEACHER, { class_id: 3, title: '期中', total_score: 100 })).toThrow(
+      /无权限为该班级创建考试/,
+    );
+    expect(() => service.createExam(TEACHER, { class_id: 99, title: '期中', total_score: 100 })).toThrow(/班级未找到/);
+
+    // An admin still files for any class, and the owner still succeeds in their own.
+    const admin = { id: 1, role: 'admin', studentId: null, classId: null };
+    expect(service.createExam(admin, { class_id: 3, title: '期中', total_score: 100 }).id).toBeGreaterThan(0);
+    expect(service.createExam(TEACHER, { class_id: 1, title: '期中', total_score: 100 }).id).toBeGreaterThan(0);
+  });
+
   it('rejects an empty grade list', () => {
     const created = service.createExam(TEACHER, { class_id: 1, teacher_id: 2, title: '期中', total_score: 100 });
     expect(() => service.saveGrades(TEACHER, created.id, [])).toThrow('Missing grades');
@@ -318,7 +347,7 @@ describe('shipped SQL matches the manifest data declaration', () => {
   /** Mirrors `plugins/assignments/plugin.json` -> `data`. */
   const DECLARED = {
     adopted: ['assignments', 'student_assignments', 'exams', 'student_exams'],
-    reads: ['students'],
+    reads: ['students', 'classes'],
   };
 
   let db: Database;
@@ -331,6 +360,8 @@ describe('shipped SQL matches the manifest data declaration', () => {
         id INTEGER PRIMARY KEY, user_id INTEGER, class_id INTEGER, name TEXT,
         total_points INTEGER DEFAULT 0, available_points INTEGER DEFAULT 0
       );
+      -- Read for one column on the create paths: who owns the class the work is filed under.
+      CREATE TABLE classes (id INTEGER PRIMARY KEY, name TEXT, teacher_id INTEGER);
       CREATE TABLE assignments (
         id INTEGER PRIMARY KEY AUTOINCREMENT, class_id INTEGER, teacher_id INTEGER, title TEXT,
         description TEXT, due_date TEXT, reward_points INTEGER DEFAULT 0,
@@ -350,6 +381,9 @@ describe('shipped SQL matches the manifest data declaration', () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT, exam_id INTEGER, student_id INTEGER,
         score REAL, feedback TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+      -- The service's create paths check this one column: class 3 belongs to teacher 3, so a teacher
+      -- filing work into it is the case that used to be accepted silently.
+      INSERT INTO classes (id, name, teacher_id) VALUES (1, '一班', 2), (2, '二班', 2), (3, '三班', 3);
     `);
 
     // Names are AES-encrypted at rest in production; the injectable decryptor is the seam

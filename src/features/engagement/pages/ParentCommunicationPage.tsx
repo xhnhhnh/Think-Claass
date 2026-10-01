@@ -42,9 +42,16 @@ export default function ParentCommunication() {
   const user = useStore(state => state.user);
   const [newMessage, setNewMessage] = useState('');
   const [classId, setClassId] = useState<number | null>(null);
+  /**
+   * The child's class read failed. The letters query is keyed off that class, so without
+   * this flag a failed *init* left the thread reading 「信箱空空如也」 - the parent was told
+   * there is no correspondence, on the strength of a request that never arrived.
+   */
+  const [initError, setInitError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { data: rawMessages = [], isLoading: loading, refetch } = useMessages(classId, 'HOME_SCHOOL');
+  const { data: rawMessages = [], isLoading: loading, isError: isMessagesError, refetch } = useMessages(classId, 'HOME_SCHOOL');
   const sendMutation = useSendMessageMutation(classId, 'HOME_SCHOOL');
+  const loadError = initError || isMessagesError;
   const messages = (rawMessages as Message[])
     .filter((m) => {
       const isOwnParentMessage = (m.sender_role === 'parent' || m.sender_role === 'user') && m.sender_id === user?.id;
@@ -53,21 +60,29 @@ export default function ParentCommunication() {
     })
     .reverse();
 
-  useEffect(() => {
+  const initCommunication = async () => {
     if (!user?.studentId) return;
-
-    const init = async () => {
-      try {
-        const data = (await studentsApi.getStudentById(user.studentId)) as any;
-        if (data.success && data.student) {
-          setClassId(data.student.class_id);
-        }
-      } catch (error) {
-        console.error('Failed to init communication', error);
+    setInitError(false);
+    try {
+      const data = (await studentsApi.getStudentById(user.studentId)) as any;
+      if (data.success && data.student) {
+        setClassId(data.student.class_id);
       }
-    };
-    init();
+    } catch (error) {
+      console.error('Failed to init communication', error);
+      setInitError(true);
+    }
+  };
+
+  useEffect(() => {
+    void initCommunication();
   }, [user?.studentId]);
+
+  /** Re-runs both reads this page makes: the child's class, and the thread it unlocks. */
+  const retryLoad = () => {
+    void initCommunication();
+    if (classId) void refetch();
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,7 +117,7 @@ export default function ParentCommunication() {
       icon: RefreshCw,
       keywords: ['家校信箱', '刷新', '留言'],
       run: () => {
-        if (classId) void refetch();
+        retryLoad();
       },
       disabled: loading,
     },
@@ -129,7 +144,7 @@ export default function ParentCommunication() {
       actions={
         <Button
           type="button"
-          onClick={() => classId && refetch()}
+          onClick={retryLoad}
           disabled={loading}
           className="rounded-xl bg-role-soft p-2.5 text-role-ink transition-all duration-300 hover:bg-role/20 disabled:opacity-50"
           title="刷新信箱"
@@ -144,7 +159,17 @@ export default function ParentCommunication() {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-3/80 to-surface-3/40"></div>
 
           <div className="relative z-10 h-full">
-            {messages.length === 0 && !loading ? (
+            {loadError && !loading ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+                  <p className="font-semibold text-danger">信箱加载失败</p>
+                  <p className="mt-1 text-sm text-fg-3">这不代表没有信件，请重试。</p>
+                  <Button variant="outline" className="mt-3" onClick={retryLoad}>
+                    重新加载
+                  </Button>
+                </div>
+              </div>
+            ) : messages.length === 0 && !loading ? (
               <div className="flex h-full flex-col items-center justify-center text-fg-3">
                 <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-surface-2/60">
                   <MessageSquare className="size-8 opacity-50" />

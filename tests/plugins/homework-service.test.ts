@@ -74,7 +74,7 @@ const SCHEMA = `
   -- The two tables the plugin READS. Created here with only the columns it selects, so a statement
   -- reaching for anything else fails loudly.
   CREATE TABLE students (id INTEGER PRIMARY KEY, class_id INTEGER, name TEXT, user_id INTEGER);
-  CREATE TABLE classes (id INTEGER PRIMARY KEY, name TEXT);
+  CREATE TABLE classes (id INTEGER PRIMARY KEY, name TEXT, teacher_id INTEGER);
   CREATE TABLE assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT, class_id INTEGER, teacher_id INTEGER, title TEXT NOT NULL,
     description TEXT, due_date TEXT, reward_points INTEGER, created_at TEXT
@@ -96,10 +96,10 @@ let db: Database;
 let api: DbApi;
 let service: HomeworkService;
 
-/** Seed two pupils, a class, and the rows the fixture needs. */
+/** Seed two pupils, their class (owned by TEACHER), and a second class owned by OTHER_TEACHER. */
 function seed(): void {
   db.exec(`
-    INSERT INTO classes (id, name) VALUES (1, '一班');
+    INSERT INTO classes (id, name, teacher_id) VALUES (1, '一班', 2), (2, '二班', 3);
     INSERT INTO students (id, class_id, name, user_id) VALUES (10, 1, 'enc:小明', 8), (11, 1, 'enc:小红', 9);
   `);
 }
@@ -177,6 +177,18 @@ describe('repository: the shipped SQL against a real database, ownership checkin
     const byTitle = new Map(service.listHomeworks(TEACHER, 1).map((row) => [row.title, row.question_count]));
     expect(byTitle.get('空作业')).toBe(0);
     expect(byTitle.get('第三章练习')).toBe(paper.questions.length);
+  });
+
+  it('refuses to publish into a class that is missing or not the teacher’s', () => {
+    // `data.reads` has declared `classes` "to answer whether a class exists, so a homework cannot be
+    // published against a typo'd id" since the migration, but no statement read it: a mistaken or
+    // hand-crafted `class_id` was accepted and filed the work under whatever class it named.
+    expect(() => service.createHomework(TEACHER, { class_id: 99, title: 'x' })).toThrow(/班级未找到/);
+    expect(() => service.createHomework(TEACHER, { class_id: 2, title: 'x' })).toThrow(/无权限为该班级发布作业/);
+
+    // The owner still publishes into their own class, and the console keeps its reach over every one.
+    expect(service.createHomework(TEACHER, { class_id: 1, title: 'x' }).id).toBeGreaterThan(0);
+    expect(service.createHomework(ADMIN, { class_id: 2, title: 'x' }).id).toBeGreaterThan(0);
   });
 
   it('stores the options and reference answer as JSON and reads them back parsed', () => {
@@ -277,7 +289,7 @@ describe('service: publishing and editing', () => {
   it('refuses a question id belonging to another homework', () => {
     const mine = publishPaper();
     const theirs = service.createHomework(OTHER_TEACHER, {
-      class_id: 1,
+      class_id: 2,
       title: '别人的作业',
       questions: [{ type: 'blank', stem: 'q', reference: { accept: ['x'] }, points: 1 }],
     });
@@ -342,7 +354,7 @@ describe('service: the student attempt', () => {
   it('refuses an answer for a question from a different homework', () => {
     const mine = publishPaper();
     const theirs = service.createHomework(OTHER_TEACHER, {
-      class_id: 1,
+      class_id: 2,
       title: '别人的作业',
       questions: [{ type: 'blank', stem: 'q', reference: { accept: ['x'] }, points: 1 }],
     });
@@ -352,6 +364,18 @@ describe('service: the student attempt', () => {
         answers: [{ question_id: theirs.questions[0].id, value: { text: 'x' } }],
       }),
     ).toThrow(/题目不属于该作业/);
+  });
+
+  it('treats an empty answer list as a no-op instead of a failure', () => {
+    // A question-less (photo) paper saves an empty list on every auto-save, and the submit button
+    // saves before it submits. Refusing the empty list used to abort that submit with a red toast.
+    const created = publishPaper();
+    const attempt = service.startAttempt(STUDENT, created.id);
+
+    const saved = service.saveAnswers(STUDENT, attempt.submission.id, { answers: [] });
+
+    expect(saved.submission.status).toBe('draft');
+    expect(saved.answers).toEqual([]);
   });
 
   it('auto-scores the objective half on submit and leaves the short answer for a human', () => {
@@ -388,6 +412,37 @@ describe('service: the student attempt', () => {
     expect(submitted.answers.every((answer) => answer.score === null)).toBe(true);
     // Every question unanswered is not a score of zero - it is no score at all.
     expect(submitted.submission.score).toBeNull();
+  });
+
+  it('accepts a photo-only homework, which has no questions to answer', () => {
+    // "拍张照片交上来" is a publishable homework: `createHomework` allows an empty question list and
+    // the attempt page renders its photo picker for it. Before this, the pupil could never hand it
+    // in - the submit refused a question-less paper outright.
+    const photoPaper = service.createHomework(TEACHER, { class_id: 1, title: '拍照作业', status: 'published' });
+    const attempt = service.startAttempt(STUDENT, photoPaper.id);
+    db.prepare(
+      `INSERT INTO p_homework_photos (submission_id, storage_path, mime, size, sha256, uploaded_by, created_at)
+       VALUES (?, '/uploads/homework/paper.jpg', 'image/jpeg', 10, 'abc', 8, CURRENT_TIMESTAMP)`,
+    ).run(attempt.submission.id);
+    const photoId = (db.prepare('SELECT id FROM p_homework_photos').get() as { id: number }).id;
+
+    const submitted = service.submitAttempt(STUDENT, attempt.submission.id, { answers: [], photo_ids: [photoId] });
+
+    expect(submitted.submission.status).toBe('submitted');
+    expect(submitted.answers).toEqual([]);
+    expect(submitted.photos.map((photo) => photo.id)).toEqual([photoId]);
+    // Nothing to score out of: the teacher's comment is the whole grade.
+    expect(submitted.submission.total_points).toBe(0);
+    expect(submitted.submission.score).toBeNull();
+  });
+
+  it('still refuses to hand in a photo-only homework with nothing attached', () => {
+    const photoPaper = service.createHomework(TEACHER, { class_id: 1, title: '拍照作业', status: 'published' });
+    const attempt = service.startAttempt(STUDENT, photoPaper.id);
+
+    expect(() => service.submitAttempt(STUDENT, attempt.submission.id, { answers: [] })).toThrow(/拍照作业/);
+    // The refusal must not have moved the submission out of the editable state.
+    expect(service.startAttempt(STUDENT, photoPaper.id).submission.status).toBe('draft');
   });
 
   it('refuses edits once submitted, and again once graded', () => {

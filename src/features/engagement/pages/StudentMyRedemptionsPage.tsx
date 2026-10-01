@@ -4,6 +4,7 @@ import { CheckCircle2, Clock, Gift, Ticket } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
@@ -32,30 +33,53 @@ export default function StudentMyRedemptions() {
   const user = useStore((state) => state.user);
   const [tickets, setTickets] = useState<RedemptionTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
-  useEffect(() => {
-    const fetchTickets = async () => {
-      if (!user?.studentId) return;
-      try {
-        const data = await redemptionApi.getMyTickets(user.studentId);
-        if (data.success) {
-          setTickets(data.tickets);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchTickets = async () => {
+    if (!user?.studentId) return;
+    try {
+      const data = await redemptionApi.getMyTickets(user.studentId);
+      if (data.success) {
+        setTickets(data.tickets);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
-    };
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchTickets();
+  useEffect(() => {
+    void fetchTickets();
   }, [user]);
 
   if (loading) {
     return (
       <PageScaffold variant="list" className="flex items-center justify-center py-20">
         <Spinner size="lg" label="正在加载兑换券" className="text-role" />
+      </PageScaffold>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageScaffold
+        variant="list"
+        title="我的兑换"
+        description="查看你的实物奖品兑换券，向老师出示核销码即可领取奖品！"
+      >
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">兑换记录没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表你没有兑换记录。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void fetchTickets()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }

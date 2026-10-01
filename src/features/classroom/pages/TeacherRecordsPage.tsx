@@ -61,16 +61,22 @@ const TYPE_META: Record<string, { label: string; variant: 'info' | 'success' | '
 export default function TeacherRecords() {
   const [records, setRecords] = useState<ScoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [filterType, setFilterType] = useState('ALL');
 
   const fetchRecords = async () => {
+    setLoadError(false);
     try {
       const data = await studentsApi.getRecords({});
       if (data.success) {
         setRecords(data.records);
       }
     } catch (err) {
+      // Logged *and* surfaced. `console.error` alone left `records` at `[]`, and the table
+      // then printed 「暂无记录」 - the reader had no way to tell a failed read from a quiet
+      // week, and no way to retry.
       console.error(err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -159,6 +165,8 @@ export default function TeacherRecords() {
         rows={filteredRecords}
         getRowKey={(record) => record.id}
         isLoading={loading}
+        error={loadError}
+        onRetry={() => void fetchRecords()}
         rowClassName={() => 'hover:bg-surface-3/50'}
         empty={
           <EmptyState

@@ -86,10 +86,17 @@ export function useDatabaseResetMutation() {
   });
 }
 
-export function useAdminReleaseUpdateStatusQuery() {
+export function useAdminReleaseUpdateStatusQuery(options: { enabled?: boolean } = {}) {
   return useQuery<ReleaseUpdateStatus>({
     queryKey: adminQueryKeys.updateStatus,
     queryFn: () => adminClient.getReleaseUpdateStatus(),
+    /**
+     * `enabled` exists because all three release routes are `requireActorRole(req, ['superadmin'])`
+     * (`plugins/admin/src/admin.update.ts`). A plain `admin` opening 系统设置 used to fire the query
+     * anyway, get a 403, and leave the panel reading 「读取中...」 for good - with a "无法获取 GitHub
+     * Release" toast when they pressed 检查更新, i.e. a permissions answer reported as a network fault.
+     */
+    enabled: options.enabled ?? true,
     refetchInterval: (query) => (query.state.data?.state === 'running' ? 2_000 : false),
   });
 }

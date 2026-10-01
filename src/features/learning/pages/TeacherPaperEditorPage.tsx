@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { papersApi, type PaperDetail } from '@/features/learning/api/papersApi';
 import { usePaper } from '@/features/learning/hooks/usePapers';
+import { useClasses } from '@/hooks/queries/useClasses';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,11 +46,36 @@ export default function TeacherPaperEditor() {
   const paperId = id ? Number(id) : null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: paper, isLoading } = usePaper(paperId);
+  const { data: paper, isLoading, isError, refetch } = usePaper(paperId);
+  const { data: classes = [] } = useClasses();
 
   const [sections, setSections] = useState<EditorSection[]>([]);
   const [items, setItems] = useState<EditorItem[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [savingClass, setSavingClass] = useState(false);
+
+  /**
+   * Set - or clear - the class the paper belongs to.
+   *
+   * A pupil may only open a paper whose `class_id` is their own (`learning.getPaper`), so this is
+   * the field that decides whether the work has an audience. The editor had no way to change it
+   * either, which is why a paper created without a class stayed invisible forever.
+   */
+  const handleClassChange = async (value: string) => {
+    if (!paperId) return;
+    const classId = value ? Number(value) : null;
+    setSavingClass(true);
+    try {
+      await papersApi.update(paperId, { class_id: classId });
+      await queryClient.invalidateQueries({ queryKey: ['paper', paperId] });
+      await queryClient.invalidateQueries({ queryKey: ['papers'] });
+      toast.success(classId === null ? '已设为未指定班级：学生将看不到这份试卷' : '已设置试卷班级');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '设置班级失败，请重试');
+    } finally {
+      setSavingClass(false);
+    }
+  };
 
   const nextSectionOrder = useMemo(() => (sections.length ? Math.max(...sections.map((s) => s.order_no)) + 1 : 1), [sections]);
   const nextItemOrder = useMemo(() => (items.length ? Math.max(...items.map((it) => it.order_no)) + 1 : 1), [items]);
@@ -103,7 +129,11 @@ export default function TeacherPaperEditor() {
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       toast.success('已保存');
       return saved.data as PaperDetail;
-    } catch (e) {}
+    } catch (e) {
+      // Was an empty `catch`: 保存结构 could fail and say nothing at all.
+      toast.error(e instanceof Error ? e.message : '保存失败，请重试');
+      return undefined;
+    }
   };
 
   const handleAddSection = () => {
@@ -134,7 +164,10 @@ export default function TeacherPaperEditor() {
       setFile(null);
       await queryClient.invalidateQueries({ queryKey: ['paper', paperId] });
       toast.success('已上传');
-    } catch (e) {}
+    } catch (e) {
+      // Was an empty `catch`: a rejected upload left the file picker unchanged and silent.
+      toast.error(e instanceof Error ? e.message : '上传失败，请重试');
+    }
   };
 
   // The editor's one save action, reachable from the command palette too.
@@ -165,6 +198,20 @@ export default function TeacherPaperEditor() {
     );
   }
 
+  if (isError) {
+    return (
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">试卷加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表试卷不存在，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
+        </div>
+      </PageScaffold>
+    );
+  }
+
   if (!paper) {
     return (
       <PageScaffold variant="form">
@@ -179,10 +226,29 @@ export default function TeacherPaperEditor() {
       title={paper.title}
       description="试卷"
       actions={
-        <Button variant="outline" onClick={() => navigate('/teacher/papers')}>
-          <ArrowLeft data-icon="inline-start" />
-          返回试卷库
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-fg-2">
+            所属班级
+            <Select
+              aria-label="试卷所属班级"
+              value={paper.class_id ?? ''}
+              disabled={savingClass}
+              onChange={(event) => void handleClassChange(event.target.value)}
+              className="min-w-40 rounded-card border border-line-1 bg-surface-2 px-3 py-2 text-fg-1"
+            >
+              <option value="">未指定（学生不可见）</option>
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <Button variant="outline" onClick={() => navigate('/teacher/papers')}>
+            <ArrowLeft data-icon="inline-start" />
+            返回试卷库
+          </Button>
+        </div>
       }
       footer={
         <Button onClick={handleSave}>

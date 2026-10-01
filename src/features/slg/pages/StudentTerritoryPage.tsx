@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
@@ -44,7 +45,7 @@ export default function StudentTerritory() {
   const user = useStore(state => state.user);
   const classId = user?.class_id ?? null;
   const studentId = user?.studentId ?? user?.id ?? null;
-  const { data, isLoading: loading } = useTerritoryMap(classId, 10000);
+  const { data, isLoading: loading, isError, refetch } = useTerritoryMap(classId, 10000);
   const territories = data?.territories ?? [];
   const resources = data?.resources as ClassResources | null | undefined;
   const contributeMutation = useContributeTerritoryMutation(classId, studentId);
@@ -91,6 +92,22 @@ export default function StudentTerritory() {
         <div className="flex items-center justify-center gap-2 text-fg-3">
           <Spinner size="lg" label="正在加载地图数据" />
           加载地图数据中...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">版图数据没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表老师还没有建领地，也不代表版图是空的。请重试，或稍后再看。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );
@@ -224,6 +241,17 @@ export default function StudentTerritory() {
           <div className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 bg-fg-inverse" />
           <div className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 bg-fg-inverse" />
         </div>
+
+        {/* An unbuilt map is a state, not a blank canvas: a successful read that returned no
+            territories means the teacher has not placed any yet. */}
+        {territories.length === 0 && (
+          <EmptyState
+            icon={MapIcon}
+            title="老师还没有放置领地"
+            description="王国版图现在还是空的，等老师在电脑端建好领地，这里就会出现可以探索的区域。"
+            className="absolute inset-0 z-10 border-fg-inverse/25 bg-transparent [&_div]:text-fg-inverse"
+          />
+        )}
       </div>
 
       {/* Node Detail Modal */}

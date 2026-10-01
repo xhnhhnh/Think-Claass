@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import TeacherDashboard from '@/features/classroom/pages/TeacherDashboardPage';
@@ -158,5 +158,25 @@ describe('TeacherDashboard', () => {
 
     expect(await screen.findByText('班级策略与功能设置')).toBeInTheDocument();
     expect(screen.getByText('feature-panel-1-compact')).toBeInTheDocument();
+  });
+
+  it('does not tell the teacher the class is empty when the roster failed to load', async () => {
+    // The old empty state said 「班级还没有学生，点击"添加学生"开始」 for an empty roster, a search
+    // with no hits *and* a failed read - so a broken request invited the teacher to re-add pupils.
+    const refetch = vi.fn();
+    mocks.useStudents.mockReturnValue({ data: [], isLoading: false, isError: true, refetch });
+
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TeacherDashboard />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('学生名单没有加载出来')).toBeInTheDocument();
+    expect(screen.queryByText(/班级还没有学生/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

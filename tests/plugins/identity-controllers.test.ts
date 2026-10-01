@@ -61,8 +61,8 @@ function createFakeService() {
       if (failure) throw failure;
       return registerResult;
     },
-    async activate(body: Record<string, unknown>) {
-      calls.push({ method: 'activate', args: [body] });
+    async activate(body: Record<string, unknown>, actor?: unknown) {
+      calls.push({ method: 'activate', args: [body, actor] });
       if (failure) throw failure;
       return activateResult;
     },
@@ -146,7 +146,7 @@ describe('identity controllers: envelopes and delegation', () => {
 
     await controller.updateProfile(request({ userId: 9, role: 'teacher' }), { username: 'renamed' });
     await controller.register({ username: 'new', password: 'pw', role: 'teacher' });
-    await controller.activate({ code: 'TC-1', userId: 9 });
+    await controller.activate(request({ userId: 9, role: 'teacher' }), { code: 'TC-1', userId: 9 });
 
     expect(fake.calls.find((call) => call.method === 'updateProfile')?.args).toEqual([
       { id: 9, role: 'teacher' },
@@ -155,7 +155,12 @@ describe('identity controllers: envelopes and delegation', () => {
     expect(fake.calls.find((call) => call.method === 'register')?.args).toEqual([
       { username: 'new', password: 'pw', role: 'teacher' },
     ]);
-    expect(fake.calls.find((call) => call.method === 'activate')?.args).toEqual([{ code: 'TC-1', userId: 9 }]);
+    // The actor travels beside the body: activation now subjects the body's `userId` to the
+    // session, so the controller has to hand both to the service.
+    expect(fake.calls.find((call) => call.method === 'activate')?.args).toEqual([
+      { code: 'TC-1', userId: 9 },
+      { id: 9, role: 'teacher' },
+    ]);
   });
 
   it('resolves the actor through the kernel request context, including anonymous', async () => {
@@ -163,6 +168,11 @@ describe('identity controllers: envelopes and delegation', () => {
     await controllerWith(fake).updateProfile(request(), { username: 'x' });
 
     expect(fake.calls.find((call) => call.method === 'updateProfile')?.args[0]).toEqual({ id: null, role: null });
+
+    // Activation is public by design, so an anonymous request must still reach the service - with a
+    // null actor rather than a throw.
+    await controllerWith(fake).activate(request(), { code: 'TC-1', userId: 9 });
+    expect(fake.calls.find((call) => call.method === 'activate')?.args[1]).toEqual({ id: null, role: null });
   });
 });
 

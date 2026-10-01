@@ -45,6 +45,7 @@ interface Announcement {
 export default function AdminAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   // The delete moved from an inline `confirm()` to a controlled dialog, so the target
@@ -61,6 +62,7 @@ export default function AdminAnnouncements() {
 
   const fetchAnnouncements = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const items = await adminClient.getAnnouncements();
       setAnnouncements(items.map((item) => ({
@@ -71,6 +73,9 @@ export default function AdminAnnouncements() {
         is_active: item.isActive ? 1 : 0,
       })));
     } catch (error) {
+      // The toast expires; this does not. Without it a failed read painted 「暂无公告」,
+      // which tells the admin there is nothing to publish rather than that nothing loaded.
+      setLoadError(true);
       toast.error('网络错误，无法获取公告数据');
     } finally {
       setLoading(false);
@@ -227,6 +232,8 @@ export default function AdminAnnouncements() {
         rows={announcements}
         getRowKey={(announcement) => announcement.id}
         isLoading={loading}
+        error={loadError}
+        onRetry={() => void fetchAnnouncements()}
         empty={
           <EmptyState
             icon={Megaphone}

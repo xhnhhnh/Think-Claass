@@ -54,8 +54,12 @@ interface BlindBox {
 export default function StudentShop() {
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
-  const { data: shopData, isLoading: loading, refetch: refetchShop } = useStudentShopData(studentId);
-  const { data: students = [] } = useQuery({
+  const { data: shopData, isLoading: loading, isError: shopFailed, refetch: refetchShop } = useStudentShopData(studentId);
+  const {
+    data: students = [],
+    isError: balanceFailed,
+    refetch: refetchBalance,
+  } = useQuery({
     queryKey: ['students'],
     queryFn: async () => {
       const data = (await studentsApi.getStudents()) as any;
@@ -145,9 +149,13 @@ export default function StudentShop() {
           icon={Star}
           tone="warning"
           value={
-            <span className="text-3xl font-black text-warning">
-              {availablePoints} <span className="text-lg font-bold">币</span>
-            </span>
+            balanceFailed ? (
+              <span className="text-3xl font-black text-fg-3">读取失败</span>
+            ) : (
+              <span className="text-3xl font-black text-warning">
+                {availablePoints} <span className="text-lg font-bold">币</span>
+              </span>
+            )
           }
         />
       </div>
@@ -156,6 +164,30 @@ export default function StudentShop() {
         <div className="flex items-center justify-center gap-3 py-20 text-fg-3">
           <Spinner size="lg" label="正在加载商品" />
           <span className="text-xl font-black">加载中...</span>
+        </div>
+      ) : balanceFailed ? (
+        /**
+         * A failed balance read is not "you have 0 points".
+         *
+         * Rendering 0 made every shelf item look unaffordable and disabled every 兑换 button - the
+         * page told a pupil they were broke because one request broke.
+         */
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">积分余额没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表你的余额是 0。余额读出来之前，货架不会按「积分不足」处理，也不会禁用兑换按钮。请重试，或稍后再看。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetchBalance()}>
+            重新加载
+          </Button>
+        </div>
+      ) : shopFailed ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">商品没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表商城里没有商品。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetchShop()}>
+            重新加载
+          </Button>
         </div>
       ) : activeTab === 'normal' ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

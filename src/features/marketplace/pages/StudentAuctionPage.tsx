@@ -16,6 +16,7 @@ export default function StudentAuction() {
   const user = useStore((state) => state.user);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [availablePoints, setAvailablePoints] = useState(0);
   const [bidAmount, setBidAmount] = useState<Record<number, number>>({});
   const [bidding, setBidding] = useState<number | null>(null);
@@ -31,14 +32,20 @@ export default function StudentAuction() {
 
       if (dataAuctions.success) {
         setAuctions(dataAuctions.auctions.filter((a: Auction) => a.status === 'active' && new Date(a.end_time) > new Date()));
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
 
       if (dataStudents.success) {
         const student = dataStudents.students.find((s: any) => s.id === user.studentId);
         if (student) setAvailablePoints(student.available_points);
+      } else {
+        setLoadError(true);
       }
     } catch (err) {
       console.error(err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -129,7 +136,7 @@ export default function StudentAuction() {
               <div className="mb-1 text-sm font-bold text-fg-inverse/85">你的可用积分</div>
               <div className="flex items-center justify-center text-4xl font-black text-fg-inverse drop-shadow-sm">
                 <Coins className="mr-2 h-8 w-8" />
-                {availablePoints}
+                {loadError ? '—' : availablePoints}
               </div>
             </div>
           </div>
@@ -140,6 +147,22 @@ export default function StudentAuction() {
           <div className="flex flex-col items-center py-20 text-center text-2xl font-black text-fg-3 animate-pulse">
             <Gavel className="mb-4 h-12 w-12 animate-bounce" />
             正在搜寻稀有拍品...
+          </div>
+        ) : loadError ? (
+          /**
+           * A failed read is not "there is nothing up for auction".
+           *
+           * The banners above and the empty state below both read as fact, so a broken request told
+           * a pupil the market was empty and their balance was zero.
+           */
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">拍卖数据没有加载出来</p>
+            <p className="mt-1 text-sm text-fg-3">
+              这不代表没有正在进行的拍卖，上面的积分也不是 0。请重试，或稍后再看。
+            </p>
+            <Button variant="outline" className="mt-3" onClick={() => void fetchData()}>
+              重新加载
+            </Button>
           </div>
         ) : auctions.length === 0 ? (
           <motion.div

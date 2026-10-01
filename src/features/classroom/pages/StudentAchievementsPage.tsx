@@ -4,6 +4,7 @@ import { Trophy, Star, Shield, Zap, Medal, Crown } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { Button } from '@/components/ui/button';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 
 interface Achievement {
@@ -37,6 +38,7 @@ export default function StudentAchievements() {
   const user = useStore((state) => state.user);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -51,9 +53,13 @@ export default function StudentAchievements() {
       const data = await studentsApi.getAchievements(user.studentId);
       if (data.success) {
         setAchievements(data.achievements);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
     } catch (err) {
       console.error(err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -88,7 +94,8 @@ export default function StudentAchievements() {
             <div className="mt-6 rounded-card border border-fg-inverse/20 bg-fg-inverse/10 px-6 py-4 backdrop-blur-md md:mt-0">
               <div className="mb-1 text-sm font-bold text-fg-inverse/70">已解锁成就</div>
               <div className="text-3xl font-black text-warning">
-                {achievements.length} <span className="text-lg text-fg-inverse/60">/ {KNOWN_ACHIEVEMENTS.length}</span>
+                {loadError ? '—' : achievements.length}{' '}
+                <span className="text-lg text-fg-inverse/60">/ {KNOWN_ACHIEVEMENTS.length}</span>
               </div>
             </div>
           </div>
@@ -97,6 +104,20 @@ export default function StudentAchievements() {
         {/* Grid */}
         {loading ? (
           <div className="animate-pulse py-20 text-center text-2xl font-black text-fg-3">加载中...</div>
+        ) : loadError ? (
+          /**
+           * A failed read is not "you have unlocked nothing".
+           *
+           * The grid below shows every badge as locked, so a broken request told a pupil they had
+           * earned none of them - and offered no way to ask again.
+           */
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">成就没有加载出来</p>
+            <p className="mt-1 text-sm text-fg-3">这不代表你一个成就都没解锁。请重试，或稍后再看。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void fetchAchievements()}>
+              重新加载
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {KNOWN_ACHIEVEMENTS.map((known, index) => {

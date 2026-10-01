@@ -38,10 +38,17 @@ export default function PrivateRoute({
     user.role !== 'superadmin' &&
     user.role !== 'teacher';
 
-  if (needsActivation) {
-    if (window.location.pathname !== '/activate') {
-      return <Navigate to="/activate" replace />;
-    }
+  /**
+   * Where an unactivated account goes depends on how the deployment takes money.
+   *
+   * `direct_payment` is the operator's choice in 系统设置, and it was unreachable: this file only
+   * ever sent people to `/activate`, the settings page refused to save that mode, and `/payment` was
+   * a static "稍后开发" card nobody linked to. The three halves were each other's alibi.
+   */
+  const activationTarget = settings.revenue_mode === 'direct_payment' ? '/payment' : '/activate';
+
+  if (needsActivation && window.location.pathname !== activationTarget) {
+    return <Navigate to={activationTarget} replace />;
   }
 
   return <>{children}</>;

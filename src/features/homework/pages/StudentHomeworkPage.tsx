@@ -55,7 +55,7 @@ function studentState(entry: HomeworkStudentEntry): StudentHomeworkState {
  */
 export default function StudentHomework() {
   const navigate = useNavigate();
-  const { data: entries = [], isLoading } = useMyHomework();
+  const { data: entries = [], isLoading, isError, refetch } = useMyHomework();
   const [filter, setFilter] = useState<'all' | StudentHomeworkState>('all');
 
   const rows = useMemo(
@@ -116,6 +116,21 @@ export default function StudentHomework() {
         <div className="flex items-center justify-center gap-3 py-12 text-fg-3">
           <Spinner label="正在加载作业" />
           正在加载作业...
+        </div>
+      ) : isError ? (
+        /**
+         * A failed read is not "you have no homework".
+         *
+         * The api layer already raised a toast; what this fixes is the page's own claim. 「暂时没有
+         * 作业」 on a broken request tells a pupil their teacher set nothing - and the one thing they
+         * should do (retry) is the one thing the page did not offer.
+         */
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">作业列表没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有作业。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       ) : visible.length === 0 ? (
         <EmptyState

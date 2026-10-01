@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Award, CheckCircle, PlusCircle, Target, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 
 import { teamQuestsApi, type TeamQuest } from '@/features/collaboration/api/teamQuestsApi';
 import { useTeamQuestGroupProgress, useTeamQuests } from '@/features/collaboration/hooks/useTeamQuests';
+import { useClasses } from '@/hooks/queries/useClasses';
 import { useStore } from '@/store/useStore';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Progress } from '@/components/ui/progress';
+import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -39,8 +41,23 @@ import { cn } from '@/lib/utils';
 export default function TeacherTeamQuests() {
   const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
-  const classId = user?.class_id ?? 1;
+  const { data: classes = [] } = useClasses();
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const teacherId = user?.id ?? 1;
+
+  /**
+   * The class comes from the teacher's own class list, not from a fallback constant.
+   *
+   * A teacher's login carries no `class_id` (only a student's or a parent's does), so
+   * `user?.class_id ?? 1` aimed every request at class 1. The collaboration routes check class
+   * access, so for any teacher whose class is not id 1 the page answered 403 on load - a page that
+   * could not work at all, for a reason nothing on screen explained.
+   */
+  useEffect(() => {
+    if (selectedClassId === null && classes.length > 0) setSelectedClassId(classes[0].id);
+  }, [classes, selectedClassId]);
+
+  const classId = selectedClassId;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -92,6 +109,10 @@ export default function TeacherTeamQuests() {
   const handleCreateQuest = async (e: FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newPoints || !newTarget) return;
+    if (classId === null) {
+      toast.error('请先选择班级');
+      return;
+    }
 
     await createMutation.mutateAsync({
       class_id: classId,
@@ -128,13 +149,31 @@ export default function TeacherTeamQuests() {
       variant="dashboard"
       title="团队任务"
       actions={
-        <Button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-danger text-fg-inverse hover:bg-danger/90"
-        >
-          <PlusCircle data-icon="inline-start" />
-          发布团队任务
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-fg-2">
+            当前班级
+            <Select
+              aria-label="选择班级"
+              value={classId ?? ''}
+              onChange={(event) => setSelectedClassId(Number(event.target.value))}
+              className="min-w-40 rounded-card border border-line-1 bg-surface-2 px-3 py-2 text-fg-1"
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            disabled={classId === null}
+            className="bg-danger text-fg-inverse hover:bg-danger/90"
+          >
+            <PlusCircle data-icon="inline-start" />
+            发布团队任务
+          </Button>
+        </div>
       }
     >
 

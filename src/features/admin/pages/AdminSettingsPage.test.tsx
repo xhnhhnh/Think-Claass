@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   useCheckLatestReleaseMutation: vi.fn(),
   useStartReleaseUpdateMutation: vi.fn(),
   useTestAiConnectionMutation: vi.fn(),
+  /** The console's role: 系统更新 is a superadmin surface. */
+  role: { current: 'superadmin' as string },
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
 }));
@@ -22,6 +24,10 @@ vi.mock('@/features/admin/hooks/useAdminSystem', () => ({
   useCheckLatestReleaseMutation: mocks.useCheckLatestReleaseMutation,
   useStartReleaseUpdateMutation: mocks.useStartReleaseUpdateMutation,
   useTestAiConnectionMutation: mocks.useTestAiConnectionMutation,
+}));
+
+vi.mock('@/store/useStore', () => ({
+  useStore: (selector: any) => selector({ user: { id: 1, role: mocks.role.current, username: 'admin1' } }),
 }));
 
 vi.mock('sonner', () => ({
@@ -58,6 +64,7 @@ describe('AdminSettings', () => {
     mutateAsync.mockReset();
     mocks.toastSuccess.mockReset();
     mocks.toastError.mockReset();
+    mocks.role.current = 'superadmin';
     checkLatestMutateAsync.mockReset();
     startUpdateMutateAsync.mockReset();
     refetchUpdateStatus.mockReset();
@@ -121,13 +128,31 @@ describe('AdminSettings', () => {
     });
   });
 
-  it('keeps direct scan payment visible as a delayed option and prevents selecting it', async () => {
+  it('hides the release-update panel from a plain admin, and says why', async () => {
+    mocks.role.current = 'admin';
     render(<AdminSettings />);
 
-    const directPaymentOption = await screen.findByRole('option', { name: '直接支付（稍后开发）' });
+    // All three release routes are superadmin-only; before this the panel queried anyway and a plain
+    // admin saw 「读取中...」 forever plus a "无法获取 GitHub Release" toast on 检查更新.
+    expect(await screen.findByText(/仅超级管理员可见/)).toBeInTheDocument();
+    expect(screen.getByText(/需要超级管理员权限/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /检查更新/ })).not.toBeInTheDocument();
+    expect(mocks.useAdminReleaseUpdateStatusQuery).toHaveBeenCalledWith({ enabled: false });
+  });
 
-    expect(directPaymentOption).toBeDisabled();
-    expect(screen.getByText('扫码支付暂未开放，本轮请使用卡密/激活码开通。')).toBeInTheDocument();
+  it('lets the operator choose direct payment, and offers a control for every payment key', async () => {
+    render(<AdminSettings />);
+
+    // The option used to be `disabled` *and* rewritten back to `activation_code` on load, so
+    // `direct_payment` could not be saved and `PrivateRoute`'s branch for it was dead code.
+    const directPaymentOption = await screen.findByRole('option', { name: '直接支付' });
+    expect(directPaymentOption).toBeEnabled();
+
+    // ...and the channel configuration those orders need is reachable. `admin-settings-coverage`
+    // asserts the set of controls; this asserts the two an operator meets first.
+    expect(screen.getByText('支付渠道')).toBeInTheDocument();
+    expect(screen.getByLabelText('支付环境')).toBeInTheDocument();
+    expect(screen.getByLabelText('回调地址')).toBeInTheDocument();
   });
 
   it('checks the GitHub release and renders the Linux update log panel', async () => {

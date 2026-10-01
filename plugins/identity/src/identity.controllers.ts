@@ -85,9 +85,9 @@ export class IdentityController {
 
   @Post('activate')
   @HttpCode(HttpStatus.OK)
-  async activate(@Body() body: Record<string, any>) {
+  async activate(@Req() req: Request, @Body() body: Record<string, any>) {
     try {
-      return await this.identityService.activate(body);
+      return await this.identityService.activate(body, actorOf(req));
     } catch (error) {
       throwIdentityError(error);
     }

@@ -43,6 +43,7 @@ interface Teacher {
 export default function AdminTeachers() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Teacher | null>(null);
@@ -51,9 +52,13 @@ export default function AdminTeachers() {
 
   const fetchTeachers = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       setTeachers(await adminClient.getTeachers());
     } catch (error) {
+      // Kept alongside the toast, because the toast is transient: a rejected read left
+      // `teachers` at `[]`, which the table rendered as 「暂无教师」.
+      setLoadError(true);
       toast.error('网络错误，无法获取教师数据');
     } finally {
       setLoading(false);
@@ -195,6 +200,8 @@ export default function AdminTeachers() {
         rows={teachers}
         getRowKey={(teacher) => teacher.id}
         isLoading={loading}
+        error={loadError}
+        onRetry={() => void fetchTeachers()}
         empty={
           <EmptyState
             icon={Users}

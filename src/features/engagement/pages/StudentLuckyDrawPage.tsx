@@ -40,7 +40,7 @@ export default function StudentLuckyDraw() {
   });
   const currentStudent = (students as any[]).find((s) => s.id === studentId);
   const teacherId = (classes as any[]).find((c) => c.id === currentStudent?.class_id)?.teacher_id ?? 1;
-  const { data: configData, isLoading: loading, refetch } = useLuckyDrawConfig(teacherId);
+  const { data: configData, isLoading: loading, isError: configError, refetch: refetchConfig } = useLuckyDrawConfig(teacherId);
   const drawMutation = useLuckyDrawMutation(studentId);
   const configs = ((configData?.configs ?? []) as PrizeConfig[]);
   const costPoints = configData?.cost_points ?? 10;
@@ -69,7 +69,7 @@ export default function StudentLuckyDraw() {
         if (data.success) {
           setResult({ prize_name: data.prize.prize_name, message: data.message });
           toast.success(data.message);
-          await refetch();
+          await refetchConfig();
         }
         setDrawing(false);
       }, 1000);
@@ -148,7 +148,19 @@ export default function StudentLuckyDraw() {
           </div>
         </motion.div>
 
-        {configs.length === 0 ? (
+        {configError ? (
+          // 「暂未配置抽奖」 after a failed request tells a pupil their teacher never set the prizes
+          // up; the retry is the only useful thing this page can offer at that moment.
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">抽奖配置没有加载出来</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表老师没有配置奖品，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void refetchConfig()}>
+                重新加载
+              </Button>
+            </div>
+          </motion.div>
+        ) : configs.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

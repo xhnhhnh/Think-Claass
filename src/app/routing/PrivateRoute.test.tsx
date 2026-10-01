@@ -23,11 +23,51 @@ describe('PrivateRoute', () => {
     mocks.useStore.mockReset();
   });
 
-  it('routes unactivated users to card-key activation when direct scan payment is still configured', () => {
+  it('routes unactivated users to the payment page when the operator chose direct payment', () => {
     mocks.useSettings.mockReturnValue({
       data: {
         revenue_enabled: '1',
         revenue_mode: 'direct_payment',
+      },
+      isLoading: false,
+    });
+    mocks.useStore.mockReturnValue({
+      user: {
+        id: 8,
+        role: 'student',
+        username: 'student01',
+        is_activated: false,
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/student']}>
+        <Routes>
+          <Route
+            path="/student"
+            element={(
+              <PrivateRoute allowedRoles={['student']}>
+                <div>Student content</div>
+              </PrivateRoute>
+            )}
+          />
+          <Route path="/activate" element={<div>Card key activation</div>} />
+          <Route path="/payment" element={<div>Scan payment</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // `direct_payment` used to be unreachable: this file sent everyone to `/activate` regardless,
+    // and `/payment` was a static card nothing linked to.
+    expect(screen.getByText('Scan payment')).toBeInTheDocument();
+    expect(screen.queryByText('Card key activation')).not.toBeInTheDocument();
+  });
+
+  it('routes unactivated users to card-key activation when that is the configured mode', () => {
+    mocks.useSettings.mockReturnValue({
+      data: {
+        revenue_enabled: '1',
+        revenue_mode: 'activation_code',
       },
       isLoading: false,
     });

@@ -8,9 +8,12 @@ import {
   PlugZap,
   RefreshCw,
   Save,
+  ScanLine,
   Terminal,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { useStore } from '@/store/useStore';
 
 import {
   useAdminReleaseUpdateStatusQuery,
@@ -33,19 +36,23 @@ import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
+/**
+ * The settings a deployment actually has to be able to save.
+ *
+ * This used to force `revenue_mode` back to `activation_code`, which is why the direct-payment half
+ * of the product could not be reached at all: the option was `disabled` in the form *and* rewritten
+ * here, while `PrivateRoute` only ever sends an unactivated account to `/activate`. The mode is the
+ * operator's decision now; whether the payment step can actually run is decided at order time
+ * (`plugins/payment` refuses with `PAYMENT_ENVIRONMENT_UNSET` until an environment is chosen).
+ */
 function normalizeSettings(settings?: Partial<SystemSettings>): SystemSettings {
-  const next = {
+  return {
     ...DEFAULT_SYSTEM_SETTINGS,
     ...settings,
   };
-
-  if (next.revenue_mode === 'direct_payment') {
-    next.revenue_mode = 'activation_code';
-  }
-
-  return next;
 }
 
 /**
@@ -86,12 +93,23 @@ function normalizeSettings(settings?: Partial<SystemSettings>): SystemSettings {
  * a sentence to act on rather than a failed request.
  */
 export default function AdminSettingsPage() {
+  const user = useStore((state) => state.user);
+  /**
+   * 系统更新 is a superadmin surface.
+   *
+   * All three release routes require `superadmin` (`plugins/admin/src/admin.update.ts`), but this
+   * panel used to render - and query - for every admin, so a plain `admin` saw 「读取中...」 that
+   * never resolved and a "无法获取 GitHub Release" toast on 检查更新: a permission answer presented
+   * as a broken integration. Hidden here rather than disabled, because there is nothing the account
+   * could do to earn it.
+   */
+  const canUpdate = user?.role === 'superadmin';
   const { data: settings, isPending: loading } = useAdminSystemSettingsQuery();
   const {
     data: updateStatus,
     isPending: updateStatusLoading,
     refetch: refreshUpdateStatus,
-  } = useAdminReleaseUpdateStatusQuery();
+  } = useAdminReleaseUpdateStatusQuery({ enabled: canUpdate });
   const updateSettingsMutation = useUpdateAdminSystemSettingsMutation();
   const checkLatestReleaseMutation = useCheckLatestReleaseMutation();
   const startReleaseUpdateMutation = useStartReleaseUpdateMutation();
@@ -275,6 +293,7 @@ export default function AdminSettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {canUpdate ? (
           <SectionCard
             title="系统更新"
             actions={
@@ -387,6 +406,13 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           </SectionCard>
+          ) : (
+            <SectionCard title="系统更新" description="仅超级管理员可见">
+              <p className="text-sm text-fg-3">
+                版本检查与一键更新需要超级管理员权限。当前账号是普通管理员，这里不显示该面板——不是加载失败。
+              </p>
+            </SectionCard>
+          )}
 
           <SectionCard title="基础设置" description="网站标题、图标与功能开关">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -466,7 +492,7 @@ export default function AdminSettingsPage() {
 
                   <FormField
                     label="激活模式"
-                    hint="扫码支付暂未开放，本轮请使用卡密/激活码开通。"
+                    hint="选「直接支付」后，未开通的账号会被送到 /payment 扫码下单；渠道与环境在下面的「支付渠道」里配置。"
                   >
                     <Select
                       value={formData.revenue_mode}
@@ -475,9 +501,7 @@ export default function AdminSettingsPage() {
                       }
                     >
                       <option value="activation_code">激活码</option>
-                      <option value="direct_payment" disabled>
-                        直接支付（稍后开发）
-                      </option>
+                      <option value="direct_payment">直接支付</option>
                     </Select>
                   </FormField>
 
@@ -500,6 +524,177 @@ export default function AdminSettingsPage() {
                       }
                     />
                   </FormField>
+                </div>
+
+                {/*
+                  The channel configuration.
+
+                  Fourteen keys lived in `DEFAULT_SYSTEM_SETTINGS` and were read by `plugins/payment`
+                  (which provider to build, which credentials to sign with, where to be called back)
+                  while no control rendered any of them - so `payment_environment` could only ever be
+                  its default, `payment_enable_*` could never be switched on, and the direct-payment
+                  path was unreachable in every deployment. `admin-settings-coverage.test.ts` now
+                  fails if a key loses its control again.
+                */}
+                <div className="mt-6 border-t border-line-1 pt-4">
+                  <div className="mb-4 flex items-center">
+                    <ScanLine className="mr-2 size-5 text-fg-3" />
+                    <h4 className="font-medium text-fg-2">支付渠道</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField
+                      label="支付环境"
+                      hint="mock 只在本机模拟下单与回调；sandbox / production 需要下面的渠道密钥。"
+                    >
+                      <Select
+                        aria-label="支付环境"
+                        value={formData.payment_environment}
+                        onChange={(event) =>
+                          setFormData({
+                            ...formData,
+                            payment_environment: event.target.value as SystemSettings['payment_environment'],
+                          })
+                        }
+                      >
+                        <option value="mock">mock（模拟）</option>
+                        <option value="sandbox">sandbox（沙箱）</option>
+                        <option value="production">production（生产）</option>
+                      </Select>
+                    </FormField>
+
+                    <FormField label="订单描述" hint="显示在支付渠道账单上的商品名。">
+                      <Input
+                        type="text"
+                        value={formData.payment_description}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_description: event.target.value })
+                        }
+                      />
+                    </FormField>
+
+                    <FormField label="回调地址" hint="留空时使用请求自身的域名 + /api/payment/notify；渠道按这个地址验签。">
+                      <Input
+                        type="text"
+                        aria-label="回调地址"
+                        value={formData.payment_notify_url}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_notify_url: event.target.value })
+                        }
+                        placeholder="https://example.com/api/payment/notify"
+                      />
+                    </FormField>
+
+                    <FormField label="渠道开关" hint="关闭的渠道下单时会被服务端拒绝（400 当前未启用）。">
+                      <div className="mt-1 flex flex-col gap-2">
+                        <label className="flex items-center gap-2 text-sm text-fg-2">
+                          <Checkbox
+                            id="payment_enable_wechat"
+                            checked={formData.payment_enable_wechat === '1'}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, payment_enable_wechat: checked ? '1' : '0' })
+                            }
+                          />
+                          启用微信支付
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-fg-2">
+                          <Checkbox
+                            id="payment_enable_alipay"
+                            checked={formData.payment_enable_alipay === '1'}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, payment_enable_alipay: checked ? '1' : '0' })
+                            }
+                          />
+                          启用支付宝
+                        </label>
+                      </div>
+                    </FormField>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField label="微信 AppID">
+                      <Input
+                        type="text"
+                        value={formData.payment_wechat_appid}
+                        onChange={(event) => setFormData({ ...formData, payment_wechat_appid: event.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="微信商户号">
+                      <Input
+                        type="text"
+                        value={formData.payment_wechat_mchid}
+                        onChange={(event) => setFormData({ ...formData, payment_wechat_mchid: event.target.value })}
+                      />
+                    </FormField>
+                    <FormField label="微信证书序列号">
+                      <Input
+                        type="text"
+                        value={formData.payment_wechat_serial_no}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_wechat_serial_no: event.target.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="微信 APIv3 密钥" hint="留空表示不修改已保存的密钥；密钥不会回传到浏览器。">
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        value={formData.payment_wechat_api_v3_key}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_wechat_api_v3_key: event.target.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="微信商户私钥" hint="PEM 内容，留空表示不修改。">
+                      <Textarea
+                        rows={3}
+                        className="resize-none"
+                        value={formData.payment_wechat_private_key}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_wechat_private_key: event.target.value })
+                        }
+                      />
+                    </FormField>
+
+                    <FormField label="支付宝 AppID">
+                      <Input
+                        type="text"
+                        value={formData.payment_alipay_app_id}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_alipay_app_id: event.target.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="支付宝应用私钥" hint="留空表示不修改。">
+                      <Textarea
+                        rows={3}
+                        className="resize-none"
+                        value={formData.payment_alipay_private_key}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_alipay_private_key: event.target.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="支付宝公钥" hint="留空表示不修改。">
+                      <Textarea
+                        rows={3}
+                        className="resize-none"
+                        value={formData.payment_alipay_public_key}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_alipay_public_key: event.target.value })
+                        }
+                      />
+                    </FormField>
+                    <FormField label="支付宝网关">
+                      <Input
+                        type="text"
+                        value={formData.payment_alipay_gateway}
+                        onChange={(event) =>
+                          setFormData({ ...formData, payment_alipay_gateway: event.target.value })
+                        }
+                      />
+                    </FormField>
+                  </div>
                 </div>
               </div>
 

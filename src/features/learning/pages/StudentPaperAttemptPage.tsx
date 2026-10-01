@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,6 +31,7 @@ export default function StudentPaperAttempt() {
   const { id } = useParams();
   const paperId = id ? Number(id) : null;
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [submission, setSubmission] = useState<PaperSubmission | null>(null);
   const [items, setItems] = useState<PaperItem[]>([]);
@@ -92,6 +94,18 @@ export default function StudentPaperAttempt() {
         await paperSubmissionsApi.saveAnswers(submission.id, answerPayload);
       }
       const data = await paperSubmissionsApi.submit(submission.id);
+      /**
+       * Submitting a paper writes into two other pages.
+       *
+       * `learning.submitPaper` bumps the wrong-question book and appends study-plan items server
+       * side, and this page navigates straight to those two screens on the result card. Without
+       * these invalidations they render their five-minute-stale copies - i.e. the pupil arrives at
+       * 「错题本」 and does not find the mistake they just made.
+       */
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['wrong-questions', 'my'] }),
+        queryClient.invalidateQueries({ queryKey: ['study-plan', 'my'] }),
+      ]);
       setResult({
         total_score: data.data.total_score,
         correct_count: data.data.correct_count,

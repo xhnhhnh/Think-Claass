@@ -29,25 +29,36 @@ export default function Home() {
   const [homeData, setHomeData] = useState<any>({});
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  /**
+   * A failed read is not "there is no news yet".
+   *
+   * The news strip used to fall through to its 「精彩内容正在准备中」 panel, which is a
+   * statement about the site's content made by a request that never landed.
+   */
+  const [loadError, setLoadError] = useState(false);
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
 
+  const fetchData = async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [homeRes, articlesRes] = await Promise.all([
+        portalApi.getHomeContent(),
+        portalApi.getArticles({ is_published: true, limit: 3 }),
+      ]);
+      setHomeData(homeRes.data || {});
+      setArticles(articlesRes.articles || []);
+    } catch (err) {
+      console.error("Failed to fetch homepage data", err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [homeRes, articlesRes] = await Promise.all([
-          portalApi.getHomeContent(),
-          portalApi.getArticles({ is_published: true, limit: 3 }),
-        ]);
-        setHomeData(homeRes.data || {});
-        setArticles(articlesRes.articles || []);
-      } catch (err) {
-        console.error("Failed to fetch homepage data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    void fetchData();
   }, []);
 
   const about = homeData.about || {
@@ -64,7 +75,13 @@ export default function Home() {
       <HomeAbout about={about} />
       <HomeJourney />
       <HomeClassroomMoments />
-      <HomeNews loading={loading} articles={articles} onOpenNews={() => navigate("/news")} />
+      <HomeNews
+        loading={loading}
+        error={loadError}
+        articles={articles}
+        onRetry={() => void fetchData()}
+        onOpenNews={() => navigate("/news")}
+      />
       <HomeClosingCta />
       <HomeFooter />
     </div>

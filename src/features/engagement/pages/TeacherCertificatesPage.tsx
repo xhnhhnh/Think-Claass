@@ -57,6 +57,7 @@ export default function TeacherCertificates() {
   const [students, setStudents] = useState<Student[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -72,6 +73,7 @@ export default function TeacherCertificates() {
 
   const fetchData = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const [studentsData, certsData] = await Promise.all([
           studentsApi.getStudents(),
@@ -85,6 +87,9 @@ export default function TeacherCertificates() {
         setCertificates(certsData.certificates);
       }
     } catch (error) {
+      // The toast fades; the flag does not. Without it the grid drew 「暂无颁发记录」 for a
+      // request that failed, and 累计颁发 read 0 - both facts the page did not have.
+      setLoadError(true);
       toast.error('数据加载失败');
     } finally {
       setLoading(false);
@@ -185,6 +190,14 @@ export default function TeacherCertificates() {
           Array.from({ length: 3 }, (_, index) => (
             <Skeleton key={index} className="h-56 rounded-card" />
           ))
+        ) : loadError ? (
+          <div className="col-span-full rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">奖状数据加载失败</p>
+            <p className="mt-1 text-sm text-fg-3">这不代表没有颁发记录，请重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void fetchData()}>
+              重新加载
+            </Button>
+          </div>
         ) : filteredCerts.length === 0 ? (
           <EmptyState
             icon={Award}

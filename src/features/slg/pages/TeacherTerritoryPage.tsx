@@ -45,7 +45,7 @@ export default function TeacherTerritory() {
   const queryClient = useQueryClient();
   const { data: classes = [] } = useClasses();
   const classId = useMemo(() => classes[0]?.id ?? null, [classes]);
-  const { data } = useTerritoryMap(classId);
+  const { data, isError, refetch } = useTerritoryMap(classId);
   const territories = (data?.territories ?? []) as Territory[];
   const createMutation = useCreateTerritoryMutation();
   const yieldMutation = useTriggerYieldMutation();
@@ -164,6 +164,8 @@ export default function TeacherTerritory() {
             columns={columns}
             rows={territories}
             getRowKey={(t) => t.id}
+            error={isError}
+            onRetry={() => void refetch()}
             empty={
               <EmptyState
                 icon={MapIcon}

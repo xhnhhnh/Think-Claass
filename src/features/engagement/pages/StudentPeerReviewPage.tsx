@@ -56,6 +56,8 @@ export default function StudentPeerReview() {
   const user = useStore((state) => state.user);
   const [pendingPeers, setPendingPeers] = useState<PendingPeer[]>([]);
   const [loading, setLoading] = useState(true);
+  /** The roster read failed: an empty list here is "we could not ask", not "you are done". */
+  const [loadError, setLoadError] = useState(false);
 
   const [selectedPeer, setSelectedPeer] = useState<PendingPeer | null>(null);
   const [score, setScore] = useState<number>(0);
@@ -66,14 +68,20 @@ export default function StudentPeerReview() {
   const shouldReduceMotion = useReducedMotion();
 
   const fetchPendingPeers = async () => {
+    setLoadError(false);
     try {
       if (!user?.studentId) return;
       const data = await studentsApi.getPendingPeerReviews(user.studentId);
       if (data.success) {
         setPendingPeers(data.pending);
+      } else {
+        // A 200 carrying `success: false` is still a refusal to answer: without this the page
+        // rendered 「暂时没有需要互评的同学」, i.e. a claim about the class rather than about the read.
+        setLoadError(true);
       }
     } catch (err) {
       console.error(err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -176,6 +184,18 @@ export default function StudentPeerReview() {
             <div className="flex items-center justify-center gap-2 py-10 text-fg-3">
               <Spinner label="正在寻找待评价的同学" />
               <span>寻找中...</span>
+            </div>
+          ) : loadError ? (
+            /*
+              「本周的任务都完成啦！」 after a failed read congratulates a pupil for work the page
+              never saw; the list simply did not arrive.
+            */
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-8 text-center">
+              <p className="font-semibold text-danger">待评同学没有加载出来</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表你已经评完了，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void fetchPendingPeers()}>
+                重新加载
+              </Button>
             </div>
           ) : pendingPeers.length === 0 ? (
             <EmptyState

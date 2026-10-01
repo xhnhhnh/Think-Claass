@@ -1,22 +1,33 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Calendar, CheckCircle2, ChevronRight, Eye, Newspaper } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { newsPreparations } from "./homeContent";
 
 interface HomeNewsProps {
   loading: boolean;
   articles: any[];
   onOpenNews: () => void;
+  /**
+   * The page's two portal fetches failed. Optional, so the component's existing contract
+   * (and its three states) is unchanged for any caller that has no error to report - this
+   * was the only way for the strip to say 「精彩内容正在准备中」 about a request that
+   * never arrived.
+   */
+  error?: boolean;
+  /** Re-runs the page's fetch. Omitted, the error panel carries no button. */
+  onRetry?: () => void;
 }
 
 /**
  * News strip: the three latest articles, or the "content in preparation" panel when there
  * are none.
  *
- * `loading` and `articles` stay page state — the fetch that fills them lives in the page,
- * so this component only decides which of the three states to draw and never fetches by itself.
+ * `loading`, `error` and `articles` stay page state — the fetch that fills them lives in
+ * the page, so this component only decides which state to draw and never fetches by itself.
  */
-export default function HomeNews({ loading, articles, onOpenNews }: HomeNewsProps) {
+export default function HomeNews({ loading, articles, onOpenNews, error = false, onRetry }: HomeNewsProps) {
   return (
     <section className="max-w-7xl mx-auto px-6 md:px-12 py-16">
       <div className="flex justify-between items-end mb-10">
@@ -41,6 +52,16 @@ export default function HomeNews({ loading, articles, onOpenNews }: HomeNewsProp
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse bg-surface-2 rounded-2xl h-[380px] border border-line-1" />
           ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">最新动态加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有内容，请重试。</p>
+          {onRetry ? (
+            <Button variant="outline" className="mt-3" onClick={onRetry}>
+              重新加载
+            </Button>
+          ) : null}
         </div>
       ) : articles.length > 0 ? (
         <div className="grid md:grid-cols-3 gap-6">

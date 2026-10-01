@@ -74,7 +74,7 @@ const fields: CrudField<StockForm>[] = [
 export default function TeacherEconomyPage() {
   const { data: classes = [] } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const { data: stocks = [], isLoading, refetch } = useTeacherStocks(selectedClassId || null);
+  const { data: stocks = [], isLoading, isError, refetch } = useTeacherStocks(selectedClassId || null);
   const stockMutation = useTeacherStockMutation(selectedClassId || null);
 
   useEffect(() => {
@@ -127,6 +127,8 @@ export default function TeacherEconomyPage() {
         icon={LineChart}
         items={stocks}
         isLoading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         fields={fields}
         createInitialForm={() => ({ class_id: classId, name: '', symbol: '', current_price: 100 })}
         mapItemToForm={(item) => ({

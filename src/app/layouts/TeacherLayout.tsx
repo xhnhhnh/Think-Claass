@@ -3,10 +3,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
 
 import { AppShell } from '@/app/layouts/AppShell';
-import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
+import { useResolvedClassFeatures } from '@/features/classroom/hooks/useResolvedClassFeatures';
 import { useClasses } from '@/hooks/queries/useClasses';
 import {
-  defaultClassFeatures,
   isFeatureRequirementEnabled,
   type FeatureRequirement,
 } from '@/lib/classFeatures';
@@ -25,8 +24,12 @@ import { useStore } from '@/store/useStore';
  *     entry shows if ANY of them is on, while the route itself is ungated;
  *   - `/teacher/certificates` is gated on `enable_achievements` here and on nothing in the
  *     route table;
- *   - `/teacher/task-tree` and `/teacher/world-boss` are not menu entries at all (no label)
- *     and appear here only because a future menu entry is expected.
+ *   - `/teacher/task-tree` is gated here on `enable_task_tree` and is a menu entry in the route
+ *     table now that it has a label - it used to be listed here with no way to reach it at all.
+ *
+ * The list is also where "we cannot answer yet" is kept apart from "switched off": `canDecide`
+ * from `useResolvedClassFeatures` gates every decision below, so a pending or failed class-features
+ * request hides nothing and redirects nobody.
  *
  * Collapsing the two into one would change which pages teachers can reach, so the list
  * stays explicit. This is preserved verbatim from the previous layout - it is behaviour,
@@ -68,8 +71,17 @@ export default function TeacherLayout() {
 
   const { data: classes = [] } = useClasses();
   const defaultClassId = useMemo(() => classes[0]?.id ?? null, [classes]);
-  const { data: classFeatureData } = useClassFeatures(defaultClassId, { refetchInterval: 5000 });
-  const features = classFeatureData?.features ?? defaultClassFeatures;
+  /**
+   * The same resolver the student, parent and guard use.
+   *
+   * This layout used to read `classFeatureData?.features ?? defaultClassFeatures`, i.e. "every flag
+   * off" until the request answered - and then act on it. On a hard refresh of a gated page
+   * (`/teacher/shop`, `/teacher/economy`, the twelve others in `teacherMenuGates`) the effect below
+   * ran against the all-false default and replaced the page with `/teacher` before the answer
+   * arrived: refresh lost your place, and the back button lost it again. `canDecide` is the fix -
+   * "we cannot answer yet" is not "the teacher turned it off".
+   */
+  const { features, canDecide } = useResolvedClassFeatures(defaultClassId, { refetchInterval: 5000 });
 
   /**
    * The menu entries this console hides, resolved from the gate map.
@@ -82,22 +94,30 @@ export default function TeacherLayout() {
    */
   const hiddenPaths = useMemo(
     () =>
-      Object.entries(teacherMenuGates)
-        .filter(([, requirement]) => requirement)
-        .filter(([, requirement]) => !isFeatureRequirementEnabled(features, requirement))
-        .map(([path]) => path),
-    [features],
+      canDecide
+        ? Object.entries(teacherMenuGates)
+            .filter(([, requirement]) => requirement)
+            .filter(([, requirement]) => !isFeatureRequirementEnabled(features, requirement))
+            .map(([path]) => path)
+        : [],
+    [canDecide, features],
   );
 
   const fallbackPath = useMemo(() => {
-    // The first destination the teacher can actually use, in the fallback order below.
+    // The first destination the teacher can actually use, in the fallback order below. While the
+    // answer is pending there is no "unusable" entry to skip, so the console's own home is used and
+    // the effect below does nothing until the flags arrive.
+    if (!canDecide) return '/teacher';
     for (const path of GATE_ORDERED_PATHS) {
       if (isFeatureRequirementEnabled(features, teacherMenuGates[path])) return path;
     }
     return '/teacher';
-  }, [features]);
+  }, [canDecide, features]);
 
   useEffect(() => {
+    // Never decide on "we cannot answer": that is what made a refresh of a gated page bounce.
+    if (!canDecide) return;
+
     if (location.pathname === '/teacher' && fallbackPath !== '/teacher') {
       navigate(fallbackPath, { replace: true });
       return;
@@ -107,7 +127,7 @@ export default function TeacherLayout() {
     if (requirement && !isFeatureRequirementEnabled(features, requirement)) {
       navigate(fallbackPath, { replace: true });
     }
-  }, [fallbackPath, features, location.pathname, navigate]);
+  }, [canDecide, fallbackPath, features, location.pathname, navigate]);
 
   if (!user) return null;
 

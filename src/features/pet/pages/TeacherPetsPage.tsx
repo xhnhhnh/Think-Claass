@@ -41,7 +41,7 @@ export default function TeacherPets() {
   useStore((state) => state.user);
   const { data: classes = [] } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const { data: students = [], isLoading: loading, refetch } = useClassPets(selectedClassId || null);
+  const { data: students = [], isLoading: loading, isError, refetch } = useClassPets(selectedClassId || null);
   const petMutation = useTeacherPetMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -150,6 +150,14 @@ export default function TeacherPets() {
           {Array.from({ length: 8 }, (_, index) => (
             <Skeleton key={index} className="h-64 rounded-card" />
           ))}
+        </div>
+      ) : isError ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">学生名单加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表这个班级没有学生，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       ) : students.length === 0 ? (
         <EmptyState

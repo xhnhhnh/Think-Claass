@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,6 +36,7 @@ import { cn } from '@/lib/utils';
 export default function AddStudent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const defaultClassId = location.state?.classId || '';
   
   const [activeTab, setActiveTab] = useState<'single' | 'batch'>('single');
@@ -72,6 +74,9 @@ export default function AddStudent() {
       const data = await studentsApi.createStudent(newStudent);
 
       if (data.success) {
+        // The dashboard's roster is `['students', classId]` with a five-minute staleTime, so without
+        // this the pupil the teacher just added is missing from the list they land on.
+        await queryClient.invalidateQueries({ queryKey: ['students', newStudent.class_id] });
         toast.success('学生添加成功');
         navigate('/teacher', { state: { classId: newStudent.class_id } }); // Redirect to dashboard and keep class selected
       } else {
@@ -118,6 +123,7 @@ export default function AddStudent() {
       const data = await studentsApi.batchImportStudents({ students, class_id: batchClassId });
 
       if (data.success) {
+        await queryClient.invalidateQueries({ queryKey: ['students', batchClassId] });
         toast.success(`成功导入 ${students.length} 名学生`);
         navigate('/teacher', { state: { classId: batchClassId } });
       } else {

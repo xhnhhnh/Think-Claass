@@ -393,6 +393,9 @@ export class MessagesController {
     try {
       return { success: true, messages: await this.engagementService.getMessages(filter) };
     } catch (error) {
+      // The tree-hole / chat-bubble gate raises ApiError(403); flattening it into a 500 made a
+      // switched-off feature look like a broken server.
+      if (error instanceof ApiError) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
   }
@@ -436,6 +439,7 @@ export class MessagesController {
         }),
       };
     } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
   }
@@ -481,6 +485,9 @@ export class FamilyTasksController {
 
       return { success: true, tasks };
     } catch (error) {
+      // `assertStudentFeature` refuses with ApiError(403) when 家庭任务 is switched off; the legacy
+      // clause below used to report that as a server error.
+      if (error instanceof ApiError) throw error;
       if (error instanceof HttpException) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
@@ -505,6 +512,9 @@ export class FamilyTasksController {
         task: await this.engagementService.createFamilyTask({ ...body, parent_id: actor.id }),
       };
     } catch (error) {
+      // `assertStudentFeature` refuses with ApiError(403) when 家庭任务 is switched off; the legacy
+      // clause below used to report that as a server error.
+      if (error instanceof ApiError) throw error;
       if (error instanceof HttpException) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
@@ -523,6 +533,9 @@ export class FamilyTasksController {
 
       return { success: true, message: 'Task updated successfully' };
     } catch (error) {
+      // `assertStudentFeature` refuses with ApiError(403) when 家庭任务 is switched off; the legacy
+      // clause below used to report that as a server error.
+      if (error instanceof ApiError) throw error;
       if (error instanceof HttpException) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
@@ -540,6 +553,9 @@ export class FamilyTasksController {
 
       return { success: true, message: 'Task deleted successfully' };
     } catch (error) {
+      // `assertStudentFeature` refuses with ApiError(403) when 家庭任务 is switched off; the legacy
+      // clause below used to report that as a server error.
+      if (error instanceof ApiError) throw error;
       if (error instanceof HttpException) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
@@ -570,6 +586,12 @@ export class LuckyDrawController {
     } else if (actor.role === 'student') {
       const classIds = await this.engagementService.scopedClassIds(actor);
       const classId = classIds && classIds.length > 0 ? classIds[0] : null;
+      if (classId !== null) {
+        // The prize grid *is* the feature. With 翻牌抽奖 switched off the page must not render a
+        // table of prizes nobody can win, so the read is refused exactly like the draw.
+        // Outside the try below on purpose: the legacy clause would flatten this 403 into a 500.
+        await this.engagementService.assertClassFeatureEnabled(classId, 'enable_lucky_draw');
+      }
       scopedTeacherId = classId === null ? null : await this.engagementService.classTeacherId(classId);
       if (scopedTeacherId === null) throw new ApiError(403, '无权限执行该操作');
     }
@@ -577,7 +599,8 @@ export class LuckyDrawController {
     try {
       const result = await this.engagementService.getLuckyDrawConfig(scopedTeacherId);
       return { success: true, ...result };
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, 'Server error');
     }
   }
@@ -619,8 +642,8 @@ export class LuckyDrawController {
     let studentId: number | null;
     try {
       studentId = await this.engagementService.ownStudentId(actor);
-    } catch {
-      return res.status(500).json({ success: false, message: 'Server error' });
+    } catch (error) {
+      return respondApiError(res, error);
     }
     if (studentId === null) {
       return res.status(403).json({ success: false, message: '无权限执行该操作' });
@@ -629,8 +652,10 @@ export class LuckyDrawController {
     try {
       const result = await this.engagementService.drawLuckyPrize(studentId);
       return res.status(result.status).json(result.body);
-    } catch {
-      return res.status(500).json({ success: false, message: 'Server error' });
+    } catch (error) {
+      // The 403 the feature gate raises is a refusal, not a server fault: it has to reach the page
+      // as 403 "该功能当前已关闭" rather than as a 500 the user reads as an outage.
+      return respondApiError(res, error);
     }
   }
 }
@@ -653,6 +678,8 @@ export class DanmakuController {
     try {
       return { success: true, messages: await this.engagementService.getDanmakuMessages(classId, since) };
     } catch (error) {
+      // `getDanmakuMessages` gates on `enable_danmaku`; a switched-off feature is a 403, not a 500.
+      if (error instanceof ApiError) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
   }
@@ -678,6 +705,7 @@ export class DanmakuController {
         message: await this.engagementService.createDanmakuMessage({ ...body, sender_name: senderName }),
       };
     } catch (error) {
+      if (error instanceof ApiError) throw error;
       throw legacyError(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage(error));
     }
   }

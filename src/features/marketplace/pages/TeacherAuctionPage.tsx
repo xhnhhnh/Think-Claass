@@ -139,7 +139,7 @@ function renderAuctionCard(
  * create dialog is owned by `CrudPage`.
  */
 export default function TeacherAuction() {
-  const { data: auctions = [], isLoading, refetch } = useTeacherAuctions();
+  const { data: auctions = [], isLoading, isError, refetch } = useTeacherAuctions();
   const auctionMutation = useTeacherAuctionMutation();
 
   useRegisterPageCommands([
@@ -163,6 +163,8 @@ export default function TeacherAuction() {
         icon={Gavel}
         items={auctions}
         isLoading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         fields={auctionFields}
         createInitialForm={() => ({
           item_name: '',

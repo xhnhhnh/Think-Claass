@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore';
 import { Swords, Crown, Flame, ShieldAlert, AlertCircle, Medal } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
+import { Button } from '@/components/ui/button';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
@@ -18,44 +19,76 @@ export default function StudentGuildPK() {
   const [rankings, setRankings] = useState<GuildRanking[]>([]);
   const [isEnabled, setIsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [studentClassId, setStudentClassId] = useState<number | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
-  useEffect(() => {
-    const init = async () => {
-      if (!user?.studentId) return;
-      try {
-        const studentData = await studentsApi.getStudents();
-        if (studentData.success) {
-          const student = studentData.students.find((s: any) => s.id === user.studentId);
-          if (student) {
-            setStudentClassId(student.class_id);
-          }
+  const init = async () => {
+    if (!user?.studentId) return;
+    try {
+      const studentData = await studentsApi.getStudents();
+      if (studentData.success) {
+        const student = studentData.students.find((s: any) => s.id === user.studentId);
+        if (student && student.class_id) {
+          setStudentClassId(student.class_id);
+          setLoadError(false);
+        } else {
+          /**
+           * No class means no ranking request can be made at all.
+           *
+           * `student.class_id` missing used to leave the page on its loading branch forever, and
+           * the ranking board's own empty state ("班级还没有创建任何魔法小队") would be a claim the
+           * page had no data for.
+           */
+          setLoadError(true);
+          setLoading(false);
         }
-      } catch (err) {
-        console.error(err);
+      } else {
+        setLoadError(true);
+        setLoading(false);
       }
-    };
-    init();
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+      setLoading(false);
+    }
+  };
+
+  const fetchRankings = async (classIdForRanking: number) => {
+    try {
+      const data = await classroomApi.getGuildRanking(classIdForRanking);
+      if (data.success) {
+        setIsEnabled(data.isEnabled);
+        setRankings(data.rankings);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void init();
   }, [user]);
 
   useEffect(() => {
     if (!studentClassId) return;
-    const fetchRankings = async () => {
-      try {
-        const data = await classroomApi.getGuildRanking(studentClassId);
-        if (data.success) {
-          setIsEnabled(data.isEnabled);
-          setRankings(data.rankings);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRankings();
+    void fetchRankings(studentClassId);
   }, [studentClassId]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    if (studentClassId) {
+      void fetchRankings(studentClassId);
+    } else {
+      void init();
+    }
+  };
 
   // The banner travel is decoration; the fade is what tells the reader something
   // arrived, so it is the half that survives `prefers-reduced-motion`.
@@ -67,6 +100,25 @@ export default function StudentGuildPK() {
     return (
       <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center">
         <div className="animate-pulse text-center text-2xl font-black text-fg-3">魔法雷达扫描中...</div>
+      </PageScaffold>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageScaffold
+        variant="immersive"
+        className="flex min-h-dvh items-center justify-center px-4 pb-12 pt-16 sm:px-6"
+      >
+        <div className="w-full max-w-4xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">公会 PK 榜没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表班里没有魔法小队，也不代表公会战没有开启。请重试，或稍后再看。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={retryLoad}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }

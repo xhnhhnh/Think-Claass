@@ -48,9 +48,9 @@ export default function StudentChallenge() {
   const [boss, setBoss] = useState<WorldBossDto | null>(null);
   const classId = user?.class_id ?? null;
   const studentId = user?.studentId ?? user?.id ?? null;
-  const { data: questions = [], refetch: refetchQuestions } = useChallengeQuestions(studentId, 5);
+  const { data: questions = [], isError: questionsError, refetch: refetchQuestions } = useChallengeQuestions(studentId, 5);
   const submitMutation = useChallengeSubmitMutation(studentId);
-  const { data: queriedBoss } = useActiveBoss(classId);
+  const { data: queriedBoss, isError: bossError, refetch: refetchBoss } = useActiveBoss(classId);
   const attackMutation = useAttackBossMutation(studentId, classId);
 
   useEffect(() => {
@@ -314,8 +314,20 @@ export default function StudentChallenge() {
                   </div>
                 </motion.div>
               </AnimatePresence>
+            ) : questionsError ? (
+              <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+                <p className="font-semibold text-danger">题目没有加载出来</p>
+                <p className="mt-1 text-sm text-fg-3">这不代表题库是空的。请重试，或稍后再看。</p>
+                <Button variant="outline" className="mt-3" onClick={() => void refetchQuestions()}>
+                  重新加载
+                </Button>
+              </div>
             ) : (
-              <EmptyState icon={AlertCircle} title="暂无题目数据" />
+              <EmptyState
+                icon={AlertCircle}
+                title="题库还没有题目"
+                description="挑战题由老师在电脑端的「题库管理」里录入。看到这句话说明题库是空的，不是网络问题。"
+              />
             )}
           </motion.div>
         )}
@@ -361,6 +373,14 @@ export default function StudentChallenge() {
                   className="mt-6 bg-danger text-role-contrast hover:bg-danger/90"
                 >
                   {attackMutation.isPending ? '攻击中...' : boss.hp <= 0 ? 'Boss已被击败' : '发起攻击！'}
+                </Button>
+              </div>
+            ) : bossError ? (
+              <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+                <p className="font-semibold text-danger">Boss 状态没有加载出来</p>
+                <p className="mt-1 text-sm text-fg-3">这不代表当前没有世界Boss。请重试，或稍后再看。</p>
+                <Button variant="outline" className="mt-3" onClick={() => void refetchBoss()}>
+                  重新加载
                 </Button>
               </div>
             ) : (

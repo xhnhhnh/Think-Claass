@@ -153,6 +153,22 @@ export class HomeworkService {
     return actor.classId;
   }
 
+  /**
+   * The class a teacher publishes into has to exist, and has to be theirs.
+   *
+   * `data.reads` has declared `classes` "only to answer whether a class exists, so a homework cannot
+   * be published against a typo'd id" since the migration - but no statement ever read it, so a
+   * mistaken or hand-crafted `class_id` was accepted and filed the work (and its submissions) under
+   * whatever class it named. Admin/superadmin keep the console's reach over every class.
+   */
+  private ensurePublishableClass(actor: RequestActor, classId: number, teacherId: number): void {
+    if (this.isAdminRole(actor)) return;
+
+    const row = this.repository.getClassTeacher(classId);
+    if (!row) throw new ApiError(404, '班级未找到');
+    if (row.teacher_id !== teacherId) throw new ApiError(403, '无权限为该班级发布作业');
+  }
+
   /** 403 unless the actor is the teacher who owns this homework; admin/superadmin always pass. */
   private ensureHomeworkOwner(actor: RequestActor, homework: HomeworkRow, message: string): void {
     if (this.isAdminRole(actor)) return;
@@ -512,6 +528,7 @@ export class HomeworkService {
   createHomework(actor: RequestActor, input: HomeworkPublishPayload): HomeworkDetail {
     const classId = positiveInteger(input?.class_id, 'class_id');
     const teacherId = this.requireActorId(actor);
+    this.ensurePublishableClass(actor, classId, teacherId);
     const title = requireTitle(input?.title);
     const status = normaliseHomeworkStatus(input?.status) ?? 'draft';
     const questions = normaliseQuestions(input?.questions);
@@ -721,7 +738,19 @@ export class HomeworkService {
     this.ensureEditable(submission);
 
     const answers = normaliseAnswerInputs(input?.answers);
-    if (answers.length === 0) throw new ApiError(400, '没有需要保存的作答');
+    if (answers.length === 0) {
+      /**
+       * "Nothing to save" is a no-op, not a failure.
+       *
+       * A homework may carry no questions at all ("拍张照片交上来"), and the attempt page saves by
+       * diffing its answer set - so an empty list arrives on every auto-save of such a paper, and
+       * again from the submit button, which saves before it submits. Refusing here turned an
+       * idempotent no-op into a red toast and, worse, aborted the submit that followed it.
+       * The pupil's photographs live on their own route (`uploadPhoto`), so there is nothing to
+       * write and nothing to lose by answering with the attempt as it stands.
+       */
+      return this.attemptById(submission);
+    }
 
     const validQuestionIds = new Set(this.repository.listQuestionIds(submission.assignment_id));
     const unknown = answers.filter((answer) => !validQuestionIds.has(answer.question_id));
@@ -748,6 +777,9 @@ export class HomeworkService {
    * answers are left at `score: null` for the teacher or the AI. A row is created for every question
    * - including the blank ones - so the grade sheet shows a line to fill rather than a gap the
    * teacher has to notice.
+   *
+   * A paper with **no** questions is the photograph case: it is submitted as long as at least one
+   * whole-submission photo exists, because there is nothing else the pupil could hand in.
    */
   submitAttempt(actor: RequestActor, idInput: unknown, input?: HomeworkSubmitPayload): HomeworkAttemptDetail {
     const id = positiveInteger(idInput, 'id');
@@ -755,17 +787,29 @@ export class HomeworkService {
     this.ensureEditable(submission);
 
     const rows = this.repository.listQuestions(submission.assignment_id);
-    if (rows.length === 0) throw new ApiError(400, '该作业还没有题目');
 
     const answers = normaliseAnswerInputs(input?.answers);
+    const photoIds = normaliseIds(input?.photo_ids);
+    this.assertOwnPhotos(id, photoIds);
+
+    /**
+     * A homework with no questions is a real assignment - "photograph your paper" - and it is
+     * publishable on purpose (`TeacherHomeworkPage.validateForm` allows an empty question list, and
+     * the attempt page renders the photo picker for exactly that case). What the server refuses is
+     * handing in *nothing*: no questions, no photographs named in this call, none stored earlier.
+     *
+     * The old rule (`rows.length === 0` -> 400) made those papers unpublishable in practice: the
+     * teacher could create one and the pupil could never hand it in.
+     */
+    if (rows.length === 0 && photoIds.length === 0 && this.repository.listPhotos(id).length === 0) {
+      throw new ApiError(400, '该作业没有题目，是拍照作业：请先上传作业照片再提交');
+    }
+
     const validQuestionIds = new Set(rows.map((row) => row.id));
     const unknown = answers.filter((answer) => !validQuestionIds.has(answer.question_id));
     if (unknown.length > 0) {
       throw new ApiError(400, `题目不属于该作业：${unknown.map((answer) => answer.question_id).join('、')}`);
     }
-
-    const photoIds = normaliseIds(input?.photo_ids);
-    this.assertOwnPhotos(id, photoIds);
 
     this.repository.transaction(() => {
       for (const answer of answers) this.repository.upsertAnswer(id, answer);

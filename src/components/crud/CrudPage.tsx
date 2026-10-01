@@ -68,6 +68,14 @@ export interface CrudPageProps<TItem, TForm extends Record<string, unknown>> {
   icon: LucideIcon;
   items: TItem[];
   isLoading: boolean;
+  /**
+   * The list request failed. Rendered instead of `emptyTitle`/`emptyDescription`,
+   * because an empty `items` array is what a rejection looks like too - and a page
+   * that says 「暂无记录」 about a failed request states something it does not know.
+   */
+  error?: boolean;
+  /** Wired to the failed query's `refetch`. Omitted, the error block carries no button. */
+  onRetry?: () => void;
   fields: CrudField<TForm>[];
   createInitialForm: () => TForm;
   mapItemToForm: (item: TItem) => TForm;
@@ -102,6 +110,8 @@ export function CrudPage<TItem, TForm extends Record<string, unknown>>({
   icon: Icon,
   items,
   isLoading,
+  error = false,
+  onRetry,
   fields,
   createInitialForm,
   mapItemToForm,
@@ -210,6 +220,19 @@ export function CrudPage<TItem, TForm extends Record<string, unknown>>({
           className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           itemClassName="h-28"
         />
+      ) : error ? (
+        <div
+          data-slot="crud-page-error"
+          className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center"
+        >
+          <p className="font-semibold text-danger">{title}加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有数据，请重试。</p>
+          {onRetry ? (
+            <Button variant="outline" className="mt-3" onClick={onRetry}>
+              重新加载
+            </Button>
+          ) : null}
+        </div>
       ) : items.length === 0 ? (
         <EmptyState title={emptyTitle} description={emptyDescription} icon={Icon} />
       ) : (

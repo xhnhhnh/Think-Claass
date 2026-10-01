@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   useAdminStatsQuery: vi.fn(),
   useDatabaseImportMutation: vi.fn(),
   navigate: vi.fn(),
+  downloadDatabase: vi.fn(),
 }));
 
 vi.mock('@/features/admin/hooks/useAdminSystem', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/features/admin/hooks/useAdminSystem', () => ({
 
 vi.mock('@/features/admin/api/adminClient', () => ({
   adminClient: {
+    downloadDatabase: mocks.downloadDatabase,
     getDatabaseExportUrl: () => '/api/admin/system/database/export',
   },
 }));
@@ -77,5 +79,34 @@ describe('AdminDashboard', () => {
     expect(screen.getByRole('button', { name: '导出数据' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '导入数据' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '系统重置' })).toBeInTheDocument();
+  });
+
+  it('downloads the database through the authenticated client, not a page navigation', async () => {
+    // `window.location.href = '/api/admin/system/database/export'` could not carry the Bearer token
+    // the route requires, so the button always answered 401. The export now goes through the api
+    // client and the blob becomes a file.
+    const createObjectURL = vi.fn(() => 'blob:think-class');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true });
+    mocks.downloadDatabase.mockReset();
+    mocks.downloadDatabase.mockResolvedValue(new Blob(['sqlite']));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '导出数据' }));
+    fireEvent.click(await screen.findByRole('button', { name: '导出' }));
+
+    await waitFor(() => expect(mocks.downloadDatabase).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+
+    click.mockRestore();
   });
 });

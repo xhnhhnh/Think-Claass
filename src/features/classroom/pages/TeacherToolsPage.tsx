@@ -40,6 +40,8 @@ export default function TeacherTools() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  /** Either read failing means the tools below would run on a roster nobody loaded. */
+  const [loadError, setLoadError] = useState(false);
 
   // Roll Call State
   const [rollCallState, setRollCallState] = useState({ isRolling: false, currentName: '点击开始' });
@@ -60,6 +62,7 @@ export default function TeacherTools() {
   }, []);
 
   const fetchClasses = async () => {
+    setLoadError(false);
     try {
       const data = await classroomApi.getClasses();
       if (data.success) {
@@ -69,7 +72,10 @@ export default function TeacherTools() {
         }
       }
     } catch (err) {
+      // `console.error` alone left the row below reading 「暂无班级」, which is a claim
+      // about the teacher's classes rather than about the request.
       console.error('Failed to fetch classes:', err);
+      setLoadError(true);
     }
   };
 
@@ -87,7 +93,14 @@ export default function TeacherTools() {
       }
     } catch (err) {
       console.error('Failed to fetch students:', err);
+      setLoadError(true);
     }
+  };
+
+  /** Re-runs whichever reads this page made: the class list, and the roster if one is selected. */
+  const reload = () => {
+    void fetchClasses();
+    if (selectedClassId) void fetchStudents();
   };
 
   // Timer logic
@@ -199,6 +212,16 @@ export default function TeacherTools() {
 
   return (
     <PageScaffold variant="dashboard">
+      {loadError ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">班级与学生名单加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有班级或学生，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={reload}>
+            重新加载
+          </Button>
+        </div>
+      ) : null}
+
       <div className="flex items-center space-x-2 overflow-x-auto rounded-card border border-line-1 bg-surface-2/80 p-4 shadow-card backdrop-blur-xl">
         <span className="mr-2 flex-shrink-0 text-sm font-bold text-fg-3">操作班级:</span>
         {classes.map((cls) => (
@@ -216,7 +239,7 @@ export default function TeacherTools() {
             {cls.name}
           </Button>
         ))}
-        {classes.length === 0 && <span className="text-sm text-fg-3">暂无班级</span>}
+        {classes.length === 0 && !loadError && <span className="text-sm text-fg-3">暂无班级</span>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

@@ -372,6 +372,16 @@ const roleLayoutRoutes: LayoutRoute[] = [
         aliases: ['团队', '任务'],
       },
       {
+        // Declared next to 团队任务, and before 个人设置: the menu's last entry is what the guided
+        // tour closes on, so an entry appended after it would silently become the tour's ending.
+        path: 'task-tree',
+        component: '@/features/collaboration/pages/TeacherTaskTreePage',
+        label: '多维任务树',
+        icon: GitBranch,
+        group: 'class',
+        aliases: ['任务树', '技能树', 'task-tree'],
+      },
+      {
         path: 'pets',
         component: '@/features/pet/pages/TeacherPetsPage',
         label: '精灵管理',
@@ -496,10 +506,10 @@ const roleLayoutRoutes: LayoutRoute[] = [
         aliases: ['设置', '账号', '密码'],
       },
 
-      // Reachable, never a menu entry: an editor opened from a list, the tree view
-      // opened from a quest, and the add-student flow opened from the dashboard.
+      // Reachable, never a menu entry: an editor opened from a list and the add-student flow
+      // opened from the dashboard. (`task-tree` used to be here too, but nothing navigated to it -
+      // it is a menu entry now, declared with 团队任务.)
       { path: 'add-student', component: '@/features/classroom/pages/TeacherAddStudentPage' },
-      { path: 'task-tree', component: '@/features/collaboration/pages/TeacherTaskTreePage' },
       { path: 'papers/:id/edit', component: '@/features/learning/pages/TeacherPaperEditorPage' },
     ],
   },
@@ -578,7 +588,15 @@ const roleLayoutRoutes: LayoutRoute[] = [
         label: '挑战模式',
         icon: Swords,
         group: 'play',
-        feature: { requirement: { key: 'enable_challenge' }, title: '挑战模式', role: 'student' },
+        // The page hosts both the question mode and the world-boss mode, so either flag keeps it
+        // reachable - `studentFeatureRequirements` and the teacher's 功能开关 panel already read it
+        // that way. This entry used to require `enable_challenge` alone, so a class with only
+        // `enable_world_boss` on had its entry hidden and the world boss unreachable.
+        feature: {
+          requirement: { anyOf: ['enable_challenge', 'enable_world_boss'] },
+          title: '挑战模式',
+          role: 'student',
+        },
         aliases: ['挑战', '闯关'],
       },
       {
@@ -724,6 +742,22 @@ const roleLayoutRoutes: LayoutRoute[] = [
         icon: FileText,
         group: 'study',
         aliases: ['试卷', '练习'],
+      },
+      {
+        /*
+          My exam results.
+
+          `GET /api/exams/student-exams` has existed since the assignments migration and was the one
+          route in that family with no caller anywhere: the teacher's 成绩录入 page writes
+          `student_exams` rows and the pupil whose grades they are had nowhere to read them.
+          Declared before 个人设置, which the guided tour closes on.
+        */
+        path: 'exams',
+        component: '@/features/learning/pages/StudentExamsPage',
+        label: '考试成绩',
+        icon: Award,
+        group: 'study',
+        aliases: ['考试', '成绩', '分数'],
       },
       {
         path: 'plan',
@@ -896,6 +930,17 @@ export function layoutRoutes(): LayoutRoute[] {
           icon: Globe,
           group: 'content',
           aliases: ['网站', '站点'],
+        },
+        {
+          // The only writer of `question_bank`, which is where 挑战模式 and the world boss draw their
+          // questions from. Before this entry the four `/api/system/questions` routes had no caller
+          // on any console, so the bank stayed empty and the feature had nothing to ask.
+          path: 'question-bank',
+          component: '@/features/admin/pages/AdminQuestionBankPage',
+          label: '题库管理',
+          icon: BookOpen,
+          group: 'content',
+          aliases: ['题库', '题目', '挑战题'],
         },
         {
           path: 'teachers',

@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore';
 import { Award, Trophy } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
@@ -30,6 +31,7 @@ export default function StudentCertificates() {
   const user = useStore((state) => state.user);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -45,9 +47,13 @@ export default function StudentCertificates() {
       const data = await certificatesApi.getStudentCertificates(user.studentId);
       if (data.success) {
         setCertificates(data.certificates);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
     } catch (error) {
       console.error('获取奖状失败', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -57,6 +63,20 @@ export default function StudentCertificates() {
     return (
       <PageScaffold variant="list" className="flex items-center justify-center py-20">
         <Spinner size="lg" label="正在加载奖状" className="text-warning" />
+      </PageScaffold>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageScaffold variant="list" title="荣誉奖状" description="快来看看你都获得了哪些闪亮的荣誉吧！">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">奖状没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表你还没有奖状。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void fetchCertificates()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }

@@ -40,9 +40,16 @@ describe('route table', () => {
     //
     // The AI 智学 round added three more: the teacher board, the student's set page and the student's
     // answering screen. 76 -> 79 children, 89 -> 92 routes.
+    //
+    // The closure round added two, and both are *restorations* rather than new features: the
+    // teacher's 多维任务树 was routed all along but had no label and no navigation, so nobody could
+    // reach it (it is a menu entry now, which adds no route), the admin console gained 题库管理 for
+    // the four `/api/system/questions` routes that nothing called, and the pupil gained 考试成绩 for
+    // `GET /api/exams/student-exams` - the marks their teacher had been recording with no reader.
+    // 79 -> 81 children, 92 -> 94 routes.
     const children = layoutRoutes.reduce((total, layout) => total + layout.children.length, 0);
-    expect(children).toBe(79);
-    expect(flatRoutes.length + layoutRoutes.length + children).toBe(92);
+    expect(children).toBe(81);
+    expect(flatRoutes.length + layoutRoutes.length + children).toBe(94);
   });
 
   it('keeps every layout path', () => {
@@ -107,13 +114,13 @@ describe('route table', () => {
     const labelled = teacher.children.filter((child) => child.label).map((child) => child.path);
     const unlabelled = teacher.children.filter((child) => !child.label).map((child) => child.path);
 
-    // 25 menu entries, matching the old hand-written navItems array. 作业管理 moved from
-    // `/teacher/assignments` to `/teacher/homework`, which keeps the count and the dock slot: the
-    // legacy path is still routed, but as an unlabelled alias of the same page.
-    expect(labelled).toHaveLength(26);
-    // Reachable but not linked, exactly as before - plus `assignments` (the alias) and the grade
-    // sheet, which is opened from a row on the homework list.
-    expect([...unlabelled].sort()).toEqual(['add-student', 'assignments', 'homework/:id/grade', 'papers/:id/edit', 'task-tree']);
+    // 26 menu entries. 作业管理 moved from `/teacher/assignments` to `/teacher/homework`, which keeps
+    // the count and the dock slot: the legacy path is still routed, but as an unlabelled alias of the
+    // same page. 多维任务树 used to be unlabelled with nothing navigating to it - the feature, its
+    // route and its menu gate all existed, but no teacher could reach the page.
+    expect(labelled).toHaveLength(27);
+    // Reachable but not linked: the alias and the grade sheet, opened from a row on the list.
+    expect([...unlabelled].sort()).toEqual(['add-student', 'assignments', 'homework/:id/grade', 'papers/:id/edit']);
   });
 
   it('keeps the student child paths, including the parameterised ones', () => {
@@ -143,6 +150,7 @@ describe('route table', () => {
         'homework/:id/result',
         'papers',
         'papers/:id',
+        'exams',
         'wrong-questions',
         'plan',
         'ai-study',
@@ -159,8 +167,9 @@ describe('route table', () => {
     const labelled = student.children.filter((child) => child.label).map((child) => child.path);
 
     // 24 menu entries include the growth overview. 我的作业 took the slot `/student/assignments` held,
-    // so the count is unchanged; the legacy path stays routed as an unlabelled alias.
-    expect(labelled).toHaveLength(25);
+    // so the count is unchanged; the legacy path stays routed as an unlabelled alias. The closure
+    // round added 考试成绩, which is a menu entry like any other.
+    expect(labelled).toHaveLength(26);
     // Sorted on both sides: this compares the *set*, and the array order is the menu order, which
     // the layout owns - an assertion on it would make a menu reordering fail a routing test.
     expect([...student.children.filter((child) => !child.label).map((child) => child.path)].sort()).toEqual([
@@ -192,6 +201,7 @@ describe('route table', () => {
         'announcements',
         'articles',
         'website',
+        'question-bank',
         'audit-logs',
         'teachers',
         'settings',
@@ -254,6 +264,11 @@ describe('route table', () => {
       .flatMap((layout) => layout.children)
       .flatMap((child) => (child.feature && 'anyOf' in child.feature.requirement ? child.feature.requirement.anyOf : []));
 
-    expect(anyOfFlags).toEqual(['enable_chat_bubble', 'enable_tree_hole']);
+    // The challenge page hosts two features, so either flag keeps it reachable - which is also what
+    // `studentFeatureRequirements` and the teacher's panel say. It used to be `{key: 'enable_challenge'}`
+    // here while the other two said `anyOf`, so a class with only `enable_world_boss` on lost the entry
+    // *and* the page. Two `anyOf` groups in one table is fine; disagreeing about the same route is not,
+    // and `feature-gate-consistency.test.ts` is what keeps them in step from now on.
+    expect(anyOfFlags).toEqual(['enable_challenge', 'enable_world_boss', 'enable_chat_bubble', 'enable_tree_hole']);
   });
 });

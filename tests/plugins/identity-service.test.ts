@@ -545,6 +545,31 @@ describe('activate: the activation-code flow', () => {
     expect(error.statusCode).toBe(400);
     expect(error.message).toBe('激活码或用户ID缺失');
   });
+
+  it('gives the code to the session, not to a userId in the body', async () => {
+    // Anonymous callers keep the body-driven path (the route is public by design); a logged-in
+    // caller may only open their own account. Before this, anyone holding an unused code could
+    // spend it on somebody else - the code was marked used and the other account was activated.
+    const mismatched = await apiErrorOf(() => service.activate({ code: 'TC-ABCD1234', userId: 1 }, { id: 9, role: 'teacher' }));
+    expect(mismatched.statusCode).toBe(403);
+    expect(mismatched.message).toBe('激活码只能用于当前登录的账号');
+
+    // Nothing was written on the way to the refusal.
+    const untouched = kernel.db.prepare('SELECT status, used_by FROM activation_codes WHERE id = 3').get() as {
+      status: string;
+      used_by: number | null;
+    };
+    expect(untouched).toEqual({ status: 'unused', used_by: null });
+    expect((kernel.db.prepare('SELECT is_activated FROM users WHERE id = 1').get() as { is_activated: number }).is_activated).toBe(1);
+
+    // The same call with no body id activates the caller.
+    const ok = await service.activate({ code: 'TC-ABCD1234' }, { id: 9, role: 'teacher' });
+    expect(ok).toEqual({ success: true, message: '激活成功' });
+    expect(kernel.db.prepare('SELECT status, used_by FROM activation_codes WHERE id = 3').get()).toEqual({
+      status: 'used',
+      used_by: 9,
+    });
+  });
 });
 
 describe('activateUser: the published port', () => {

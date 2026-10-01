@@ -61,7 +61,7 @@ function localDateString(): string {
  * unmarked is not written on save.
  */
 export default function TeacherAttendance() {
-  const { data: classes = [], isLoading: isClassesLoading } = useClasses();
+  const { data: classes = [], isLoading: isClassesLoading, isError: isClassesError, refetch: refetchClasses } = useClasses();
   const [preferredClassId, setPreferredClassId] = useState<number | null>(null);
   const [currentDate, setCurrentDate] = useState(localDateString);
   const [activeTab, setActiveTab] = useState<'take' | 'leaves'>('take');
@@ -71,12 +71,17 @@ export default function TeacherAttendance() {
   // The teacher's own first class is the default; no request fires until one is known.
   const selectedClassId = preferredClassId ?? classes[0]?.id ?? null;
 
-  const { data: students = [], isLoading: isStudentsLoading } = useStudents(selectedClassId);
-  const { data: attendanceRows = [], isLoading: isAttendanceLoading } = useAttendance(
+  const { data: students = [], isLoading: isStudentsLoading, isError: isStudentsError, refetch: refetchStudents } = useStudents(selectedClassId);
+  const {
+    data: attendanceRows = [],
+    isLoading: isAttendanceLoading,
+    isError: isAttendanceError,
+    refetch: refetchAttendance,
+  } = useAttendance(
     { classId: selectedClassId, date: currentDate },
     !!selectedClassId,
   );
-  const { data: leaveRows = [], isLoading: isLeavesLoading } = useLeaves({}, !!selectedClassId);
+  const { data: leaveRows = [], isLoading: isLeavesLoading, isError: isLeavesError, refetch: refetchLeaves } = useLeaves({}, !!selectedClassId);
   const saveAttendanceMutation = useSaveAttendanceMutation();
   const updateLeaveMutation = useUpdateLeaveMutation();
 
@@ -229,6 +234,26 @@ export default function TeacherAttendance() {
         >
           {isClassesLoading || (classes.length > 0 && (isStudentsLoading || isAttendanceLoading)) ? (
             <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
+          ) : isClassesError || isStudentsError || isAttendanceError ? (
+            /**
+             * The roster and the day's marks are both needed before anything may be saved: with a
+             * failed read every pupil looks unmarked, and 保存 would then write that guess back.
+             */
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">考勤数据加载失败</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表没有学生或当天没有记录，请重试。</p>
+              <Button
+                variant="outline"
+                className="mt-3"
+                onClick={() => {
+                  void refetchClasses();
+                  void refetchStudents();
+                  void refetchAttendance();
+                }}
+              >
+                重新加载
+              </Button>
+            </div>
           ) : classes.length === 0 ? (
             <EmptyState icon={Users} title="暂无班级数据" description="请先在班级管理中创建班级。" />
           ) : students.length === 0 ? (
@@ -272,6 +297,14 @@ export default function TeacherAttendance() {
         <SectionCard title="请假审批">
           {isLeavesLoading ? (
             <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
+          ) : isLeavesError ? (
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">请假记录加载失败</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表没有请假申请，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void refetchLeaves()}>
+                重新加载
+              </Button>
+            </div>
           ) : leaveRows.length === 0 ? (
             <EmptyState icon={CalendarCheck} title="暂无请假申请" />
           ) : (

@@ -69,7 +69,7 @@ export default function StudentEconomy() {
   const user = useStore(state => state.user);
   const studentId = user?.studentId ?? user?.id ?? null;
   const classId = user?.class_id ?? null;
-  const { data, isLoading: loading, refetch } = useEconomyData(studentId, classId);
+  const { data, isLoading: loading, isError, refetch } = useEconomyData(studentId, classId);
   const bank = (data?.bank ?? null) as BankAccountDto | null;
   const stocks = (data?.stocks ?? []) as StockDto[];
   const portfolio = (data?.portfolio ?? []) as PortfolioItemDto[];
@@ -124,6 +124,22 @@ export default function StudentEconomy() {
     return (
       <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
         <Spinner size="lg" label="正在加载银行数据" />
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">银行数据没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表你没有存款，也不代表股市里没有股票——0 存款和空行情都只是读取失败的结果。请重试，或稍后再看。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }

@@ -135,6 +135,15 @@ export interface HomeworkRepository {
    */
   listRosterOfClass(classId: number): Array<{ id: number; name: string }>;
 
+  /**
+   * The owning teacher of a class, or undefined when there is no such class.
+   *
+   * This is what makes the `classes` entry in `data.reads` true: the manifest has always said the
+   * table is read "only to answer whether a class exists", while no statement actually read it - so
+   * a homework could be published against a typo'd id, or against another teacher's class.
+   */
+  getClassTeacher(classId: number): { teacher_id: number | null } | undefined;
+
   // -- answers -------------------------------------------------------------
   listAnswers(submissionId: number): HomeworkAnswerRow[];
   getAnswerForQuestion(submissionId: number, questionId: number): HomeworkAnswerRow | null;
@@ -577,6 +586,10 @@ export function createHomeworkRepository(
           classId,
         ])
         .map((row) => ({ id: row.id, name: decryptName(String(row.name)) }));
+    },
+
+    getClassTeacher(classId) {
+      return db.get<{ teacher_id: number | null }>('SELECT teacher_id FROM classes WHERE id = ?', [classId]);
     },
 
     // -- answers -----------------------------------------------------------

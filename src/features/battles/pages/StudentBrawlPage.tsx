@@ -3,6 +3,7 @@ import { Swords, Flame } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 import { useBattleStats, useTeacherBattles } from '@/features/battles/hooks/useBattles';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,9 +24,13 @@ import { Spinner } from '@/components/ui/spinner';
 export default function StudentBrawl() {
   const user = useStore((state) => state.user);
   const classId = user?.class_id ?? null;
-  const { data: battles = [], isLoading: loading } = useTeacherBattles(classId, 5000);
+  const { data: battles = [], isLoading: loading, isError: battlesError, refetch: refetchBattles } = useTeacherBattles(classId, 5000);
   const activeBattle = battles.find((battle) => battle.status === 'active') ?? null;
-  const { data: stats } = useBattleStats(activeBattle?.id ?? null, !!activeBattle, 5000);
+  const {
+    data: stats,
+    isError: statsError,
+    refetch: refetchStats,
+  } = useBattleStats(activeBattle?.id ?? null, !!activeBattle, 5000);
   const shouldReduceMotion = useReducedMotion();
 
   if (loading) {
@@ -34,6 +39,27 @@ export default function StudentBrawl() {
         <div className="flex items-center justify-center gap-2 text-fg-3">
           <Spinner size="lg" label="正在加载战况" />
           加载中...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (battlesError || statsError) {
+    return (
+      <PageScaffold variant="immersive" className="min-h-dvh p-4 pt-16 sm:p-8">
+        <div className="mx-auto mt-12 max-w-4xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">战况没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表现在没有跨班大乱斗。请重试，或稍后再看。</p>
+          <Button
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              void refetchBattles();
+              void refetchStats();
+            }}
+          >
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

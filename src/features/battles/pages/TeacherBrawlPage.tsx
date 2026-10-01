@@ -29,9 +29,9 @@ import { cn } from '@/lib/utils';
  */
 export default function TeacherBrawl() {
   const queryClient = useQueryClient();
-  const { data: classes = [] } = useClasses();
+  const { data: classes = [], isError: isClassesError, refetch: refetchClasses } = useClasses();
   const classId = useMemo(() => classes[0]?.id ?? null, [classes]);
-  const { data: battles = [] } = useTeacherBattles(classId);
+  const { data: battles = [], isError: isBattlesError } = useTeacherBattles(classId);
   const activeBattle = battles.find(b => b.status === 'active') ?? null;
   const { data: activeStats } = useBattleStats(activeBattle?.id ?? null, !!activeBattle);
   const initiateMutation = useInitiateBattleMutation(classId);
@@ -63,6 +63,11 @@ export default function TeacherBrawl() {
         setSearchResults(classes);
         if (classes.length === 0) toast.info('未找到其他班级');
       }
+    } catch (err) {
+      // The search had a `try/finally` and no `catch`, so a rejected request left the button
+      // spinning nowhere: the results simply never changed and nothing said why.
+      console.error('Failed to search classes:', err);
+      toast.error('搜索失败，请重试');
     } finally {
       setIsSearching(false);
     }
@@ -120,6 +125,20 @@ export default function TeacherBrawl() {
       run: () => void reloadBattles(),
     },
   ]);
+
+  if (isClassesError) {
+    return (
+      <PageScaffold variant="dashboard">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">班级列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有班级，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetchClasses()}>
+            重新加载
+          </Button>
+        </div>
+      </PageScaffold>
+    );
+  }
 
   if (!classId) {
     return (
@@ -372,6 +391,8 @@ export default function TeacherBrawl() {
           ]}
           rows={historyBattles}
           getRowKey={(b) => b.id}
+          error={isBattlesError}
+          onRetry={() => void reloadBattles()}
           empty={
             <EmptyState
               icon={Swords}

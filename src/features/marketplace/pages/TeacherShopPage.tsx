@@ -44,7 +44,7 @@ interface ShopItem {
  * page.
  */
 export default function TeacherShop() {
-  const { data: items = [], isLoading: loading, refetch } = useTeacherShopItems();
+  const { data: items = [], isLoading: loading, isError, refetch } = useTeacherShopItems();
   const shopMutation = useTeacherShopMutation();
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
@@ -65,7 +65,10 @@ export default function TeacherShop() {
       await shopMutation.mutateAsync({ type: 'status', itemId: id, isActive: currentStatus === 1 ? 0 : 1 });
       await refetch();
     } catch (err) {
+      // `console.error` alone made 上架/下架 a button that did nothing at all when it failed:
+      // the badge kept its old value and the console is not somewhere a teacher looks.
       console.error(err);
+      toast.error(currentStatus === 1 ? '下架失败，请稍后重试' : '上架失败，请稍后重试');
     }
   };
 
@@ -177,6 +180,14 @@ export default function TeacherShop() {
         <div className="flex items-center justify-center gap-3 py-12 text-fg-3">
           <Spinner label="正在加载商品" />
           加载中...
+        </div>
+      ) : isError ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">商品列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有商品，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       ) : filteredItems.length === 0 ? (
         <EmptyState icon={Store} title="未找到商品信息" />

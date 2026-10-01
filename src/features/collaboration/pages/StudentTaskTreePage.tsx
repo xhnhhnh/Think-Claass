@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 export default function StudentTaskTree() {
   const user = useStore(state => state.user);
   const studentId = user?.studentId ?? user?.id ?? null;
-  const { data: nodes = [], isLoading: loading } = useStudentTaskNodes(studentId);
+  const { data: nodes = [], isLoading: loading, isError, refetch } = useStudentTaskNodes(studentId);
   const completeMutation = useCompleteTaskNodeMutation(studentId);
   const [selectedNode, setSelectedNode] = useState<StudentTaskNode | null>(null);
   const completing = completeMutation.isPending;
@@ -61,6 +61,20 @@ export default function StudentTaskTree() {
         <div className="flex items-center justify-center gap-2 text-fg-3">
           <Spinner size="lg" label="正在加载技能树" />
           加载中...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">技能树没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表老师还没有布置技能树。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

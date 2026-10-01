@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { useResolvedClassFeatures } from '@/features/classroom/hooks/useResolvedClassFeatures';
 import { announcementsApi } from '@/features/engagement/api/announcementsApi';
 import { messagesApi } from '@/features/engagement/api/messagesApi';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,9 @@ interface Message {
  */
 export default function StudentInteractiveWall() {
   const user = useStore((state) => state.user);
+  const classIdForFeatures = Number(user?.classId ?? user?.class_id) || null;
+  const { features } = useResolvedClassFeatures(classIdForFeatures, { refetchInterval: 5000 });
+  const treeHoleEnabled = Boolean(features.enable_tree_hole);
   const [activeTab, setActiveTab] = useState<'ANNOUNCEMENTS' | 'TREE_HOLE'>('ANNOUNCEMENTS');
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -57,6 +61,7 @@ export default function StudentInteractiveWall() {
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [classId, setClassId] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -70,6 +75,14 @@ export default function StudentInteractiveWall() {
     }
   }, [user]);
 
+  // The flag can fall while the page is open (the teacher switches it off); the tab is gone by then,
+  // so the page must not stay on it and keep polling a route that now refuses.
+  useEffect(() => {
+    if (!treeHoleEnabled && activeTab === 'TREE_HOLE') {
+      setActiveTab('ANNOUNCEMENTS');
+    }
+  }, [activeTab, treeHoleEnabled]);
+
   const fetchStudentClass = async () => {
     try {
       const data = await studentsApi.getStudents();
@@ -77,12 +90,23 @@ export default function StudentInteractiveWall() {
         const student = data.students.find((s: any) => s.id === user?.studentId);
         if (student && student.class_id) {
           setClassId(student.class_id);
+          setLoadError(false);
         } else {
+          /**
+           * Without a class there is nothing to fetch and nowhere to send: the page used to sit on
+           * its "暂无通知" empty state, which read as "your class has no notices" when in fact the
+           * page had never been able to ask.
+           */
+          setLoadError(true);
           setLoading(false);
         }
+      } else {
+        setLoadError(true);
+        setLoading(false);
       }
     } catch (error) {
       console.error('获取班级信息失败', error);
+      setLoadError(true);
       setLoading(false);
     }
   };
@@ -109,9 +133,13 @@ export default function StudentInteractiveWall() {
       const data = await announcementsApi.getClassAnnouncements(classId!);
       if (data.success) {
         setAnnouncements(data.announcements);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
     } catch (error) {
       console.error('获取通知失败', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -124,13 +152,37 @@ export default function StudentInteractiveWall() {
 
       if (data.success) {
         setMessages(data.messages.reverse()); // Chronological order
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
     } catch (error) {
       console.error('获取留言失败', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   };
+
+  /** The retry target depends on how far the page got: no class yet, or a tab that failed to read. */
+  const retryLoad = () => {
+    if (!classId) return fetchStudentClass();
+    return activeTab === 'ANNOUNCEMENTS' ? fetchAnnouncements() : fetchMessages();
+  };
+
+  const renderLoadError = () => (
+    <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+      <p className="font-semibold text-danger">互动墙没有加载出来</p>
+      <p className="mt-1 text-sm text-fg-3">
+        {classId
+          ? '这不代表班里没有通知，也不代表树洞里没人留言。请重试，或稍后再看。'
+          : '这不代表班里没有通知——通知、树洞和发送都需要先读到你的班级信息。请重试，或稍后再看。'}
+      </p>
+      <Button variant="outline" className="mt-3" onClick={() => void retryLoad()}>
+        重新加载
+      </Button>
+    </div>
+  );
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,21 +246,32 @@ export default function StudentInteractiveWall() {
             <Megaphone className="mr-1.5 size-4" />
             班级通知
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={activeTab === 'TREE_HOLE' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('TREE_HOLE')}
-            className={cn(
-              'rounded-pill px-3 font-bold',
-              activeTab === 'TREE_HOLE'
-                ? 'shadow-card'
-                : 'text-role hover:bg-role/10 hover:text-role',
-            )}
-          >
-            <MessageCircle className="mr-1.5 size-4" />
-            树洞心声
-          </Button>
+          {/**
+            * 树洞心声 is `enable_tree_hole`'s own surface.
+            *
+            * The route is gated on `anyOf [enable_tree_hole, enable_chat_bubble]` because the same
+            * page also carries 班级通知, which has no flag of its own - and this tab was therefore
+            * rendered either way, so a class with only 聊天气泡 switched on could read and post
+            * tree-hole messages. The server now refuses TREE_HOLE specifically (see
+            * `engagement.service.ts`); a refused tab is worse than an absent one, so it is absent.
+            */}
+          {treeHoleEnabled ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={activeTab === 'TREE_HOLE' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('TREE_HOLE')}
+              className={cn(
+                'rounded-pill px-3 font-bold',
+                activeTab === 'TREE_HOLE'
+                  ? 'shadow-card'
+                  : 'text-role hover:bg-role/10 hover:text-role',
+              )}
+            >
+              <MessageCircle className="mr-1.5 size-4" />
+              树洞心声
+            </Button>
+          ) : null}
         </div>
       }
     >
@@ -226,6 +289,8 @@ export default function StudentInteractiveWall() {
                   <Spinner size="lg" label="正在加载班级通知" />
                   加载中...
                 </div>
+              ) : loadError || !classId ? (
+                renderLoadError()
               ) : announcements.length === 0 ? (
                 <EmptyState
                   icon={Megaphone}
@@ -276,6 +341,8 @@ export default function StudentInteractiveWall() {
                     <Spinner size="lg" label="正在加载悄悄话" />
                     加载中...
                   </div>
+                ) : loadError || !classId ? (
+                  renderLoadError()
                 ) : messages.length === 0 ? (
                   <EmptyState
                     icon={MessageCircle}
@@ -318,6 +385,15 @@ export default function StudentInteractiveWall() {
 
               {/* Input Area */}
               <div className="relative z-10 border-t-4 border-role/10 bg-role/5 p-6 backdrop-blur-md">
+                {!classId ? (
+                  /**
+                   * The send used to be a no-op: `handleSendMessage` returns early without a class,
+                   * so the button looked live and did nothing. It is disabled and says why.
+                   */
+                  <p className="mb-3 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-center text-sm text-fg-3">
+                    还没有读到你的班级信息，暂时不能发送。请点上面的「重新加载」重试。
+                  </p>
+                ) : null}
                 <form onSubmit={handleSendMessage} className="flex items-end space-x-4">
                   <div className="flex-1 rounded-card border-4 border-role/10 bg-surface-2 p-2 shadow-inner transition-all duration-300 focus-within:border-role/40">
                     {/*
@@ -341,7 +417,7 @@ export default function StudentInteractiveWall() {
                   </div>
                   <Button
                     type="submit"
-                    disabled={!newMessage.trim() || sending}
+                    disabled={!newMessage.trim() || sending || !classId}
                     aria-label="发送悄悄话"
                     className="size-16 shrink-0 rounded-card border-b-4 border-fg-1/20 p-0"
                   >

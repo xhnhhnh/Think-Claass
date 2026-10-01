@@ -50,6 +50,7 @@ interface Article {
 export default function AdminArticles() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   // The delete target and its in-flight flag, replacing the inline `confirm()`.
@@ -67,14 +68,19 @@ export default function AdminArticles() {
 
   const fetchArticles = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await portalApi.getArticles();
       if (data.success) {
         setArticles(data.articles);
       } else {
+        // A refused read is not an empty site. Both failure paths set the flag; the
+        // table renders it as 「加载失败」 rather than 「暂无文章」.
+        setLoadError(true);
         toast.error('获取文章失败');
       }
     } catch (error) {
+      setLoadError(true);
       toast.error('网络错误，无法获取文章数据');
     } finally {
       setLoading(false);
@@ -252,6 +258,8 @@ export default function AdminArticles() {
         rows={articles}
         getRowKey={(article) => article.id}
         isLoading={loading}
+        error={loadError}
+        onRetry={() => void fetchArticles()}
         empty={
           <EmptyState
             icon={FileText}

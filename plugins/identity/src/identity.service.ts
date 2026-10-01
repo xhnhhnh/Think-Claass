@@ -337,9 +337,28 @@ export class IdentityService {
 
   // -- activate ------------------------------------------------------------
 
-  async activate(body: Record<string, any>) {
+  async activate(body: Record<string, any>, actor?: RequestActor | null) {
     const { code, userId } = body ?? {};
-    if (!code || !userId) {
+
+    /**
+     * The account being opened is the caller's, whenever there is a caller.
+     *
+     * This route is public by design - activation happens before a usable session exists - so the
+     * body's `userId` used to be the only subject there was. That let anyone holding an unused code
+     * spend it on somebody else's account (`claimActivationCode` writes the code's owner and
+     * `activateUser` flips `users.is_activated`), and the victim had no way to notice. A logged-in
+     * caller may only activate themselves; an anonymous caller keeps the body-driven path, so the
+     * route stays public for the pre-session flow the e2e suite pins.
+     */
+    const actorId = actor && actor.id !== null ? actor.id : null;
+    const bodyId =
+      userId === undefined || userId === null || String(userId).trim() === '' ? null : Number(userId);
+    if (actorId !== null && bodyId !== null && bodyId !== actorId) {
+      throw new ApiError(403, '激活码只能用于当前登录的账号');
+    }
+
+    const subjectId = actorId ?? bodyId;
+    if (!code || subjectId === null || !Number.isFinite(subjectId)) {
       throw new ApiError(400, '激活码或用户ID缺失');
     }
 
@@ -351,10 +370,10 @@ export class IdentityService {
       throw new ApiError(400, '该激活码已被使用');
     }
 
-    this.repository.claimActivationCode(activationCode.id, Number(userId), new Date().toISOString());
+    this.repository.claimActivationCode(activationCode.id, subjectId, new Date().toISOString());
 
     const result = await this.activateUser({
-      userId: Number(userId),
+      userId: subjectId,
       source: 'activation_code',
       activationCode: String(code),
       remark: '通过激活码完成开通',
