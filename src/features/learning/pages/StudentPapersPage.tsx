@@ -19,7 +19,7 @@ import { usePapers } from '@/hooks/queries/usePapers';
  */
 export default function StudentPapers() {
   const navigate = useNavigate();
-  const { data: papers = [], isLoading } = usePapers();
+  const { data: papers = [], isLoading, isError, refetch } = usePapers();
 
   if (isLoading) {
     return (
@@ -27,6 +27,20 @@ export default function StudentPapers() {
         <div className="flex items-center justify-center gap-3 text-fg-3">
           <Spinner size="lg" label="正在加载试卷" />
           正在加载试卷...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageScaffold variant="list" title="试卷练习">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">试卷列表没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有可以练习的试卷。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

@@ -22,6 +22,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { StatCard } from '@/components/ui/stat-card';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { useStudentReport } from '@/hooks/queries/useAnalytics';
+import { useParentReportEnabled } from '@/features/platform/hooks/useParentReportEnabled';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
@@ -58,6 +59,9 @@ export default function ParentAssignments() {
   const [activeTab, setActiveTab] = useState<'assignments' | 'exams'>('assignments');
   const studentId = user?.studentId ?? null;
   const { data: report, isLoading, error } = useStudentReport(studentId);
+  // The same switch 成长足迹 reads: both screens render one report, so one of them honouring
+  // `enable_parent_report` and the other not made the setting half-applied.
+  const { enabled: reportEnabled } = useParentReportEnabled();
 
   // Registered before the three early returns below so the hook order is stable.
   useRegisterPageCommands([
@@ -87,6 +91,19 @@ export default function ParentAssignments() {
           className="mx-auto max-w-xl"
           title="等待宝贝加入"
           description="您的账号还没有绑定宝贝信息，绑定后这里会显示真实的学习记录与成绩。"
+        />
+      </PageScaffold>
+    );
+  }
+
+  if (!reportEnabled) {
+    return (
+      <PageScaffold variant="detail" title="学习采撷">
+        <EmptyState
+          icon={Heart}
+          className="mx-auto max-w-xl"
+          title="报告功能暂未开放"
+          description="管理员当前关闭了家长报告功能，作业与成绩记录也一并隐藏；请稍后再查看。"
         />
       </PageScaffold>
     );

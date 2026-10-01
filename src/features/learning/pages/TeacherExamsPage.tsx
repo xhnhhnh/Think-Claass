@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { examsApi, type Exam } from '@/features/learning/api/examsApi';
 import { useExamGrades, useExams } from '@/features/learning/hooks/useExams';
+import { useClasses } from '@/hooks/queries/useClasses';
 import { useStore } from '@/store/useStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useRegisterPageCommands } from '@/app/commands/registry';
@@ -41,8 +43,24 @@ import { useRegisterPageCommands } from '@/app/commands/registry';
 export default function TeacherExams() {
   const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
-  const classId = user?.class_id ?? 1;
+  const { data: classes = [] } = useClasses();
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const teacherId = user?.id ?? 1;
+
+  /**
+   * The class comes from the teacher's own class list.
+   *
+   * A teacher's login carries no `class_id` - only a student's and a parent's do (`identity.login`) -
+   * so `user?.class_id ?? 1` silently made class 1 the working class for every teacher. Creating an
+   * exam then wrote the exam *and one `student_exams` row per pupil of class 1* while the list
+   * (filtered by the teacher's own id) showed the teacher their own rows. The class dashboard,
+   * attendance and the analytics page all pick from `useClasses`; this page does the same.
+   */
+  useEffect(() => {
+    if (selectedClassId === null && classes.length > 0) setSelectedClassId(classes[0].id);
+  }, [classes, selectedClassId]);
+
+  const classId = selectedClassId;
 
   const { data: exams = [], isLoading, error } = useExams(classId);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -69,6 +87,9 @@ export default function TeacherExams() {
     mutationFn: examsApi.createExam,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['exams', classId] });
+      // The analytics page's "近期考试趋势" is built from these rows; without this it kept the old
+      // series for the whole 5-minute stale window.
+      await queryClient.invalidateQueries({ queryKey: ['analytics', 'class-overview', classId] });
       setShowCreateModal(false);
       setNewTitle('');
       setNewDesc('');
@@ -109,6 +130,7 @@ export default function TeacherExams() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['exam-grades', currentExam.id] }),
           queryClient.invalidateQueries({ queryKey: ['exams', classId] }),
+          queryClient.invalidateQueries({ queryKey: ['analytics', 'class-overview', classId] }),
         ]);
       }
       setShowGradeModal(false);
@@ -119,6 +141,10 @@ export default function TeacherExams() {
   const handleCreateExam = async (e: FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newTotalScore) return;
+    if (classId === null) {
+      toast.error('请先选择班级');
+      return;
+    }
 
     await createMutation.mutateAsync({
       class_id: classId,
@@ -168,10 +194,27 @@ export default function TeacherExams() {
       variant="dashboard"
       title="考试与成绩"
       actions={
-        <Button onClick={() => setShowCreateModal(true)}>
-          <PlusCircle data-icon="inline-start" />
-          新建考试
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-fg-2">
+            当前班级
+            <Select
+              aria-label="选择班级"
+              value={classId ?? ''}
+              onChange={(event) => setSelectedClassId(Number(event.target.value))}
+              className="min-w-40 rounded-card border border-line-1 bg-surface-2 px-3 py-2 text-fg-1"
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <Button onClick={() => setShowCreateModal(true)} disabled={classId === null}>
+            <PlusCircle data-icon="inline-start" />
+            新建考试
+          </Button>
+        </div>
       }
     >
 
@@ -188,7 +231,11 @@ export default function TeacherExams() {
         </div>
       )}
 
-      {!isLoading && !error && exams.length === 0 && (
+      {!isLoading && classes.length === 0 && (
+        <EmptyState icon={Award} title="还没有班级" description="请先在主控台创建班级，再安排考试。" />
+      )}
+
+      {!isLoading && !error && classes.length > 0 && exams.length === 0 && (
         <EmptyState icon={Award} title="还没有安排任何考试" />
       )}
 

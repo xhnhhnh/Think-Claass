@@ -36,7 +36,7 @@ import { Textarea } from '@/components/ui/textarea';
  * browser's `confirm`.
  */
 export default function TeacherWorldBoss() {
-  const { data: bosses = [], isLoading: loading, refetch } = useWorldBosses();
+  const { data: bosses = [], isLoading: loading, isError, refetch } = useWorldBosses();
   const bossMutation = useWorldBossMutation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
@@ -134,6 +134,14 @@ export default function TeacherWorldBoss() {
 
           {loading ? (
             <SkeletonList count={3} itemClassName="h-4" />
+          ) : isError ? (
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">世界BOSS数据加载失败</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表当前没有BOSS，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+                重新加载
+              </Button>
+            </div>
           ) : activeBoss ? (
             <div className="rounded-card border border-danger/20 bg-danger/10 p-6">
               <div className="mb-4 flex items-start justify-between">
@@ -219,6 +227,8 @@ export default function TeacherWorldBoss() {
           ]}
           rows={historyBosses}
           getRowKey={(boss) => boss.id}
+          error={isError}
+          onRetry={() => void refetch()}
           empty={
             <EmptyState
               icon={Trophy}

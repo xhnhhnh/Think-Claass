@@ -11,7 +11,7 @@ import {
   type MetricCardItem,
 } from '@/features/classroom/components/analytics/DataInsight';
 import { useStudentReport } from '@/hooks/queries/useAnalytics';
-import { useSettings } from '@/hooks/queries/useSettings';
+import { useParentReportEnabled } from '@/features/platform/hooks/useParentReportEnabled';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
@@ -56,7 +56,8 @@ function getAssignmentStatusText(status: string) {
 
 export default function ParentReport() {
   const user = useStore(state => state.user);
-  const { data: settings } = useSettings();
+  // The shared gate: 学习采撷 renders the same report and has to honour the same switch.
+  const { enabled: reportEnabled } = useParentReportEnabled();
   const { data: report, isLoading, error } = useStudentReport(user?.studentId ?? null);
 
   if (!user?.studentId) {
@@ -70,7 +71,7 @@ export default function ParentReport() {
     );
   }
 
-  if (settings?.enable_parent_report === '0') {
+  if (!reportEnabled) {
     return (
       <ReportNotice
         icon={AlertCircle}

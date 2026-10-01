@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 
 import { portalApi } from "@/features/portal/api/portalApi";
 import PortalShell from "@/features/portal/components/PortalShell";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 /**
@@ -19,21 +20,33 @@ import { Spinner } from "@/components/ui/spinner";
 export default function AboutPage() {
   const [aboutData, setAboutData] = useState<{ title: string; content: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  /**
+   * A failed read is not "the school has not written this page".
+   *
+   * Without this flag the body fell back to 「暂无关于我们内容的详细介绍。请在后台管理系统中添加。」
+   * - an instruction to an administrator, printed to a visitor, on the strength of a request
+   * that never arrived.
+   */
+  const [loadError, setLoadError] = useState(false);
+
+  const fetchAboutData = async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const data = await portalApi.getHomeContent();
+      if (data.success && data.data.about) {
+        setAboutData({ title: data.data.about.title || "", content: data.data.about.content || "" });
+      }
+    } catch (error) {
+      console.error("获取关于我们数据失败:", error);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAboutData = async () => {
-      try {
-        const data = await portalApi.getHomeContent();
-        if (data.success && data.data.about) {
-          setAboutData({ title: data.data.about.title || "", content: data.data.about.content || "" });
-        }
-      } catch (error) {
-        console.error("获取关于我们数据失败:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAboutData();
+    void fetchAboutData();
   }, []);
 
   return (
@@ -58,6 +71,14 @@ export default function AboutPage() {
           {loading ? (
             <div className="flex justify-center py-12">
               <Spinner size="lg" label="正在加载关于我们" className="text-role" />
+            </div>
+          ) : loadError ? (
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">关于我们内容加载失败</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表没有内容，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void fetchAboutData()}>
+                重新加载
+              </Button>
             </div>
           ) : (
             <motion.div

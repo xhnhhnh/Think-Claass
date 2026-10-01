@@ -99,11 +99,12 @@ describe('runtime configuration', () => {
 
     expect(flat).toHaveLength(9);
     expect(layouts).toHaveLength(4);
-    // 84 rather than the JSX tree's 80: the opening-guide round added `settings` to the student and
-    // the parent areas and `profile` to the admin console, and the homework round added five (the
-    // teacher list and grade sheet, the student list, attempt page and result page). This test's
-    // subject is that the injected path neither drops nor duplicates a route, so it moves with the
-    // table rather than pinning a number of its own.
-    expect(flat.length + layouts.length + children).toBe(92);
+    // 94 rather than the JSX tree's 80: the opening-guide round added `settings` to the student and
+    // the parent areas and `profile` to the admin console, the homework round added five (the teacher
+    // list and grade sheet, the student list, attempt page and result page), and the closure round
+    // added the admin's 题库管理 and the student's 考试成绩. This test's subject is that the injected
+    // path neither drops nor duplicates a route, so it moves with the table rather than pinning a
+    // number of its own.
+    expect(flat.length + layouts.length + children).toBe(94);
   });
 });

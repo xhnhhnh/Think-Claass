@@ -77,9 +77,24 @@ export default function AdminDashboardPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<File | null>(null);
 
-  const runExport = () => {
+  const runExport = async () => {
     setExportOpen(false);
-    window.location.href = adminClient.getDatabaseExportUrl();
+    try {
+      // Through the api client, not `window.location.href`: a browser navigation cannot send the
+      // Bearer token the export route requires, so this button used to answer 401 every time.
+      const blob = await adminClient.downloadDatabase();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `think-class-${new Date().toISOString().slice(0, 10)}.sqlite`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success('数据库已导出');
+    } catch {
+      toast.error('导出失败，请重试');
+    }
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {

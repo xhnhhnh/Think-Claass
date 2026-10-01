@@ -26,6 +26,15 @@ import { Textarea } from '@/components/ui/textarea';
 export default function AdminWebsite() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /**
+   * True when the last load failed.
+   *
+   * The form is prefilled from the server, and `updateHomeContent` upserts whatever it is given, so
+   * "load failed, form left empty, operator presses save" used to overwrite the live homepage with
+   * empty hero/about sections - a data-loss path with no undo. While this is set the form is not
+   * rendered at all; the only action offered is a retry.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [sections, setSections] = useState<Record<string, any>>({
     hero: { title: '', subtitle: '', buttonText: '' },
     features: [],
@@ -42,10 +51,13 @@ export default function AdminWebsite() {
           features: data.data.features || [],
           about: data.data.about || { title: '', content: '' },
         });
+        setLoadFailed(false);
       } else {
+        setLoadFailed(true);
         toast.error('获取网站内容失败');
       }
     } catch (error) {
+      setLoadFailed(true);
       toast.error('网络错误，无法获取网站内容');
     } finally {
       setLoading(false);
@@ -104,6 +116,16 @@ export default function AdminWebsite() {
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <Spinner size="lg" label="正在加载网站内容" className="text-role" />
+        </div>
+      ) : loadFailed ? (
+        <div className="mx-auto max-w-xl rounded-panel border border-danger/20 bg-danger/10 p-10 text-center">
+          <p className="text-lg font-bold text-danger">网站内容没有加载成功</p>
+          <p className="mt-2 text-sm text-fg-3">
+            表单是空的，直接保存会用空内容覆盖线上首页。请先重试。
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => void fetchWebsiteData()}>
+            重新加载
+          </Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">

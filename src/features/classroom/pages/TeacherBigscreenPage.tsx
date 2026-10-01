@@ -54,12 +54,30 @@ export default function TeacherBigscreen() {
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [bigscreenData, setBigscreenData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  /** Set when the class list itself could not be read: the stage then has nothing to show at all. */
+  const [classesError, setClassesError] = useState(false);
+  /**
+   * Set when a poll of the big-screen payload failed.
+   *
+   * This screen is projected, so a silent failure is the worst case: the page used to fall
+   * through to `null` and leave the teacher looking at an empty stage with no explanation.
+   * A failed *poll* keeps the last good frame (the data is still on screen); it is only the
+   * first load that has nothing to fall back on.
+   */
+  const [bigscreenError, setBigscreenError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownInput, setCountdownInput] = useState('10');
   const [showCountdownConfig, setShowCountdownConfig] = useState(false);
   const [prevBossHp, setPrevBossHp] = useState<number | null>(null);
-  const { features: classFeatures } = useResolvedClassFeatures(selectedClassId);
+  /**
+   * The class features, polled like the shell does.
+   *
+   * This page used to read them once per mount, so a teacher who switched 弹幕 on (or off) while the
+   * big screen was projected saw the old answer until they reloaded it - the one screen where nobody
+   * is sitting at the keyboard. Every other consumer polls at 5s.
+   */
+  const { features: classFeatures } = useResolvedClassFeatures(selectedClassId, { refetchInterval: 5000 });
 
   useEffect(() => {
     fetchClasses();
@@ -88,6 +106,7 @@ export default function TeacherBigscreen() {
   }, [countdown]);
 
   const fetchClasses = async () => {
+    setClassesError(false);
     try {
       const data = await classroomApi.getClasses();
       if (data.success) {
@@ -97,7 +116,10 @@ export default function TeacherBigscreen() {
         }
       }
     } catch (err) {
+      // A log alone left the stage reading 「暂无班级数据」, which blames the timetable for
+      // what was a failed request.
       console.error('Failed to fetch classes:', err);
+      setClassesError(true);
     }
   };
 
@@ -112,6 +134,7 @@ export default function TeacherBigscreen() {
   const fetchBigscreenData = async () => {
     if (!selectedClassId) return;
     setLoading(true);
+    setBigscreenError(false);
     try {
       const data = await classroomApi.getBigscreen(selectedClassId);
       if (data.success) {
@@ -119,6 +142,7 @@ export default function TeacherBigscreen() {
       }
     } catch (err) {
       console.error('Failed to fetch bigscreen data:', err);
+      setBigscreenError(true);
     } finally {
       setLoading(false);
     }
@@ -159,6 +183,20 @@ export default function TeacherBigscreen() {
       run: toggleFullscreen,
     },
   ]);
+
+  if (classesError && !classes.length) {
+    return (
+      <PageScaffold variant="immersive" className="p-8">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">班级列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有班级数据，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void fetchClasses()}>
+            重新加载
+          </Button>
+        </div>
+      </PageScaffold>
+    );
+  }
 
   if (!classes.length) {
     return <PageScaffold variant="immersive" className="p-8 text-center text-fg-3">暂无班级数据，请先创建班级。</PageScaffold>;
@@ -482,6 +520,14 @@ export default function TeacherBigscreen() {
               </div>
             </div>
           </div>
+        </div>
+      ) : bigscreenError ? (
+        <div className="relative z-10 rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">大屏数据加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表这个班级没有数据，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void fetchBigscreenData()}>
+            重新加载
+          </Button>
         </div>
       ) : null}
     </PageScaffold>

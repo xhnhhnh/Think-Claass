@@ -26,7 +26,7 @@ import { useStudyPlan } from '@/features/learning/hooks/useStudyPlan';
  */
 export default function StudentPlan() {
   const queryClient = useQueryClient();
-  const { data: plan, isLoading } = useStudyPlan();
+  const { data: plan, isLoading, isError, refetch } = useStudyPlan();
   const [creating, setCreating] = useState(false);
 
   const handleCreate = async () => {
@@ -70,6 +70,27 @@ export default function StudentPlan() {
         <div className="flex items-center justify-center gap-3 text-fg-3">
           <Spinner size="lg" label="正在加载学习计划" />
           正在加载学习计划...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    /**
+     * A failed read is not "no plan".
+     *
+     * 「暂无计划，点击"新建计划"开始」 is the sentence for a pupil who has never planned anything -
+     * shown after a failed request it invites them to create a second plan on top of one that
+     * already exists.
+     */
+    return (
+      <PageScaffold variant="detail" title="学习计划">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">学习计划没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表你没有计划，请重试后再决定是否新建。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

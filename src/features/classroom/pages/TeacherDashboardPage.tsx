@@ -50,7 +50,8 @@ export default function TeacherDashboard() {
 
   // Queries
   const { data: classes = [] } = useClasses();
-  const { data: students = [], isLoading: loadingStudents } = useStudents(selectedClassId);
+  const { data: students = [], isLoading: loadingStudents, isError: studentsFailed, refetch: refetchStudents } =
+    useStudents(selectedClassId);
   const { data: groups = [] } = useGroups(selectedClassId);
   const { data: presets = [] } = usePresets();
   const { data: settings } = useSettings();
@@ -429,7 +430,25 @@ export default function TeacherDashboard() {
             })}
             {filteredStudents.length === 0 && (
               <div className="col-span-full text-center py-12 text-fg-3 bg-surface-2/80 backdrop-blur-xl rounded-card border border-dashed border-line-1">
-                {search ? '没有匹配的学生，请调整搜索词。' : '班级还没有学生，点击“添加学生”开始。'}
+                {/*
+                  Three different situations used to share one sentence: an empty roster, a search
+                  with no hits, and a *failed read*. The last one is the dangerous one - a teacher
+                  reading 「班级还没有学生，点击"添加学生"开始」 while the request is broken will
+                  re-add pupils who are already there.
+                */}
+                {studentsFailed ? (
+                  <div className="space-y-3">
+                    <p className="font-semibold text-danger">学生名单没有加载出来</p>
+                    <p className="text-sm">这不代表班级是空的。请重试后再决定是否添加学生。</p>
+                    <Button variant="outline" onClick={() => void refetchStudents()}>
+                      重新加载
+                    </Button>
+                  </div>
+                ) : search ? (
+                  '没有匹配的学生，请调整搜索词。'
+                ) : (
+                  '班级还没有学生，点击“添加学生”开始。'
+                )}
               </div>
             )}
           </div>

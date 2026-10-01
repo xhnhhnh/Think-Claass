@@ -230,6 +230,20 @@ export default function TeacherHomeworkGrade() {
     );
   }
 
+  if (detail.isError) {
+    return (
+      <PageScaffold variant="detail">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">作业加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表这份作业不存在，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void detail.refetch()}>
+            重新加载
+          </Button>
+        </div>
+      </PageScaffold>
+    );
+  }
+
   if (!detail.data) {
     return (
       <PageScaffold variant="detail">
@@ -362,6 +376,14 @@ export default function TeacherHomeworkGrade() {
             <Spinner label="正在加载成绩单" />
             正在加载成绩单...
           </div>
+        ) : sheet.isError ? (
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">成绩单加载失败</p>
+            <p className="mt-1 text-sm text-fg-3">这不代表没有人提交，请重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void sheet.refetch()}>
+              重新加载
+            </Button>
+          </div>
         ) : (
           <GradeSheetTable
             rows={sheet.data ?? []}
@@ -383,6 +405,14 @@ export default function TeacherHomeworkGrade() {
         <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
           <Spinner label="正在加载作答" />
           正在加载作答...
+        </div>
+      ) : submission.isError ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">这名学生的作答加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表他没有作答，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void submission.refetch()}>
+            重新加载
+          </Button>
         </div>
       ) : !submissionData ? (
         <div className="rounded-panel border border-dashed border-line-1 bg-surface-2 py-10 text-center text-fg-3">

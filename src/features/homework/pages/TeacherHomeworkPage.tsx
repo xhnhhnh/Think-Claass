@@ -159,7 +159,7 @@ export default function TeacherHomework() {
   const navigate = useNavigate();
   const user = useStore((state) => state.user);
   const { data: classes = [] } = useClasses();
-  const { data: entries = [], isLoading } = useHomeworkList();
+  const { data: entries = [], isLoading, isError, refetch } = useHomeworkList();
 
   const homeworkIds = useMemo(() => entries.map((entry) => entry.id), [entries]);
   const { data: counts = {} } = useHomeworkSubmissionCounts(homeworkIds);
@@ -311,6 +311,14 @@ export default function TeacherHomework() {
           <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
             <Spinner label="正在加载作业" />
             正在加载作业...
+          </div>
+        ) : isError ? (
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">作业列表加载失败</p>
+            <p className="mt-1 text-sm text-fg-3">这不代表没有作业，请重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+              重新加载
+            </Button>
           </div>
         ) : entries.length === 0 ? (
           <EmptyState

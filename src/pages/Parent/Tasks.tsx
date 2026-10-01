@@ -53,7 +53,7 @@ interface FamilyTask {
 export default function ParentTasks() {
   const user = useStore(state => state.user);
   const studentId = user?.studentId ?? null;
-  const { data: tasks = [], isLoading: loading } = useFamilyTasks(studentId);
+  const { data: tasks = [], isLoading: loading, isError, refetch } = useFamilyTasks(studentId);
   const createMutation = useCreateFamilyTaskMutation(studentId);
   const updateMutation = useUpdateFamilyTaskStatusMutation(studentId);
   const deleteMutation = useDeleteFamilyTaskMutation(studentId);
@@ -182,6 +182,19 @@ export default function ParentTasks() {
             <div className="flex items-center justify-center gap-2 py-16 font-medium tracking-widest text-fg-3">
               <Spinner label="正在加载家庭约定" />
               翻阅记录中...
+            </div>
+          ) : isError ? (
+            /*
+              A failed read is not "no agreements yet". The empty state invites the parent to create
+              their first agreement; after a broken request that means a duplicate of one that may
+              already exist.
+            */
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">家庭约定没有加载出来</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表还没有约定，请重试后再决定是否新建。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+                重新加载
+              </Button>
             </div>
           ) : tasks.length === 0 ? (
             <EmptyState

@@ -46,6 +46,8 @@ export default function AdminAuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  /** True when the read failed: the table must say so rather than render "no entries". */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // Filters
   const [teacherId, setTeacherId] = useState('');
@@ -55,15 +57,31 @@ export default function AdminAuditLogs() {
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  const fetchLogs = async () => {
+  /**
+   * Fetch one page of logs.
+   *
+   * The overrides exist because the button handlers know what they want to ask for *now*: state
+   * updates are asynchronous, so a handler that called this without them would send the previous
+   * render's filters - which is exactly what 重置 used to do (it cleared the three fields, then
+   * called the old closure through a `setTimeout`, so the cleared values only ever reached the API
+   * if the page number happened to change as well).
+   */
+  const fetchLogs = async (
+    overrides: { page?: number; teacherId?: string; userId?: string; action?: string } = {},
+  ) => {
+    const nextPage = overrides.page ?? page;
+    const nextTeacherId = overrides.teacherId ?? teacherId;
+    const nextUserId = overrides.userId ?? userId;
+    const nextAction = overrides.action ?? actionFilter;
+
     setLoading(true);
     try {
       const data = await adminClient.getAuditLogs({
         limit,
-        offset: (page - 1) * limit,
-        teacherId: teacherId ? Number(teacherId) : undefined,
-        userId: userId ? Number(userId) : undefined,
-        action: actionFilter || undefined,
+        offset: (nextPage - 1) * limit,
+        teacherId: nextTeacherId ? Number(nextTeacherId) : undefined,
+        userId: nextUserId ? Number(nextUserId) : undefined,
+        action: nextAction || undefined,
       });
       if (data.success) {
         setLogs(data.data.map((log) => ({
@@ -76,10 +94,16 @@ export default function AdminAuditLogs() {
           created_at: log.createdAt ?? '',
         })));
         setTotal(data.total);
+        setLoadFailed(false);
       } else {
+        // A 200 carrying `success: false` is still a refusal: without this the table rendered its
+        // empty state, i.e. "the audit log has no entries" - the one sentence an audit page must
+        // never say on a failed read.
+        setLoadFailed(true);
         toast.error('获取审计日志失败');
       }
     } catch (error) {
+      setLoadFailed(true);
       toast.error('网络错误，无法获取审计日志');
     } finally {
       setLoading(false);
@@ -87,35 +111,23 @@ export default function AdminAuditLogs() {
   };
 
   useEffect(() => {
-    fetchLogs();
+    void fetchLogs();
   }, [page]);
 
-  /**
-   * 查询 refetches through this render's `fetchLogs`, which reads the filters this
-   * render holds - and, on a page other than the first, `setPage(1)` also triggers the
-   * effect above, so the request is issued twice and the effect's offset-0 one wins.
-   * That is one request more than the button needs, but *which* requests a control
-   * makes is behaviour, and this migration only moves markup onto the kit.
-   */
+  /** 查询: back to the first page, with the filters this render holds. */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchLogs();
+    void fetchLogs({ page: 1 });
   };
 
-  /**
-   * 重置 keeps the `setTimeout` it had before the refactor, and with it the wart: the
-   * timer calls this render's `fetchLogs`, so it still sends the *old* filter values -
-   * the cleared ones reach the API only through the effect above, and only when `page`
-   * actually changed. Fixing that would change what the button requests; see
-   * `handleSearch` for why that is out of scope here.
-   */
+  /** 重置: clear the three filters and ask for the unfiltered first page in one request. */
   const handleReset = () => {
     setTeacherId('');
     setUserId('');
     setActionFilter('');
     setPage(1);
-    setTimeout(fetchLogs, 0);
+    void fetchLogs({ page: 1, teacherId: '', userId: '', action: '' });
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -136,7 +148,7 @@ export default function AdminAuditLogs() {
       title="系统审计日志"
       description="查看系统的所有关键操作记录，用于安全审计和追踪溯源"
       actions={
-        <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+        <Button variant="outline" onClick={() => void fetchLogs()} disabled={loading}>
           <RefreshCw data-icon="inline-start" className={loading ? 'animate-spin' : undefined} />
           刷新数据
         </Button>
@@ -250,6 +262,8 @@ export default function AdminAuditLogs() {
         rows={logs}
         getRowKey={(log) => log.id}
         isLoading={loading}
+        error={loadFailed}
+        onRetry={() => void fetchLogs()}
         empty={
           <EmptyState
             icon={Shield}

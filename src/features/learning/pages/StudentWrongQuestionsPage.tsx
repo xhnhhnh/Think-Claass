@@ -22,7 +22,7 @@ import { useWrongQuestions } from '@/features/learning/hooks/useWrongQuestions';
  */
 export default function StudentWrongQuestions() {
   const queryClient = useQueryClient();
-  const { data: wrongs = [], isLoading } = useWrongQuestions();
+  const { data: wrongs = [], isLoading, isError, refetch } = useWrongQuestions();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [generated, setGenerated] = useState<Record<number, any[]>>({});
 
@@ -59,7 +59,17 @@ export default function StudentWrongQuestions() {
       title="错题本"
       description="系统会根据错题推荐相似题，并逐步生成你的练习计划"
     >
-      {wrongs.length === 0 ? (
+      {isError ? (
+        // A failed read is not an empty notebook: 「暂无错题」 would tell a pupil their mistakes were
+        // never recorded, when in fact the request never came back.
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">错题本没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表你没有错题，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
+        </div>
+      ) : wrongs.length === 0 ? (
         <EmptyState icon={FileText} title="暂无错题" />
       ) : (
         <div className="space-y-4">

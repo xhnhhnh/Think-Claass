@@ -25,6 +25,34 @@ export interface AdminCredentials {
   password: string;
 }
 
+/**
+ * One `question_bank` row, as `plugins/system` stores and `plugins/challenge` reads it.
+ *
+ * `options` and `answer` are TEXT columns holding JSON: the challenge mappers run `parseMaybeJson`
+ * over both, so an option list is `["A. 4","B. 7"]` and a multi-choice answer is `["A. 4","C. 8"]`.
+ * The single-choice and judge answers are plain strings, which is what the student page sends
+ * (`handleAnswer(question.id, opt)` / `'正确' | '错误'`).
+ */
+export interface QuestionBankItem {
+  id: number;
+  title: string;
+  type: string;
+  options: string | null;
+  answer: string;
+  explanation: string | null;
+  teacher_id: number | null;
+  created_at: string | null;
+}
+
+export interface UpsertQuestionBankInput {
+  title: string;
+  type: string;
+  options: string | null;
+  answer: string;
+  explanation: string | null;
+  teacher_id?: number | string | null;
+}
+
 function unwrapData<T>(response: { data?: T } | T): T {
   if (response && typeof response === 'object' && 'data' in (response as Record<string, unknown>)) {
     return (response as { data: T }).data;
@@ -76,6 +104,23 @@ export const adminClient = {
   testAiConnection: async (): Promise<AiConnectionTestResult> => {
     const response = await apiPost<{ success: true; data: AiConnectionTestResult }>('/api/admin/system/ai/test');
     return unwrapData(response);
+  },
+
+  /**
+   * `GET /api/admin/system/database/export` - the whole SQLite file, as a download.
+   *
+   * This used to be a URL the page assigned to `window.location.href`, which cannot carry the
+   * `Authorization: Bearer` header the kernel resolves actors from (`api/app.ts` ->
+   * `createRequestContextMiddleware` reads the header and nothing else) - so the download answered
+   * 401 in every deployment, and the button looked like it did nothing. Going through the axios
+   * instance keeps the session, and the blob is handed to the browser as a file.
+   */
+  downloadDatabase: async (): Promise<Blob> => {
+    const blob = await apiGet<Blob>('/api/admin/system/database/export', {
+      responseType: 'blob',
+      showError: false,
+    });
+    return blob as unknown as Blob;
   },
 
   getDatabaseExportUrl: (): string => '/api/admin/system/database/export',
@@ -162,5 +207,40 @@ export const adminClient = {
       description: input.description,
       contact_info: input.contactInfo,
     }),
+  /**
+   * `PUT /api/openapi/schools/:id`.
+   *
+   * The console could add a partner school and delete one, but not correct one - so a typo in a
+   * school's name or contact meant deleting the row (and its `id`, which the API keys reference) and
+   * creating a new one. Same payload shape as create: the route parses `contact_info`.
+   */
+  updateSchool: (id: number, input: UpsertOpenSchoolInput) =>
+    apiPut<{ success: true; school: OpenSchoolListItem }>(`/api/openapi/schools/${id}`, {
+      name: input.name,
+      description: input.description,
+      contact_info: input.contactInfo,
+    }),
   deleteSchool: (id: number) => apiDelete<{ success: true }>(`/api/openapi/schools/${id}`),
+
+  /**
+   * `question_bank` - the challenge's question source.
+   *
+   * These four routes have existed since the migration and were called by nothing: the challenge
+   * page draws its questions from `question_bank`, so on every fresh install it had none and
+   * 挑战模式 / 世界BOSS answered "暂无题目". The console owns them because the plugin gates all four on
+   * `requireAdmin` (`plugins/system/src/system.authorization.ts`).
+   *
+   * `teacherId` scopes the list to one teacher's rows; omit it to see the whole bank, which is what
+   * the console does - an admin is not "a teacher's" bank.
+   */
+  getQuestionBank: async (teacherId?: number | string): Promise<QuestionBankItem[]> => {
+    const suffix = teacherId === undefined || teacherId === '' ? '' : `?teacherId=${teacherId}`;
+    const response = await apiGet<{ success: true; questions: QuestionBankItem[] }>(`/api/system/questions${suffix}`);
+    return response.questions ?? [];
+  },
+  createQuestionBankItem: (input: UpsertQuestionBankInput) =>
+    apiPost<{ success: true; question: QuestionBankItem }>('/api/system/questions', input),
+  updateQuestionBankItem: (id: number, input: UpsertQuestionBankInput) =>
+    apiPut<{ success: true }>(`/api/system/questions/${id}`, input),
+  deleteQuestionBankItem: (id: number) => apiDelete<{ success: true }>(`/api/system/questions/${id}`),
 };

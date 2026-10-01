@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, CheckCircle, Copy, Key, Plus, Trash2 } from 'lucide-react';
+import { Building2, CheckCircle, Copy, Key, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { adminClient } from '@/features/admin/api/adminClient';
@@ -58,9 +58,12 @@ export default function AdminOpenApi() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
+  /** The school the dialog is editing; `null` means the dialog is creating a new one. */
+  const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [keyToDelete, setKeyToDelete] = useState<ApiKey | null>(null);
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
@@ -70,6 +73,8 @@ export default function AdminOpenApi() {
   const [schoolDesc, setSchoolDesc] = useState('');
   const [schoolContact, setSchoolContact] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  /** True while a delete is in flight, so the confirm dialog can stay open and disable itself. */
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -77,6 +82,7 @@ export default function AdminOpenApi() {
 
   const fetchData = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       if (activeTab === 'API_KEYS') {
         setApiKeys(
@@ -99,6 +105,10 @@ export default function AdminOpenApi() {
         );
       }
     } catch (error) {
+      // Both tabs share the fetch, so one flag covers both tables: whichever list is
+      // on screen says 「加载失败」 instead of its 「暂无...」 copy, which a rejected
+      // request used to reach by leaving the array empty.
+      setLoadError(true);
       toast.error('数据加载失败');
     } finally {
       setLoading(false);
@@ -130,15 +140,22 @@ export default function AdminOpenApi() {
   const handleDeleteKey = async () => {
     if (!keyToDelete) return;
     const id = keyToDelete.id;
-    setKeyToDelete(null);
+    setDeleting(true);
     try {
       const data = await adminClient.deleteOpenApiKey(id);
       if (data.success) {
         toast.success('密钥已删除');
-        fetchData();
+        // Closed only after the server agreed: the dialog used to vanish first, so a failed delete
+        // looked exactly like a successful one and the key was still in the list. A refusal arrives
+        // as a thrown `FetchError` (the api layer turns `success: false` into one), so the catch
+        // below is the other half of that guarantee.
+        setKeyToDelete(null);
+        await fetchData();
       }
     } catch (error) {
       toast.error('删除失败');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -148,21 +165,26 @@ export default function AdminOpenApi() {
 
     setSubmitting(true);
     try {
-      const data = await adminClient.createSchool({
+      const payload = {
         name: schoolName.trim(),
         description: schoolDesc.trim(),
         contactInfo: schoolContact.trim(),
-      });
+      };
+      /**
+       * One dialog, two routes: `POST` when no row is loaded, `PUT /api/openapi/schools/:id` when one
+       * is. The edit route had no caller at all, so a typo in a partner school's name or contact
+       * could only be fixed by deleting the row - which drops the `id` the API keys point at.
+       */
+      const data = editingSchool
+        ? await adminClient.updateSchool(editingSchool.id, payload)
+        : await adminClient.createSchool(payload);
 
       if (data.success) {
-        toast.success('入驻学校添加成功');
-        setIsSchoolModalOpen(false);
-        setSchoolName('');
-        setSchoolDesc('');
-        setSchoolContact('');
-        fetchData();
+        toast.success(editingSchool ? '入驻学校已更新' : '入驻学校添加成功');
+        closeSchoolModal();
+        await fetchData();
       } else {
-        toast.error('添加失败');
+        toast.error(editingSchool ? '更新失败' : '添加失败');
       }
     } catch (error) {
       toast.error('网络错误');
@@ -171,18 +193,38 @@ export default function AdminOpenApi() {
     }
   };
 
+  /** Opens the dialog empty (create) or filled with one row (edit). */
+  const openSchoolModal = (school: School | null) => {
+    setEditingSchool(school);
+    setSchoolName(school?.name ?? '');
+    setSchoolDesc(school?.description ?? '');
+    setSchoolContact(school?.contact_info ?? '');
+    setIsSchoolModalOpen(true);
+  };
+
+  const closeSchoolModal = () => {
+    setIsSchoolModalOpen(false);
+    setEditingSchool(null);
+    setSchoolName('');
+    setSchoolDesc('');
+    setSchoolContact('');
+  };
+
   const handleDeleteSchool = async () => {
     if (!schoolToDelete) return;
     const id = schoolToDelete.id;
-    setSchoolToDelete(null);
+    setDeleting(true);
     try {
       const data = await adminClient.deleteSchool(id);
       if (data.success) {
         toast.success('学校信息已删除');
-        fetchData();
+        setSchoolToDelete(null);
+        await fetchData();
       }
     } catch (error) {
       toast.error('删除失败');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -207,7 +249,7 @@ export default function AdminOpenApi() {
       label: '添加校园',
       icon: Building2,
       keywords: ['校园', '合作', '入驻'],
-      run: () => setIsSchoolModalOpen(true),
+      run: () => openSchoolModal(null),
       disabled: activeTab !== 'SCHOOLS',
     },
   ]);
@@ -256,7 +298,7 @@ export default function AdminOpenApi() {
         actions={
           <Button
             type="button"
-            onClick={() => (activeTab === 'API_KEYS' ? setIsKeyModalOpen(true) : setIsSchoolModalOpen(true))}
+            onClick={() => (activeTab === 'API_KEYS' ? setIsKeyModalOpen(true) : openSchoolModal(null))}
           >
             <Plus data-icon="inline-start" />
             {activeTab === 'API_KEYS' ? '生成新密钥' : '添加校园'}
@@ -319,6 +361,8 @@ export default function AdminOpenApi() {
             rows={apiKeys}
             getRowKey={(key) => key.id}
             isLoading={loading}
+            error={loadError}
+            onRetry={() => void fetchData()}
             empty={<EmptyState icon={Key} title="暂无生成的 API 密钥" className="rounded-none border-0" />}
           />
         ) : (
@@ -363,21 +407,34 @@ export default function AdminOpenApi() {
                 header: <span className="sr-only">操作</span>,
                 align: 'right',
                 render: (school) => (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`删除校园 ${school.name}`}
-                    className="text-danger hover:bg-danger-soft hover:text-danger"
-                    onClick={() => setSchoolToDelete(school)}
-                  >
-                    <Trash2 />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`编辑校园 ${school.name}`}
+                      className="text-fg-3 hover:bg-surface-3 hover:text-fg-1"
+                      onClick={() => openSchoolModal(school)}
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`删除校园 ${school.name}`}
+                      className="text-danger hover:bg-danger-soft hover:text-danger"
+                      onClick={() => setSchoolToDelete(school)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
                 ),
               },
             ]}
             rows={schools}
             getRowKey={(school) => school.id}
             isLoading={loading}
+            error={loadError}
+            onRetry={() => void fetchData()}
             empty={
               <EmptyState icon={Building2} title="暂无入驻的合作校园" className="rounded-none border-0" />
             }
@@ -420,11 +477,21 @@ export default function AdminOpenApi() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isSchoolModalOpen} onOpenChange={setIsSchoolModalOpen}>
+      <Dialog
+        open={isSchoolModalOpen}
+        onOpenChange={(open) => {
+          // Closing by the overlay or Esc must clear the edit target too, or the next "add" would
+          // save over the school that was open before.
+          if (!open) closeSchoolModal();
+          else setIsSchoolModalOpen(true);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>添加合作校园</DialogTitle>
-            <DialogDescription>入驻校园会展示在官网的合作列表中</DialogDescription>
+            <DialogTitle>{editingSchool ? '编辑合作校园' : '添加合作校园'}</DialogTitle>
+            <DialogDescription>
+              {editingSchool ? `正在修改「${editingSchool.name}」的资料` : '入驻校园会展示在官网的合作列表中'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateSchool} className="space-y-4">
             <FormField label="学校名称" required>
@@ -454,15 +521,17 @@ export default function AdminOpenApi() {
               />
             </FormField>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsSchoolModalOpen(false)}>
+              <Button type="button" variant="outline" onClick={closeSchoolModal}>
                 取消
               </Button>
               <Button type="submit" disabled={submitting}>
                 {submitting ? (
                   <>
-                    <Spinner label="正在添加" className="text-role-contrast" />
-                    添加中...
+                    <Spinner label={editingSchool ? '正在保存' : '正在添加'} className="text-role-contrast" />
+                    {editingSchool ? '保存中...' : '添加中...'}
                   </>
+                ) : editingSchool ? (
+                  '保存修改'
                 ) : (
                   '添加校园'
                 )}
@@ -483,6 +552,8 @@ export default function AdminOpenApi() {
         }
         confirmLabel="删除"
         destructive
+        isPending={deleting}
+        pendingLabel="删除中..."
         onConfirm={handleDeleteKey}
       />
 
@@ -495,6 +566,8 @@ export default function AdminOpenApi() {
         }
         confirmLabel="删除"
         destructive
+        isPending={deleting}
+        pendingLabel="删除中..."
         onConfirm={handleDeleteSchool}
       />
     </PageScaffold>

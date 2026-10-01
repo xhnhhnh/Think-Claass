@@ -107,7 +107,7 @@ function renderBlindBoxCard(
 }
 
 export default function TeacherBlindBox() {
-  const { data: boxes = [], isLoading, refetch } = useTeacherBlindBoxes();
+  const { data: boxes = [], isLoading, isError, refetch } = useTeacherBlindBoxes();
   const blindBoxMutation = useTeacherBlindBoxMutation();
 
   const handleToggle = async (box: BlindBox) => {
@@ -136,6 +136,8 @@ export default function TeacherBlindBox() {
         icon={Package}
         items={boxes}
         isLoading={isLoading}
+        error={isError}
+        onRetry={() => void refetch()}
         fields={blindBoxFields}
         createInitialForm={() => ({ name: '', description: '', price: 50, is_active: true })}
         mapItemToForm={(box) => ({

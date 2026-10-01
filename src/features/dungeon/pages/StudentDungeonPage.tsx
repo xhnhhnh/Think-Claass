@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 export default function StudentDungeon() {
   const user = useStore(state => state.user);
   const studentId = user?.studentId ?? user?.id ?? null;
-  const { data, isLoading: loading } = useDungeonRun(studentId);
+  const { data, isLoading: loading, isError, refetch } = useDungeonRun(studentId);
   const actionMutation = useDungeonActionMutation(studentId);
   const run = data?.run ?? null;
   const choices = data?.choices ?? [];
@@ -93,6 +93,22 @@ export default function StudentDungeon() {
         <div className="flex items-center justify-center gap-2 text-fg-3">
           <Spinner size="lg" label="正在加载地下城" />
           加载中...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">地下城数据没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表你没有正在进行的探索，也不代表你从未踏入过深渊。请重试，或稍后再看。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

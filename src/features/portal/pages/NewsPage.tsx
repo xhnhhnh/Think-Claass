@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, Eye, FileText, Newspaper } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 import { portalApi } from "@/features/portal/api/portalApi";
 import PortalShell from "@/features/portal/components/PortalShell";
@@ -44,21 +45,32 @@ interface Article {
 export default function NewsPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  /**
+   * A failed read is not an empty newsroom.
+   *
+   * The list used to fall through to 「暂无新闻内容」, which is the kind of sentence a
+   * visitor quotes back at you; the retry here re-runs the same request.
+   */
+  const [loadError, setLoadError] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [articleLoading, setArticleLoading] = useState(false);
 
+  const fetchArticles = async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const data = await portalApi.getArticles({ is_published: true, limit: 20 });
+      if (data.success) setArticles(data.articles);
+    } catch (error) {
+      console.error("获取新闻动态失败:", error);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchArticles = async () => {
-      try {
-        const data = await portalApi.getArticles({ is_published: true, limit: 20 });
-        if (data.success) setArticles(data.articles);
-      } catch (error) {
-        console.error("获取新闻动态失败:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchArticles();
+    void fetchArticles();
   }, []);
 
   const handleReadMore = async (id: number) => {
@@ -67,7 +79,9 @@ export default function NewsPage() {
       const data = await portalApi.getArticle(id);
       if (data.success) setSelectedArticle(data.article);
     } catch (error) {
+      // Was a log only: the card was clicked, no dialog opened and nothing explained why.
       console.error("获取文章详情失败:", error);
+      toast.error("文章加载失败，请重试");
     } finally {
       setArticleLoading(false);
     }
@@ -85,6 +99,14 @@ export default function NewsPage() {
       {loading ? (
         <div className="flex justify-center py-20">
           <Spinner size="lg" label="正在加载新闻" className="text-role" />
+        </div>
+      ) : loadError ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">新闻内容加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有内容，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void fetchArticles()}>
+            重新加载
+          </Button>
         </div>
       ) : articles.length === 0 ? (
         <EmptyState

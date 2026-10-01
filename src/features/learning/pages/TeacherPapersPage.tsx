@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -46,7 +46,7 @@ export default function TeacherPapers() {
   const { data: classes = [] } = useClasses();
   const { data: subjects = [] } = useSubjects();
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
-  const { data: papers = [], isLoading } = usePapers(selectedClassId ?? undefined);
+  const { data: papers = [], isLoading, isError, refetch } = usePapers(selectedClassId ?? undefined);
 
   const [createState, setCreateState] = useState({
     title: '',
@@ -60,9 +60,28 @@ export default function TeacherPapers() {
 
   const classOptions = useMemo(() => classes, [classes]);
 
+  // The filter is the strongest hint about which class a new paper is for, so it seeds the form -
+  // but only when the teacher has not chosen one themselves.
+  useEffect(() => {
+    if (selectedClassId === null) return;
+    setCreateState((prev) => (prev.class_id === null ? { ...prev, class_id: selectedClassId } : prev));
+  }, [selectedClassId]);
+
   const handleCreatePaper = async () => {
     if (!createState.title.trim()) {
       toast.error('请输入试卷名称');
+      return;
+    }
+    /**
+     * The class is required, and this is why.
+     *
+     * A paper's class is what makes it visible to a pupil: `learning.getPaper` refuses a student
+     * whose class is not `paper.class_id`, and the student list is filtered the same way. This form
+     * used to offer no class field at all, so every paper was created with `class_id: null` and no
+     * teacher could ever publish one a student could open - the editor has no class field either.
+     */
+    if (createState.class_id === null) {
+      toast.error('请选择试卷所属班级');
       return;
     }
     try {
@@ -76,7 +95,10 @@ export default function TeacherPapers() {
       setCreateState((prev) => ({ ...prev, title: '' }));
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       navigate(`/teacher/papers/${created.data.id}/edit`);
-    } catch (e) {}
+    } catch (error) {
+      // Was an empty `catch`: a refusal (or a bad payload) looked like a dead button.
+      toast.error(error instanceof Error ? error.message : '创建失败，请重试');
+    }
   };
 
   const handleCreateSubject = async (event: FormEvent) => {
@@ -89,7 +111,10 @@ export default function TeacherPapers() {
       toast.success('已新增学科');
       setSubjectName('');
       setShowSubjectDialog(false);
-    } catch (e) {}
+    } catch (e) {
+      // Was an empty `catch`: a refused subject name looked like a dialog that would not close.
+      toast.error(e instanceof Error ? e.message : '新增学科失败，请重试');
+    }
   };
 
   const handlePublish = async (paperId: number) => {
@@ -97,7 +122,14 @@ export default function TeacherPapers() {
       await papersApi.update(paperId, { status: 'published' });
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       toast.success('已发布');
-    } catch (e) {}
+    } catch (e) {
+      /**
+       * Was an empty `catch`, and this is the one that mattered: the backend refuses to publish a
+       * paper with no questions (400). The button looked dead - the row kept saying 草稿 with no
+       * reason given - so the teacher's next move was to press it again.
+       */
+      toast.error(e instanceof Error ? e.message : '发布失败，请重试');
+    }
   };
 
   const handleUnpublish = async (paperId: number) => {
@@ -105,7 +137,9 @@ export default function TeacherPapers() {
       await papersApi.update(paperId, { status: 'draft' });
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       toast.success('已取消发布');
-    } catch (e) {}
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '取消发布失败，请重试');
+    }
   };
 
   // The page's primary action, reachable from the command palette as well as the toolbar.
@@ -152,6 +186,22 @@ export default function TeacherPapers() {
                   ))}
                 </Select>
               </FormField>
+              <FormField label="新建试卷班级" className="w-full sm:w-44">
+                <Select
+                  aria-label="新建试卷班级"
+                  value={createState.class_id ?? ''}
+                  onChange={(e) =>
+                    setCreateState((prev) => ({ ...prev, class_id: e.target.value ? Number(e.target.value) : null }))
+                  }
+                >
+                  <option value="">请选择班级</option>
+                  {classOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
               <FormField label="新建默认学科" className="w-full sm:w-44">
                 <Select
                   value={createState.subject_id ?? ''}
@@ -180,6 +230,14 @@ export default function TeacherPapers() {
         <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
           <Spinner label="正在加载试卷" />
           正在加载试卷...
+        </div>
+      ) : isError ? (
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">试卷列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表试卷库是空的，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       ) : papers.length === 0 ? (
         <EmptyState icon={FileText} title="暂无试卷" />

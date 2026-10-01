@@ -42,15 +42,21 @@ function formatCodeDate(value: string | null | undefined) {
 export default function AdminCodes() {
   const [codes, setCodes] = useState<ActivationCodeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateCount, setGenerateCount] = useState(10);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const fetchCodes = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       setCodes(await adminClient.getActivationCodes());
     } catch (error) {
+      // The toast is gone after a few seconds; the table's error state is not. A failed
+      // read used to leave `codes` at its initial `[]`, which the table drew as
+      // 「暂无激活码记录」 - a statement about the data, from a request that never landed.
+      setLoadError(true);
       toast.error('网络错误');
     } finally {
       setLoading(false);
@@ -244,6 +250,8 @@ export default function AdminCodes() {
         rows={codes}
         getRowKey={(code) => code.id}
         isLoading={loading}
+        error={loadError}
+        onRetry={() => void fetchCodes()}
         empty={<EmptyState icon={Key} title="暂无激活码记录" className="bg-surface-2" />}
       />
     </PageScaffold>

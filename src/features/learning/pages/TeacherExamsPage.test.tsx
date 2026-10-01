@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),
   useExams: vi.fn(),
   useExamGrades: vi.fn(),
+  useClasses: vi.fn(),
   createExam: vi.fn(),
   deleteExam: vi.fn(),
   saveExamGrades: vi.fn(),
@@ -17,6 +18,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/store/useStore', () => ({
   useStore: mocks.useStore,
+}));
+
+vi.mock('@/hooks/queries/useClasses', () => ({
+  useClasses: mocks.useClasses,
 }));
 
 vi.mock('@/features/learning/hooks/useExams', () => ({
@@ -44,6 +49,12 @@ describe('TeacherExams', () => {
     mocks.useStore.mockImplementation((selector: any) =>
       selector({ user: { id: 7, class_id: 1 } }),
     );
+    // The page picks its class from the teacher's own class list: a teacher's login carries no
+    // `class_id`, which is what `user?.class_id ?? 1` used to paper over.
+    mocks.useClasses.mockReturnValue({
+      data: [{ id: 1, name: '一班' }],
+      isLoading: false,
+    });
     mocks.useExams.mockReturnValue({
       data: [
         {

@@ -52,7 +52,7 @@ export default function TeacherTaskTree() {
   const queryClient = useQueryClient();
   const { data: classes = [] } = useClasses();
   const classId = useMemo(() => classes[0]?.id ?? null, [classes]);
-  const { data: nodes = [] } = useTeacherTaskNodes(classId);
+  const { data: nodes = [], isError, refetch } = useTeacherTaskNodes(classId);
   const createMutation = useCreateTaskNodeMutation();
   const updateMutation = useUpdateTaskNodeMutation();
   const deleteMutation = useDeleteTaskNodeMutation();
@@ -259,7 +259,17 @@ export default function TeacherTaskTree() {
           </motion.div>
         ))}
 
-        {nodes.length === 0 && (
+        {isError ? (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+              <p className="font-semibold text-danger">任务树节点加载失败</p>
+              <p className="mt-1 text-sm text-fg-3">这不代表任务树是空的，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+                重新加载
+              </Button>
+            </div>
+          </div>
+        ) : nodes.length === 0 && (
           <EmptyState
             icon={GitBranch}
             title="暂无节点，点击右上角新建根节点开始构建任务树"

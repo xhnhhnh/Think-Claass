@@ -50,7 +50,7 @@ export default function TeacherLuckyDrawConfig() {
     },
     enabled: !!user?.id,
   });
-  const { data: configData, isLoading: loading, refetch } = useLuckyDrawConfig(user?.id ?? null);
+  const { data: configData, isLoading: loading, isError, refetch } = useLuckyDrawConfig(user?.id ?? null);
   const saveMutation = useSaveLuckyDrawConfigMutation(user?.id ?? null);
   const saving = saveMutation.isPending;
 
@@ -132,6 +132,27 @@ export default function TeacherLuckyDrawConfig() {
       <PageScaffold variant="form" className="flex items-center justify-center gap-2 p-8 text-fg-3">
         <Spinner label="正在加载抽奖配置" />
         加载中...
+      </PageScaffold>
+    );
+  }
+
+  /**
+   * A failed read is not "the config is empty".
+   *
+   * `configs` stays `[]` when the request is rejected, so the page used to paint an empty
+   * card - and, worse, 保存设置 would then write those nine blank slots over the teacher's
+   * real settings. The error state is what stops that guess from being saved.
+   */
+  if (isError) {
+    return (
+      <PageScaffold variant="form">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">抽奖配置加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表配置为空，请重试后再修改。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }

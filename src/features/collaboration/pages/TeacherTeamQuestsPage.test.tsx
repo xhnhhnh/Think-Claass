@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),
   useTeamQuests: vi.fn(),
   useTeamQuestGroupProgress: vi.fn(),
+  useClasses: vi.fn(),
   createTeamQuest: vi.fn(),
   deleteTeamQuest: vi.fn(),
   toastSuccess: vi.fn(),
@@ -16,6 +17,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/store/useStore', () => ({
   useStore: mocks.useStore,
+}));
+
+vi.mock('@/hooks/queries/useClasses', () => ({
+  useClasses: mocks.useClasses,
 }));
 
 vi.mock('@/features/collaboration/hooks/useTeamQuests', () => ({
@@ -42,6 +47,12 @@ describe('TeacherTeamQuests', () => {
     mocks.useStore.mockImplementation((selector: any) =>
       selector({ user: { id: 9, class_id: 1 } }),
     );
+    // The page resolves its class from the teacher's own class list, so the test supplies one
+    // rather than relying on a `user.class_id` a teacher's session does not actually carry.
+    mocks.useClasses.mockReturnValue({
+      data: [{ id: 1, name: '一班' }],
+      isLoading: false,
+    });
     mocks.useTeamQuests.mockReturnValue({
       data: [
         {

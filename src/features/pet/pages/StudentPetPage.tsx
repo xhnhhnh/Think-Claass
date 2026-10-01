@@ -42,7 +42,7 @@ export default function StudentPet() {
   const classId = Number(user?.classId ?? user?.class_id) || null;
   const { data: classFeatureData } = useClassFeatures(classId, { refetchInterval: 5000 });
   const showDanmaku = Boolean(classFeatureData?.features.enable_danmaku);
-  const { data, isLoading, refetch } = useStudentPetData(studentId);
+  const { data, isLoading, isError, refetch } = useStudentPetData(studentId);
   const petMutation = usePetActionMutation(studentId);
   const [pet, setPet] = useState<PetDto | null>(null);
   const loading = isLoading;
@@ -149,6 +149,22 @@ export default function StudentPet() {
         <div className="flex items-center justify-center gap-2 text-fg-3">
           <Spinner size="lg" label="正在加载精灵数据" />
           加载中...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageScaffold variant="dashboard" className="flex items-center justify-center p-20">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">精灵数据没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表你还没有精灵，下面的领养引导现在也不该出现。请重试，或稍后再看。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

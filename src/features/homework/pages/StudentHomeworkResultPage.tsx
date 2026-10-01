@@ -92,6 +92,37 @@ export default function StudentHomeworkResult() {
     );
   }
 
+  if (mine.isError || detail.isError) {
+    /**
+     * A failed read is not "this homework was deleted".
+     *
+     * The branch below claims the homework is gone - which is only true when the request
+     * succeeded and answered with nothing. On a broken request that sentence tells a pupil
+     * their work disappeared, and the one thing they should do (retry) is the one thing the
+     * page did not offer.
+     */
+    return (
+      <PageScaffold variant="detail" className="flex items-center justify-center py-20">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">作业结果没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">
+            这不代表这份作业被老师删除了，也不代表你没有提交记录——只是这一次没读到。请重试，或稍后再看。
+          </p>
+          <Button
+            variant="outline"
+            className="mt-3"
+            onClick={() => {
+              void mine.refetch();
+              void detail.refetch();
+            }}
+          >
+            重新加载
+          </Button>
+        </div>
+      </PageScaffold>
+    );
+  }
+
   if (!entry || !detail.data) {
     return (
       <PageScaffold
@@ -234,6 +265,14 @@ export default function StudentHomeworkResult() {
               <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
                 <Spinner label="正在加载作答" />
                 正在加载作答...
+              </div>
+            ) : submission.isError ? (
+              <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+                <p className="font-semibold text-danger">逐题结果没有加载出来</p>
+                <p className="mt-1 text-sm text-fg-3">这不代表这份作业没有逐题结果。请重试，或稍后再看。</p>
+                <Button variant="outline" className="mt-3" onClick={() => void submission.refetch()}>
+                  重新加载
+                </Button>
               </div>
             ) : questions.length === 0 ? (
               <p className="rounded-card border border-dashed border-line-1 bg-surface-2 px-4 py-6 text-center text-sm text-fg-3">

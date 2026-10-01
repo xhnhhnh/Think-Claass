@@ -36,10 +36,10 @@ import { Toolbar } from '@/components/ui/toolbar';
  */
 export default function TeacherKnowledgeGraph() {
   const queryClient = useQueryClient();
-  const { data: subjects = [], isLoading: isSubjectsLoading } = useSubjects();
+  const { data: subjects = [], isLoading: isSubjectsLoading, isError: isSubjectsError, refetch: refetchSubjects } = useSubjects();
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
-  const { data: nodes = [], isLoading: isNodesLoading } = useKnowledgeNodes(selectedSubjectId);
-  const { data: edges = [] } = useKnowledgeEdges(selectedSubjectId);
+  const { data: nodes = [], isLoading: isNodesLoading, isError: isNodesError, refetch: refetchNodes } = useKnowledgeNodes(selectedSubjectId);
+  const { data: edges = [], isError: isEdgesError, refetch: refetchEdges } = useKnowledgeEdges(selectedSubjectId);
 
   useEffect(() => {
     if (!selectedSubjectId && subjects.length) setSelectedSubjectId(subjects[0].id);
@@ -66,7 +66,10 @@ export default function TeacherKnowledgeGraph() {
       toast.success('已新增学科');
       setSubjectName('');
       setShowSubjectDialog(false);
-    } catch (e) {}
+    } catch (e) {
+      // Was an empty `catch`: the dialog stayed open with no explanation.
+      toast.error(e instanceof Error ? e.message : '新增学科失败，请重试');
+    }
   };
 
   const handleCreateNode = async () => {
@@ -84,7 +87,10 @@ export default function TeacherKnowledgeGraph() {
       setNewNodeState({ name: '', parent_id: null });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-nodes', selectedSubjectId] });
       toast.success('已新增知识点');
-    } catch (e) {}
+    } catch (e) {
+      // Was an empty `catch`: 添加 looked like it had simply not registered the click.
+      toast.error(e instanceof Error ? e.message : '新增知识点失败，请重试');
+    }
   };
 
   const handleDeleteNode = async () => {
@@ -96,6 +102,12 @@ export default function TeacherKnowledgeGraph() {
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已删除');
     } catch (e) {
+      /**
+       * Was an empty `catch`. The dialog still closes below, so without this the deletion
+       * failure was indistinguishable from a successful one: the row stayed on screen and
+       * nothing had been said. The toast is what makes the difference visible.
+       */
+      toast.error(e instanceof Error ? e.message : '删除知识点失败，请重试');
     } finally {
       setIsDeleting(false);
       setNodeToDelete(null);
@@ -117,7 +129,10 @@ export default function TeacherKnowledgeGraph() {
       });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已新增依赖关系');
-    } catch (e) {}
+    } catch (e) {
+      // Was an empty `catch`, on a form whose two selects keep their values either way.
+      toast.error(e instanceof Error ? e.message : '新增依赖关系失败，请重试');
+    }
   };
 
   const handleDeleteEdge = async () => {
@@ -128,6 +143,9 @@ export default function TeacherKnowledgeGraph() {
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已删除');
     } catch (e) {
+      // Same shape as the node delete above: the confirm closes either way, so the toast is
+      // the only thing that separates a refusal from a success.
+      toast.error(e instanceof Error ? e.message : '删除依赖关系失败，请重试');
     } finally {
       setIsDeleting(false);
       setEdgeToDelete(null);
@@ -150,6 +168,20 @@ export default function TeacherKnowledgeGraph() {
       <PageScaffold variant="dashboard" className="flex items-center justify-center gap-3 py-20 text-fg-3">
         <Spinner label="正在加载学科" />
         正在加载学科...
+      </PageScaffold>
+    );
+  }
+
+  if (isSubjectsError) {
+    return (
+      <PageScaffold variant="dashboard">
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">学科列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表还没有学科，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetchSubjects()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }
@@ -226,6 +258,14 @@ export default function TeacherKnowledgeGraph() {
                 <Spinner label="正在加载节点" />
                 正在加载节点...
               </div>
+            ) : isNodesError ? (
+              <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+                <p className="font-semibold text-danger">知识点节点加载失败</p>
+                <p className="mt-1 text-sm text-fg-3">这不代表没有节点，请重试。</p>
+                <Button variant="outline" className="mt-3" onClick={() => void refetchNodes()}>
+                  重新加载
+                </Button>
+              </div>
             ) : nodes.length === 0 ? (
               <EmptyState title="暂无节点" />
             ) : (
@@ -296,7 +336,15 @@ export default function TeacherKnowledgeGraph() {
               </Select>
             </div>
 
-            {edges.length === 0 ? (
+            {isEdgesError ? (
+              <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+                <p className="font-semibold text-danger">依赖关系加载失败</p>
+                <p className="mt-1 text-sm text-fg-3">这不代表没有依赖关系，请重试。</p>
+                <Button variant="outline" className="mt-3" onClick={() => void refetchEdges()}>
+                  重新加载
+                </Button>
+              </div>
+            ) : edges.length === 0 ? (
               <EmptyState title="暂无依赖关系" />
             ) : (
               <div className="space-y-2">
