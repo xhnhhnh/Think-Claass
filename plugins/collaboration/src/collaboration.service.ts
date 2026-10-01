@@ -61,6 +61,7 @@ import type {
   PeerReviewFilter,
   PeerReviewInsert,
   PeerReviewRow,
+  PeerReviewView,
   TeacherNodeInsert,
   TeacherNodeUpdate,
   TeamQuestFilter,
@@ -260,8 +261,14 @@ export class CollaborationService {
    * sees the reviews they wrote or received (`本人相关`), a teacher the reviews of their own
    * students. A query that names somebody outside that set is refused rather than answered, and the
    * rows the query returns are filtered to it - the legacy query returned the whole table.
+   *
+   * The two names come back with the rows. `peer_reviews` stores ids only, and a review whose
+   * counterpart is «#42» is not something a pupil can read: `GET /api/peer-reviews` had no caller
+   * anywhere for exactly that reason, while `POST` has one (the review a pupil gives). Names are
+   * resolved through `classroom.public` in one batch per id, deduped, and an id that no longer
+   * resolves (a removed pupil) answers `null` rather than dropping the row.
    */
-  async listPeerReviewsFor(actor: RequestActor, queryInput: Record<string, any>): Promise<PeerReviewRow[]> {
+  async listPeerReviewsFor(actor: RequestActor, queryInput: Record<string, any>): Promise<PeerReviewView[]> {
     const scope = await this.scopedStudentIds(actor);
     const query = queryInput ?? {};
 
@@ -273,9 +280,35 @@ export class CollaborationService {
     }
 
     const rows = this.listPeerReviews(query);
-    if (scope === null) return rows;
-    const allowed = new Set(scope);
-    return rows.filter((row) => allowed.has(Number(row.reviewer_id)) || allowed.has(Number(row.reviewee_id)));
+    const visible =
+      scope === null
+        ? rows
+        : (() => {
+            const allowed = new Set(scope);
+            return rows.filter(
+              (row) => allowed.has(Number(row.reviewer_id)) || allowed.has(Number(row.reviewee_id)),
+            );
+          })();
+
+    const names = await this.studentNames(
+      visible.flatMap((row) => [Number(row.reviewer_id), Number(row.reviewee_id)]),
+    );
+
+    return visible.map((row) => ({
+      ...row,
+      reviewer_name: names.get(Number(row.reviewer_id)) ?? null,
+      reviewee_name: names.get(Number(row.reviewee_id)) ?? null,
+    }));
+  }
+
+  /** Student id -> name, one lookup per distinct id, through the classroom port. */
+  private async studentNames(ids: number[]): Promise<Map<number, string>> {
+    const names = new Map<number, string>();
+    for (const id of new Set(ids.filter((value) => Number.isFinite(value) && value > 0))) {
+      const student = await this.classroom.getStudentById(id);
+      if (student) names.set(id, student.name);
+    }
+    return names;
   }
 
   // -------------------------------------------------------------------------

@@ -87,6 +87,18 @@ export interface PeerReviewRow {
   created_at: string;
 }
 
+/**
+ * A row as `GET /api/peer-reviews` answers it: the row plus both display names.
+ *
+ * The names are resolved at read time from `classroom.public`, not stored - and `null` is a real
+ * answer (the pupil's record is gone, or the port no longer knows the id), which is why it is not
+ * simply omitted.
+ */
+export interface PeerReviewView extends PeerReviewRow {
+  reviewer_name: string | null;
+  reviewee_name: string | null;
+}
+
 /** A `student_groups` row: read-only here, for the group name on a progress bucket. */
 export interface GroupRow {
   id: number;

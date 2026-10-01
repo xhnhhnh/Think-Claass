@@ -4,6 +4,7 @@ import { Search, UserPlus, Users, PlusCircle, CheckSquare, Square, Edit2, Dice5 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
+import { SectionCard } from '@/components/ui/section-card';
 import { Select } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
@@ -20,6 +21,7 @@ import { useSettings } from '@/hooks/queries/useSettings';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { analyticsApi } from '@/features/classroom/api/analyticsApi';
 import { teacherApi } from '@/features/classroom/api/classesApi';
+import { praisesApi, type Praise } from '@/features/engagement/api/praisesApi';
 import { useStore } from '@/store/useStore';
 import { launchConfetti } from '@/lib/confetti';
 import { FirstRunWizard } from '@/features/onboarding/FirstRunWizard';
@@ -47,6 +49,11 @@ export default function TeacherDashboard() {
   const [search, setSearch] = useState('');
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [showTools, setShowTools] = useState(false);
+
+  /** 最近表扬: the class's praise roll-up, read through `praisesApi.getClassPraises`. */
+  const [praises, setPraises] = useState<Praise[]>([]);
+  const [praisesLoading, setPraisesLoading] = useState(false);
+  const [praisesFailed, setPraisesFailed] = useState(false);
 
   // Queries
   const { data: classes = [] } = useClasses();
@@ -108,6 +115,8 @@ export default function TeacherDashboard() {
       toast.success('表扬信发送成功！学生已获得经验加成！');
       triggerConfetti();
       setShowPraiseModal(false);
+      // The roll-up above is stale the moment the praise is stored.
+      void loadPraises();
     }
   });
 
@@ -157,6 +166,38 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     setSelectedStudents([]);
+  }, [selectedClassId]);
+
+  /**
+   * 最近表扬: re-read whenever the class changes, and after the praise modal sends one.
+   *
+   * Deliberately not a query hook: this page owns its fragments (students, groups, presets) through
+   * the hooks layer and its class-scoped extras through effects, and the roll-up is one of the
+   * extras. A failed read is a state of its own - 「还没有表扬记录」 would otherwise tell a teacher
+   * that nobody in the class has ever been praised.
+   */
+  const loadPraises = async () => {
+    if (!selectedClassId) {
+      setPraises([]);
+      return;
+    }
+    setPraisesLoading(true);
+    setPraisesFailed(false);
+    try {
+      const data = await praisesApi.getClassPraises(selectedClassId);
+      setPraises(data.success ? data.praises : []);
+      setPraisesFailed(!data.success);
+    } catch (error) {
+      console.error('Failed to fetch class praises:', error);
+      setPraisesFailed(true);
+    } finally {
+      setPraisesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPraises();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClassId]);
 
   const triggerConfetti = () => {
@@ -454,6 +495,59 @@ export default function TeacherDashboard() {
           </div>
         </DndContext>
       )}
+
+      {/*
+        最近表扬 - the class roll-up of the praise the teacher hands out one pupil at a time.
+
+        `GET /api/praises?classId=` was the last route in the praise family with no caller: the modal
+        below can send a praise and each pupil's page can read their own, but nothing showed a class
+        what it had been praised for.
+      */}
+      {selectedClassId ? (
+        <SectionCard
+          title="最近表扬"
+          description="这个班收到过的表扬，最新的在上面"
+          actions={
+            <Button variant="outline" size="sm" onClick={() => navigate('/teacher/features')}>
+              班级功能
+            </Button>
+          }
+        >
+          {praisesLoading ? (
+            <p className="py-4 text-sm text-fg-3">正在加载表扬记录...</p>
+          ) : praisesFailed ? (
+            <div className="rounded-panel border border-danger/20 bg-danger/10 px-4 py-6 text-center text-sm">
+              <p className="font-semibold text-danger">表扬记录没有加载出来</p>
+              <p className="mt-1 text-fg-3">这不代表这个班没有被表扬过，请重试。</p>
+              <Button variant="outline" className="mt-3" onClick={() => void loadPraises()}>
+                重新加载
+              </Button>
+            </div>
+          ) : praises.length === 0 ? (
+            <p className="text-sm text-fg-3">还没有表扬记录。点学生卡片上的「表扬」写下第一条。</p>
+          ) : (
+            <ul className="space-y-2">
+              {praises.slice(0, 5).map((praise) => (
+                <li
+                  key={praise.id}
+                  className="flex items-start justify-between gap-4 rounded-card border border-line-1 bg-surface-3/40 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-fg-1">
+                      {praise.student_name || `学生 #${praise.student_id}`}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-fg-2">{praise.content}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-fg-3">{String(praise.created_at ?? '').slice(0, 10)}</span>
+                </li>
+              ))}
+              {praises.length > 5 ? (
+                <li className="text-xs text-fg-3">共 {praises.length} 条，只显示最近 5 条。</li>
+              ) : null}
+            </ul>
+          )}
+        </SectionCard>
+      ) : null}
 
       {selectedClassId && <details className="rounded-panel border border-line-1 bg-surface-2 p-5 shadow-card">
         <summary className="cursor-pointer font-semibold text-fg-1">班级策略与功能设置</summary>

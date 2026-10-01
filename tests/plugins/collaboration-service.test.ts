@@ -757,6 +757,42 @@ describe('CollaborationService peer reviews', () => {
       comment: null,
     });
   });
+
+  /**
+   * The read answers names, not ids.
+   *
+   * `peer_reviews` stores two ids and nothing else, and a pupil reading 「#102 给了你 5 分」 is not
+   * reading a peer review. The names come from `classroom.public` - and an id the port no longer
+   * knows is `null` rather than a dropped row, because the review still happened.
+   *
+   * The actor is an admin (`isStaffAdmin`), whose scope is everything: the point here is the name
+   * resolution, and the narrowing by actor is the separate test below it.
+   */
+  const admin = { id: 1, role: 'superadmin', username: 'root' } as never;
+
+  it('resolves both names through the classroom port', async () => {
+    service.createPeerReview({ reviewer_id: 101, reviewee_id: 102, assignment_id: 3, score: 5, comment: '很棒' });
+
+    const rows = await service.listPeerReviewsFor(admin, {});
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      reviewer_id: 101,
+      reviewee_id: 102,
+      reviewer_name: '小明',
+      reviewee_name: '小红',
+    });
+  });
+
+  it('answers null for a name the port cannot resolve, and still returns the row', async () => {
+    service.createPeerReview({ reviewer_id: 101, reviewee_id: 999, assignment_id: 3, score: 4, comment: 'x' });
+
+    const rows = await service.listPeerReviewsFor(admin, {});
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].reviewer_name).toBe('小明');
+    expect(rows[0].reviewee_name).toBeNull();
+  });
 });
 
 /**
