@@ -27,6 +27,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { sameText } from './lib/text.mjs';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const MANIFEST = path.join(ROOT, 'plugins', 'classroom', 'plugin.json');
@@ -128,7 +130,7 @@ if (!fs.existsSync(TARGET)) {
 }
 
 const current = fs.readFileSync(TARGET, 'utf8');
-if (current !== next) {
+if (!sameText(current, next)) {
   process.stderr.write(
     `${rel} is out of date with plugins/${OWNER}/plugin.json.\n` +
       `The manifest is the source of truth for which class features exist; regenerate with:\n` +

@@ -15,15 +15,18 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { PageScaffold } from '@/components/ui/page-scaffold';
+import { SectionCard } from '@/components/ui/section-card';
 import { Spinner } from '@/components/ui/spinner';
 import { StatCard } from '@/components/ui/stat-card';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
+import { teamQuestsApi, type PeerReviewView } from '@/features/collaboration/api/teamQuestsApi';
 import { launchConfetti } from '@/lib/confetti';
 import { CELEBRATION } from '@/lib/celebrationPalette';
 
@@ -58,6 +61,10 @@ export default function StudentPeerReview() {
   const [loading, setLoading] = useState(true);
   /** The roster read failed: an empty list here is "we could not ask", not "you are done". */
   const [loadError, setLoadError] = useState(false);
+  /** 我的互评记录: the rows `GET /api/peer-reviews` scopes to this pupil. */
+  const [records, setRecords] = useState<PeerReviewView[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
+  const [recordsError, setRecordsError] = useState(false);
 
   const [selectedPeer, setSelectedPeer] = useState<PendingPeer | null>(null);
   const [score, setScore] = useState<number>(0);
@@ -66,6 +73,16 @@ export default function StudentPeerReview() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+
+  /**
+   * The two halves of 我的互评记录.
+   *
+   * One request answers both: `GET /api/peer-reviews` is scoped to the caller server-side (a pupil
+   * sees the rows they are party to), so which side a row falls on is simply which id is mine.
+   */
+  const myStudentId = user?.studentId ?? null;
+  const received = myStudentId === null ? [] : records.filter((review) => review.reviewee_id === myStudentId);
+  const given = myStudentId === null ? [] : records.filter((review) => review.reviewer_id === myStudentId);
 
   const fetchPendingPeers = async () => {
     setLoadError(false);
@@ -90,8 +107,33 @@ export default function StudentPeerReview() {
   useEffect(() => {
     if (user?.studentId) {
       fetchPendingPeers();
+      void fetchRecords();
     }
   }, [user]);
+
+  /**
+   * 我的互评记录: the reviews the caller is party to.
+   *
+   * Split locally into received/given rather than asking twice: the route answers one scoped list,
+   * and both halves are slices of it.
+   */
+  const fetchRecords = async () => {
+    setRecordsLoading(true);
+    setRecordsError(false);
+    try {
+      const data = await teamQuestsApi.listPeerReviews();
+      if (data.success) {
+        setRecords(data.data ?? []);
+      } else {
+        setRecordsError(true);
+      }
+    } catch (err) {
+      console.error('Failed to fetch peer reviews:', err);
+      setRecordsError(true);
+    } finally {
+      setRecordsLoading(false);
+    }
+  };
 
   const handleTagClick = (tag: string) => {
     if (!comment.includes(tag)) {
@@ -382,6 +424,94 @@ export default function StudentPeerReview() {
           </AnimatePresence>
         </motion.div>
       </div>
+
+      {/*
+        我的互评记录 - the read half of a write-only feature.
+
+        `POST /api/peer-reviews` had a caller (the form above) while `GET /api/peer-reviews` had
+        none, so a pupil handed out reviews and could never see one: not the praise they received,
+        and not a record of what they wrote. The server scopes the read to the caller's own rows and
+        resolves both names through the classroom port.
+      */}
+      <SectionCard
+        title="我的互评记录"
+        description={
+          myStudentId
+            ? '收到的评价和给出的评价都在这里；评价只有当对方或你查看时才显示名字'
+            : undefined
+        }
+      >
+        {recordsLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-fg-3">
+            <Spinner label="正在加载互评记录" />
+            加载中...
+          </div>
+        ) : recordsError ? (
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-8 text-center">
+            <p className="font-semibold text-danger">互评记录没有加载出来</p>
+            <p className="mt-1 text-sm text-fg-3">这不代表你没有互评记录，请重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void fetchRecords()}>
+              重新加载
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <h4 className="mb-3 font-bold text-fg-1">我收到的（{received.length}）</h4>
+              {received.length === 0 ? (
+                <p className="text-sm text-fg-3">还没有收到同学的评价。</p>
+              ) : (
+                <ul className="space-y-3">
+                  {received.map((review) => (
+                    <li
+                      key={review.id}
+                      className="rounded-card border border-line-1 bg-surface-3/40 px-4 py-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold text-fg-1">
+                          来自 {review.reviewer_name || '一位同学'}
+                        </span>
+                        {review.score === null ? null : <Badge variant="info">{review.score} 分</Badge>}
+                      </div>
+                      {review.comment ? (
+                        <p className="mt-1 text-sm text-fg-2">{review.comment}</p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-fg-3">{review.created_at}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h4 className="mb-3 font-bold text-fg-1">我给出的（{given.length}）</h4>
+              {given.length === 0 ? (
+                <p className="text-sm text-fg-3">你还没有给同学写过评价。</p>
+              ) : (
+                <ul className="space-y-3">
+                  {given.map((review) => (
+                    <li
+                      key={review.id}
+                      className="rounded-card border border-line-1 bg-surface-3/40 px-4 py-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold text-fg-1">
+                          写给 {review.reviewee_name || '一位同学'}
+                        </span>
+                        {review.score === null ? null : <Badge variant="success">{review.score} 分</Badge>}
+                      </div>
+                      {review.comment ? (
+                        <p className="mt-1 text-sm text-fg-2">{review.comment}</p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-fg-3">{review.created_at}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </SectionCard>
     </PageScaffold>
   );
 }
