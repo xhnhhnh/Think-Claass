@@ -22,14 +22,24 @@
  * score and the teacher's comment - and hide the action bar entirely, because a write the server
  * will refuse is worse than no button at all.
  *
- * 拍照题 (`photo_ids` / the photos endpoint) is *not* implemented here: uploading needs
- * `wx.uploadFile` and a multipart body, and a photo taken on a phone would then need a signed or
- * allowlisted URL to be displayed back. The web client owns that flow; the mini program answers the
- * typed questions and shows what the teacher said about them.
+ * ## Photographs (`wx.uploadFile`)
+ *
+ * Paper-level photographs are uploaded on their own route (`POST .../photos`, multipart, field
+ * `file`) and echoed back on submit as `photo_ids`. That is also the only way to hand in a
+ * question-less homework - 「拍张照片交上来」 publishes with no questions at all - so the submit
+ * confirmation and the empty-photo guard both know about them. A phone-photo deployment needs the
+ * origin in the mini program's **uploadFile 合法域名** list (or 云托管's public domain with
+ * `TRANSPORT='request'`); `utils/request.ts#upload` carries the Bearer token and the 401 recovery.
+ *
+ * ## A parent reads
+ *
+ * A parent session never opens an attempt (`POST .../attempt` is student-only) - it reads the
+ * attempt the list handed it (`GET /api/homework/submissions/:id`), which is the server's documented
+ * parent path and is scoped to their own child.
  */
 
 import { requireSession } from '../../services/auth'
-import { saveAnswers, startAttempt, submitAttempt } from '../../services/homework'
+import { photoUrl, saveAnswers, startAttempt, submissionDetail, submitAttempt, uploadPhoto } from '../../services/homework'
 import type { HomeworkAnswer, HomeworkAnswerInput, HomeworkAttemptDetail, HomeworkOption, HomeworkQuestionType } from '../../services/homework'
 import { confirm, errorMessage, toastError, toastSuccess } from '../../utils/toast'
 import { formatDueLabel, formatScore, questionTypeText, submissionStatusText } from '../../utils/format'
@@ -78,8 +88,17 @@ Page({
     aiFeedback: '',
     questions: [] as QuestionView[],
     answeredCount: 0,
+    /** Whole-paper photographs already stored on the server, as `<image>`-ready URLs. */
+    photos: [] as Array<{ id: number; url: string }>,
+    /** True while a photograph is being uploaded, so the button cannot be pressed twice. */
+    uploading: false,
     /** Whether the answers can still be edited (draft/returned, and the homework is not closed). */
     editable: true,
+    /** A parent session: read the attempt, never open or submit one. */
+    isParent: false,
+    readOnly: false,
+    /** A parent opened a homework their child has not started: there is no attempt to read. */
+    nothingSubmitted: false,
     /** True once this page has handed the paper in, so the footer explains what happens next. */
     justSubmitted: false,
   },
@@ -88,14 +107,33 @@ Page({
   submissionId: 0,
 
   onLoad(query: Record<string, string>) {
-    requireSession()
+    const session = requireSession()
     const id = Number(query.id || 0)
     if (!id) {
       toastError('作业不存在')
       wx.navigateBack()
       return
     }
-    this.setData({ homeworkId: id })
+    /**
+     * A parent reads, and only reads.
+     *
+     * `POST /api/homework/:id/attempt` - what opens this page for a pupil - is student-only
+     * (`homework.authorization.ts` STUDENT_ONLY), so a parent who tapped a row from 我的作业 used to
+     * land on an error card. The server's documented parent path is the attempt read
+     * (`GET /api/homework/submissions/:id`, RECORD_READERS), which is scoped to their own child; the
+     * list passes the submission id for exactly this.
+     */
+    const isParent = Boolean(session && session.user.role === 'parent')
+    const submissionId = Number(query.submission || 0)
+
+    this.setData({ homeworkId: id, isParent, readOnly: isParent })
+    if (isParent && !submissionId) {
+      // Nothing has been handed in, so there is no attempt to read - say so instead of calling a
+      // student-only route and reporting its 403.
+      this.setData({ loading: false, error: '', nothingSubmitted: true })
+      return
+    }
+    this.submissionId = submissionId
     void this.load()
   },
 
@@ -103,10 +141,17 @@ Page({
     void this.load().then(() => wx.stopPullDownRefresh())
   },
 
+  /** Back to the list, for the parent's "nothing submitted yet" card. */
+  onBack() {
+    wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/student/homework' }) })
+  },
+
   async load() {
     this.setData({ loading: true, error: '' })
     try {
-      const detail = await startAttempt(this.data.homeworkId)
+      const detail = this.data.isParent
+        ? await submissionDetail(this.submissionId)
+        : await startAttempt(this.data.homeworkId)
       this.applyDetail(detail)
     } catch (error) {
       this.setData({ loading: false, error: errorMessage(error) })
@@ -116,7 +161,10 @@ Page({
   applyDetail(detail: HomeworkAttemptDetail) {
     const due = formatDueLabel(detail.homework.due_at)
     const submission = detail.submission
-    const editable = (submission.status === 'draft' || submission.status === 'returned') && detail.homework.status !== 'closed'
+    const editable =
+      !this.data.readOnly &&
+      (submission.status === 'draft' || submission.status === 'returned') &&
+      detail.homework.status !== 'closed'
 
     this.submissionId = submission.id
     const questions = detail.homework.questions
@@ -138,8 +186,61 @@ Page({
       aiFeedback: submission.ai_feedback || '',
       questions,
       answeredCount: countAnswered(questions),
+      // Whole-paper photographs, as `<image src>` values. The web client keeps the same two scopes
+      // (a paper-level photo and a per-question one); the mini program supports the paper-level one,
+      // which is what 「拍张照片交上来」 needs.
+      photos: (detail.photos || []).map((photo) => ({ id: photo.id, url: photoUrl(photo.storage_path) })),
       editable,
     })
+  },
+
+  /**
+   * Take or pick photographs of the paper and upload them.
+   *
+   * `wx.chooseMedia` rather than the deprecated `chooseImage`: it is the API current base libraries
+   * support, and `sizeType: ['compressed']` keeps a phone photo inside the kernel's 8 MiB ceiling.
+   * Each file goes up on its own (`POST /api/homework/submissions/:id/photos`), and the attempt is
+   * re-read afterwards so the page shows exactly what the server stored rather than a local guess.
+   */
+  async onAddPhoto() {
+    if (!this.data.editable || this.data.uploading) {
+      return
+    }
+
+    let files: Array<{ tempFilePath: string }> = []
+    try {
+      const chosen = await new Promise<WxChooseMediaSuccess>((resolve, reject) => {
+        wx.chooseMedia({
+          count: 3,
+          mediaType: ['image'],
+          sourceType: ['camera', 'album'],
+          sizeType: ['compressed'],
+          success: resolve,
+          fail: reject,
+        })
+      })
+      files = chosen.tempFiles || []
+    } catch (error) {
+      // A cancelled picker is not an error: `chooseMedia` reports it through `fail`.
+      return
+    }
+
+    if (files.length === 0) {
+      return
+    }
+
+    this.setData({ uploading: true })
+    try {
+      for (const file of files) {
+        await uploadPhoto(this.submissionId, file.tempFilePath)
+      }
+      toastSuccess(`已上传 ${files.length} 张照片`)
+      await this.load()
+    } catch (error) {
+      toastError(errorMessage(error))
+    } finally {
+      this.setData({ uploading: false })
+    }
   },
 
   /** Single choice: tapping replaces the selection. */
@@ -215,10 +316,27 @@ Page({
     }
     const answered = this.data.answeredCount
     const total = this.data.questions.length
+    const photoCount = this.data.photos.length
+    /**
+     * The confirmation has to account for photographs.
+     *
+     * A homework may carry no questions at all - 「拍张照片交上来」 - and the server accepts such a
+     * paper only when a photograph was attached. Asking "还有 0 题没有作答" of a photo-only paper
+     * would describe the wrong thing entirely.
+     */
     const content =
-      answered < total
-        ? `还有 ${total - answered} 题没有作答，提交后老师会看到现在的答案，确定提交吗？`
-        : '提交后老师就能看到你的答案了，确定提交吗？'
+      total === 0
+        ? photoCount > 0
+          ? `这份作业以照片提交（已上传 ${photoCount} 张），确定提交吗？`
+          : '这份作业还没有题目，也没有上传照片，提交会被拒绝。请先拍照上传。'
+        : answered < total
+          ? `还有 ${total - answered} 题没有作答，提交后老师会看到现在的答案，确定提交吗？`
+          : '提交后老师就能看到你的答案了，确定提交吗？'
+
+    if (total === 0 && photoCount === 0) {
+      toastError('请先拍照上传，再提交')
+      return
+    }
 
     const confirmed = await confirm({ title: '提交作业', content, confirmText: '提交' })
     if (!confirmed) {
@@ -227,7 +345,11 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      const detail = await submitAttempt(this.submissionId, collectAnswers(this.data.questions))
+      const detail = await submitAttempt(
+        this.submissionId,
+        collectAnswers(this.data.questions),
+        this.data.photos.map((photo) => photo.id),
+      )
       this.applyDetail(detail)
       this.setData({ justSubmitted: true })
       toastSuccess('提交成功')

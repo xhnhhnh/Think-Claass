@@ -27,6 +27,7 @@
  */
 
 import { classFeatures } from '../services/teacher'
+import { ensureClassId, resetClassContext } from './classContext'
 import type { ClassFeatureFlags } from './storage'
 import { classIdOf, onSessionChanged, readFeatureCache, readSession, writeFeatureCache } from './storage'
 
@@ -80,6 +81,15 @@ export const TEACHER_TABS: TabDefinition[] = [
   { key: 'insight', text: '智学看板', pagePath: 'pages/teacher/ai-insight', requires: FEATURE_KEYS.aiStudy },
   { key: 'me', text: '我的', pagePath: 'pages/student/me', requires: null },
 ]
+
+/**
+ * Tabs a parent must not see, whatever the flags say.
+ *
+ * The student set is reused for parents (the pages are the student's, and the README is explicit
+ * that a parent gets the same bar), but two of them are student-only server-side. Hiding them here
+ * is the honest fix: an entry that always answers 403 reads as a broken app.
+ */
+const PARENT_HIDDEN_TAB_KEYS: string[] = ['shop']
 
 /**
  * The four pages `app.json` declares as tab pages, in order.
@@ -145,7 +155,10 @@ export async function resolveFeatures(options: { force?: boolean } = {}): Promis
   }
 
   const session = readSession()
-  const classId = classIdOf(session ? session.user : null)
+  // Not `classIdOf(session.user)`: a teacher's login payload carries no class, and this single line
+  // is why every teacher launch resolved to `unknown` - the live call was skipped, `enable_ai_study`
+  // stayed unanswered, and the 智学看板 tab was filtered out of the bar for good.
+  const classId = await ensureClassId(options)
 
   if (classId !== null) {
     try {
@@ -161,8 +174,11 @@ export async function resolveFeatures(options: { force?: boolean } = {}): Promis
     }
   }
 
+  // The cache belongs to one class. Serving it when the class is unknown (or different) is how a
+  // teacher's device showed the previous account's tabs: `classId === null` used to accept any
+  // cached answer.
   const cached = readFeatureCache()
-  if (cached && (classId === null || cached.classId === classId)) {
+  if (cached && classId !== null && cached.classId === classId) {
     current = { features: cached.features, source: 'cache', classId: cached.classId, fetchedAt: cached.fetchedAt }
     return current
   }
@@ -197,6 +213,7 @@ export function applyLoginSnapshot(classFeatures: ClassFeatureFlags | undefined,
 // so the next `resolveFeatures` cannot serve the previous user's flags.
 onSessionChanged((session) => {
   current = { features: {}, source: 'unknown', classId: null, fetchedAt: null }
+  resetClassContext()
   if (session) {
     applyLoginSnapshot(session.classFeatures, classIdOf(session.user))
   }
@@ -212,8 +229,14 @@ export function isTeacherRole(role?: string | null): boolean {
 
 /** The tabs a role may see, *after* the feature filter. */
 export function visibleTabs(role?: string | null): TabDefinition[] {
+  const isParent = role === 'parent'
   const list = isTeacherRole(role) ? TEACHER_TABS : STUDENT_TABS
-  return list.filter((tab) => isEnabled(current.features, tab.requires))
+  return list
+    // A parent shares the student pages, but not the student-only ones: the shop is student-scoped
+    // on the server (`marketplace.controllers` refuses a parent), so the tab was an entry that could
+    // only ever answer 403.
+    .filter((tab) => !(isParent && PARENT_HIDDEN_TAB_KEYS.includes(tab.key)))
+    .filter((tab) => isEnabled(current.features, tab.requires))
 }
 
 /** The tab set a role has, before filtering - used by the 「功能未开启」explanation. */

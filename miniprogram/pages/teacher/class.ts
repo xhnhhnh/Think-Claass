@@ -23,10 +23,10 @@
  */
 
 import { requireSession } from '../../services/auth'
-import { batchPoints, listStudents } from '../../services/teacher'
-import type { StudentDto } from '../../services/teacher'
+import { batchPoints, listClasses, listStudents } from '../../services/teacher'
+import type { ClassDto, StudentDto } from '../../services/teacher'
+import { ensureClassId, selectClassId } from '../../utils/classContext'
 import { syncTabBar } from '../../utils/feature'
-import { classIdOf } from '../../utils/storage'
 import { confirm, errorMessage, toastError, toastSuccess } from '../../utils/toast'
 
 interface StudentView extends StudentDto {
@@ -41,6 +41,8 @@ Page({
     loading: true,
     error: '',
     classId: null as number | null,
+    /** The teacher's classes; more than one means the picker below the roster header is shown. */
+    classes: [] as ClassDto[],
     students: [] as StudentView[],
     selectedCount: 0,
     /** `add` or `minus` - only the sign of the payload changes. */
@@ -61,16 +63,45 @@ Page({
       return
     }
     this.teacherId = session.user.id
-    this.setData({ classId: classIdOf(session.user) })
-    void this.load()
+    void this.resolveClass().then(() => this.load())
   },
 
   onShow() {
     void syncTabBar(this)
-    // Coming back from 作业 or 智学看板: the roster may have moved. Quiet reload, no skeleton.
+    // Coming back from 作业 or 智学看板: the roster may have moved, and the chosen class may have
+    // changed elsewhere. Quiet reload, no skeleton.
     if (!this.data.loading) {
-      void this.load({ silent: true })
+      void this.resolveClass().then(() => this.load({ silent: true }))
     }
+  },
+
+  /**
+   * Resolve which class this page works on, and offer the choice when there is one.
+   *
+   * The teacher's login payload has no class (see `utils/classContext.ts`); the roster used to be
+   * fetched without a `classId`, which answers every student the teacher owns - fine for scoring,
+   * useless for "发布作业到哪个班" and for anything class-scoped.
+   */
+  async resolveClass(options: { force?: boolean } = {}) {
+    let classes: ClassDto[] = []
+    try {
+      classes = await listClasses()
+    } catch (error) {
+      console.warn('[class] could not list classes', error)
+    }
+    const classId = await ensureClassId(options)
+    this.setData({ classes, classId })
+  },
+
+  /** The teacher picked a class: remember it, then reload that class's roster. */
+  async onPickClass(event: { currentTarget: { dataset: Record<string, string> } }) {
+    const classId = Number(event.currentTarget.dataset.id)
+    if (!classId || classId === this.data.classId) {
+      return
+    }
+    selectClassId(classId)
+    this.setData({ classId })
+    await this.load()
   },
 
   onPullDownRefresh() {
@@ -144,6 +175,16 @@ Page({
     }
     if (!amount || Number.isNaN(amount)) {
       toastError('请填写分值')
+      return
+    }
+    /**
+     * The same ceiling the server enforces (`classroom.service.ts#batchPoints`): ±5, non-zero,
+     * integer. Checking here turns a round trip into an instant message - and, more to the point,
+     * the server's refusal would arrive *after* the confirmation dialog, which reads as "it worked"
+     * until the error toast.
+     */
+    if (!Number.isInteger(amount) || amount < 1 || amount > 5) {
+      toastError('分值需为 1 至 5 的整数')
       return
     }
     if (!reason) {

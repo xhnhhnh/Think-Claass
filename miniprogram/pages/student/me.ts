@@ -19,7 +19,7 @@ import { getCertificates, getStudent } from '../../services/student'
 import type { CertificateDto, StudentDto } from '../../services/student'
 import type { ClassFeatureFlags } from '../../utils/storage'
 import { classIdOf, studentIdOf } from '../../utils/storage'
-import { getResolution, isTeacherRole, resolveFeatures, syncTabBar } from '../../utils/feature'
+import { FEATURE_KEYS, getResolution, isEnabled, isTeacherRole, resolveFeatures, syncTabBar } from '../../utils/feature'
 import { formatDate, roleText } from '../../utils/format'
 import { confirm, errorMessage, toastError, toastSuccess } from '../../utils/toast'
 
@@ -91,7 +91,11 @@ Page({
     this.setData({
       featuresReady: true,
       features: resolution.features,
-      showAchievements: resolution.features.enable_achievements === true,
+      // `isEnabled`, not `=== true`: the flag map can carry `1` / `'1'` / `'true'` as well as a
+      // boolean (the server's own answer is a boolean, but a cached or column-shaped one is not),
+      // and the home tab already reads it through this helper. Two different spellings of "is this
+      // on" for the same flag is how one surface shows 奖状 and another does not.
+      showAchievements: isEnabled(resolution.features, FEATURE_KEYS.achievements),
     })
   },
 

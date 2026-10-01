@@ -110,10 +110,15 @@ miniprogram/              小程序客户端（原生 + TypeScript，无 npm 运
 src/                      电脑端前端（features/<domain>/ 按域组织）
 ```
 
-**这套架构不是画出来的，是被守卫住的。** 仓库里 20 条 guardrail（G1–G21）在 CI 里跑，
-违反即失败：内核不得出现任何业务表名或功能键（G5）、插件之间只能通过 `ctx.provide` /
-`ctx.use` 通信（G1）、`packages/contracts` 只能是类型（G6）、表结构只能出现在迁移里（G17）、
-HTTP 接口面被快照冻结、`ENCRYPTION_KEY` 源码中不得有默认值（G18）。
+**这套架构不是画出来的，是被守卫住的。** 仓库里 25 个 guardrail 文件（G1–G24）在 CI 里跑、
+共 133 条断言，违反即失败：内核不得出现任何业务表名或功能键（G5）、插件之间只能通过
+`ctx.provide` / `ctx.use` 通信（G1）、`packages/contracts` 只能是类型（G6）、表结构只能出现在
+迁移里（G17）、HTTP 接口面被快照冻结（G8）、`ENCRYPTION_KEY` 源码中不得有默认值（G18）。
+闭环收口又补了五条：班级功能位在「路由 / 菜单 / 面板 / 服务端断言」四处必须一致（G20）、
+功能开关面板必须覆盖全部 20 个键（G21）、客户端与 332 个端点双向对账——既有「客户端不得调用
+不存在的路径」，也有「新端点不得无人调用」的棘轮（G22）、系统设置的新键必须能在控制台改到
+（G23）、**渲染空态的页面必须同时处理读取失败**（G24，并自检"检测器能区分好坏样例"，避免护栏
+退化成摆设）。
 
 ### 4.2 技术栈
 
@@ -141,10 +146,10 @@ HTTP 接口面被快照冻结、`ENCRYPTION_KEY` 源码中不得有默认值（G
 | --- | --- |
 | 源码规模 | 879 个源文件 / 约 12.9 万行 |
 | 业务插件 | 23 个（admin · ai-study · assignments · battles · challenge · classroom · collaboration · dungeon · economy · engagement · gacha · homework · identity · insights · learning · marketplace · parent-buff · payment · pet · portal · slg · system · wechat） |
-| 测试 | 177 个测试文件，分四层：前端（jsdom + MSW）· 后端（真实内核与插件）· 守卫（架构棘轮）· **端到端（真实 HTTP，逐端点逐角色）** |
-| 端到端 | 97 个用例：匿名不得成功、任何角色不得 500、前端真正调用的路径不得 5xx |
-| 小程序端 | 26 个逻辑测试（信封 / 401 静默重登 / 动态 tab 门控 / 绑定 role），类型检查零错误 |
-| CI | GitHub Actions：`npm run check` → `api:surface:check` → `guard` → `npm test`，全绿才允许发版 |
+| 测试 | 195 个测试文件 / 1956 个用例，分四层：前端（jsdom + MSW）· 后端（真实内核与插件）· 守卫（架构棘轮）· **端到端（真实 HTTP，逐端点逐角色）** |
+| 端到端 | 逐端点逐角色跑满全部 **332 个端点**：匿名不得成功、任何角色不得 500、前端真正调用的路径不得失联 |
+| 小程序端 | 46 个逻辑测试（信封 / 401 静默重登 / 多部分上传 / 动态 tab 门控 / 班级上下文 / 绑定 role），类型检查零错误（已进 CI） |
+| CI | GitHub Actions：`npm run check` → `miniprogram:check` → `api:surface:check` → `guard` → `npm test`，全绿才允许发版 |
 
 **为什么端到端那一层值得单独讲**：前端测试跑在"MSW 对一切返回 200"的假服务端上，后端测试每个套件
 只碰少数几个路由 —— 两者都绿的时候，客户端和服务端完全可能对不上。这一层就是为这个盲区存在的，

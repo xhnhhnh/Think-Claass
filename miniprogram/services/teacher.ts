@@ -58,6 +58,12 @@ export async function classFeatures(classId: number): Promise<ClassFeatureFlags>
   return body.features || {}
 }
 
+/** GET /api/classes - the classes the actor owns. Omit `classId` for every student the actor owns. */
+export async function listClasses(): Promise<ClassDto[]> {
+  const body = await get<{ success: true; classes?: ClassDto[]; data?: ClassDto[] }>('/api/classes')
+  return body.classes || body.data || []
+}
+
 /** GET /api/students?classId= - the class roster. Omit `classId` for every student the actor owns. */
 export async function listStudents(classId?: number | null): Promise<StudentDto[]> {
   const query = classId ? `?classId=${classId}` : ''

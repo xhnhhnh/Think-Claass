@@ -23,7 +23,7 @@ import { requireSession } from '../../services/auth'
 import { assignSets, classInsight } from '../../services/aiStudy'
 import type { AiStudyClassInsight, AiStudyWeakNode } from '../../services/aiStudy'
 import type { ClassFeatureFlags } from '../../utils/storage'
-import { classIdOf } from '../../utils/storage'
+import { ensureClassId } from '../../utils/classContext'
 import { getResolution, resolveFeatures, syncTabBar } from '../../utils/feature'
 import { confirm, errorMessage, toastError, toastSuccess } from '../../utils/toast'
 
@@ -70,7 +70,9 @@ Page({
     if (!session) {
       return
     }
-    this.setData({ classId: classIdOf(session.user) })
+    // The teacher's class is a choice (their login payload carries none) - the same one the tab
+    // bar, 发布作业 and the roster use.
+    void ensureClassId().then((classId) => this.setData({ classId }))
     void this.bootstrap()
   },
 

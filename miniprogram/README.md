@@ -95,9 +95,10 @@ miniprogram/
   typings/wx.d.ts                 手写的最小 wx API 类型（只覆盖用到的接口）
   config/index.ts                 BASE_URL / TRANSPORT / 云托管坐标 / MOCK 开关
   utils/
-    request.ts                    唯一出口：信封判定、Bearer、401 静默重登、两种通道
-    storage.ts                    会话与功能开关缓存（key: thinkclass-mp-auth）
+    request.ts                    唯一出口：信封判定、Bearer、401 静默重登、两种通道 + 多部分上传
+    storage.ts                    会话、功能开关缓存与教师选中的班级（thinkclass-mp-auth / -features / -class）
     feature.ts                    班级功能开关解析链 + 动态 tabBar 的可见集合
+    classContext.ts               教师的工作班级（记住的选择 → GET /api/classes → 第一个班）
     format.ts                     日期（兼容 iOS）、截止时间、状态文案
     toast.ts                      toast / modal / 错误文案
     mock.ts                       离线假数据（MOCK.enabled 打开时使用）
@@ -172,17 +173,30 @@ miniprogram/
 
 ## 6. 已知边界
 
-- **拍照题不做**：作业的照片上传需要 `wx.uploadFile` + multipart，且回显需要可访问的图片域名，
-  这部分流程由 Web 端负责；小程序端支持选择、填空、简答的作答与批改结果查看。
+- **拍照上传已支持，但需要域名配置**：整卷照片走 `POST /api/homework/submissions/:id/photos`
+  （multipart，字段名 `file`，由 `utils/request.ts#upload` 发送，带 Bearer 与 401 静默续期），
+  提交时以 `photo_ids` 回传；回显用 `<image src>` 指向 `/uploads/homework/...`（`<image>` 不受
+  request 域名限制，但需要绝对地址，由 `services/homework.ts#photoUrl` 拼好）。**真机/正式版**必须把后端
+  域名加入小程序后台的 **uploadFile 合法域名**；云托管通道（`TRANSPORT='container'`）没有 multipart
+  上传，此时把 `BASE_URL` 设为云托管的公网域名并改回 `TRANSPORT='request'`（`request.ts` 会给出这条
+  提示而不是静默失败）。
 - **不写题目**：教师端可以发布「标题 + 说明 + 截止时间 + 奖励学分」的作业，题目编辑（选项、
-  参考答案、AI 出题）留在电脑端。
-- **家长角色**：与学生的 tab 一致；`user.studentId` 为空时，学分、奖状等学生专属区块不显示，
-  「我的」页仍可解绑/退出。
+  参考答案、AI 出题）留在电脑端。没有题目的作业照样可以被提交 —— 前提是学生上传了照片，这条规则
+  在服务端（`homework.service.ts#submitAttempt`）与小程序提交前的校验里各有一份。
+- **教师批改仍在电脑端**：小程序展示成绩单（谁交了、状态、得分），打分/退回/评语留在 Web。
+- **家长角色**：与学生共用页面，但按角色过滤了学生专属入口（积分商城、AI 智学）。家长打开作业时
+  走只读路径 `GET /api/homework/submissions/:id`（学生的 `POST .../attempt` 对家长是 403），
+  孩子还没开始作答时会明确提示"还没有开始"，而不是报错。
+- **功能开关未知时不显示**：解析链（实时 → 缓存 → 登录快照 → unknown）拿不到答案时，受开关控制的
+  tab 与入口一律隐藏（方向是刻意选的：少一个入口好过点进去必然 403）。
+- **覆盖面**：小程序只覆盖 登录/绑定、成长总览、作业（学生作答 + 教师发布与成绩单）、AI 智学、
+  积分商城、我的 这几块；宠物、副本、挑战、抽卡、版图、股市、公会 PK、互动墙、错题本、学习计划等
+  玩法与学业模块仍在电脑端，不在小程序里。
 
 ## 7. 常用检查
 
 ```bash
-# 类型检查（本仓库根目录）
+# 类型检查（本仓库根目录；也已接入 npm run miniprogram:check 与 release.yml）
 npx tsc --noEmit -p miniprogram/tsconfig.json
 
 # 所有 json 是否能解析

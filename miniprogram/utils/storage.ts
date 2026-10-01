@@ -14,7 +14,7 @@
  * (request -> feature -> request).
  */
 
-import { AUTH_STORAGE_KEY, FEATURE_CACHE_KEY } from '../config/index'
+import { AUTH_STORAGE_KEY, FEATURE_CACHE_KEY, SELECTED_CLASS_KEY } from '../config/index'
 
 /** The flat flag map `GET /api/classes/:id/features` and the login response both answer. */
 export type ClassFeatureFlags = Record<string, boolean | number | string | null | undefined>
@@ -153,7 +153,39 @@ export function writeSession(session: StoredSession): void {
 export function clearSession(): void {
   wx.removeStorageSync(AUTH_STORAGE_KEY)
   wx.removeStorageSync(FEATURE_CACHE_KEY)
+  // The teacher's chosen class goes with the session: the next account on this device may be a
+  // different teacher, and inheriting "class 7" from them would file their work into it.
+  wx.removeStorageSync(SELECTED_CLASS_KEY)
   emit(null)
+}
+
+/**
+ * The class a teacher picked last time.
+ *
+ * Student and parent sessions carry their class in the login payload; a teacher's does not (one
+ * teacher owns several classes), so the working class is a choice this client has to remember.
+ */
+export function readSelectedClassId(): number | null {
+  try {
+    const raw = wx.getStorageSync<number | string>(SELECTED_CLASS_KEY)
+    const value = typeof raw === 'string' ? Number(raw) : raw
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+  } catch (error) {
+    console.warn('[storage] failed to read the selected class', error)
+    return null
+  }
+}
+
+export function writeSelectedClassId(classId: number | null): void {
+  try {
+    if (classId === null) {
+      wx.removeStorageSync(SELECTED_CLASS_KEY)
+      return
+    }
+    wx.setStorageSync(SELECTED_CLASS_KEY, classId)
+  } catch (error) {
+    console.warn('[storage] failed to persist the selected class', error)
+  }
 }
 
 export function readToken(): string {

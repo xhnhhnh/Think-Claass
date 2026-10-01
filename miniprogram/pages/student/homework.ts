@@ -20,6 +20,8 @@ import { errorMessage } from '../../utils/toast'
 
 interface HomeworkCard {
   id: number
+  /** The row's submission, when there is one: the parent's read path needs it (see `onCardTap`). */
+  submissionId: number | 0
   title: string
   description: string
   dueText: string
@@ -85,9 +87,21 @@ Page({
 
   onCardTap(event: { currentTarget: { dataset: Record<string, string> } }) {
     const id = event.currentTarget.dataset.id
-    if (id) {
-      wx.navigateTo({ url: `/pages/student/homework-detail?id=${id}` })
+    if (!id) {
+      return
     }
+    /**
+     * The row's submission id travels with the tap.
+     *
+     * The detail page opens a student's *attempt* (`POST /api/homework/:id/attempt`), which is
+     * student-only. A parent - who gets the same 我的作业 list, because `GET /api/homework/my`
+     * admits them for their own child - can only read the attempt itself
+     * (`GET /api/homework/submissions/:id`), so the page needs the id and the role to choose. Passing
+     * it here is what makes that choice possible without a second request.
+     */
+    const submissionId = event.currentTarget.dataset.submission
+    const suffix = submissionId ? `&submission=${submissionId}` : ''
+    wx.navigateTo({ url: `/pages/student/homework-detail?id=${id}${suffix}` })
   },
 
   onRetry() {
@@ -112,6 +126,7 @@ function toCard(entry: HomeworkStudentEntry): HomeworkCard {
   const status = submission ? submission.status : ''
   return {
     id: entry.homework.id,
+    submissionId: submission ? submission.id : 0,
     title: entry.homework.title,
     description: entry.homework.description || '',
     dueText: due.text,

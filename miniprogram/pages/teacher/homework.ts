@@ -17,10 +17,10 @@
  */
 
 import { requireSession } from '../../services/auth'
-import { createHomework, listHomework, listSubmissions } from '../../services/teacher'
+import { createHomework, listClasses, listHomework, listSubmissions } from '../../services/teacher'
 import type { HomeworkGradeRow, HomeworkListEntry } from '../../services/homework'
+import { ensureClassId } from '../../utils/classContext'
 import { syncTabBar } from '../../utils/feature'
-import { classIdOf } from '../../utils/storage'
 import { formatDueLabel, formatScore, homeworkStatusText, submissionStatusText } from '../../utils/format'
 import { confirm, errorMessage, toastError, toastSuccess } from '../../utils/toast'
 
@@ -54,6 +54,7 @@ Page({
     loading: true,
     error: '',
     classId: null as number | null,
+    className: '',
     list: [] as HomeworkView[],
     // publish form
     showForm: false,
@@ -71,17 +72,35 @@ Page({
     if (!session) {
       return
     }
-    this.setData({
-      classId: classIdOf(session.user),
-      today: todayString(),
-    })
+    this.setData({ today: todayString() })
+    // The teacher's class is a choice, not a field of their login payload: resolve it before the
+    // publish form can be used, and again when the 班级 page changes it.
+    void this.resolveClass()
     void this.load()
   },
 
   onShow() {
     void syncTabBar(this)
+    void this.resolveClass({ force: true })
     if (!this.data.loading) {
       void this.load({ silent: true })
+    }
+  },
+
+  /** Ask the class context (remembered choice -> first owned class) and show it in the form. */
+  async resolveClass(options: { force?: boolean } = {}) {
+    const classId = await ensureClassId(options)
+    this.setData({ classId, className: classId === null ? '' : await this.classLabel(classId) })
+  },
+
+  /** The class's name for the form's hint; a lookup failure must not block publishing. */
+  async classLabel(classId: number): Promise<string> {
+    try {
+      const classes = await listClasses()
+      const match = classes.filter((cls) => cls.id === classId)[0]
+      return match ? match.name : `班级 #${classId}`
+    } catch (error) {
+      return `班级 #${classId}`
     }
   },
 
@@ -173,7 +192,17 @@ Page({
       return
     }
     if (this.data.classId === null) {
-      toastError('当前账号还没有班级，无法发布作业')
+      // Actionable, and it says where to fix it: this used to be the end of the road for every
+      // teacher, because their login payload has no class and nothing ever asked for one.
+      const go = await confirm({
+        title: '还没有选择班级',
+        content: '请先到「班级」页选择要发布作业的班级。',
+        confirmText: '去选择班级',
+        cancelText: '知道了',
+      })
+      if (go) {
+        wx.switchTab({ url: '/pages/teacher/class' })
+      }
       return
     }
     if (this.data.submitting) {

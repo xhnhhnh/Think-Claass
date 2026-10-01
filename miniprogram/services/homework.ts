@@ -19,7 +19,8 @@
  * server is told the current state of every answer they have touched.
  */
 
-import { get, post, put } from '../utils/request'
+import { BASE_URL, AI_REQUEST_TIMEOUT } from '../config/index'
+import { get, post, put, upload } from '../utils/request'
 
 export type HomeworkQuestionType = 'single' | 'multiple' | 'blank' | 'short'
 export type HomeworkStatus = 'draft' | 'published' | 'closed'
@@ -98,6 +99,17 @@ export interface HomeworkAnswer {
   teacher_comment: string | null
 }
 
+/** One stored photograph of a paper (`p_homework_photos`), as the upload route answers it. */
+export interface HomeworkPhoto {
+  id: number
+  submission_id: number
+  storage_path: string
+  mime: string
+  size: number
+  sha256: string
+  created_at: string
+}
+
 export interface HomeworkAttemptDetail {
   homework: HomeworkDetail
   submission: HomeworkSubmission
@@ -162,6 +174,19 @@ export async function startAttempt(id: number): Promise<HomeworkAttemptDetail> {
   return body.data
 }
 
+/**
+ * GET /api/homework/submissions/:id - read one attempt as it stands.
+ *
+ * This is the parent's read path, and the one the server documents for it: `POST .../attempt` is
+ * student-only (`homework.authorization.ts` STUDENT_ONLY), so a parent opening a row from 我的作业
+ * used to get a 403 and an error card. The route admits a parent and scopes them to their own child,
+ * so it is also the safe read for a student who only wants to look.
+ */
+export async function submissionDetail(submissionId: number): Promise<HomeworkAttemptDetail> {
+  const body = await get<DataEnvelope<HomeworkAttemptDetail>>(`/api/homework/submissions/${submissionId}`)
+  return body.data
+}
+
 /** PUT /api/homework/submissions/:id/answers - auto-save, without submitting. */
 export async function saveAnswers(submissionId: number, answers: HomeworkAnswerInput[]): Promise<HomeworkAttemptDetail> {
   const body = await put<DataEnvelope<HomeworkAttemptDetail>>(`/api/homework/submissions/${submissionId}/answers`, { answers })
@@ -169,7 +194,47 @@ export async function saveAnswers(submissionId: number, answers: HomeworkAnswerI
 }
 
 /** POST /api/homework/submissions/:id/submit - hand it in. */
-export async function submitAttempt(submissionId: number, answers: HomeworkAnswerInput[]): Promise<HomeworkAttemptDetail> {
-  const body = await post<DataEnvelope<HomeworkAttemptDetail>>(`/api/homework/submissions/${submissionId}/submit`, { answers })
+export async function submitAttempt(
+  submissionId: number,
+  answers: HomeworkAnswerInput[],
+  photoIds: number[] = [],
+): Promise<HomeworkAttemptDetail> {
+  const body = await post<DataEnvelope<HomeworkAttemptDetail>>(`/api/homework/submissions/${submissionId}/submit`, {
+    answers,
+    // Whole-paper photographs. The server refuses a question-less homework handed in with neither
+    // answers nor photos, and this is the half that makes 「拍张照片交上来」 work on a phone.
+    photo_ids: photoIds,
+  })
   return body.data
+}
+
+/**
+ * POST /api/homework/submissions/:id/photos - upload one photograph of the paper.
+ *
+ * The route is multipart (`FileInterceptor('file')`, written to `uploads/homework/` and served
+ * statically by `api/app.ts`), so it goes through `upload` rather than `post`. The response is the
+ * stored row; its `id` is what the submit payload puts in `photo_ids`.
+ */
+export async function uploadPhoto(submissionId: number, filePath: string): Promise<HomeworkPhoto> {
+  const body = await upload<DataEnvelope<HomeworkPhoto>>({
+    path: `/api/homework/submissions/${submissionId}/photos`,
+    filePath,
+    name: 'file',
+    // A phone photo is megabytes, and the kernel's own ceiling is 8 MiB.
+    timeout: AI_REQUEST_TIMEOUT,
+  })
+  return body.data
+}
+
+/**
+ * The absolute URL of a stored photo, for `<image src>`.
+ *
+ * `storage_path` is `/uploads/homework/<file>`; an `<image>` tag is not subject to the request-domain
+ * allowlist, but it does need an absolute URL.
+ */
+export function photoUrl(storagePath: string): string {
+  if (/^https?:\/\//i.test(storagePath)) {
+    return storagePath
+  }
+  return `${BASE_URL.replace(/\/+$/, '')}${storagePath}`
 }

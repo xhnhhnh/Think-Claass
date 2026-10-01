@@ -59,6 +59,16 @@ export const AUTH_STORAGE_KEY = 'thinkclass-mp-auth'
 export const FEATURE_CACHE_KEY = 'thinkclass-mp-features'
 
 /**
+ * Storage key for the teacher's chosen class.
+ *
+ * A student's and a parent's login payload carries `classId`; a teacher's does not, because one
+ * teacher owns several classes. Without a remembered choice every teacher-side screen that needs a
+ * class - 发布作业, 智学看板 - had none, which is why the publish button refused and the AI board's
+ * tab stayed hidden. Cleared with the session (`utils/storage.ts#clearSession`).
+ */
+export const SELECTED_CLASS_KEY = 'thinkclass-mp-class'
+
+/**
  * Read-only mock mode for 微信开发者工具 without a backend.
  *
  * Off by default and never enabled implicitly: a mock that could turn itself on would make

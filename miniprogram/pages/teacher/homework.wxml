@@ -11,6 +11,11 @@
 
     <view class="form" wx:if="{{showForm}}">
       <view class="field">
+        <view class="field__label">发布到</view>
+        <view class="card__sub">{{className || '还没有选择班级 — 请先到「班级」页选择'}}</view>
+      </view>
+
+      <view class="field">
         <view class="field__label">标题</view>
         <input class="field__input" value="{{title}}" bindinput="onTitleInput" placeholder="例如：第五单元 · 分数的意义" placeholder-class="placeholder" />
       </view>

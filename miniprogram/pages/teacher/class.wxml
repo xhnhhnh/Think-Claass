@@ -9,6 +9,20 @@
     </view>
 
     <block wx:else>
+      <!-- class picker: a teacher owns several classes, and every class-scoped write needs one -->
+      <view class="card" wx:if="{{classes.length > 1}}">
+        <view class="card__sub">当前班级</view>
+        <view class="row row--wrap row--gap">
+          <view
+            class="chip {{item.id === classId ? 'chip--brand' : 'chip--muted'}}"
+            wx:for="{{classes}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="onPickClass"
+          >{{item.name}}</view>
+        </view>
+      </view>
+
       <!-- class summary -->
       <view class="card summary">
         <view class="row--between">
@@ -58,7 +72,7 @@
         <view class="mode__item {{mode === 'add' ? 'is-active' : ''}}" data-mode="add" bindtap="onModeTap">加分</view>
         <view class="mode__item {{mode === 'minus' ? 'is-active mode__item--minus' : ''}}" data-mode="minus" bindtap="onModeTap">减分</view>
       </view>
-      <input class="writebar__amount" type="number" value="{{amount}}" bindinput="onAmountInput" placeholder="分值" placeholder-class="placeholder" />
+      <input class="writebar__amount" type="number" value="{{amount}}" bindinput="onAmountInput" placeholder="1-5 分" placeholder-class="placeholder" />
     </view>
 
     <input class="writebar__reason" value="{{reason}}" bindinput="onReasonInput" placeholder="原因，例如：课堂表现好" placeholder-class="placeholder" />

@@ -60,6 +60,14 @@ jobs:
       - name: API surface must not drift
         run: npm run api:surface -- --check
 
+      # The mini program is a second, independent TypeScript project: the root `tsconfig.json`
+      # includes `src`, `api`, `packages` and `plugins`, so nothing built here was checking it. A
+      # type error under `miniprogram/` therefore shipped unnoticed until someone opened 微信开发者
+      # 工具 - and the compiler plugin there reads the same config, so the failure surfaced as
+      # "找不到 app.js" rather than as the type error that caused it.
+      - name: Type-check the mini program
+        run: npm run miniprogram:check
+
       - name: Guardrails
         run: npm run guard
 

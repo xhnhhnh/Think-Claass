@@ -21,6 +21,7 @@
           wx:for="{{pending}}"
           wx:key="id"
           data-id="{{item.id}}"
+          data-submission="{{item.submissionId}}"
           bindtap="onCardTap"
         >
           <view class="row--between">
@@ -59,6 +60,7 @@
           wx:for="{{done}}"
           wx:key="id"
           data-id="{{item.id}}"
+          data-submission="{{item.submissionId}}"
           bindtap="onCardTap"
         >
           <view class="row--between">

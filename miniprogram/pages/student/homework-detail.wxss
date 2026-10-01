@@ -229,3 +229,18 @@
 .footbar__submit {
   flex: 2;
 }
+
+/* Paper photographs: a three-up grid of thumbnails, sized so a portrait phone keeps three across. */
+.photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.photo-grid__item {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 16rpx;
+  background: #F1EFE7;
+}

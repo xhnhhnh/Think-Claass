@@ -8,6 +8,12 @@
       <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
     </view>
 
+    <view class="card error-card" wx:elif="{{nothingSubmitted}}">
+      <view class="card__title">孩子还没有开始这份作业</view>
+      <view class="card__sub">还没有作答记录可以查看。等孩子提交后，这里会显示答案、得分和老师评语。</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onBack">返回</view>
+    </view>
+
     <block wx:else>
       <!-- header -->
       <view class="card">
@@ -28,7 +34,8 @@
         </view>
 
         <view class="notice mt-16" wx:if="{{!editable && !scoreText}}">
-          <view class="tiny">这份作业已经不能再修改了。如果还有疑问，可以问问老师。</view>
+          <view class="tiny" wx:if="{{isParent}}">家长可以查看孩子的答案与批改结果；作答由孩子本人完成。</view>
+          <view class="tiny" wx:else>这份作业已经不能再修改了。如果还有疑问，可以问问老师。</view>
         </view>
       </view>
 
@@ -120,13 +127,40 @@
           <view class="mark__text mark__text--ai" wx:if="{{item.aiComment}}">AI：{{item.aiComment}}</view>
         </view>
       </view>
+
+      <!-- paper photographs: the 「拍张照片交上来」 half, and the only way to hand in a paper with
+           no questions at all -->
+      <view class="card" wx:if="{{editable || photos.length}}">
+        <view class="row--between">
+          <view class="card__title">作业照片</view>
+          <view class="chip chip--muted" wx:if="{{photos.length}}">{{photos.length}} 张</view>
+        </view>
+        <view class="card__sub">拍下整张作业纸，老师会在电脑端看到原图；没有题目的作业就靠它提交。</view>
+
+        <view class="photo-grid" wx:if="{{photos.length}}">
+          <image
+            class="photo-grid__item"
+            wx:for="{{photos}}"
+            wx:key="id"
+            src="{{item.url}}"
+            mode="aspectFill"
+            lazy-load
+          />
+        </view>
+
+        <view
+          wx:if="{{editable}}"
+          class="btn btn--ghost mt-16 {{uploading ? 'btn--disabled' : ''}}"
+          bindtap="onAddPhoto"
+        >{{uploading ? '上传中…' : '拍照 / 从相册选择'}}</view>
+      </view>
     </block>
   </block>
 
   <!-- action bar -->
   <view class="footbar" wx:if="{{!loading && !error && editable}}">
     <view class="footbar__progress">
-      <view class="tiny">已作答 {{answeredCount}}/{{questions.length}} 题</view>
+      <view class="tiny">已作答 {{answeredCount}}/{{questions.length}} 题<block wx:if="{{photos.length}}"> · 照片 {{photos.length}} 张</block></view>
       <view class="bar footbar__bar"><view class="bar__fill" style="width: {{questions.length ? answeredCount * 100 / questions.length : 0}}%"></view></view>
     </view>
     <view class="footbar__actions">

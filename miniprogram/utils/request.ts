@@ -371,3 +371,102 @@ export function post<T>(path: string, data?: any, options: Partial<RequestOption
 export function put<T>(path: string, data?: any, options: Partial<RequestOptions> = {}): Promise<T> {
   return request<T>({ method: 'PUT', path, data, ...options })
 }
+
+// ---------------------------------------------------------------------------
+// Multipart upload
+
+export interface UploadOptions {
+  /** Path below the API root. Always starts with `/api`. */
+  path: string
+  /** The local temp file path `wx.chooseMedia` returned. */
+  filePath: string
+  /** The multipart field name, defaulting to the kernel's `file`. */
+  name?: string
+  formData?: Record<string, string>
+  timeout?: number
+  /** Skip the「登录已过期」toast when the re-login attempt fails. */
+  silent?: boolean
+}
+
+/**
+ * One multipart upload, through `wx.uploadFile`.
+ *
+ * `wx.uploadFile` is a different API from `wx.request` in three ways that matter here, and each one
+ * is handled rather than left to the call sites:
+ *
+ *   1. the response body arrives as a **string** (the platform does not parse JSON for multipart),
+ *      so it is parsed here or turned into `{ message }` - the same treatment `callContainer` gets;
+ *   2. `header` must carry the Bearer token, exactly as `wx.request` does, or the route answers 401;
+ *   3. a 401 needs the same silent re-login the JSON transport has, so `upload` shares `request`'s
+ *      recovery path instead of growing a second one.
+ *
+ * `TRANSPORT === 'container'` is refused with an explanation: 云托管's `callContainer` has no
+ * multipart form, and its default public domain must be in the mini program's uploadFile allowlist
+ * anyway - so a container deployment that wants photo upload sets `BASE_URL` to that domain and
+ * `TRANSPORT` to `'request'` (documented in `miniprogram/README.md`).
+ */
+function sendUpload(options: UploadOptions, token: string): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    if (MOCK.enabled) {
+      reject(new ApiError(0, '离线预览模式不支持上传照片', null))
+      return
+    }
+    if (TRANSPORT === 'container') {
+      reject(
+        new ApiError(
+          0,
+          '云托管通道不支持图片上传：请把 BASE_URL 设为云托管的公网域名并改用 TRANSPORT=request，同时在小程序后台配置 uploadFile 合法域名',
+          null,
+        ),
+      )
+      return
+    }
+
+    wx.uploadFile({
+      url: buildUrl(options.path),
+      filePath: options.filePath,
+      name: options.name || 'file',
+      header: headersFor(token),
+      formData: options.formData,
+      timeout: options.timeout || REQUEST_TIMEOUT,
+      success: (res) => {
+        let data: any = res.data
+        if (typeof data === 'string') {
+          try {
+            data = data ? JSON.parse(data) : {}
+          } catch (error) {
+            data = { message: data }
+          }
+        }
+        resolve({ statusCode: res.statusCode, data })
+      },
+      fail: (err) => reject(new ApiError(0, '照片上传失败，请检查网络后重试', err)),
+    })
+  })
+}
+
+/**
+ * Upload one file and resolve its body.
+ *
+ * Same contract as `request`: every failure - transport, non-2xx, or a 2xx body carrying
+ * `success: false` - rejects with an `ApiError`, and a 401 is retried once after a silent re-login.
+ */
+export async function upload<T>(options: UploadOptions): Promise<T> {
+  let res = await sendUpload(options, currentToken({ method: 'POST', path: options.path }))
+
+  if (res.statusCode === 401) {
+    const recovered = await silentRelogin()
+    if (recovered) {
+      res = await sendUpload(options, currentToken({ method: 'POST', path: options.path }))
+    }
+    if (res.statusCode === 401) {
+      clearSession()
+      routeToLogin(options.silent !== true)
+    }
+  }
+
+  if (isFailure(res.statusCode, res.data)) {
+    throw new ApiError(res.statusCode, failureMessage(res.statusCode, res.data), res.data)
+  }
+  return res.data as T
+}

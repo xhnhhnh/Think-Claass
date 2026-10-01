@@ -65,6 +65,45 @@ interface WxRequestTask {
 }
 
 // ---------------------------------------------------------------------------
+// wx.uploadFile / wx.chooseMedia (submission photos)
+
+interface WxUploadFileSuccess extends WxCallbackResult {
+  /** The server's body as a *string*: multipart responses are not parsed by the platform. */
+  data: string
+  statusCode: number
+}
+
+interface WxUploadFileOption {
+  url: string
+  /** The local temp path from `wx.chooseMedia` / `wx.chooseImage`. */
+  filePath: string
+  /** The multipart field name; the kernel reads `file` (`FileInterceptor('file')`). */
+  name: string
+  header?: Record<string, string>
+  formData?: Record<string, string>
+  timeout?: number
+  success?: (res: WxUploadFileSuccess) => void
+  fail?: (err: WxFailResult) => void
+}
+
+interface WxChooseMediaFile {
+  tempFilePath: string
+  size: number
+}
+
+interface WxChooseMediaSuccess extends WxCallbackResult {
+  tempFiles: WxChooseMediaFile[]
+  type: 'image' | 'video' | 'mix'
+}
+
+interface WxChooseMediaOption extends WxCallbackOptions<WxChooseMediaSuccess> {
+  count?: number
+  mediaType?: Array<'image' | 'video'>
+  sourceType?: Array<'album' | 'camera'>
+  sizeType?: Array<'original' | 'compressed'>
+}
+
+// ---------------------------------------------------------------------------
 // wx.login / storage
 
 interface WxLoginSuccess extends WxCallbackResult {
@@ -179,6 +218,9 @@ interface WxCloud {
 
 interface Wx {
   request(option: WxRequestOption): WxRequestTask
+  /** Multipart upload. Used for homework photos, whose route is `POST /api/homework/submissions/:id/photos`. */
+  uploadFile(option: WxUploadFileOption): WxRequestTask
+  chooseMedia(option: WxChooseMediaOption): void
   login(option: WxLoginOption): void
 
   setStorageSync(key: string, data: any): void

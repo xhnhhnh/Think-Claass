@@ -20,7 +20,7 @@ import type { PublicAnnouncementDto, StudentMotivationSummary } from '../../serv
 import { myHomework } from '../../services/homework'
 import type { HomeworkStudentEntry } from '../../services/homework'
 import type { ClassFeatureFlags } from '../../utils/storage'
-import { studentIdOf } from '../../utils/storage'
+import { readSession, studentIdOf } from '../../utils/storage'
 import { getResolution, isEnabled, syncTabBar } from '../../utils/feature'
 import { formatDate, formatDueLabel, submissionStatusText } from '../../utils/format'
 import { errorMessage } from '../../utils/toast'
@@ -84,13 +84,21 @@ Page({
     void this.load({ silent: true, force: true }).then(() => wx.stopPullDownRefresh())
   },
 
-  /** Adopt the resolved flag map for the quick entries. */
+  /**
+   * Adopt the resolved flag map for the quick entries.
+   *
+   * Role matters as much as the flags here: a parent shares the student pages but may not read the
+   * 积分商城 or the AI 智学 set (both are student-only on the server, `marketplace.controllers` /
+   * `ai-study.controllers`), so showing those entries to a parent is an entry that answers 403.
+   */
   applyFeatures() {
     const resolution = getResolution()
+    const session = readSession()
+    const isParent = Boolean(session && session.user.role === 'parent')
     this.setData({
       features: resolution.features,
-      showShop: isEnabled(resolution.features, 'enable_shop'),
-      showAiStudy: isEnabled(resolution.features, 'enable_ai_study'),
+      showShop: !isParent && isEnabled(resolution.features, 'enable_shop'),
+      showAiStudy: !isParent && isEnabled(resolution.features, 'enable_ai_study'),
       showAchievements: isEnabled(resolution.features, 'enable_achievements'),
     })
   },

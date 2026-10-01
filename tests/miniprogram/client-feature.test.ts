@@ -80,11 +80,14 @@ describe('visible tabs', () => {
     expect(feature.visibleTabs('teacher').map((tab) => tab.key)).not.toContain('insight');
   });
 
-  it('gives a parent the student tab set', async () => {
+  it('gives a parent the student pages, minus the student-only ones', async () => {
     const feature = await loadFeature();
     feature.applyLoginSnapshot({ enable_shop: true }, 1);
 
-    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
+    // 积分商城 is student-scoped on the server (`marketplace.controllers` refuses a parent), so the
+    // tab was an entry whose only possible answer was 403. The rest of the student set is shared.
+    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual(['home', 'homework', 'me']);
+    expect(feature.visibleTabs('student').map((tab) => tab.key)).toEqual([
       'home',
       'homework',
       'shop',
