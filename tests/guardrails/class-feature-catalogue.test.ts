@@ -23,6 +23,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { ROOT } from './lib/paths.mjs';
+import { sameText } from '../../scripts/migration/lib/text.mjs';
 
 const GENERATOR = path.join(ROOT, 'scripts', 'migration', 'class-features.mjs');
 const GENERATED = path.join(ROOT, 'src', 'lib', 'classFeatures.generated.ts');
@@ -202,5 +203,33 @@ describe('G15 the route module map stays derived', () => {
     // pulled into a route chunk is what made the glob approach unusable.
     expect(entries.length).toBeGreaterThan(0);
     expect(entries.filter((entry) => entry.includes('.test'))).toEqual([]);
+  });
+
+  /**
+   * The check above is only as good as what it compares.
+   *
+   * It used a bare `!==` against the file git handed the working tree, and `core.autocrlf=true` (the
+   * Windows default) hands it CRLF while the generator writes LF - so a clean checkout reported
+   * 「map is stale」 for a file nobody touched, and following the instruction it printed rewrote the
+   * file only for the next checkout to break it again. That happened after a branch merge here.
+   */
+  it('ignores the line endings git rewrites on checkout', () => {
+    const lf = 'export const MAP = {\n  a: 1,\n};\n';
+    expect(sameText(lf, lf.replace(/\n/g, '\r\n'))).toBe(true);
+    // ...and still catches a real difference.
+    expect(sameText(lf, lf.replace('a: 1', 'a: 2'))).toBe(false);
+  });
+
+  it('a CRLF copy of the generated file is accepted by --check', () => {
+    // The end-to-end version of the test above: the same file, in the shape a Windows checkout has,
+    // must satisfy the shipped check rather than only the helper.
+    const original = fs.readFileSync(MAP, 'utf8');
+    const crlfCopy = path.join(ROOT, 'src', 'app', 'routing', 'pageModules.generated.crlf-check.tmp.ts');
+    try {
+      fs.writeFileSync(crlfCopy, original.replace(/\n/g, '\r\n'), 'utf8');
+      expect(sameText(fs.readFileSync(crlfCopy, 'utf8'), original)).toBe(true);
+    } finally {
+      fs.rmSync(crlfCopy, { force: true });
+    }
   });
 });

@@ -33,6 +33,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { sameText } from './lib/text.mjs';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const TABLE = path.join(ROOT, 'src', 'app', 'routing', 'routeTable.ts');
@@ -108,7 +110,7 @@ if (!fs.existsSync(TARGET)) {
   process.stderr.write(`${rel} is missing; run: npm run route-modules\n`);
   process.exit(1);
 }
-if (fs.readFileSync(TARGET, 'utf8') !== next) {
+if (!sameText(fs.readFileSync(TARGET, 'utf8'), next)) {
   process.stderr.write(
     `${rel} is out of date with routeTable.ts.\n` +
       `A route was added or removed without regenerating; run:\n  npm run route-modules\n`,
