@@ -134,16 +134,21 @@ AI 设置 `GET`/`PUT /api/admin/system/settings`，其中 `ai_api_key` **留空�
 - 必须 HTTPS，且域名必须已 ICP 备案（境内主体）；
 - 一个月内可修改的次数有限（以后台提示为准），所以先把域名定下来。
 
-> **当前小程序客户端不发上传请求**：[`miniprogram/services/homework.ts`](../../miniprogram/services/homework.ts)
-> 只有作业读取、作答、保存、提交四条路径，工程里没有 `wx.uploadFile` / `wx.chooseMedia` 调用。
-> 也就是说**拍照上传目前是 Web 端的流程**。如果你打算在小程序里补上它，注意两点：
-> 后端要求 multipart 字段名是 **`file`**（`FileInterceptor('file')`，
-> [`plugins/homework/src/homework.controllers.ts`](../../plugins/homework/src/homework.controllers.ts)），
-> 且只接受 `image/jpeg` / `image/png` / `image/webp` / `image/heic` / `image/heif`，单张上限 10MB；
-> 补上之后 `uploadFile` 合法域名就必须一起配（只配 `request` 会出现"页面能开、上传必失败"）。
+> **小程序端已经会发上传请求**：[`miniprogram/services/homework.ts`](../../miniprogram/services/homework.ts) 的
+> `uploadPhoto` 经 [`utils/request.ts`](../../miniprogram/utils/request.ts) 的 `upload` 走 `wx.uploadFile`
+> （入口是 `pages/student/homework-detail.ts` 的「拍照 / 从相册选择」）。所以 **`uploadFile` 合法域名是要配的**，
+> 只配 `request` 会出现"页面能开、上传必失败"。两个约束：
+>
+> - 后端要求 multipart 字段名是 **`file`**（`FileInterceptor('file')`，
+>   [`plugins/homework/src/homework.controllers.ts`](../../plugins/homework/src/homework.controllers.ts)），
+>   且只接受 `image/jpeg` / `image/png` / `image/webp` / `image/heic` / `image/heif`，单张上限 10MB；
+> - **`TRANSPORT='container'` 传不了照片**：云托管的 `callContainer` 没有 multipart，
+>   `utils/request.ts` 会在调用前就报「云托管通道不支持图片上传」。要传照片就必须
+>   `BASE_URL` 设为公网域名、`TRANSPORT='request'`，并配好下面的 `uploadFile` 域名。
 
 > **Track A（云托管）不需要在这里配任何东西**：`wx.cloud.callContainer` 走的是微信的通道，
 > 不经过域名白名单，因此也不需要备案域名。见 [10-deploy-cloudrun.md 第 8 节](10-deploy-cloudrun.md#8-小程序侧wxcloudcallcontainer无需配置通讯域名)。
+> 代价是上面那条：**走 `callContainer` 就用不了小程序的拍照上传**（要用就得切 `request` + 公网域名 + 白名单）。
 
 > **不要试图把 `api.weixin.qq.com` 配成服务器域名**：白名单里填不了它，而且真这么做就意味着
 > 小程序里要放 `WECHAT_SECRET`。`code2session` 必须在服务端做（`POST /api/wechat/login`）。
@@ -285,9 +290,13 @@ node scripts\wechat\upload.mjs
   但**绑定那一步跳不过去** —— 用的仍是他本人的微信，绑完当场进入。
 - **角色必须选对**：服务端按 `(账号, 角色)` 校验密码，选错会返回 401「账号或密码错误」，
   审核员会以为账号是坏的。测试账号请按学生给「学生」、教师给「老师」，并在备注里写明这一点。
-- 教师/管理员/超管账号登录后落在**教师 tab**；`admin` / `superadmin` 还多一个**「管理」tab**
-  （系统概览 / 教师账号列表 / AI 设置）。要演示它请**单独建**一个提测用的 `admin` / `superadmin` 账号
+- 教师 / 超管账号登录后落在**教师 tab**，`superadmin` 再多一个**「管理」tab**
+  （系统概览 / 教师账号列表 / AI 设置）。要演示它请**单独建**一个提测用的 `superadmin` 账号
   （见下一条的"不要交 `SUPERADMIN_*`"）；演示 AI 设置时不要提交真实密钥，`ai_api_key` 留空即"不修改"。
+  > 注意别绕晕：服务端确实允许 `admin` **或** `superadmin` 访问管理路由，
+  > 但**小程序的角色选择器里没有「管理员」这一项**（第 0.3 节的 4 项），
+  > 因为本产品不创建 `admin` 账号。所以**要演示，就用 `superadmin`**；
+  > 建一个 `admin` 账号是选不出来、也登不进去的。
 - 测试账号请单独建（不要交 `SUPERADMIN_*`），并确保登录后能看到数据 —— 空数据的账号等于"无法体验"。
   建议预置一个班、几名学生、一次已发布的作业。
 - 同一微信号只能绑一个账号，如果审核员的微信已经绑过别的测试账号，
