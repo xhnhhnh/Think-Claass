@@ -39,6 +39,11 @@ database.sqlite*
 # they are v1.6.x vendor copies, not sources, and `pack.sh` only reads them if they exist.
 /.tmp/
 
+# 微信开发者工具打开的「工作副本」目录（wechat/）
+# 它是 miniprogram/ 的副本，只为让工具直接打开项目根：不进版本库，免得源被改成两份。
+# 排查上传问题时若确实需要提交它，删掉这一行即可。
+/wechat/
+
 # 微信小程序客户端（miniprogram/）
 # 该目录不依赖 npm：node_modules / miniprogram_npm 只会由开发者工具在误点「构建 npm」时生成，
 # project.private.config.json 是开发者工具写入的本机配置（编译模式、本地设置），不进版本库。

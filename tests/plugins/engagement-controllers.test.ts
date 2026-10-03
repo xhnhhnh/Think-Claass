@@ -498,10 +498,14 @@ describe('engagement: identity comes from the actor, never from the request', ()
       expect.objectContaining({ sender_id: 5, sender_role: 'teacher', class_id: 3 }),
     );
 
-    // No parent flow posts a message, so a parent stays out.
-    expect(
-      (await refuserOf(() => controller.createMessage(parent, { class_id: 3, content: 'x', type: 'HOME_SCHOOL' }))).status,
-    ).toBe(403);
+    // A parent posts the family side of 家校信箱 (`ParentCommunicationPage.tsx:96`), so the route
+    // admits them too - bound the same way: the sender is the actor, and `assertClassAccess` limits
+    // them to a class their child is in.
+    await controller.createMessage(parent, { class_id: 3, sender_id: 999, content: 'x', type: 'HOME_SCHOOL' });
+    expect(service.createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ sender_id: expect.any(Number), sender_role: 'parent', class_id: 3 }),
+    );
+    expect(service.createMessage).not.toHaveBeenCalledWith(expect.objectContaining({ sender_id: 999 }));
   });
 
   it('derives the anonymity rule from the actor’s role, not the query', async () => {

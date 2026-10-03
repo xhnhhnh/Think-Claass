@@ -289,7 +289,7 @@ AI 智学（本轮新增的 6 条路由）。两层门：控制器先做角色�
 | `GET /api/redemption/my` | `plugins/engagement/src/engagement.controllers.ts:200` | 无鉴权 | student（本人，actor 派生） | `P1`｜兑换券＝资产；当前 studentId 来自 query，匿名可枚举任意学生券码。 |
 | `POST /api/redemption/verify` | `plugins/engagement/src/engagement.controllers.ts:209` | 无鉴权 | teacher/admin | `P1`｜核销写操作：匿名可核销已知券码，且该 handler 用 @Res() 绕过全局过滤器。 |
 | `GET /api/messages` | `plugins/engagement/src/engagement.controllers.ts:230` | 无鉴权 | teacher（本班）/student（本人）/parent（孩子） | `P1`｜树洞/家校消息正文，匿名可按 query 任意读取（含 sender_id 维度）。 |
-| `POST /api/messages` | `plugins/engagement/src/engagement.controllers.ts:239` | 无鉴权 | student（本人，sender_id 由 actor 派生） | `P1`｜匿名可冒名发消息。 |
+| `POST /api/messages` | `plugins/engagement/src/engagement.controllers.ts:239` | 无鉴权 | teacher（本班）/student（本人）/parent（孩子所在班），sender_id 一律由 actor 派生 | `P1`｜匿名可冒名发消息。 |
 | `GET /api/family-tasks` | `plugins/engagement/src/engagement.controllers.ts:288` | 无鉴权 | parent（本人）/student（本人） | `P1`｜家庭任务含学生与家长 id；query 的 studentId/parentId 不可信，须与 actor 绑定。 |
 | `POST /api/family-tasks` | `plugins/engagement/src/engagement.controllers.ts:301` | 无鉴权 | parent（本人） | `P1`｜匿名可创建家庭任务并关联任意学生（影响积分加成）。 |
 | `PUT /api/family-tasks/:id` | `plugins/engagement/src/engagement.controllers.ts:317` | 无鉴权 | parent（本人）/teacher（本班） | `P1`｜匿名可改任意任务状态。 |

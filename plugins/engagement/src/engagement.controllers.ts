@@ -407,9 +407,14 @@ export class MessagesController {
     // because `TeacherCommunicationPage.tsx:95` answers a tree-hole message through this same route
     // (`sender_role: 'teacher'`); refusing it would break the reply the teacher's page is built
     // around. Both are bound the same way - the sender is the actor and the class must be theirs -
-    // so the impersonation the matrix names (`sender_id` from the body) is closed either way. A
-    // parent is *not* admitted: no parent flow posts here.
-    const actor = requireActorRole(req, ['student', 'teacher']);
+    // so the impersonation the matrix names (`sender_id` from the body) is closed either way.
+    //
+    // A parent is admitted for the same reason the teacher is: `ParentCommunicationPage.tsx:96`
+    // posts the family side of 家校信箱 through this route, and refusing it made that page unable to
+    // send anything (the `messages` table stayed empty because no family side ever wrote). The two
+    // boundaries that make it safe are unchanged - `assertClassAccess` below limits the parent to a
+    // class their child is in, and the sender columns are derived from the actor, never the body.
+    const actor = requireActorRole(req, ['student', 'teacher', 'parent']);
     const { class_id, content, type } = body ?? {};
     if (!class_id || !content || !type) {
       throw legacyError(HttpStatus.BAD_REQUEST, 'class_id, content, and type are required');
