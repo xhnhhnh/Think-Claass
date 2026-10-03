@@ -69,21 +69,6 @@ export const FEATURE_CACHE_KEY = 'thinkclass-mp-features'
 export const SELECTED_CLASS_KEY = 'thinkclass-mp-class'
 
 /**
- * Read-only mock mode for 微信开发者工具 without a backend.
- *
- * Off by default and never enabled implicitly: a mock that could turn itself on would make
- * "the API is down" look like a working app. `true` here swaps `utils/request.ts` onto the
- * fixtures in `utils/mock.ts`, which exist so a UI change can be reviewed on a machine with
- * no server running.
- */
-export const MOCK = {
-  enabled: false,
-  /** Simulated latency so loading states are actually visible while reviewing. */
-  delayMs: 300,
-  failRate: 0,
-}
-
-/**
  * Development login bypass - the client half of the server's `WECHAT_ALLOW_DEV_LOGIN`.
  *
  * `POST /api/wechat/login` normally exchanges a `wx.login` code with WeChat, which requires a real
@@ -96,4 +81,4 @@ export const MOCK = {
  * environment: it is an identity assertion that bypasses WeChat entirely, which is exactly why the
  * server fences it on both sides.
  */
-export const DEV_LOGIN_OPENID = ''
+export const DEV_LOGIN_OPENID = 'dev-openid-demo-1'

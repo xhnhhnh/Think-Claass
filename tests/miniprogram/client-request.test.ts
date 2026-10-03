@@ -15,6 +15,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DEV_LOGIN_OPENID } from '../../miniprogram/config/index';
 import { installFakeWx, authHeader, type FakeWx, type Responder } from './helpers/fake-wx';
 
 const SESSION_KEY = 'thinkclass-mp-auth';
@@ -218,7 +219,13 @@ describe('the service layer', () => {
     });
   });
 
-  it('runs wx.login first and sends only the code when no dev openid is configured', async () => {
+  /**
+   * The dev openid is *configuration*, so these two tests read it from `config/index.ts` rather than
+   * assuming the repository leaves it empty. It is set locally (`dev-openid-demo-1`) so that a
+   * developer without an approved AppID can sign in, and it is required to be empty before a release
+   * build is uploaded - the assertions below hold either way, which is the point.
+   */
+  it('runs wx.login first, and sends the dev openid only when one is configured', async () => {
     const { auth, fake } = await loadClient(() => ({
       statusCode: 200,
       data: { bound: false, ticket: 'tk', expiresAt: 'soon' },
@@ -227,14 +234,31 @@ describe('the service layer', () => {
     await auth.loginWithWechat();
 
     expect(fake.loginCalls).toBe(1);
-    expect(fake.requestsTo('/api/wechat/login')[0].data).toEqual({ code: 'code-from-wx' });
+    const body = fake.requestsTo('/api/wechat/login')[0].data as Record<string, unknown>;
+    expect(body.code).toBe('code-from-wx');
+    if (DEV_LOGIN_OPENID) {
+      expect(body.devOpenid).toBe(DEV_LOGIN_OPENID);
+    } else {
+      expect(body).toEqual({ code: 'code-from-wx' });
+    }
   });
 
-  it('surfaces a failed wx.login instead of sending a codeless request', async () => {
+  it('tolerates a failed wx.login when a dev openid can stand in, and refuses without one', async () => {
     const { auth, fake } = await loadClient(() => ({ statusCode: 200, data: { bound: false } }), {
       loginCode: null,
     });
 
+    if (DEV_LOGIN_OPENID) {
+      // The devtools and a real phone both fail `wx.login` without an approved AppID; the configured
+      // openid is what makes the client usable anyway, so the request still goes out - with an empty
+      // code, which the server ignores in favour of the openid.
+      await expect(auth.loginWithWechat()).resolves.toMatchObject({ bound: false });
+      expect(fake.requestsTo('/api/wechat/login')).toHaveLength(1);
+      return;
+    }
+
+    // No openid to fall back on: sending a codeless request would only earn a 401 from the server,
+    // so the failure is surfaced here instead.
     await expect(auth.loginWithWechat()).rejects.toThrowError('微信登录失败，请重试');
     expect(fake.requests).toHaveLength(0);
   });

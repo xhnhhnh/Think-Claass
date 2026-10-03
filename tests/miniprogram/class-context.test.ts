@@ -149,8 +149,14 @@ describe('the teacher tab bar once a class is known', () => {
     const feature = await import('../../miniprogram/utils/feature');
     feature.applyLoginSnapshot({ enable_shop: true }, 1);
 
-    // The shop is student-only on the server: a parent tapping it got a 403.
-    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual(['home', 'homework', 'me']);
+    // A parent gets their own four pages, and `enable_shop` does not leak any of the child's tabs
+    // into that set - the parent's set is not the student set with a hole cut in it.
+    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
+      'home',
+      'communication',
+      'report',
+      'leave',
+    ]);
     expect(feature.visibleTabs('student').map((tab) => tab.key)).toEqual(['home', 'homework', 'shop', 'me']);
   });
 

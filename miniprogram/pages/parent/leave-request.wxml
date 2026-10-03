@@ -1,0 +1,85 @@
+<view class="page page--tabbar">
+  <!-- form: the child is taken from the session, so there is no "for whom" field -->
+  <view class="card form" wx:if="{{studentId}}">
+    <view class="card__title">写新假条</view>
+    <view class="card__sub">选好日期、写清事由，老师就能在班级里看到</view>
+
+    <view class="field-row">
+      <view class="field field--half">
+        <view class="field__label">开始日期</view>
+        <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
+          <view class="field__picker">{{startDate || '选择日期'}}</view>
+        </picker>
+      </view>
+      <view class="field field--half">
+        <view class="field__label">结束日期</view>
+        <picker mode="date" value="{{endDate}}" start="{{startDate || today}}" bindchange="onEndDateChange">
+          <view class="field__picker">{{endDate || '选择日期'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="field field--last">
+      <view class="field__label">请假事由</view>
+      <textarea
+        class="field__textarea"
+        value="{{reason}}"
+        bindinput="onReasonInput"
+        maxlength="200"
+        placeholder="跟老师说明一下原因吧…"
+        placeholder-class="placeholder"
+      />
+    </view>
+
+    <view class="btn btn--primary btn--block mt-16 {{submitting ? 'btn--disabled' : ''}}" bindtap="onSubmit">
+      {{submitting ? '提交中…' : '交给老师'}}
+    </view>
+  </view>
+
+  <!-- no child on the account: the form would post a student id that does not exist -->
+  <view class="card error-card" wx:else>
+    <view class="card__title">还没有绑定孩子</view>
+    <view class="card__sub">账号里没有孩子的信息，暂时不能提交假条。请联系老师获取邀请码完成绑定。</view>
+  </view>
+
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{4}}" text="正在加载假条记录…" />
+
+  <block wx:else>
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">假条记录没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <view class="row--between mb-16" wx:if="{{leaves.length}}">
+        <view class="h2">假条记录</view>
+        <view class="tiny">{{leaves.length}} 条</view>
+      </view>
+
+      <view class="card leave" wx:for="{{leaves}}" wx:key="id">
+        <view class="row--between">
+          <view class="leave__range">{{item.range}}</view>
+          <view class="chip chip--{{item.statusTone}}">{{item.statusText}}</view>
+        </view>
+
+        <view class="leave__reason" wx:if="{{item.reason}}">{{item.reason}}</view>
+
+        <view class="leave__reply" wx:if="{{item.reviewComment}}">
+          <view class="leave__reply-label">老师回复</view>
+          <view class="leave__reply-text">{{item.reviewComment}}</view>
+        </view>
+
+        <view class="tiny mt-16" wx:if="{{item.createdText}}">提交于 {{item.createdText}}</view>
+      </view>
+
+      <empty-state
+        wx:if="{{!leaves.length}}"
+        title="还没有请假记录"
+        description="写完假条交给老师之后，每一条都会显示在这里。"
+      />
+    </block>
+  </block>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

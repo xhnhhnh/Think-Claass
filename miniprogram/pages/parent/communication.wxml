@@ -1,0 +1,54 @@
+<view class="page page--tabbar page--composer">
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{5}}" text="正在打开信箱…" />
+
+  <block wx:else>
+    <!-- no class on the account: the thread cannot be keyed, and "no letters" would be a lie -->
+    <view class="card notice" wx:if="{{classMissing}}">
+      <view class="card__title">还没有找到孩子的班级</view>
+      <view class="card__sub">家校信箱按班级读取信件。请确认孩子的账号已经加入班级，可以请老师提供邀请码。</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <view class="card error-card" wx:elif="{{error}}">
+      <view class="card__title">信箱没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <!-- the family's own letters, oldest at the top: only these two sides are this parent's -->
+      <view class="thread" wx:if="{{messages.length}}">
+        <view class="bubble {{item.mine ? 'bubble--mine' : 'bubble--theirs'}}" wx:for="{{messages}}" wx:key="id">
+          <view class="bubble__meta">
+            <view class="chip {{item.mine ? 'chip--brand' : 'chip--teacher'}}">{{item.who}}</view>
+            <view class="tiny ml-16">{{item.time}}</view>
+          </view>
+          <view class="bubble__text">{{item.content}}</view>
+        </view>
+      </view>
+
+      <empty-state
+        wx:else
+        title="信箱里还没有信件"
+        description="写下第一句话，老师会在这里回复。"
+      />
+    </block>
+  </block>
+
+  <!-- pinned above the tab bar, the way the teacher's write bar is -->
+  <view class="composer" wx:if="{{!loading && !classMissing && !error}}">
+    <textarea
+      class="composer__input"
+      value="{{draft}}"
+      bindinput="onDraftInput"
+      maxlength="500"
+      placeholder="写下想对老师说的话…"
+      placeholder-class="placeholder"
+    />
+    <view class="btn btn--primary composer__send {{sending || !draft ? 'btn--disabled' : ''}}" bindtap="onSend">
+      {{sending ? '寄出中…' : '寄出'}}
+    </view>
+  </view>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

@@ -50,6 +50,8 @@ export const FEATURE_KEYS = {
   shop: 'enable_shop',
   aiStudy: 'enable_ai_study',
   achievements: 'enable_achievements',
+  familyTasks: 'enable_family_tasks',
+  parentBuff: 'enable_parent_buff',
 } as const
 
 /**
@@ -83,13 +85,48 @@ export const TEACHER_TABS: TabDefinition[] = [
 ]
 
 /**
- * Tabs a parent must not see, whatever the flags say.
+ * A parent's own tabs - the four the web console already assigns to a phone.
  *
- * The student set is reused for parents (the pages are the student's, and the README is explicit
- * that a parent gets the same bar), but two of them are student-only server-side. Hiding them here
- * is the honest fix: an entry that always answers 403 reads as a broken app.
+ * The web's route table gives these exact labels a `mobileTab` index (`routeTable.ts:820-865`), so
+ * this set is not a design decision made here: it is the layout the parent experience was designed
+ * around, and the mini program follows it rather than reusing the child's pages. Before this, a
+ * parent saw the student's bar (成长总览 / 我的作业 / 我的) with the shop removed, which gave them
+ * nothing to *do* - not least because the daily blessing had no entry at all.
+ *
+ * 家庭时光 is feature-gated by `enable_family_tasks`, exactly as the web marks it; everything else is
+ * ungated because a parent should always be able to reach their child's report, the mailbox and the
+ * leave form.
+ *
+ * 学习采撷 (the web's assignments page) is deliberately absent: 我的作业 covers the same ground in
+ * this client, and a fifth entry would be the sixth tab in a bar WeChat caps at five.
  */
-const PARENT_HIDDEN_TAB_KEYS: string[] = ['shop']
+export const PARENT_TABS: TabDefinition[] = [
+  { key: 'home', text: '温馨家园', pagePath: 'pages/parent/dashboard', requires: null },
+  { key: 'communication', text: '家校信箱', pagePath: 'pages/parent/communication', requires: null },
+  { key: 'report', text: '成长足迹', pagePath: 'pages/parent/report', requires: null },
+  { key: 'tasks', text: '家庭时光', pagePath: 'pages/parent/tasks', requires: FEATURE_KEYS.familyTasks },
+  { key: 'leave', text: '请假假条', pagePath: 'pages/parent/leave-request', requires: null },
+]
+
+
+/**
+ * The console entry, shown to `admin` / `superadmin` and nobody else.
+ *
+ * It is kept out of `TEACHER_TABS` so that "a teacher's tabs" stays exactly what it always was; a
+ * console account gets this appended, which is what makes 管理 the fifth and last slot (WeChat's
+ * ceiling). `requires: null` because no class feature governs an operator screen.
+ */
+export const MANAGEMENT_TAB: TabDefinition = {
+  key: 'manage',
+  text: '管理',
+  pagePath: 'pages/admin/manage',
+  requires: null,
+}
+
+/** Does this role get the 管理 entry? */
+export function canManage(role?: string | null): boolean {
+  return role === 'admin' || role === 'superadmin'
+}
 
 /**
  * The four pages `app.json` declares as tab pages, in order.
@@ -222,26 +259,35 @@ onSessionChanged((session) => {
 // ---------------------------------------------------------------------------
 // Roles and tabs
 
-/** Staff roles get the teacher tab set; everyone else gets the student one. */
+/** Staff roles get the teacher tab set, parents their own, everyone else the student one. */
 export function isTeacherRole(role?: string | null): boolean {
   return role === 'teacher' || role === 'admin' || role === 'superadmin'
 }
 
+/**
+ * The tab set a role owns, before the feature filter.
+ *
+ * Three sets, not two: a parent is neither staff nor a pupil, and reusing the student pages left
+ * them with a read-only mirror of their child's screens and no action of their own. See
+ * `PARENT_TABS` for why the parent set is what the web designed.
+ */
+function tabsForRole(role?: string | null): TabDefinition[] {
+  if (role === 'parent') return PARENT_TABS
+  return isTeacherRole(role) ? TEACHER_TABS : STUDENT_TABS
+}
+
 /** The tabs a role may see, *after* the feature filter. */
 export function visibleTabs(role?: string | null): TabDefinition[] {
-  const isParent = role === 'parent'
-  const list = isTeacherRole(role) ? TEACHER_TABS : STUDENT_TABS
-  return list
-    // A parent shares the student pages, but not the student-only ones: the shop is student-scoped
-    // on the server (`marketplace.controllers` refuses a parent), so the tab was an entry that could
-    // only ever answer 403.
-    .filter((tab) => !(isParent && PARENT_HIDDEN_TAB_KEYS.includes(tab.key)))
+  return tabsForRole(role)
+    // Console accounts keep the teacher tabs (their class/assignment routes accept `admin` and
+    // `superadmin`) and gain the operator screen on the end.
+    .concat(canManage(role) ? [MANAGEMENT_TAB] : [])
     .filter((tab) => isEnabled(current.features, tab.requires))
 }
 
 /** The tab set a role has, before filtering - used by the 「功能未开启」explanation. */
 export function allTabs(role?: string | null): TabDefinition[] {
-  return isTeacherRole(role) ? TEACHER_TABS : STUDENT_TABS
+  return tabsForRole(role).concat(canManage(role) ? [MANAGEMENT_TAB] : [])
 }
 
 /** Where a role lands after login. */

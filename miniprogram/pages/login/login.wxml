@@ -26,6 +26,60 @@
     </view>
   </view>
 
+  <view class="login__split">或</view>
+
+  <view class="card login__card">
+    <view class="card__title">用账号密码登录</view>
+    <view class="card__sub">首次使用会把这个微信绑定到你的账号，之后就能用上面的「微信一键登录」直接进入。</view>
+
+    <view class="field">
+      <view class="field__label">我是</view>
+      <view class="roles">
+        <view
+          class="role {{accountRole === item.value ? 'role--on' : ''}}"
+          wx:for="{{roles}}"
+          wx:key="value"
+          data-role="{{item.value}}"
+          bindtap="onAccountRoleTap"
+        >
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field__label">账号</view>
+      <input
+        class="field__input"
+        type="text"
+        value="{{accountUsername}}"
+        placeholder="老师发给你的账号"
+        placeholder-class="field__placeholder"
+        bindinput="onAccountUsernameInput"
+      />
+    </view>
+
+    <view class="field field--last">
+      <view class="field__label">密码</view>
+      <input
+        class="field__input"
+        password
+        value="{{accountPassword}}"
+        placeholder="初始密码可以问老师"
+        placeholder-class="field__placeholder"
+        bindinput="onAccountPasswordInput"
+      />
+    </view>
+
+    <view class="btn btn--primary btn--block login__button {{busy ? 'btn--disabled' : ''}}" bindtap="onAccountLogin">
+      {{busy ? '正在登录…' : '登录并绑定'}}
+    </view>
+
+    <view class="login__error" wx:if="{{accountError}}">
+      <view class="login__error-text">{{accountError}}</view>
+    </view>
+  </view>
+
   <view class="login__foot">
     <view class="tiny">登录遇到问题？请联系你的老师重置账号密码。</view>
   </view>

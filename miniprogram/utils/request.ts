@@ -26,8 +26,7 @@
  * `Authorization: Bearer <token>` and nothing else.
  */
 
-import { BASE_URL, CLOUD_ENV, CLOUD_SERVICE, DEV_LOGIN_OPENID, MOCK, REQUEST_TIMEOUT, TRANSPORT } from '../config/index'
-import { mockRequest } from './mock'
+import { BASE_URL, CLOUD_ENV, CLOUD_SERVICE, DEV_LOGIN_OPENID, REQUEST_TIMEOUT, TRANSPORT } from '../config/index'
 import { clearSession, readSession, writeSession } from './storage'
 import { toastError } from './toast'
 
@@ -157,13 +156,6 @@ function sendViaContainer(options: RequestOptions, token: string): Promise<RawRe
 
 function send(options: RequestOptions): Promise<RawResponse> {
   const token = currentToken(options)
-  if (MOCK.enabled) {
-    return mockRequest(
-      { method: options.method, path: options.path, data: options.data, hasToken: !!token },
-      MOCK.delayMs,
-      MOCK.failRate,
-    )
-  }
   return TRANSPORT === 'container' ? sendViaContainer(options, token) : sendViaRequest(options, token)
 }
 
@@ -407,10 +399,6 @@ export interface UploadOptions {
  */
 function sendUpload(options: UploadOptions, token: string): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
-    if (MOCK.enabled) {
-      reject(new ApiError(0, '离线预览模式不支持上传照片', null))
-      return
-    }
     if (TRANSPORT === 'container') {
       reject(
         new ApiError(

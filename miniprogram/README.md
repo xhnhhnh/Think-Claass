@@ -74,7 +74,8 @@ AppID 还没审批下来）时，可以走服务端内置的**开发登录**通�
    `code`）；服务端优先使用 `devOpenid`，因此不需要真实 AppID 也能走完
    「登录 → 绑定 → 进入小程序」的完整链路。
 3. 这个 openid 是**身份断言**：任何一个值都代表一个独立的微信身份，第一次进入会要求用账号密码绑定。
-   生产环境请保持为空字符串。
+   生产环境请保持为空字符串。登录页的「账号密码登录」也走同一条通道：它先用这个 openid 换一张 ticket，
+   再用账号密码完成绑定，因此本地不必依赖 `wx.login` 的 `code` 也能进 App。
 
 其它相关提示：
 
@@ -82,8 +83,11 @@ AppID 还没审批下来）时，可以走服务端内置的**开发登录**通�
   AppID/Secret，且没有打开开发登录 —— 属于部署配置问题，重试按钮不会有帮助。
 - 若提示「开发登录未启用：请在服务端设置 WECHAT_ALLOW_DEV_LOGIN=1」或「生产环境不允许使用开发
   登录」，说明客户端发了 `devOpenid` 但服务端那一侧没开（或跑在生产模式）。
-- 绑定页需要选择身份（学生 / 家长 / 老师）：服务端按 `(账号, 角色)` 这一对校验密码，缺少 `role`
-  会直接被拒（`400 绑定参数不完整`）。
+- 绑定页与登录页需要选择身份（学生 / 家长 / 老师 / 超管）：服务端按 `(账号, 角色)` 这一对校验
+  密码，缺少 `role` 会直接被拒（`400 绑定参数不完整`）；选错角色则得到 `401 账号或密码错误`
+  —— 服务端刻意不区分"角色不对"与"密码错"，免得成为账号探测接口。
+  > 选择器**不提供 `admin`**：内核认这个角色、管理端端点也认，但本产品不创建这种账号（管理账号就是
+  > 超管）。把它列出来只会让人选到一个必然 401 的选项，而错误信息读起来像"密码错了"。
 
 ---
 
@@ -93,7 +97,7 @@ AppID 还没审批下来）时，可以走服务端内置的**开发登录**通�
 miniprogram/
   app.json app.ts app.wxss sitemap.json project.config.json tsconfig.json README.md
   typings/wx.d.ts                 手写的最小 wx API 类型（只覆盖用到的接口）
-  config/index.ts                 BASE_URL / TRANSPORT / 云托管坐标 / MOCK 开关
+  config/index.ts                 BASE_URL / TRANSPORT / 云托管坐标
   utils/
     request.ts                    唯一出口：信封判定、Bearer、401 静默重登、两种通道 + 多部分上传
     storage.ts                    会话、功能开关缓存与教师选中的班级（thinkclass-mp-auth / -features / -class）
@@ -101,14 +105,15 @@ miniprogram/
     classContext.ts               教师的工作班级（记住的选择 → GET /api/classes → 第一个班）
     format.ts                     日期（兼容 iOS）、截止时间、状态文案
     toast.ts                      toast / modal / 错误文案
-    mock.ts                       离线假数据（MOCK.enabled 打开时使用）
-  services/                       auth student homework aiStudy shop teacher
+  services/                       auth admin parent student homework aiStudy shop teacher
   components/                     feature-guard / empty-state / loading-block
   custom-tab-bar/                 自定义 tabBar（按角色 + 功能开关动态渲染）
   pages/
     login/ bind/
     student/ home homework homework-detail ai-study shop me
     teacher/ class homework ai-insight
+    admin/ manage                  管理页（仅 admin / superadmin 可见）
+    parent/ dashboard report tasks leave-request communication   家长端五个页面
 ```
 
 ## 3. 鉴权与会话
@@ -127,8 +132,15 @@ miniprogram/
   （例如先在电脑端登录、再打开小程序）。这不是失败，但也没有 `user` 可用，客户端会清空本地会话
   回到登录页，由登录页重新 `wx.login` 拿到 ticket 后进入绑定页。
 - 绑定需要**角色**：`POST /api/wechat/bind` 的请求体是 `{ ticket, username, password, role }`，
-  `role` 取 `student` / `parent` / `teacher`（服务端按 `(账号, 角色)` 校验密码）。绑定页默认选中
-  学生。
+  服务端按 `(账号, 角色)` 校验密码。路由本身接受任意角色串，但**客户端选择器只提供四类**：
+  `student` / `parent` / `teacher` / `superadmin`（默认选中学生）。`admin` 不在其中，原因见上。
+- **两条登录入口，同一套会话**：登录页既有「微信一键登录」，也有「账号密码登录」（正式版同样显示）。
+  后者调用的仍是上面这两个路由、顺序也相同（`services/auth.ts#loginWithAccount`）：先
+  `/api/wechat/login` 判断这个微信是否已绑定，未绑定就再用账号密码调 `/api/wechat/bind`。因此
+  **首次使用无论走哪条路都必须先绑定**——服务端对未绑定的微信只发 ticket、不发 token，这条规则不由
+  客户端自觉。
+- **每次提交都取新 ticket**：`/api/wechat/bind` 先消费 ticket 再验密码（防爆破），所以密码打错后
+  旧票即死；账号登录每次提交都会重新取票，重试不会被"绑定已过期"卡住。
 - `classId` 同时兼容 `classId` 与旧拼写 `class_id`（`utils/storage.ts` 的 `classIdOf`）：只读前者
   会让这部分账号静默失去实时班级功能位查询，而这种问题在界面上表现为「tab 少了一个」，很难被发现。
 
@@ -138,14 +150,25 @@ miniprogram/
 `custom-tab-bar/index.ts` 计算：
 
 - 学生：成长总览 / 我的作业 / 积分商城 / 我的；教师：班级 / 作业 / 智学看板 / 我的。
+- `admin` / `superadmin` 在教师那一组之后**多一个「管理」**（`utils/feature.ts#MANAGEMENT_TAB`），
+  页面是 `pages/admin/manage`：系统概览（`GET /api/admin/system/stats`）、教师列表
+  （`GET /api/admin/users`）、AI 设置（`GET`/`PUT /api/admin/system/settings`）。它**不是 tab 页**
+  ——`app.json` 的 `tabBar.list` 已被学生那四个占满（微信上限 5 条），所以它和三个教师页一样，
+  由页面自己渲染同一个自定义 tabBar。教师角色看不到这个入口。
+- **家长有自己的那一组**（`utils/feature.ts#PARENT_TABS`）：温馨家园 / 家校信箱 / 成长足迹 /
+  家庭时光 / 请假假条 —— 与 Web 端家长控制台给手机端定的 `mobileTab 1..4` 一致。在这之前家长
+  看的是孩子那套页面去掉积分商城，等于把孩子的地盘当成了家长端：**每天要做的那个「祝福」根本
+  没有入口**，而它正是 `enable_parent_buff` 的家长侧。家庭时光由 `enable_family_tasks` 门控，
+  其余入口不门控（家长总该能看到孩子的报告、信箱和请假表）。
 - 每个条目声明自己由哪个班级功能位控制，或声明 **不受任何功能位控制**：
 
   | 条目 | 功能位 |
   | --- | --- |
-  | 积分商城 | `enable_shop` |
+  | 积分商城（学生） | `enable_shop` |
   | 智学看板（教师） | `enable_ai_study` |
   | 我的奖状（「我的」页内） | `enable_achievements` |
-  | 成长总览 / 我的作业 / 我的 / 班级 / 作业 | 无（服务端本就没有对应开关） |
+  | 家庭时光（家长） | `enable_family_tasks` |
+  | 成长总览 / 我的作业 / 我的 / 班级 / 作业 / 管理 / 温馨家园 / 家校信箱 / 成长足迹 / 请假假条 | 无（服务端本就没有对应开关） |
 
   映射与 Web 端 `src/lib/featureRoutes.ts` 保持一致。
 
@@ -165,11 +188,13 @@ miniprogram/
 判定依据）。代价是教师页需要自己 `usingComponents` 引入该组件并调用 `syncTabBar(this)`；
 `pages/student/me`（我的）是两边共用的 tab 页，所以教师点「我的」走 `wx.switchTab`。
 
-## 5. 离线预览（可选）
+## 5. 关于"离线预览"（已移除）
 
-`config/index.ts` 里的 `MOCK.enabled` 打开后，`utils/request.ts` 会改问 `utils/mock.ts` 的假数据，
-可以在没有后端的情况下审阅界面。`MOCK.delayMs` 模拟延迟以便看到加载态，`MOCK.failRate` 用来
-演练失败态。默认关闭，且不会自动打开 —— 一个能自己打开的 mock 会让「后端挂了」看起来像「一切正常」。
+这里曾经有一个 `MOCK.enabled` 开关：打开后 `utils/request.ts` 会改问 `utils/mock.ts` 里的一套假数据
+（假用户、假班级、假作业），好在没有后端时审阅界面。**它被删掉了，不再回来**，原因不是它不好用，而是
+它让这个仓库同时存在两套"事实"：界面上一眼看不出哪一行来自真实服务端，而这正是提报前最不能出错的地方
+——演示数据、截图、材料里的数字都必须能追到一次真实请求。没有后端时请起本地后端（`npm start`），
+不要用假数据代替它。
 
 ## 6. 已知边界
 

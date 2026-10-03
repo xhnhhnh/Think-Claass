@@ -24,11 +24,16 @@
     "miniprogram": {
       "list": [
         { "name": "登录页", "pathName": "pages/login/login", "query": "", "scene": null },
-        { "name": "绑定账号", "pathName": "pages/bind/bind", "query": "ticket=demo-ticket", "scene": null },
         { "name": "学生 · 成长总览", "pathName": "pages/student/home", "query": "", "scene": null },
         { "name": "学生 · 我的作业", "pathName": "pages/student/homework", "query": "", "scene": null },
         { "name": "学生 · 积分商城", "pathName": "pages/student/shop", "query": "", "scene": null },
-        { "name": "教师 · 班级", "pathName": "pages/teacher/class", "query": "", "scene": null }
+        { "name": "教师 · 班级", "pathName": "pages/teacher/class", "query": "", "scene": null },
+        { "name": "管理 · 概览", "pathName": "pages/admin/manage", "query": "", "scene": null },
+        { "name": "家长 · 温馨家园", "pathName": "pages/parent/dashboard", "query": "", "scene": null },
+        { "name": "家长 · 成长足迹", "pathName": "pages/parent/report", "query": "", "scene": null },
+        { "name": "家长 · 家校信箱", "pathName": "pages/parent/communication", "query": "", "scene": null },
+        { "name": "家长 · 家庭时光", "pathName": "pages/parent/tasks", "query": "", "scene": null },
+        { "name": "家长 · 请假假条", "pathName": "pages/parent/leave-request", "query": "", "scene": null }
       ]
     }
   }

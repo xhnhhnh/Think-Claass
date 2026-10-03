@@ -10,7 +10,13 @@
     "pages/student/me",
     "pages/teacher/class",
     "pages/teacher/homework",
-    "pages/teacher/ai-insight"
+    "pages/teacher/ai-insight",
+    "pages/admin/manage",
+    "pages/parent/dashboard",
+    "pages/parent/report",
+    "pages/parent/tasks",
+    "pages/parent/leave-request",
+    "pages/parent/communication"
   ],
   "window": {
     "navigationBarBackgroundColor": "#17583E",

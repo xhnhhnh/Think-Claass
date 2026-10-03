@@ -100,7 +100,7 @@ sqlite3 /data/database.sqlite "PRAGMA journal_mode; PRAGMA integrity_check;"   #
 
 ```text
 AI_PROVIDER=http
-AI_BASE_URL=https://api.deepseek.com/v1
+AI_BASE_URL=https://api.deepseek.com/v1     # 或任何 OpenAI 兼容端点
 AI_API_KEY=<你的密钥>
 AI_MODEL=deepseek-chat
 AI_TIMEOUT_MS=20000
@@ -109,6 +109,33 @@ AI_TIMEOUT_MS=20000
 - 密钥**只填在服务端**，不要贴进聊天、issue、仓库或小程序端。
 - 空值会被忽略（`AI_PROVIDER=` 不会把已配置的部署弄坏）。
 - 接口是 **OpenAI 兼容**的 `POST {AI_BASE_URL}/chat/completions`，所以任何兼容端点都行。
+
+#### 已实测通过的组合（LongCat）
+
+```text
+AI_PROVIDER=http
+AI_BASE_URL=https://api.longcat.chat/openai/v1
+AI_API_KEY=<longcat 的 ak_... 密钥>
+AI_MODEL=LongCat-2.5-Preview
+AI_TIMEOUT_MS=60000
+```
+
+实测证据：`POST /api/homework/:id/ai-grade` 单题 3.9–5.4 秒返回，`ai.source=http`、
+`message` 为"已接入模型 LongCat-2.5-Preview"，简答题拿到 5/10 与 7/10 两次评分并给出了具体评语
+（"缺少对'为什么相等'的具体解释，即分子分母同乘 2"）。
+
+两个**必须照做**的注意点（否则会"看起来接上了、实际判不了分"）：
+
+1. **模型名必须与 `GET /v1/models` 返回的 id 逐字一致**。写 `LongCat-2.5` 会被拒
+   （`HTTP 400 Unsupported model`），而当前是 `LongCat-2.5-Preview` / `LongCat-2.0`。
+   名字写错时**不是"AI 关着"，是每道题都判分失败**，界面上表现为一堆 `score: null` 加失败原因。
+2. **推理模型会吃掉输出预算**。LongCat-2.5-Preview 是推理模型，实测一次简单改写用掉
+   247 个 completion token，其中 **228 个是 reasoning token**。所以：
+   - `AI_TIMEOUT_MS` 给足（60 秒），别用默认 20 秒；
+   - 判分是**按题**逐次请求（`homework.ai.ts:755` 的循环），一份 5 题的作业就是 5 次调用，
+     整体可能到半分钟量级 —— 演示时别以为卡死了。
+   - 返回体里 `content` 与 `reasoning_content` 是分开的两个字段；本项目只读 `content`
+     （`homework.ai.ts:732`），所以推理过程不会污染评分 JSON。
 
 ### 路线 B：超管后台
 

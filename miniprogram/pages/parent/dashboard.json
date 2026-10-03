@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "温馨家园",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "loading-block": "/components/loading-block/index"
+  }
+}

@@ -1,0 +1,101 @@
+<view class="page page--tabbar">
+  <!-- no child on the account: the form would post a student id that does not exist -->
+  <view class="card error-card" wx:if="{{!studentId}}">
+    <view class="card__title">还没有绑定孩子</view>
+    <view class="card__sub">账号里没有孩子的信息，暂时不能定下约定。请联系老师获取邀请码完成绑定。</view>
+  </view>
+
+  <block wx:else>
+    <!-- the class flags decide between a list and an explanation, so nothing renders before them -->
+    <loading-block wx:if="{{!featuresReady || loading}}" mode="skeleton" rows="{{4}}" text="正在加载家庭约定…" />
+
+    <block wx:else>
+      <feature-guard
+        flag="enable_family_tasks"
+        features="{{features}}"
+        title="家庭时光还没有开启"
+        description="这个班的家庭时光开关还没打开，可以让老师开启后再来。"
+        show-retry="{{true}}"
+        bind:retry="onFeatureRetry"
+      >
+        <!-- 新约定: the page's one write, so it carries the brand rail -->
+        <view class="card form">
+          <view class="card__title">新的约定</view>
+          <view class="card__sub">和孩子约定一件小事，做完之后由你来确认</view>
+
+          <view class="fields">
+            <view class="field">
+              <view class="field__label">约定内容</view>
+              <input
+                class="field__input"
+                value="{{title}}"
+                bindinput="onTitleInput"
+                maxlength="40"
+                placeholder="例如：自己整理书包、阅读半小时"
+                placeholder-class="placeholder"
+              />
+            </view>
+
+            <view class="field field--last">
+              <view class="field__label">奖励积分</view>
+              <input
+                class="field__input"
+                type="number"
+                value="{{points}}"
+                bindinput="onPointsInput"
+                placeholder="如：5"
+                placeholder-class="placeholder"
+              />
+            </view>
+          </view>
+
+          <view class="btn btn--primary btn--block mt-16 {{submitting ? 'btn--disabled' : ''}}" bindtap="onSubmit">
+            {{submitting ? '记录中…' : '定下约定'}}
+          </view>
+        </view>
+
+        <view class="card error-card" wx:if="{{error}}">
+          <view class="card__title">家庭约定没有加载出来</view>
+          <view class="card__sub">{{error}}</view>
+          <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+        </view>
+
+        <view class="card task" wx:for="{{tasks}}" wx:key="id">
+          <view class="row--between">
+            <view class="task__title grow ellipsis">{{item.title}}</view>
+            <view class="chip chip--{{item.statusTone}}">{{item.statusText}}</view>
+          </view>
+
+          <view class="row row--gap mt-8">
+            <view class="task__points">奖励 {{item.points}} 分</view>
+            <view class="tiny" wx:if="{{item.createdText}}">{{item.createdText}}</view>
+          </view>
+
+          <!-- the child says it is done, the parent answers: the only decision this page makes -->
+          <view class="row row--gap mt-16" wx:if="{{item.reviewable}}">
+            <view
+              class="btn btn--sm btn--primary {{reviewingId ? 'btn--disabled' : ''}}"
+              data-id="{{item.id}}"
+              data-status="approved"
+              bindtap="onReview"
+            >通过</view>
+            <view
+              class="btn btn--sm btn--ghost {{reviewingId ? 'btn--disabled' : ''}}"
+              data-id="{{item.id}}"
+              data-status="rejected"
+              bindtap="onReview"
+            >驳回</view>
+          </view>
+        </view>
+
+        <empty-state
+          wx:if="{{!error && !tasks.length}}"
+          title="还没有家庭约定"
+          description="用上面的表单和孩子定下第一个小约定，孩子完成后你在这里确认。"
+        />
+      </feature-guard>
+    </block>
+  </block>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

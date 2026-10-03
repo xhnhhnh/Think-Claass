@@ -84,9 +84,15 @@ describe('visible tabs', () => {
     const feature = await loadFeature();
     feature.applyLoginSnapshot({ enable_shop: true }, 1);
 
-    // 积分商城 is student-scoped on the server (`marketplace.controllers` refuses a parent), so the
-    // tab was an entry whose only possible answer was 403. The rest of the student set is shared.
-    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual(['home', 'homework', 'me']);
+    // A parent has a set of their own now (`PARENT_TABS`), matching the four `mobileTab` entries the
+    // web console gives these screens - not the child's pages with the shop removed, which left the
+    // parent with a read-only mirror and no entry for the daily blessing.
+    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
+      'home',
+      'communication',
+      'report',
+      'leave',
+    ]);
     expect(feature.visibleTabs('student').map((tab) => tab.key)).toEqual([
       'home',
       'homework',
@@ -96,6 +102,22 @@ describe('visible tabs', () => {
     // Staff roles are the only ones that get the teacher set.
     expect(feature.isTeacherRole('admin')).toBe(true);
     expect(feature.isTeacherRole('parent')).toBe(false);
+  });
+
+  it('gates the parent 家庭时光 entry on enable_family_tasks, and nothing else', async () => {
+    const feature = await loadFeature();
+
+    // Off (which is how a new class starts): 家庭时光 is hidden, the other four stay.
+    feature.applyLoginSnapshot({ enable_family_tasks: false }, 1);
+    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
+      'home',
+      'communication',
+      'report',
+      'leave',
+    ]);
+
+    feature.applyLoginSnapshot({ enable_family_tasks: true }, 1);
+    expect(feature.visibleTabs('parent').map((tab) => tab.key)).toContain('tasks');
   });
 
   it('lands a role on its first visible tab, and never on a hidden one', async () => {

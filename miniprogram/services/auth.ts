@@ -40,6 +40,25 @@ import { clearSession, readSession, writeSession } from '../utils/storage'
 /** The three roles a Think-Class account can be bound from the mini program. */
 export type BindRole = 'student' | 'parent' | 'teacher'
 
+/**
+ * The roles these calls can carry: `BindRole` plus the console role.
+ *
+ * Wider than `BindRole` because `superadmin` is a legitimate Think-Class credential and
+ * `plugins/identity` resolves it through the very same `(username, role)` lookup the mini program
+ * uses. Widening `BindRole` itself would have changed the WeChat bind page's meaning (it asks "who
+ * is this pupil/teacher"), so the union lives here and both server routes accept it unchanged.
+ *
+ * `admin` is **not** a member, although the kernel accepts it:
+ *
+ *   - the server resolves a credential by `(username, role)`, so a role string is never validated
+ *     against a list - it is compared;
+ *   - no account in this product is created with `admin` (the console account is the superadmin), so
+ *     offering it in a picker is offering a guaranteed 401 that reads like a wrong password;
+ *   - if a deployment ever does create an `admin` row, add it back here **and** to the two pickers,
+ *     which is the whole reason this stays a named type instead of `string`.
+ */
+export type AccountRole = BindRole | 'superadmin'
+
 export interface WechatLoginBound {
   bound: true
   token: string
@@ -106,26 +125,69 @@ export function persistSession(result: WechatLoginBound): StoredSession {
  * trade for a session.
  */
 export async function loginWithWechat(): Promise<WechatLoginResult> {
-  let code = ''
+  return post<WechatLoginResult>('/api/wechat/login', buildLoginBody(await wxLoginCodeOrEmpty()), { auth: false })
+}
+
+/**
+ * `wx.login`, or `''` when a development openid can stand in for it.
+ *
+ * In a `DEV_LOGIN_OPENID` build the step is allowed to fail: there is no AppID to exchange a code
+ * against, and the server takes the configured openid instead. Outside that build a failure is fatal,
+ * which is the honest behaviour - without a code there is nothing to trade for a session.
+ */
+async function wxLoginCodeOrEmpty(): Promise<string> {
   try {
-    code = await wxLoginCode()
+    return await wxLoginCode()
   } catch (error) {
     if (!DEV_LOGIN_OPENID) {
       throw error
     }
     console.warn('[auth] wx.login unavailable, continuing with the development openid')
+    return ''
   }
-  return post<WechatLoginResult>('/api/wechat/login', buildLoginBody(code), { auth: false })
+}
+
+/**
+ * Account + password login, for the people who do not use 微信一键登录.
+ *
+ * It is deliberately **the same two calls** the WeChat path makes, in the same order:
+ *
+ *   `POST /api/wechat/login`   - is this WeChat already linked to an account?
+ *   `POST /api/wechat/bind`    - no: prove the account with a password and link it
+ *
+ * rather than a new "log in with a password" route. Two reasons, both load-bearing:
+ *
+ * 1. **首次必须绑定.** The server's login route answers a ticket - not a token - for an unlinked
+ *    WeChat, so this path cannot skip the binding step even if it wanted to. That is the requirement
+ *    ("微信号没有绑定任何账号时，先绑定"), enforced server-side instead of by client discipline.
+ * 2. **一张 ticket 只能用一次.** The bind route claims the ticket *before* checking the password, so
+ *    a typo burns it and the honest answer is 401「绑定已过期」. Therefore every submit fetches a
+ *    fresh ticket first; the alternative would be a form that works once and then mysteriously stops.
+ *
+ * A WeChat account that is already linked never reaches the bind call: the first request answers
+ * `bound: true` with a token, which is exactly how a returning user gets in without a password.
+ */
+export async function loginWithAccount(username: string, password: string, role: AccountRole): Promise<WechatLoginBound> {
+  const first = await post<WechatLoginResult>('/api/wechat/login', buildLoginBody(await wxLoginCodeOrEmpty()), { auth: false })
+  if (first.bound !== false) {
+    return first
+  }
+  return bindAccount(first.ticket, username, password, role)
 }
 
 /**
  * `POST /api/wechat/bind` - link this WeChat account to a Think-Class username.
  *
- * `role` is required (see the file comment). The ticket is consumed by the *attempt*, even when the
- * password is wrong, so a wrong password needs a fresh `wx.login` before another try - the bind page
- * handles that by sending the user back to the login page.
+ * `role` is required (see the file comment). It is typed `AccountRole` rather than `BindRole`
+ * because the server's route passes it straight to the same `(username, role)` lookup the console
+ * uses: a `superadmin` account binds through this function too, which is how the 管理 tab gets
+ * reached. Both pickers offer the same four roles.
+ *
+ * The ticket is consumed by the *attempt*, even when the password is wrong, so a wrong password
+ * needs a fresh ticket before another try - `loginWithAccount` fetches one per submit, and the bind
+ * page handles it by sending the user back to the login page.
  */
-export async function bindAccount(ticket: string, username: string, password: string, role: BindRole): Promise<WechatLoginBound> {
+export async function bindAccount(ticket: string, username: string, password: string, role: AccountRole): Promise<WechatLoginBound> {
   return post<WechatLoginBound>('/api/wechat/bind', { ticket, username, password, role }, { auth: false })
 }
 

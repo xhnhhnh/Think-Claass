@@ -24,7 +24,8 @@
  *   MINIPROGRAM_PRIVATE_KEY_PATH    必填。代码上传密钥文件路径（见下）
  *   MINIPROGRAM_VERSION             必填。上传的版本号，例如 1.0.0
  *   MINIPROGRAM_DESC                必填。版本描述，例如「竞赛提报版本：作业与课堂」
- *   MINIPROGRAM_PROJECT_PATH        选填。小程序项目目录，默认仓库根的 miniprogram/
+ *   MINIPROGRAM_PROJECT_PATH        选填。小程序项目目录，默认仓库根的 wechat/
+ *                                   （开发者工具直接打开的那个目录；老路径 miniprogram/ 仍可用本变量指定）
  *   MINIPROGRAM_ROBOT               选填。上传机器人编号 1-30，默认 1
  *   MINIPROGRAM_CI_DIR              选填。装了 miniprogram-ci 的目录（见上面的装法 B）
  *
@@ -111,7 +112,7 @@ const privateKeyPath = path.resolve(
 );
 const version = process.env.MINIPROGRAM_VERSION.trim();
 const desc = process.env.MINIPROGRAM_DESC.trim();
-const projectPath = path.resolve(REPO_ROOT, process.env.MINIPROGRAM_PROJECT_PATH?.trim() || 'miniprogram');
+const projectPath = path.resolve(REPO_ROOT, process.env.MINIPROGRAM_PROJECT_PATH?.trim() || 'wechat');
 const robotRaw = process.env.MINIPROGRAM_ROBOT?.trim();
 
 if (!/^wx[0-9a-f]{16}$/i.test(appid)) {
@@ -140,7 +141,7 @@ if (fs.statSync(privateKeyPath).size === 0) {
 if (!fs.existsSync(projectPath)) {
   fail(
     `小程序项目目录不存在：${projectPath}\n` +
-      '    默认取仓库根的 miniprogram/；用 MINIPROGRAM_PROJECT_PATH 指向别处。',
+      '    默认取仓库根的 wechat/（开发者工具打开的那个目录）；用 MINIPROGRAM_PROJECT_PATH 指向别处（例如 miniprogram/）。',
   );
 }
 if (!fs.existsSync(path.join(projectPath, 'project.config.json'))) {

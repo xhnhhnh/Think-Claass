@@ -1,0 +1,106 @@
+<view class="page page--tabbar parent-dash">
+  <view class="parent-dash__head">
+    <view class="h1">{{childName || '温馨家园'}}</view>
+    <view class="muted mt-8">{{child ? ('学分 ' + child.total_points + ' · 可用 ' + child.available_points) : '正在读取孩子的成长数据…'}}</view>
+  </view>
+
+  <view class="card error-card" wx:if="{{error}}">
+    <view class="card__title">没能全部加载出来</view>
+    <view class="card__sub">{{error}}</view>
+  </view>
+
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{4}}" text="正在读取孩子的成长数据…" />
+
+  <block wx:else>
+    <!-- 今日祝福：家长端唯一每天都要做的动作 -->
+    <view class="card buff">
+      <view class="row--between mb-8">
+        <view class="card__title">今日祝福</view>
+        <view class="chip {{blessingActive ? 'chip--success' : 'chip--muted'}}">{{blessingActive ? '已祝福' : '待祝福'}}</view>
+      </view>
+
+      <view class="card__sub" wx:if="{{!buffEnabled}}">本班还没有开启「家长增益」，祝福暂时不会计入加分。可以提醒老师一声。</view>
+      <view class="card__sub" wx:elif="{{blessingActive}}">今天的祝福已经送达。老师给孩子加分时，会额外带上 {{bonusPercent}}% 的加成（每天最多 2 分）。</view>
+      <view class="card__sub" wx:else>送出今天的祝福后，老师给孩子加分时会额外带上 {{bonusPercent}}% 的加成（每天最多 2 分）。</view>
+
+      <view
+        class="btn btn--block mt-16 {{blessing || blessingActive || !buffEnabled ? 'btn--disabled' : 'btn--primary'}}"
+        bindtap="onBless"
+      >
+        {{blessing ? '正在送出…' : (blessingActive ? '今天已祝福' : '送出今日祝福')}}
+      </view>
+
+      <view class="tiny mt-8" wx:if="{{blessingError}}">{{blessingError}}</view>
+    </view>
+
+    <!-- 成长快照 -->
+    <view class="card" wx:if="{{summary}}">
+      <view class="card__title mb-16">成长快照</view>
+      <view class="stat-grid">
+        <view class="stat">
+          <view class="stat__value">{{summary.growth}}</view>
+          <view class="stat__label">成长值</view>
+        </view>
+        <view class="stat">
+          <view class="stat__value">{{summary.availableCredits}}</view>
+          <view class="stat__label">可用学分</view>
+        </view>
+        <view class="stat">
+          <view class="stat__value">{{summary.level}}</view>
+          <view class="stat__label">当前等级</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 孩子的宠物（班级开启才有；服务端返回 null 时不渲染） -->
+    <view class="card" wx:if="{{pet}}">
+      <view class="card__title mb-8">孩子的伙伴</view>
+      <view class="list-row">
+        <view class="list-row__label">{{pet.name || '未命名'}}</view>
+        <view class="list-row__value">Lv.{{pet.level || 1}}{{pet.stage ? (' · ' + pet.stage) : ''}}</view>
+      </view>
+    </view>
+
+    <!-- 积分流水 -->
+    <view class="card">
+      <view class="row--between mb-16">
+        <view class="card__title">最近的积分变化</view>
+        <view class="link" bindtap="onGoReport">看成长足迹</view>
+      </view>
+
+      <view class="state" wx:if="{{ledger.length === 0}}">
+        <view class="state__title">还没有积分记录</view>
+        <view class="state__text">老师加分或孩子兑换之后，这里会显示出来。</view>
+      </view>
+
+      <view class="list-row" wx:for="{{ledger}}" wx:key="id">
+        <view class="list-row__label">
+          <text>{{item.reason}}</text>
+          <text class="tiny ml-8" wx:if="{{item.when}}">{{item.when}}</text>
+        </view>
+        <view class="list-row__value ledger ledger--{{item.tone}}">{{item.amount}}</view>
+      </view>
+    </view>
+
+    <!-- 去哪儿看看 -->
+    <view class="card">
+      <view class="card__title mb-16">去哪儿看看</view>
+      <view class="quick">
+        <view class="quick__item" bindtap="onGoHomework">
+          <view class="quick__dot quick__dot--brand"></view>
+          <view class="quick__label">孩子的作业</view>
+        </view>
+        <view class="quick__item" bindtap="onGoReport">
+          <view class="quick__dot quick__dot--info"></view>
+          <view class="quick__label">成长足迹</view>
+        </view>
+        <view class="quick__item" bindtap="onGoLeave">
+          <view class="quick__dot quick__dot--warn"></view>
+          <view class="quick__label">请假假条</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

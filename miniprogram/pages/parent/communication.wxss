@@ -1,0 +1,103 @@
+/* Room for the fixed composer (~200rpx) plus the tab bar and the safe area. */
+.page--composer {
+  padding-bottom: 380rpx;
+}
+
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}
+
+/* Not an error: the account is fine, it just cannot name the class this thread belongs to. */
+.notice {
+  border-left: 8rpx solid #D8790E;
+}
+
+/* ------------------------------------------------------------------ thread */
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding-bottom: 8rpx;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 18rpx 22rpx;
+  border-radius: 22rpx;
+  background: #FFFFFF;
+  border: 1rpx solid #E9E1D3;
+}
+
+/* Left and right, plus a role chip: a family reads the two sides apart at a glance. */
+.bubble--mine {
+  align-self: flex-end;
+  background: #17583E;
+  border-color: #17583E;
+}
+
+.bubble--theirs {
+  align-self: flex-start;
+}
+
+.bubble__meta {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.bubble--mine .bubble__meta .tiny {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.bubble__text {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #0F1729;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.bubble--mine .bubble__text {
+  color: #FFFFFF;
+}
+
+/* ------------------------------------------------------------------ composer */
+
+.composer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 110rpx;
+  z-index: 150;
+  display: flex;
+  align-items: flex-end;
+  gap: 16rpx;
+  background: #FFFFFF;
+  border-top: 1rpx solid #E9E1D3;
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom) * 0.2);
+}
+
+.composer__input {
+  flex: 1;
+  min-height: 88rpx;
+  max-height: 220rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 20rpx;
+  background: #FBFAF6;
+  border: 2rpx solid #E9E1D3;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.composer__send {
+  flex: none;
+  width: 160rpx;
+  height: 88rpx;
+}
+
+.placeholder {
+  color: #B3ADA0;
+  font-size: 27rpx;
+}

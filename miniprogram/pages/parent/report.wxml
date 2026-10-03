@@ -1,0 +1,69 @@
+<view class="page page--tabbar">
+  <loading-block wx:if="{{loading}}" mode="skeleton" rows="{{5}}" text="正在生成成长报告…" />
+
+  <block wx:else>
+    <!-- a real failure: the server's own sentence, and a retry -->
+    <view class="card error-card" wx:if="{{error}}">
+      <view class="card__title">成长报告没能加载出来</view>
+      <view class="card__sub">{{error}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <!-- a refusal or an unlinked account: explained, never dressed as a network error -->
+    <view class="card error-card" wx:elif="{{notice}}">
+      <view class="card__title">{{notice.title}}</view>
+      <view class="card__sub">{{notice.hint}}</view>
+      <view class="btn btn--sm btn--ghost mt-16" wx:if="{{notice.retry}}" bindtap="onRetry">重新加载</view>
+    </view>
+
+    <block wx:else>
+      <view class="card hero">
+        <view class="hero__name">{{childName || '孩子的成长足迹'}}</view>
+        <view class="hero__sub">老师记录的课堂、作业和出勤汇总</view>
+      </view>
+
+      <view class="card">
+        <view class="card__title mb-16">本阶段数据</view>
+        <view class="stat-grid">
+          <view class="stat" wx:for="{{stats}}" wx:key="label">
+            <view class="stat__value">{{item.value}}<text class="stat__unit">{{item.unit}}</text></view>
+            <view class="stat__label">{{item.label}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="card__title mb-16">三项完成情况</view>
+        <view class="bar-row" wx:for="{{bars}}" wx:key="label">
+          <view class="row--between">
+            <view class="bar-row__label">{{item.label}}</view>
+            <view class="bar-row__value">{{item.text}}</view>
+          </view>
+          <view class="bar mt-8"><view class="bar__fill" style="width: {{item.percent}}%"></view></view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="card__title mb-16">最近的记录</view>
+
+        <block wx:if="{{records.length}}">
+          <view class="record" wx:for="{{records}}" wx:key="id">
+            <view class="grow">
+              <view class="record__title ellipsis">{{item.title}}</view>
+              <view class="tiny" wx:if="{{item.when}}">{{item.when}}</view>
+            </view>
+            <view class="record__amount record__amount--{{item.tone}}">{{item.amountText}}</view>
+          </view>
+        </block>
+
+        <empty-state
+          wx:else
+          title="还没有记录"
+          description="孩子获得加分或者兑换奖励之后，这里就会留下记录。"
+        />
+      </view>
+    </block>
+  </block>
+
+  <custom-tab-bar id="tab-bar" />
+</view>

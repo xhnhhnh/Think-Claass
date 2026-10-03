@@ -87,3 +87,51 @@
   text-align: center;
   padding-top: 48rpx;
 }
+
+/* The 「或」 between the two doors. */
+.login__split {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: 36rpx 0 24rpx;
+  color: #9AA7B4;
+  font-size: 24rpx;
+}
+
+.login__split::before,
+.login__split::after {
+  content: '';
+  flex: 1;
+  height: 1rpx;
+  background: #E9E1D3;
+}
+
+/*
+ * Four pills do not fit one 375pt row (the bind page's original three did), so this set wraps.
+ * Widths are in rpx and the padding is smaller than the bind page's for the same reason.
+ */
+.login__card .roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.login__card .role {
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid #E9E1D3;
+  background: #FFFFFF;
+  color: #6E7D91;
+  font-size: 24rpx;
+}
+
+.login__card .role--on {
+  border-color: #17583E;
+  background: #EAF3EE;
+  color: #17583E;
+}
+
+/* The second card needs its own bottom margin: it is no longer the last element. */
+.login__card .field {
+  margin-top: 28rpx;
+}

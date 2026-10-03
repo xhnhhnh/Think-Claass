@@ -12,7 +12,7 @@
  *
  * `plugins/identity` resolves a credential by the `(username, role)` pair, so the bind route requires
  * `role` and refuses the request without it (`400 绑定参数不完整`). It defaults to 学生 because that is
- * who uses this client, but a parent or teacher account has to be able to say so - guessing
+ * who uses this client, but a parent, teacher or console account has to be able to say so - guessing
  * server-side would mean one password hash verification per role.
  *
  * ## The failures worth naming
@@ -32,17 +32,30 @@
  */
 
 import { bindAccount, persistSession } from '../../services/auth'
-import type { BindRole } from '../../services/auth'
+import type { AccountRole } from '../../services/auth'
 import { applyLoginSnapshot, homePathForRole } from '../../utils/feature'
 import { classIdOf } from '../../utils/storage'
 import type { AppInstance } from '../../app'
 import { errorMessage, toastError } from '../../utils/toast'
 
-/** Roles the bind form offers, in the order the people who use this client appear. */
-const ROLES: Array<{ value: BindRole; label: string }> = [
+/**
+ * Roles the bind form offers, in the order the people who use this client appear.
+ *
+ * `superadmin` is on the list because this page is also where an **account/password login** lands on
+ * a first visit (the login page's second door calls the same server route), and the console account
+ * must be able to say so - the server resolves a credential by `(username, role)` and would
+ * otherwise answer 「账号或密码错误」 for an account that is perfectly valid.
+ *
+ * **`admin` is deliberately absent.** The kernel accepts it and the admin routes are gated on
+ * `admin` *or* `superadmin`, but no account in this product is created with that role: the console
+ * account is the superadmin. Offering it would put a guaranteed-401 option in front of the user, and
+ * the server words that failure as a wrong password.
+ */
+const ROLES: Array<{ value: AccountRole; label: string }> = [
   { value: 'student', label: '学生' },
   { value: 'parent', label: '家长' },
   { value: 'teacher', label: '老师' },
+  { value: 'superadmin', label: '超管' },
 ]
 
 Page({
@@ -50,7 +63,7 @@ Page({
     ticket: '',
     username: '',
     password: '',
-    role: 'student' as BindRole,
+    role: 'student' as AccountRole,
     roles: ROLES,
     busy: false,
     error: '',
@@ -77,7 +90,7 @@ Page({
   },
 
   onRoleTap(event: { currentTarget: { dataset: Record<string, string> } }) {
-    const role = event.currentTarget.dataset.role as BindRole
+    const role = event.currentTarget.dataset.role as AccountRole
     if (role) {
       this.setData({ role, error: '' })
     }

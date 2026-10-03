@@ -1,0 +1,84 @@
+/*
+ * 温馨家园. The quick-entry and error-card styles are copied from the student home page rather than
+ * shared: WXSS has no cross-page import, and `app.wxss` is deliberately the small shared layer. Two
+ * small blocks beat promoting UI used by exactly two screens into the global sheet.
+ */
+
+.parent-dash {
+  padding: 32rpx 40rpx 60rpx;
+}
+
+.parent-dash__head {
+  padding: 8rpx 0 28rpx;
+}
+
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}
+
+/* 今日祝福 gets the brand rail so it reads as the page's primary action, not another card. */
+.buff {
+  border-left: 8rpx solid #17583E;
+}
+
+.ledger {
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger--up {
+  color: #307E50;
+}
+
+.ledger--down {
+  color: #B32B26;
+}
+
+.ledger--flat {
+  color: #6E7D91;
+}
+
+/* A date beside a reason, rather than a second row. */
+.ml-8 {
+  margin-left: 8rpx;
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.quick__item {
+  flex: 1 1 40%;
+  min-width: 200rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 24rpx 20rpx;
+  border-radius: 18rpx;
+  background: #FBFAF6;
+  border: 1rpx solid #E9E1D3;
+}
+
+.quick__dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 8rpx;
+}
+
+.quick__dot--brand {
+  background: #17583E;
+}
+
+.quick__dot--info {
+  background: #2191C4;
+}
+
+.quick__dot--warn {
+  background: #D8790E;
+}
+
+.quick__label {
+  font-size: 28rpx;
+  color: #0F1729;
+}

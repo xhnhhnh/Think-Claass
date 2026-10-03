@@ -1,0 +1,86 @@
+/*
+ * 成长足迹. The stat grid, the bar and the chips come from `app.wxss`; what is here is the page's
+ * own frame: the child's heading, the unit beside a stat value, and the ledger row.
+ */
+
+.error-card {
+  border-left: 8rpx solid #DE3B35;
+}
+
+/* ------------------------------------------------------------------ heading */
+
+/* The child's name is the page's one identity line, so it gets the rail rather than a plain card. */
+.hero {
+  border-left: 8rpx solid #17583E;
+}
+
+.hero__name {
+  font-size: 38rpx;
+  font-weight: 600;
+}
+
+.hero__sub {
+  font-size: 25rpx;
+  color: #6E7D91;
+  margin-top: 6rpx;
+}
+
+/* ------------------------------------------------------------------ stats */
+
+/* A unit sits inside the value so the eight cells keep one baseline; `%` and `分` are not labels. */
+.stat__unit {
+  font-size: 24rpx;
+  font-weight: 400;
+  color: #6E7D91;
+  margin-left: 4rpx;
+}
+
+.bar-row {
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.bar-row:last-child {
+  border-bottom: none;
+}
+
+.bar-row__label {
+  font-size: 27rpx;
+  color: #404F64;
+}
+
+.bar-row__value {
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ ledger */
+
+.record {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #F1EFE7;
+}
+
+.record:last-child {
+  border-bottom: none;
+}
+
+.record__title {
+  font-size: 28rpx;
+}
+
+.record__amount {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.record__amount--up {
+  color: #307E50;
+}
+
+.record__amount--down {
+  color: #B32B26;
+}

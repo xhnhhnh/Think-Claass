@@ -1,0 +1,153 @@
+<view class="page page--tabbar manage">
+  <view class="row row--between manage__head">
+    <view>
+      <view class="h1">管理</view>
+      <view class="muted mt-8">运营概览与 AI 设置</view>
+    </view>
+    <view class="btn btn--sm btn--ghost" bindtap="onRefresh">{{loading ? '加载中…' : '刷新'}}</view>
+  </view>
+
+  <view class="manage__error" wx:if="{{error}}">
+    <view class="manage__error-text">{{error}}</view>
+    <view class="tiny mt-8">这个页面只对管理员/超级管理员开放。如果账号角色不对，用管理员账号重新登录即可。</view>
+  </view>
+
+  <block wx:if="{{stats}}">
+    <view class="card">
+      <view class="card__title mb-16">系统概览</view>
+      <view class="stat-grid">
+        <view class="stat">
+          <view class="stat__value">{{stats.database.teachers}}</view>
+          <view class="stat__label">教师</view>
+        </view>
+        <view class="stat">
+          <view class="stat__value">{{stats.database.students}}</view>
+          <view class="stat__label">学生</view>
+        </view>
+        <view class="stat">
+          <view class="stat__value">{{stats.database.classes}}</view>
+          <view class="stat__label">班级</view>
+        </view>
+      </view>
+      <view class="divider"></view>
+      <view class="list-row">
+        <view class="list-row__label">作业数</view>
+        <view class="list-row__value">{{stats.database.totalAssignments}}</view>
+      </view>
+      <view class="list-row">
+        <view class="list-row__label">累计积分</view>
+        <view class="list-row__value">{{stats.database.totalPoints}}</view>
+      </view>
+      <view class="list-row">
+        <view class="list-row__label">内存占用</view>
+        <view class="list-row__value">{{memory}}</view>
+      </view>
+      <view class="list-row">
+        <view class="list-row__label">已运行</view>
+        <view class="list-row__value">{{uptime}}</view>
+      </view>
+      <view class="list-row">
+        <view class="list-row__label">平台</view>
+        <view class="list-row__value">{{stats.server.platform}}</view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card__title">教师账号</view>
+      <view class="card__sub">共 {{users.length}} 个。用户名与密码的修改在电脑端「管理中心 → 教师」里完成。</view>
+
+      <view class="state" wx:if="{{users.length === 0}}">
+        <view class="state__title">还没有教师账号</view>
+        <view class="state__text">在电脑端管理中心创建教师后，这里会显示出来。</view>
+      </view>
+
+      <view class="list-row" wx:for="{{users}}" wx:key="id">
+        <view class="list-row__label">{{item.username}}</view>
+        <view class="list-row__value">
+          <text class="chip chip--muted">{{item.role}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card__title mb-8">AI 判分与智学</view>
+      <view class="card__sub">改动会立刻写回服务端。密钥只在你填写时提交，读取时会被打码。</view>
+
+      <view class="field">
+        <view class="field__label">服务</view>
+        <view class="roles">
+          <view
+            class="role {{form.provider === item.value ? 'role--on' : ''}}"
+            wx:for="{{providers}}"
+            wx:key="value"
+            data-provider="{{item.value}}"
+            bindtap="onProviderTap"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="field__label">接口地址</view>
+        <input
+          class="field__input"
+          type="text"
+          value="{{form.baseUrl}}"
+          placeholder="https://api.example.com/v1"
+          placeholder-class="field__placeholder"
+          bindinput="onBaseUrlInput"
+        />
+      </view>
+
+      <view class="field">
+        <view class="field__label">模型</view>
+        <input
+          class="field__input"
+          type="text"
+          value="{{form.model}}"
+          placeholder="例如 deepseek-chat"
+          placeholder-class="field__placeholder"
+          bindinput="onModelInput"
+        />
+      </view>
+
+      <view class="field">
+        <view class="field__label">超时（毫秒）</view>
+        <input
+          class="field__input"
+          type="number"
+          value="{{form.timeoutMs}}"
+          placeholder="20000"
+          placeholder-class="field__placeholder"
+          bindinput="onTimeoutInput"
+        />
+      </view>
+
+      <view class="field field--last">
+        <view class="field__label">密钥（留空则不改）</view>
+        <input
+          class="field__input"
+          password
+          value="{{form.apiKey}}"
+          placeholder="只在需要更换时填写"
+          placeholder-class="field__placeholder"
+          bindinput="onApiKeyInput"
+        />
+      </view>
+
+      <view class="btn btn--primary btn--block mt-16 {{saving ? 'btn--disabled' : ''}}" bindtap="onSave">
+        {{saving ? '保存中…' : '保存 AI 设置'}}
+      </view>
+
+      <view class="tiny mt-8" wx:if="{{saveMessage}}">{{saveMessage}}</view>
+    </view>
+  </block>
+
+  <view class="state" wx:elif="{{loading}}">
+    <view class="state__title">正在加载</view>
+    <view class="state__text">读取系统概览、教师列表与 AI 设置。</view>
+  </view>
+
+  <custom-tab-bar id="tab-bar" />
+</view>
