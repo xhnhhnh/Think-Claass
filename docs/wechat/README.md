@@ -15,6 +15,7 @@
 | [30-release-miniprogram.md](30-release-miniprogram.md) | 小程序后台配置、真机预览、上传、提交审核、发布、回滚 | 后端已经能被小程序访问之后 |
 | [40-troubleshooting.md](40-troubleshooting.md) | 排错清单：域名/证书/TLS/并发/会话/存储，每条给症状→原因→命令 | 出问题的时候 |
 | **[50-ai-capability.md](50-ai-capability.md)** | **上线坐标速查（`TRANSPORT`/`CLOUD_ENV`/`CLOUD_SERVICE` 在哪拿）+ 本项目 AI 能力清单与打开方式 + 微信 AI 生态为什么本轮不能接** | **填坐标之前、写提报材料的 AI 部分之前** |
+| **[60-teacher-account-and-filing.md](60-teacher-account-and-filing.md)** | **给老师（非技术读者）看的操作说明**：个人主体注册小程序 → 填基本信息 → 提交备案 → 加学生为项目成员，含材料清单、核验短信提醒、打勾清单 | **需要老师本人实名操作时**（注册、备案、发布） |
 | [submission/](submission/) | **提报材料成品**：作品介绍文档（PDF 源）、提审文案与测试账号清单、演示数据种子清单 | **10.17 提报前** |
 
 Web 与小程序是**两个交互界面，共用一个后端、一份数据**。所以小程序的后端能力
@@ -97,9 +98,12 @@ Web 与小程序是**两个交互界面，共用一个后端、一份数据**。
   nginx 默认上限 1MB，而拍照题的应用侧上限是 10MB（`MAX_PHOTO_BYTES`）—— 不换模板，稍大的手机照片会 413。
 - `install.sh` / `update.sh` 都不设置 `NODE_ENV`，PM2 起的进程实际是 development 模式（只有 `nodemon.json` 设了 development，那是本机开发用的）。
   这不只是日志级别问题：`plugins/wechat` 拒用开发登录的第一道闸就是 `NODE_ENV=production`。
-- 小程序客户端目前**没有照片上传**（[`miniprogram/services/homework.ts`](../../miniprogram/services/homework.ts)
-  只有作业读取/作答/保存/提交），拍照上传是 Web 端流程；要把作业照片做进小程序，需要补 `wx.uploadFile`
-  与 `uploadFile` 合法域名。
+- 小程序客户端**已有拍照上传**（[`miniprogram/pages/student/homework-detail.ts`](../../miniprogram/pages/student/homework-detail.ts)
+  选图 → `services/homework.ts#uploadPhoto` → `wx.uploadFile`，字段名 `file`）。但有两个硬约束：
+  一是 **`TRANSPORT='container'` 用不了**（云托管的 `callContainer` 没有 multipart，
+  [`utils/request.ts`](../../miniprogram/utils/request.ts) 会在调用前就报错），走云托管又要传照片，
+  就得把 `BASE_URL` 设为云托管的**公网域名**并改回 `TRANSPORT='request'`；
+  二是该域名必须加进小程序后台的 **`uploadFile` 合法域名**（只配 `request` 域名会出现"页面能开、上传必失败"）。
 - `UPLOADS_DIR` 在当前默认组合里**不生效**：上传文件的写入与静态服务都用 `<工作目录>/uploads`
   （[`api/app.ts`](../../api/app.ts#L86)、`plugins/homework`、`plugins/learning`）。容器里要持久化照片，挂载点必须落在工作目录下的 `uploads`。
 - 应用没有开启 Express `trust proxy`，所以在 Nginx 后面 `req.ip` 记录的是 `127.0.0.1`（代理自身），

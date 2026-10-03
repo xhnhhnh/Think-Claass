@@ -431,9 +431,14 @@ sudo grep -n 'client intended to send too large body' /var/log/nginx/error.log
 | **原因 B** | 应用侧上限就是 10MB（`MAX_PHOTO_BYTES`），且只接受 jpeg/png/webp/heic/heif。这是刻意设的上限，不是配置错误 |
 
 处理：压缩后再传 —— Web 端在 canvas 里压，小程序端用 `wx.chooseMedia` 的 `sizeType: ['compressed']`；
-或提示用户换一张。**注意**：当前小程序客户端里没有照片上传代码
-（[`miniprogram/services/homework.ts`](../../miniprogram/services/homework.ts) 只有读取/作答/保存/提交），
-拍照上传是 Web 端的流程；在小程序里补上传时才需要关心这一段，且要同时补 `uploadFile` 合法域名。
+或提示用户换一张。**小程序端已经有照片上传**（[`miniprogram/services/homework.ts`](../../miniprogram/services/homework.ts)
+的 `uploadPhoto` → [`utils/request.ts`](../../miniprogram/utils/request.ts) 的 `upload`），
+所以常见的失败不是"没实现"，而是下面这两条：
+
+- **云托管通道直接报「云托管通道不支持图片上传」**：`callContainer` 没有 multipart，
+  必须把 `BASE_URL` 设为公网域名并改 `TRANSPORT='request'`；
+- **真机上"页面能开、上传必失败"**：`uploadFile` 合法域名没配（只配了 `request` 域名）。
+
 不要把 Nginx 的 `client_max_body_size` 调到很大来"解决"——真正拒绝 10MB 以上文件的是应用，
 调 Nginx 只会让更大的无效请求打到后端。
 

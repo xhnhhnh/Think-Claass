@@ -374,4 +374,4 @@ docker build -f deploy/Dockerfile -t think-class:1.0.1 .
 | 应用没有 `trust proxy` | 审计/登录日志里的 IP 是 127.0.0.1 | 无（本仓库范围内不可修） |
 | 仓库没有 TLS | 自建服务器必须自己加 | Track A 由平台终止 TLS，所以不受影响 |
 | `DATABASE_SKIP_WAL` 在旧构建里不存在 | 数据库放在 CFS 上时仍是 WAL（网络存储上不安全） | 用 `main` 上含该开关的提交构建镜像，并按第 6.2 节确认 `journal_mode` 为 `delete`；不是就改走 Track B |
-| 小程序客户端没有照片上传 | 作业照片只能在 Web 端传 | 需要就在小程序里补 `wx.uploadFile`（字段名 `file`） |
+| `callContainer` 不支持 multipart | 小程序端拍照上传在云托管通道下**直接失败**（`utils/request.ts` 提前报错，不是静默降级） | 要传照片就把 `BASE_URL` 设为云托管的**公网域名**、`TRANSPORT` 改回 `'request'`，并把该域名加进 **`uploadFile` 合法域名** |
