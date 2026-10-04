@@ -15,7 +15,7 @@
 | [30-release-miniprogram.md](30-release-miniprogram.md) | 小程序后台配置、真机预览、上传、提交审核、发布、回滚 | 后端已经能被小程序访问之后 |
 | [40-troubleshooting.md](40-troubleshooting.md) | 排错清单：域名/证书/TLS/并发/会话/存储，每条给症状→原因→命令 | 出问题的时候 |
 | **[50-ai-capability.md](50-ai-capability.md)** | **上线坐标速查（`TRANSPORT`/`CLOUD_ENV`/`CLOUD_SERVICE` 在哪拿）+ 本项目 AI 能力清单与打开方式 + 微信 AI 生态为什么本轮不能接** | **填坐标之前、写提报材料的 AI 部分之前** |
-| **[60-teacher-account-and-filing.md](60-teacher-account-and-filing.md)** | **给老师（非技术读者）看的操作说明**：个人主体注册小程序 → 填基本信息 → 提交备案 → 加学生为项目成员，含材料清单、核验短信提醒、打勾清单 | **需要老师本人实名操作时**（注册、备案、发布） |
+| **[60-teacher-account-and-filing.md](60-teacher-account-and-filing.md)** | **给老师（非技术读者）看的操作说明**：个人主体注册小程序 → 填基本信息 → 提交备案 → 加学生为项目成员，含材料清单、核验短信提醒、打勾清单，页首与页尾都放了[开源仓库](https://github.com/xhnhhnh/Think-Claass)链接供其核实 | **需要老师本人实名操作时**（注册、备案、发布） |
 | [submission/](submission/) | **提报材料成品**：作品介绍文档（PDF 源）、提审文案与测试账号清单、演示数据种子清单 | **10.17 提报前** |
 
 Web 与小程序是**两个交互界面，共用一个后端、一份数据**。所以小程序的后端能力
