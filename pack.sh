@@ -34,6 +34,8 @@ prepare_release_dir() {
     cp -r plugins "$RELEASE_DIR/"
     [ -d prisma ] && cp -r prisma "$RELEASE_DIR/"
     cp package.json package-lock.json tsconfig.json "$RELEASE_DIR/"
+    # The archive is a distribution, so the MIT notice has to travel with it.
+    cp LICENSE "$RELEASE_DIR/"
     cp install.sh update.sh "$RELEASE_DIR/"
     cp scripts/deploy-common.sh "$RELEASE_DIR/scripts/"
 

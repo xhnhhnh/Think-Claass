@@ -2,6 +2,14 @@
   "name": "workspace",
   "private": true,
   "version": "2.2.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xhnhhnh/Think-Claass.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xhnhhnh/Think-Claass/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=24"

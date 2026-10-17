@@ -330,6 +330,12 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 | [docs/wechat/](docs/wechat/README.md) | 微信小程序：云托管与自有服务器部署、竞赛/发布清单、排错 |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | 更早的重构笔记 |
 | [后端接口说明/API接口文档.md](后端接口说明/API接口文档.md) | 接口参考笔记 |
+| [AGENTS.md](AGENTS.md) ([简体中文](AGENTS.zh-CN.md)) | 给 AI 智能体的说明：权威顺序、红线、命令、改动流程 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) ([简体中文](CONTRIBUTING.zh-CN.md)) | 本地环境、工作流、测试命令与 PR 流程 |
+| [SECURITY.md](SECURITY.md) ([简体中文](SECURITY.zh-CN.md)) | 安全漏洞的非公开报告与部署加固 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) ([简体中文](CODE_OF_CONDUCT.zh-CN.md)) | 社区行为期望与执行方式 |
+| [docs/README.md](docs/README.md) ([简体中文](docs/README.zh-CN.md)) | 完整的文档索引 |
+| [LICENSE](LICENSE) | MIT 许可证 |
 
 ## Development guidelines
 
@@ -346,6 +352,15 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 - 支付流程与既有服务商及 mock 行为保持兼容。
 - 已知的非阻塞构建警告是 Vite 的大 chunk 警告；路由级代码分割刻意留给单独的性能项目。
 
+## Contributing
+
+欢迎贡献。先读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解本地环境、工作流、测试命令与 PR 清单；
+AI 智能体的工作规则见 [AGENTS.md](AGENTS.md)，社区行为期望见
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)，安全问题必须按 [SECURITY.md](SECURITY.md)
+非公开报告 —— 不要开公开 issue。中文版：[CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、
+[AGENTS.zh-CN.md](AGENTS.zh-CN.md)、[CODE_OF_CONDUCT.zh-CN.md](CODE_OF_CONDUCT.zh-CN.md)、
+[SECURITY.zh-CN.md](SECURITY.zh-CN.md)。
+
 ## License
 
-MIT
+本项目以 [MIT License](LICENSE) 开源。
