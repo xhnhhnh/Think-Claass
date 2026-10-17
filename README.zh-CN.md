@@ -19,7 +19,7 @@ HTTP 外壳；每一个业务域都以插件形式交付，由插件自己声明
 
 | | |
 | --- | --- |
-| 版本 | [`package.json`](package.json) → `version` 是唯一事实源，[CHANGELOG.md](CHANGELOG.md) 顶部条目必须与它一致。见 [docs/versioning.md](docs/versioning.md) |
+| 版本 | [`package.json`](package.json) → `version` 是唯一事实源，[CHANGELOG.md](CHANGELOG.md) 顶部条目必须与它一致。见 [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)） |
 | 运行时 | Node.js >= 24（[`engines`](package.json)） |
 | 前端 | React 18、TypeScript、Vite 6、Tailwind CSS 3、TanStack Query 5、Zustand |
 | 后端 | NestJS 11 + Express 4、TypeScript，通过 `tsx` 运行 |
@@ -279,7 +279,9 @@ npm run lint            # 仅本地；不在发布工作流里
 
 ## Releases and versioning
 
-一次发布是一个原子事件：一个 tag。流程写在 [docs/versioning.md](docs/versioning.md)，并由护栏 G19 强制。
+一次发布是一个原子事件：一个 tag。版本序列号的规范性规则在
+[VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)）；[docs/versioning.md](docs/versioning.md)
+是它们背后的设计记录，流程由护栏 G19 强制。
 
 ```bash
 npm run release -- patch        # 也可：minor | major | 2.1.0 | 2.1.0-rc.1
@@ -324,12 +326,19 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 | [docs/migration/BOOTSTRAP_PROMPT.md](docs/migration/BOOTSTRAP_PROMPT.md) | 粘进新会话以继续该重构的提示词 |
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | 逐阶段记录：基线冻结、内核、契约与认证、插件运行时、能力与域 |
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | 跨域级联删除由谁拥有、按什么顺序执行 |
-| [docs/versioning.md](docs/versioning.md) | 版本规则、发布流水线，以及它修掉的三个断点 |
+| [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)） | 版本序列号与发布规范：semver 规则、tag、插件与内核版本、唯一事实源 |
+| [docs/versioning.md](docs/versioning.md) | 版本规则背后的设计记录：原因、发布流水线，以及它修掉的断点 |
 | [docs/branch-strategy.md](docs/branch-strategy.md) | 两条分支各管什么：`main` 是 Web 发版线，`feat/wechat-miniprogram` 是小程序线，以及它们怎么保持同步 |
 | [CHANGELOG.md](CHANGELOG.md) | 每个版本面向用户的变更 |
 | [docs/wechat/](docs/wechat/README.md) | 微信小程序：云托管与自有服务器部署、竞赛/发布清单、排错 |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | 更早的重构笔记 |
 | [后端接口说明/API接口文档.md](后端接口说明/API接口文档.md) | 接口参考笔记 |
+| [AGENTS.md](AGENTS.md) ([简体中文](AGENTS.zh-CN.md)) | 给 AI 智能体的说明：权威顺序、红线、命令、改动流程 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) ([简体中文](CONTRIBUTING.zh-CN.md)) | 本地环境、工作流、测试命令与 PR 流程 |
+| [SECURITY.md](SECURITY.md) ([简体中文](SECURITY.zh-CN.md)) | 安全漏洞的非公开报告与部署加固 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) ([简体中文](CODE_OF_CONDUCT.zh-CN.md)) | 社区行为期望与执行方式 |
+| [docs/README.md](docs/README.md) ([简体中文](docs/README.zh-CN.md)) | 完整的文档索引 |
+| [LICENSE](LICENSE) | MIT 许可证 |
 
 ## Development guidelines
 
@@ -346,6 +355,15 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 - 支付流程与既有服务商及 mock 行为保持兼容。
 - 已知的非阻塞构建警告是 Vite 的大 chunk 警告；路由级代码分割刻意留给单独的性能项目。
 
+## Contributing
+
+欢迎贡献。先读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解本地环境、工作流、测试命令与 PR 清单；
+AI 智能体的工作规则见 [AGENTS.md](AGENTS.md)，社区行为期望见
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)，安全问题必须按 [SECURITY.md](SECURITY.md)
+非公开报告 —— 不要开公开 issue。中文版：[CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、
+[AGENTS.zh-CN.md](AGENTS.zh-CN.md)、[CODE_OF_CONDUCT.zh-CN.md](CODE_OF_CONDUCT.zh-CN.md)、
+[SECURITY.zh-CN.md](SECURITY.zh-CN.md)。
+
 ## License
 
-MIT
+本项目以 [MIT License](LICENSE) 开源。

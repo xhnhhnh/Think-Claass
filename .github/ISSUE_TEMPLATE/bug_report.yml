@@ -1,0 +1,86 @@
+name: "Bug 报告 / Bug report"
+description: "报告一个可复现的缺陷。请先搜索已有 issue，并在提交前脱敏。 / Report a reproducible defect. Search existing issues first, and redact personal data before posting."
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **提交前请确认三件事 / Before you start:**
+
+        - 这不是安全问题。漏洞请走私密渠道：[SECURITY.md](https://github.com/xhnhhnh/Think-Claass/blob/main/SECURITY.md) ([简体中文](https://github.com/xhnhhnh/Think-Claass/blob/main/SECURITY.zh-CN.md))。不要在本 issue 里公开漏洞细节。
+        - 不要在 issue 里粘贴真实学生姓名、成绩、照片、账号标识或其他个人信息。请使用化名与编造的数据。
+        - 请先搜索[已有 issue](https://github.com/xhnhhnh/Think-Claass/issues)，避免重复。
+
+        This is not a security channel. Report vulnerabilities privately via SECURITY.md, never paste real student data, and search existing issues first.
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: "部署方式 / Deployment"
+      description: "你在哪个界面上看到这个问题？ / Which frontend did you see this on?"
+      options:
+        - "Web"
+        - "微信小程序 / WeChat mini program"
+        - "两者 / Both"
+
+  - type: input
+    id: version
+    attributes:
+      label: "版本或提交 / Version or commit"
+      description: "填 package.json 的 version、Release tag 或提交 SHA，不要只写「最新版」。 / The package.json version, release tag, or commit SHA. Do not write just \"latest\"."
+      placeholder: "例如 vX.Y.Z 或提交 SHA / e.g. vX.Y.Z or a commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: "你的角色 / Your role"
+      description: "遇到问题时你以哪个角色登录？ / Which role were you signed in as?"
+      options:
+        - "超级管理员 / superadmin"
+        - "教师 / teacher"
+        - "学生 / student"
+        - "家长 / parent"
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "复现步骤 / Steps to reproduce"
+      description: "按顺序写清楚点击或输入了什么；能稳定复现最好。 / Write what you clicked or typed, in order. A reliable reproduction is ideal."
+      placeholder: |
+        1. 以教师身份登录 / Sign in as a teacher
+        2. 打开…… / Open ...
+        3. 点击…… / Click ...
+        4. 看到错误 / Observe the error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: "期望结果与实际结果 / Expected vs actual"
+      description: "请把两者分开写清楚。 / Describe both, separately."
+      placeholder: |
+        期望 / Expected: ...
+        实际 / Actual: ...
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: "环境 / Environment"
+      description: "操作系统、Node.js 版本、浏览器（或微信开发者工具版本）、部署方式（自有服务器 / 微信云托管）。 / OS, Node.js version, browser (or WeChat DevTools version), and deployment (self-hosted / WeChat cloud hosting)."
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "相关日志 / Logs"
+      description: "粘贴服务端或浏览器控制台日志。注意：issue 是公开的，请删掉密钥、密码、token、cookie、真实学生姓名等一切敏感信息。 / Logs are public. Remove keys, passwords, tokens, cookies, real student names, and anything else sensitive."
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "截图与补充信息 / Screenshots and additional context"
+      description: "可以直接拖拽图片；请遮挡姓名、班级、头像等个人信息。 / Drag images here; cover names, classes, avatars and any other personal data."

@@ -101,7 +101,8 @@ jobs:
             dist/index.html \
             install.sh \
             update.sh \
-            package.json
+            package.json \
+            LICENSE
           do
             if ! grep -q " ${entry}$" archive-contents.txt; then
               echo "::error::release archive is missing ${entry}"

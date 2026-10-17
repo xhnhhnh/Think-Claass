@@ -21,7 +21,7 @@ contains no business table names, and plugins never import each other directly.
 
 | | |
 | --- | --- |
-| Version | [`package.json`](package.json) → `version` is the single source of truth, and the top [CHANGELOG.md](CHANGELOG.md) entry must match it. See [docs/versioning.md](docs/versioning.md) |
+| Version | [`package.json`](package.json) → `version` is the single source of truth, and the top [CHANGELOG.md](CHANGELOG.md) entry must match it. See [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) |
 | Runtime | Node.js >= 24 ([`engines`](package.json)) |
 | Frontend | React 18, TypeScript, Vite 6, Tailwind CSS 3, TanStack Query 5, Zustand |
 | Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
@@ -294,8 +294,9 @@ the package manifests.
 
 ## Releases and versioning
 
-A release is one atomic event: a tag. The process is described in [docs/versioning.md](docs/versioning.md)
-and enforced by guardrail G19.
+A release is one atomic event: a tag. The normative numbering rules are in
+[VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)); [docs/versioning.md](docs/versioning.md)
+is the design record behind them, and the process is enforced by guardrail G19.
 
 ```bash
 npm run release -- patch        # also: minor | major | 2.1.0 | 2.1.0-rc.1
@@ -344,12 +345,19 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 | [docs/migration/BOOTSTRAP_PROMPT.md](docs/migration/BOOTSTRAP_PROMPT.md) | The prompt to paste into a fresh session to continue that refactor |
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | Phase-by-phase records: baseline freeze, kernel, contracts and auth, plugin runtime, capabilities and domains |
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | How cross-domain cascade deletion is owned and ordered |
-| [docs/versioning.md](docs/versioning.md) | Version rules, the release pipeline, and the three breakpoints it fixed |
+| [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) | Version numbering and release specification: semver rules, tags, plugin and kernel versions, the single source of truth |
+| [docs/versioning.md](docs/versioning.md) | The design record behind the version rules: rationale, release pipeline and the breakpoints it fixed |
 | [docs/branch-strategy.md](docs/branch-strategy.md) | Which branch owns what: `main` as the Web release line, `feat/wechat-miniprogram` for the mini program, and how the two stay in step |
 | [CHANGELOG.md](CHANGELOG.md) | User-facing changes per release |
 | [docs/wechat/](docs/wechat/README.md) | The WeChat mini program: 云托管 and self-hosted deployment, the competition/release checklist, troubleshooting |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | Earlier refactor notes |
 | [后端接口说明/API接口文档.md](后端接口说明/API接口文档.md) | API reference notes |
+| [AGENTS.md](AGENTS.md) ([简体中文](AGENTS.zh-CN.md)) | Instructions for AI agents: authority order, red lines, commands, change workflow |
+| [CONTRIBUTING.md](CONTRIBUTING.md) ([简体中文](CONTRIBUTING.zh-CN.md)) | Local setup, workflow, test commands and the pull-request process |
+| [SECURITY.md](SECURITY.md) ([简体中文](SECURITY.zh-CN.md)) | Private vulnerability reporting and deployment hardening |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) ([简体中文](CODE_OF_CONDUCT.zh-CN.md)) | Community expectations and enforcement |
+| [docs/README.md](docs/README.md) ([简体中文](docs/README.zh-CN.md)) | The complete documentation index |
+| [LICENSE](LICENSE) | MIT license |
 
 ## Development guidelines
 
@@ -373,6 +381,16 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 - The known non-blocking build warning is Vite's large-chunk warning; route-level code splitting is
   deliberately a separate performance project.
 
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, the
+workflow, the test commands and the pull-request checklist. The rules for AI agents are in
+[AGENTS.md](AGENTS.md), community expectations in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and
+security issues must be reported privately through [SECURITY.md](SECURITY.md) — never in a public
+issue. Chinese versions: [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md),
+[AGENTS.zh-CN.md](AGENTS.zh-CN.md), [CODE_OF_CONDUCT.zh-CN.md](CODE_OF_CONDUCT.zh-CN.md),
+[SECURITY.zh-CN.md](SECURITY.zh-CN.md).
+
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).

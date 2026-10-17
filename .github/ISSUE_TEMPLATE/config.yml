@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "安全问题 / Security"
+    url: "https://github.com/xhnhhnh/Think-Claass/security/advisories/new"
+    about: "请私密上报漏洞，不要在公开 issue 里透露细节。 / Report vulnerabilities privately; do not post details in a public issue."
+  - name: "文档 / Docs"
+    url: "https://github.com/xhnhhnh/Think-Claass/blob/main/docs/README.md"
+    about: "文档索引，以及每份文档的英文与中文版本。 / The documentation index and the English/Chinese version of each document."
+  - name: "贡献 / Contributing"
+    url: "https://github.com/xhnhhnh/Think-Claass/blob/main/CONTRIBUTING.md"
+    about: "本地环境、验证命令与 pull request 约定。 / Local setup, validation commands and pull request conventions."
