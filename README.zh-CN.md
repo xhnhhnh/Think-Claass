@@ -25,6 +25,7 @@ HTTP 外壳；每一个业务域都以插件形式交付，由插件自己声明
 | 后端 | NestJS 11 + Express 4、TypeScript，通过 `tsx` 运行 |
 | 数据库 | SQLite（`better-sqlite3`）；迁移只前进且带校验和 |
 | 插件 | [`plugins/`](plugins) 下 23 个 —— 见下方列表 |
+| 分支 | 只有一条长期分支 `main`：Web 端、共享后端与 [`miniprogram/`](miniprogram) 里的小程序客户端在同一个提交上。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
 
 README 刻意不重复版本号：项目已经往前走了两个大版本，它还在写着 `1.6.7`。那是 `package.json` 的职责。
 
@@ -48,9 +49,14 @@ src/
   components/       共享 UI，含 BrandMark / WebsiteIcon
   pages/            面向路由的旧页面位置
   hooks/ lib/ store/ mocks/ app/    横切前端基础设施
-tests/              Vitest 套件：app、backend、guardrails
-docs/              设计记录与迁移档案
+tests/              Vitest 套件：app、backend、e2e、guardrails、miniprogram
+docs/              设计记录、迁移档案与微信指南
+miniprogram/       微信小程序客户端（独立 TypeScript 项目，与 Web/后端同一条主干）
 ```
+
+微信小程序是第二个客户端，不是第二套部署：源码在 [`miniprogram/`](miniprogram)，调用同一套
+`/api/**`，云托管镜像也由同一个 `main` 提交构建；不存在独立的小程序分支，详见
+[docs/branch-strategy.md](docs/branch-strategy.md)。
 
 23 个插件域：
 
@@ -178,7 +184,7 @@ npm run start        # 只有 API
 | `WECHAT_APPID` | 未设置 | 小程序 AppID。由 `plugins/wechat` 在调用时读取；它与密钥任一缺失时，`/api/wechat/login` 与 `/api/wechat/bind` 回 503 并在消息里点名这两个变量。任何地方都没有默认值 —— AppSecret 只能留在服务端（[`plugins/wechat/src/wechat.gateway.ts`](plugins/wechat/src/wechat.gateway.ts)） |
 | `WECHAT_SECRET` | 未设置 | 小程序 AppSecret，只用于服务端的 `code2session` 调用。它不会到达任何客户端，且 `api.weixin.qq.com` 不允许被配置成小程序的服务器域名 |
 | `WECHAT_ALLOW_DEV_LOGIN` | 未设置 | 设为 `1` 时 `/api/wechat/login` 接受 `{ "devOpenid": "..." }` 代替真实的 `wx.login` code，让客户端可以在 AppID 审核通过前先开发。`NODE_ENV=production` 时一律拒绝，且每次使用都会记录日志 |
-| `WECHAT_*`（上面三个） | — | 它们配置的是**共享后端**：Web 与小程序调同一套 API、读同一个数据库，所以只要部署里含 `plugins/wechat`，微信登录路由就在。这条分支上不保留的只有小程序**客户端**。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
+| `WECHAT_*`（上面三个） | — | 它们配置的是**共享后端**：Web 与小程序调同一套 API、读同一个数据库，所以只要部署里含 `plugins/wechat`，微信登录路由就在。小程序客户端就在同一仓库的 [`miniprogram/`](miniprogram) 里，与后端同一条分支发布。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
 | `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` / `AI_TIMEOUT_MS` | 未设置（`ai_provider` 默认 `mock`） | 覆盖「系统设置 → AI 判分与问答」里的同名五项。配置读取分三层，优先顺序是**环境变量 > 系统设置 > 内置默认值**；三层都没配时 AI 是**关着**的（走确定性 mock 判分，不调用模型）。`AI_API_KEY` 建议只放这一层：容器的环境变量比数据库里的一行更好轮换，也不必经过后台对 `ai_api_key` 的打码往返。空值被忽略，所以 `AI_PROVIDER=` 不会弄坏已配好的部署。接口是 OpenAI 兼容的 `POST {AI_BASE_URL}/chat/completions`；未配置时的降级带原因（200 响应里一行"缺少 ai_api_key"），不是 503。见 [docs/wechat/50-ai-capability.md](docs/wechat/50-ai-capability.md) |
 
 本仓库里没有任何东西设置这两个组装开关：`install.sh`、`update.sh`、`update.ps1`、`pack.sh`、
@@ -328,7 +334,7 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | 跨域级联删除由谁拥有、按什么顺序执行 |
 | [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)） | 版本序列号与发布规范：semver 规则、tag、插件与内核版本、唯一事实源 |
 | [docs/versioning.md](docs/versioning.md) | 版本规则背后的设计记录：原因、发布流水线，以及它修掉的断点 |
-| [docs/branch-strategy.md](docs/branch-strategy.md) | 两条分支各管什么：`main` 是 Web 发版线，`feat/wechat-miniprogram` 是小程序线，以及它们怎么保持同步 |
+| [docs/branch-strategy.md](docs/branch-strategy.md) | 分支与发布策略：单主干（`main`）同时承载 Web 端、共享后端与 `miniprogram/` 里的小程序客户端；含旧两条线的历史与合并记录 |
 | [CHANGELOG.md](CHANGELOG.md) | 每个版本面向用户的变更 |
 | [docs/wechat/](docs/wechat/README.md) | 微信小程序：云托管与自有服务器部署、竞赛/发布清单、排错 |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | 更早的重构笔记 |

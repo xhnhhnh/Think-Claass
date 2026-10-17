@@ -91,7 +91,7 @@ the phase records are evidence of how it landed, not a statement of the present.
 | Document | What it is |
 | --- | --- |
 | [versioning.md](versioning.md) | The design record behind the version rules: rationale, release pipeline and historical breakpoints. The normative summary is `VERSIONING.md` at the repository root. Chinese only |
-| [branch-strategy.md](branch-strategy.md) | Which branch owns what: `main` as the Web release line, the mini-program feature branch, and how the two stay in step. Chinese only |
+| [branch-strategy.md](branch-strategy.md) | The branch policy: one trunk (`main`) carries the Web app, the shared backend and the mini program client in `miniprogram/`; records the retired two-branch split and the merge. Chinese only |
 | [design-system.md](design-system.md) | The front-end presentation layer: tokens, the UI-R shell contract, the interaction model and the commands that keep it in place |
 | [security/route-authorization-matrix.md](security/route-authorization-matrix.md) | Per-endpoint authorization matrix. It admits that it lags the route snapshot — `npm run auth:audit` is authoritative. Chinese only |
 | [api-integration-checklist.md](api-integration-checklist.md) | Historical front-end API integration and test checklist. Chinese only |
@@ -115,6 +115,7 @@ procedures are described in [README.md](../README.md) and [docs/wechat/](wechat/
 This whole group is Chinese only: it is the deployment, release and competition-submission
 documentation for the WeChat mini program. Track A (WeChat Cloud Run) is recommended; Track B
 (self-hosted with `install.sh`, Nginx and certbot) is for a server and an already-filed domain.
+The client source is `miniprogram/` in this repository, on the same `main` branch.
 
 | Document | What it is |
 | --- | --- |

@@ -2,7 +2,8 @@
 
 原生微信小程序 + TypeScript，**不含任何 npm 运行时依赖**（没有 `miniprogram_npm`、没有
 `miniprogram-api-typings`，`wx.*` 的类型在 `typings/wx.d.ts` 手写维护）。它对接的是 Think-Class
-后端内核的 HTTP 接口，与 Web 端共用同一套鉴权、班级功能开关和领域数据。
+后端内核的 HTTP 接口，与 Web 端共用同一套鉴权、班级功能开关和领域数据。客户端与 Web 端、共享后端
+在同一个仓库、同一条 `main` 分支上（源码就在本目录 `miniprogram/`）；没有独立的小程序分支。
 
 ---
 

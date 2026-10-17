@@ -37,7 +37,7 @@ git rev-parse --abbrev-ref HEAD
 
 ## 2. 仓库形状
 
-这是一个全栈课堂游戏化平台。一个 API、一份数据库同时服务四个控制台（超管、教师、学生、家长）和微信小程序。
+这是一个全栈课堂游戏化平台。一个 API、一份数据库同时服务四个控制台（超管、教师、学生、家长）和微信小程序。小程序客户端就在本仓库的 `miniprogram/` 里；所有客户端与后端都从唯一的 `main` 主干发布。
 
 ```text
 api/                    组装根：server.ts、app.ts、app.module.ts、db.ts、maintenance.ts
@@ -58,7 +58,7 @@ wechat/                 微信开发者工具的工作副本，被 git 忽略；
 scripts/                发布、迁移棘轮、安全审计与验证脚本
 ```
 
-搭建、环境变量与部署看 [`README.md`](README.md)（[简体中文](README.zh-CN.md)）。改 UI 前先读 [`docs/design-system.md`](docs/design-system.md)。在假设哪条分支负责什么之前先读 [`docs/branch-strategy.md`](docs/branch-strategy.md)：`main` 是 Web 发布线，当前检出的也可能是特性分支。
+搭建、环境变量与部署看 [`README.md`](README.md)（[简体中文](README.zh-CN.md)）。改 UI 前先读 [`docs/design-system.md`](docs/design-system.md)。在假设仓库怎么分线之前先读 [`docs/branch-strategy.md`](docs/branch-strategy.md)：`main` 是唯一长期分支，Web 端、共享后端与 `miniprogram/` 里的小程序客户端都在它上面；短期特性分支合回后删除。
 
 ## 3. 不可协商的红线
 

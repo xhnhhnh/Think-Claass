@@ -6,7 +6,7 @@
 小程序代码在 `miniprogram/`（原生小程序 + TypeScript，无 npm 运行时依赖）。
 它与本文档同期落地；**页面与能力以工程里实际存在的为准**，下面凡是有出入的地方都标注了。
 
-> **目录口径（两处都放，别搞混）**：`miniprogram/` 是本分支里**进版本库的源**；
+> **目录口径（两处都放，别搞混）**：`miniprogram/` 是**进版本库的源**（与 Web 端、后端同在 `main` 上）；
 > 仓库根的 `wechat/` 是给微信开发者工具直接打开的**工作副本**（从 `miniprogram/` 复制而来，
 > `.gitignore` 未跟踪它）。工具里改完代码，改动要落回 `miniprogram/` 才会进 git。
 > 两棵树用一条命令同步，别手工复制：
@@ -196,7 +196,7 @@ AI 设置 `GET`/`PUT /api/admin/system/settings`，其中 `ai_api_key` **留空�
 
 ### 方式 B：命令行上传（可重复、可进 CI）
 
-用 [`scripts/wechat/upload.mjs`](../../scripts/wechat/upload.mjs)（封装了 `miniprogram-ci`，在 `main` 上，两条线都拿得到）。
+用 [`scripts/wechat/upload.mjs`](../../scripts/wechat/upload.mjs)（封装了 `miniprogram-ci`，在 `main` 上）。
 
 **第一步：拿上传密钥。** 公众平台 → 开发管理 → 开发设置 → 小程序代码上传 → 生成并下载密钥，
 得到形如 `private.<appid>.key` 的文件。**只能下载一次**，丢了必须在同一页面重置（旧文件立即失效）。

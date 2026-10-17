@@ -86,7 +86,7 @@ The first boot creates the superadmin account from the environment variables and
 - Frontend features live in `src/features/<domain>/`; `api/` is the composition root that mounts the kernel and the plugins.
 - Tests live in `tests/`: the `app`, `backend`, `e2e`, `guardrails` and `miniprogram` projects. The `backend` project boots a real plugin host and real databases.
 
-Read [docs/migration/HANDOFF.md](docs/migration/HANDOFF.md) for the architecture refactor, [docs/design-system.md](docs/design-system.md) before changing UI, and [docs/branch-strategy.md](docs/branch-strategy.md) before assuming which branch owns what.
+Read [docs/migration/HANDOFF.md](docs/migration/HANDOFF.md) for the architecture refactor, [docs/design-system.md](docs/design-system.md) before changing UI, and [docs/branch-strategy.md](docs/branch-strategy.md) before adding a branch: `main` is the only long-lived branch, and the mini program client lives in `miniprogram/` on it.
 
 ## Where a change goes
 

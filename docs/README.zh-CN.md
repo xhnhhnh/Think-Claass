@@ -83,7 +83,7 @@ npm run guard          # 护栏与棘轮数字
 | 文档 | 它是什么 |
 | --- | --- |
 | [versioning.md](versioning.md) | 版本规则背后的设计记录：原因、发布流水线，以及历史断点。规范性摘要见仓库根目录的 `VERSIONING.md`。仅中文 |
-| [branch-strategy.md](branch-strategy.md) | 两条分支各管什么：`main` 是 Web 发版线、小程序功能分支，以及它们如何保持同步。仅中文 |
+| [branch-strategy.md](branch-strategy.md) | 分支策略：单主干（`main`）同时承载 Web 端、共享后端与 `miniprogram/` 里的小程序客户端；记录旧两条线如何汇合。仅中文 |
 | [design-system.md](design-system.md) | 前端表现层：设计 token、UI-R 外壳契约、交互模型，以及把它们钉住的命令 |
 | [security/route-authorization-matrix.md](security/route-authorization-matrix.md) | 逐端点鉴权矩阵。它自己承认滞后于路由快照 —— `npm run auth:audit` 才是权威。仅中文 |
 | [api-integration-checklist.md](api-integration-checklist.md) | 历史的前端接口对接与测试清单。仅中文 |
@@ -106,6 +106,7 @@ Dockerfile 与 Nginx HTTPS 模板）、[install.sh](../install.sh)、[update.sh]
 
 这一组全部只有中文：微信小程序的部署、发布与竞赛提报文档。推荐 Track A（微信云托管）；
 Track B（用 `install.sh` + Nginx + certbot 自建服务器）适用于已有服务器和已备案域名的情况。
+客户端源码在本仓库的 `miniprogram/`，与 Web/后端同在 `main` 上。
 
 | 文档 | 它是什么 |
 | --- | --- |

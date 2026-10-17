@@ -35,7 +35,7 @@ Never report a test, type-check, build, or endpoint as passing unless it ran in 
 
 ## 2. Repository shape
 
-The project is a full-stack classroom gamification platform. One API and one database serve four consoles (superadmin, teacher, student, parent) and a WeChat mini program.
+The project is a full-stack classroom gamification platform. One API and one database serve four consoles (superadmin, teacher, student, parent) and a WeChat mini program. The mini program client lives in `miniprogram/` in this repository; every client and the backend ship from the single `main` trunk.
 
 ```text
 api/                    Composition root: server.ts, app.ts, app.module.ts, db.ts, maintenance.ts
@@ -56,7 +56,7 @@ wechat/                 Developer-tools working copy, gitignored; sync from mini
 scripts/                Release, migration ratchets, security audits and verification scripts
 ```
 
-Read [`README.md`](README.md) ([简体中文](README.zh-CN.md)) for setup, environment variables and deployment. Read [`docs/design-system.md`](docs/design-system.md) before changing UI. Read [`docs/branch-strategy.md`](docs/branch-strategy.md) before assuming which branch owns what: `main` is the Web release line, and a feature branch may be checked out instead.
+Read [`README.md`](README.md) ([简体中文](README.zh-CN.md)) for setup, environment variables and deployment. Read [`docs/design-system.md`](docs/design-system.md) before changing UI. Read [`docs/branch-strategy.md`](docs/branch-strategy.md) before assuming how the repository is branched: `main` is the only long-lived branch and carries the Web app, the shared backend and the mini program client in `miniprogram/`; short-lived feature branches merge back into it and are deleted.
 
 ## 3. Non-negotiables
 

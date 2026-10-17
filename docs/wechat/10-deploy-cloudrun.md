@@ -111,9 +111,9 @@ curl -s http://127.0.0.1:3001/api/health
 
 对**没有本地 Docker** 的人，按优先级选：
 
-1. **绑定 GitHub / Gitee 仓库（推荐）**：把共享后端推到远端，云托管绑定仓库、**分支选 `main`**
-   —— 后端与 Web 版是同一套代码、同一个数据库，小程序不需要自己的服务端
-   （见[分支分工方案](../branch-strategy.md)）。
+1. **绑定 GitHub / Gitee 仓库（推荐）**：把代码推到远端，云托管绑定仓库、**分支选 `main`**
+   —— Web 端、后端与小程序客户端在同一条主干上，小程序客户端在 `miniprogram/`、不参与后端构建
+   （见[分支策略](../branch-strategy.md)）。
    首次发布时填两项：
    - **DockerFile 文件**：指定路径与文件名 —— 本仓库的 Dockerfile 在 **`deploy/Dockerfile`**，
      不在根目录，所以这里必须显式指定（官方原文：有文件则可以指定 Dockerfile 路径和名称）。

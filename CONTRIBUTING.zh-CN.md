@@ -88,7 +88,7 @@ npm run dev
 - 前端功能位于 `src/features/<domain>/`；`api/` 是组装根，负责挂载内核与插件。
 - 测试位于 `tests/`，分为 `app`、`backend`、`e2e`、`guardrails` 与 `miniprogram` 项目。其中 `backend` 项目会启动真实的插件宿主与真实数据库。
 
-架构重构看 [docs/migration/HANDOFF.md](docs/migration/HANDOFF.md)，改 UI 前看 [docs/design-system.md](docs/design-system.md)，在假设哪条分支拥有什么之前看 [docs/branch-strategy.md](docs/branch-strategy.md)。
+架构重构看 [docs/migration/HANDOFF.md](docs/migration/HANDOFF.md)，改 UI 前看 [docs/design-system.md](docs/design-system.md)，在新建分支之前看 [docs/branch-strategy.md](docs/branch-strategy.md)：`main` 是唯一长期分支，小程序客户端 `miniprogram/` 也在它上面。
 
 ## 改动应该放在哪里
 

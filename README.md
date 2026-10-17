@@ -27,6 +27,7 @@ contains no business table names, and plugins never import each other directly.
 | Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
 | Database | SQLite via `better-sqlite3`; migrations are forward-only and checksummed |
 | Plugins | 23 under [`plugins/`](plugins) — see the list below |
+| Branch | One trunk, `main`: the Web app, the shared backend and the mini program client in [`miniprogram/`](miniprogram) ship from the same commit. See [docs/branch-strategy.md](docs/branch-strategy.md) |
 
 The README deliberately does not repeat the version number: it said `1.6.7` for two major
 releases after the project had moved on. That is what `package.json` is for.
@@ -51,9 +52,15 @@ src/
   components/       Shared UI, including BrandMark / WebsiteIcon
   pages/            Route-facing legacy page locations
   hooks/ lib/ store/ mocks/ app/    Cross-cutting frontend infrastructure
-tests/              Vitest suites: app, backend, guardrails
-docs/               Design records and the migration archive
+tests/              Vitest suites: app, backend, e2e, guardrails, miniprogram
+docs/               Design records, the migration archive and the WeChat guides
+miniprogram/        WeChat mini program client (separate TypeScript project, same trunk)
 ```
+
+The WeChat mini program is a second client, not a second deployment: its source is
+[`miniprogram/`](miniprogram), it calls the same `/api/**` endpoints, and the same `main` commit
+builds the Cloud Run image. There is no separate mini-program branch; see
+[docs/branch-strategy.md](docs/branch-strategy.md).
 
 The 22 plugin domains:
 
@@ -186,7 +193,7 @@ Everything else is optional and read from the environment:
 | `WECHAT_APPID` | unset | The mini program's AppID. Read by `plugins/wechat` at call time; while it or the secret is missing, `/api/wechat/login` and `/api/wechat/bind` answer 503 with a message naming both variables. There is no default anywhere — the AppSecret may only live on the server ([`plugins/wechat/src/wechat.gateway.ts`](plugins/wechat/src/wechat.gateway.ts)) |
 | `WECHAT_SECRET` | unset | The mini program's AppSecret, used only for the server-side `code2session` call. Never reaches a client, and `api.weixin.qq.com` must not be configured as a request domain |
 | `WECHAT_ALLOW_DEV_LOGIN` | unset | `1` accepts `{ "devOpenid": "..." }` on `/api/wechat/login` instead of a real `wx.login` code, so the client can be built before the AppID is approved. Refused outright when `NODE_ENV=production`, and every use is logged |
-| `WECHAT_*` (all three) | — | These configure the **shared** backend: Web and the mini program call the same API and read the same database, so the WeChat login routes run wherever `plugins/wechat` is deployed. Only the mini program client is kept off this branch. See [docs/branch-strategy.md](docs/branch-strategy.md) |
+| `WECHAT_*` (all three) | — | These configure the **shared** backend: Web and the mini program call the same API and read the same database, so the WeChat login routes run wherever `plugins/wechat` is deployed. The mini program client lives in [`miniprogram/`](miniprogram) in this same repository and ships from the same branch. See [docs/branch-strategy.md](docs/branch-strategy.md) |
 | `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` / `AI_TIMEOUT_MS` | unset (`ai_provider` defaults to `mock`) | Override the five same-named entries under 系统设置 → AI 判分与问答. Configuration is resolved in three layers, and the precedence is **environment > platform settings > built-in default**; with none of the three set, AI is **off** (deterministic mock grading, no model is called). `AI_API_KEY` belongs here and not in the database: a container's environment is easier to rotate than a row, and it skips the console's `ai_api_key` masking round-trip. Blank values are ignored, so `AI_PROVIDER=` cannot break a configured deployment. The endpoint is OpenAI-compatible, `POST {AI_BASE_URL}/chat/completions`, and an unconfigured deployment degrades *with a reason* (a line in a 200 response) rather than a 503. See [docs/wechat/50-ai-capability.md](docs/wechat/50-ai-capability.md) |
 
 The two composition switches are set by nothing in this repository: `install.sh`, `update.sh`,
@@ -347,7 +354,7 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | How cross-domain cascade deletion is owned and ordered |
 | [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) | Version numbering and release specification: semver rules, tags, plugin and kernel versions, the single source of truth |
 | [docs/versioning.md](docs/versioning.md) | The design record behind the version rules: rationale, release pipeline and the breakpoints it fixed |
-| [docs/branch-strategy.md](docs/branch-strategy.md) | Which branch owns what: `main` as the Web release line, `feat/wechat-miniprogram` for the mini program, and how the two stay in step |
+| [docs/branch-strategy.md](docs/branch-strategy.md) | The branch and release policy: one trunk (`main`) carries the Web app, the shared backend and the mini program client in `miniprogram/`; the retired two-branch split and the merge record |
 | [CHANGELOG.md](CHANGELOG.md) | User-facing changes per release |
 | [docs/wechat/](docs/wechat/README.md) | The WeChat mini program: 云托管 and self-hosted deployment, the competition/release checklist, troubleshooting |
 | [docs/architecture-refactor.md](docs/architecture-refactor.md) | Earlier refactor notes |

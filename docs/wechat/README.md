@@ -18,12 +18,12 @@
 | **[60-teacher-account-and-filing.md](60-teacher-account-and-filing.md)** | **给老师（非技术读者）看的操作说明**：个人主体注册小程序 → 填基本信息 → 提交备案 → 加学生为项目成员，含材料清单、核验短信提醒、打勾清单，页首与页尾都放了[开源仓库](https://github.com/xhnhhnh/Think-Claass)链接供其核实 | **需要老师本人实名操作时**（注册、备案、发布） |
 | [submission/](submission/) | **提报材料成品**：作品介绍文档（PDF 源）、提审文案与测试账号清单、演示数据种子清单 | **10.17 提报前** |
 
-Web 与小程序是**两个交互界面，共用一个后端、一份数据**。所以小程序的后端能力
-（`plugins/wechat`、`DATABASE_SKIP_WAL`、`deploy/`）在共享的 **`main`** 上，小程序**客户端**与这套文档在
-**`feat/wechat-miniprogram`** 上：云托管从 `main` 构建，小程序从另一条分支上传。
-两条线各自放什么、怎么同步，见 [分支分工方案](../branch-strategy.md)。
+Web 与小程序是**两个交互界面，共用一个后端、一份数据**。仓库只有一条长期分支 **`main`**：
+小程序的后端能力（`plugins/wechat`、`DATABASE_SKIP_WAL`、`deploy/`）、小程序**客户端**
+（`miniprogram/`）与这套文档都在同一个提交上。云托管从 `main` 构建镜像，小程序从
+`miniprogram/` 上传。见 [分支策略](../branch-strategy.md)。
 
-部署资产（`main` 上）：
+部署资产（仓库里）：
 
 | 文件 | 用途 |
 | --- | --- |
@@ -33,8 +33,8 @@ Web 与小程序是**两个交互界面，共用一个后端、一份数据**。
 | [`.env.example`](../../.env.example) | 全部环境变量与注释，无任何真实密钥 |
 | [`scripts/wechat/upload.mjs`](../../scripts/wechat/upload.mjs) | 用 `miniprogram-ci` 上传小程序代码，供重复发布与 CI 使用 |
 
-小程序客户端只在 `feat/wechat-miniprogram` 上，不在本目录所属的 `main` 上 —— 它位于
-[`miniprogram/`](../../miniprogram)（原生小程序 + TypeScript）：
+小程序客户端在 [`miniprogram/`](../../miniprogram)（原生小程序 + TypeScript），
+与 Web 端、共享后端在同一个仓库、同一条 `main` 上：
 部署坐标写在 [`miniprogram/config/index.ts`](../../miniprogram/config/index.ts)，
 传输层在 [`miniprogram/utils/request.ts`](../../miniprogram/utils/request.ts)（`wx.request` 与
 `wx.cloud.callContainer` 共用同一套信封与 401 恢复）。
