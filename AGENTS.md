@@ -91,8 +91,8 @@ Read [`README.md`](README.md) ([简体中文](README.zh-CN.md)) for setup, envir
 
 ### 3.5 Versioning and releases
 
-- `package.json` `version` is the single source of truth. Do not write the version anywhere else.
-- Cut releases only with `npm run release -- patch|minor|major` (dry-run unless `--push`). Never hand-edit the version, the top CHANGELOG section, or a tag. Guardrail G19 enforces that the manifest, CHANGELOG and tags agree.
+- `package.json` `version` is the single source of truth. Do not write the version anywhere else. The normative rules — tags, plugin versions, `KERNEL_API_VERSION` and the release sequence — are in [`VERSIONING.md`](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)); [`docs/versioning.md`](docs/versioning.md) is the design record.
+- Cut releases only with `npm run release -- patch|minor|major` (it does not push unless `--push` is passed). Never hand-edit the version, the top CHANGELOG section, or a tag. Guardrail G19 enforces that the manifest, CHANGELOG and tags agree.
 - Do not add an `## [Unreleased]` heading to [`CHANGELOG.md`](CHANGELOG.md): it would break G19. A release commit updates the CHANGELOG through the script.
 - Do not push tags, publish a GitHub Release, or run the release script unless the user explicitly asks. A pushed tag publishes; it is not reversible in the normal workflow.
 
@@ -263,7 +263,7 @@ Use [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Incl
 
 ### 7.4 Releases
 
-Only maintainers cut releases. The detailed rules are in [`docs/versioning.md`](docs/versioning.md). A release is one atomic event: the tag. Do not create a release from a dirty tree, and do not move a tag after it is published.
+Only maintainers cut releases. The normative rules are in [`VERSIONING.md`](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)); [`docs/versioning.md`](docs/versioning.md) is the design record. A release is one atomic event: the tag. Do not create a release from a dirty tree, and do not move a tag after it is published.
 
 ## 8. Deployment and operator safety
 

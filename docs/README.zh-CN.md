@@ -42,7 +42,7 @@ npm run guard          # 护栏与棘轮数字
 - 一对文档保持相同的标题层级、相同的相对链接目标（对等的语言切换链接除外）与相同的代码围栏，
   这样结构可以机器比对。
 - 仅一种语言的文档会在下表中标注。仅中文：迁移档案里的操作性文档、微信小程序文档、路由鉴权矩阵、
-  版本管理与分支分工文档、更早的接口对接笔记与本地重新初始化指南。仅英文：P0–P4 阶段记录与若干
+  版本管理设计记录与分支分工文档、更早的接口对接笔记与本地重新初始化指南。仅英文：P0–P4 阶段记录与若干
   更早的工程笔记。
 - [LICENSE](../LICENSE) 只有英文。具有法律效力的是英文文本，不要翻译它。
 
@@ -51,6 +51,7 @@ npm run guard          # 护栏与棘轮数字
 | 文档 | 它是什么 |
 | --- | --- |
 | [README.md](../README.md) ([简体中文](../README.zh-CN.md)) | 入口文档：产品概览、状态、架构、快速开始、配置、脚本、验收与部署 |
+| [VERSIONING.md](../VERSIONING.md)（[简体中文](../VERSIONING.zh-CN.md)） | 版本序列号与发布规范：semver 规则、tag、插件与内核版本、唯一事实源 |
 | [AGENTS.md](../AGENTS.md) ([简体中文](../AGENTS.zh-CN.md)) | AI 智能体与维护者的工作约定：权威顺序、红线、命令、改动流程、完成定义 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) ([简体中文](../CONTRIBUTING.zh-CN.md)) | 本地环境、工作流、测试命令与 PR 流程 |
 | [SECURITY.md](../SECURITY.md) ([简体中文](../SECURITY.zh-CN.md)) | 如何非公开地报告漏洞，以及部署方如何加固 |
@@ -81,7 +82,7 @@ npm run guard          # 护栏与棘轮数字
 
 | 文档 | 它是什么 |
 | --- | --- |
-| [versioning.md](versioning.md) | 版本规则、唯一事实源、发布流水线，以及强制它们的护栏。仅中文 |
+| [versioning.md](versioning.md) | 版本规则背后的设计记录：原因、发布流水线，以及历史断点。规范性摘要见仓库根目录的 `VERSIONING.md`。仅中文 |
 | [branch-strategy.md](branch-strategy.md) | 两条分支各管什么：`main` 是 Web 发版线、小程序功能分支，以及它们如何保持同步。仅中文 |
 | [design-system.md](design-system.md) | 前端表现层：设计 token、UI-R 外壳契约、交互模型，以及把它们钉住的命令 |
 | [security/route-authorization-matrix.md](security/route-authorization-matrix.md) | 逐端点鉴权矩阵。它自己承认滞后于路由快照 —— `npm run auth:audit` 才是权威。仅中文 |

@@ -3,6 +3,8 @@
 > **状态**：已定稿并落地（P4.3b.15 之后的「版本管理」轮）
 > **适用**：`xhnhhnh/Think-Claass`（公开仓库）、`install.sh` / `update.sh` 部署链路、管理端「网站更新」页面
 > **取代**：此前"手工改 package.json + 手工打 tag + 手工建 Release"的流程 —— 那套流程的三个断点见 §9
+>
+> **规范摘要**：版本序列号的规范性规则见 [VERSIONING.md](../VERSIONING.md)（[简体中文](../VERSIONING.zh-CN.md)）；本文保留为设计记录 —— 为什么这样做、历史断点与细则。
 
 ---
 
@@ -53,7 +55,7 @@
 | 位置 | 角色 | 谁写 | 能否手改 |
 |---|---|---|---|
 | `package.json` → `version` | **唯一版本源** | `npm run release` | 只能通过 release 脚本 |
-| `git tag vX.Y.Z` | **发布事件**（不可变） | `npm run release --push` | 不能改；错了就发下一版 |
+| `git tag vX.Y.Z` | **发布事件**（不可变） | `npm run release -- <bump> --push` | 不能改；错了就发下一版 |
 | `CHANGELOG.md` | 面向人的变更说明（保留"为什么"） | release 脚本生成骨架 + 人工补内容 | 可以，但**顶部条目必须等于 package.json 版本**（G19 检查） |
 | GitHub Release | 分发载体：`think-class-release.zip` + `SHA256SUMS` | CI（tag 推送触发） | 只由 CI 写 |
 | `release-notes-vX.Y.md` | 历史存档（v1.5–v1.7 时代的手写说明） | 冻结 | 不再新增 |
@@ -64,7 +66,7 @@
 ## 4. 一次发布做什么
 
 ```bash
-npm run release -- patch|minor|major|2.1.0   # 默认 dry-run，加 --push 才推
+npm run release -- patch|minor|major|2.1.0   # 默认只提交并打 tag，不推送；加 --push 才推；--dry-run 只打印计划
 ```
 
 脚本（`scripts/release.mjs`）按顺序做 6 件事，任何一步失败就整体停止：

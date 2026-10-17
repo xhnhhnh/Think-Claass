@@ -159,7 +159,7 @@ Verification: the commands that were run and their result.
 
 ## Release process (maintainers only)
 
-A release is one atomic event: a tag. Only maintainers cut releases.
+A release is one atomic event: a tag. Only maintainers cut releases. The normative numbering rules are in [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)); [docs/versioning.md](docs/versioning.md) is the design record.
 
 ```bash
 npm run release -- patch        # also: minor | major
@@ -168,7 +168,7 @@ npm run release -- minor --push # cut it, then push the commit and the tag
 
 The script runs the gates, writes the version in exactly one place (`package.json`), updates the changelog and tags the commit that passed. It never publishes. **Pushing the tag is what publishes**: CI re-runs the gates, builds the archive from a clean checkout, writes `SHA256SUMS` and creates the GitHub Release, which deployments verify before updating.
 
-Never hand-edit the version, the top CHANGELOG section or a tag. The detailed rules live in [docs/versioning.md](docs/versioning.md).
+Never hand-edit the version, the top CHANGELOG section or a tag. The normative rules are in [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)); [docs/versioning.md](docs/versioning.md) is the design record.
 
 ## License
 

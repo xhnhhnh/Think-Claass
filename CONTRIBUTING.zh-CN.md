@@ -161,7 +161,7 @@ Verification: the commands that were run and their result.
 
 ## 发布流程（仅维护者）
 
-一次发布是一个原子事件：一个 tag。只有维护者可以发版。
+一次发布是一个原子事件：一个 tag。只有维护者可以发版。版本序列号的规范在 [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)）；[docs/versioning.md](docs/versioning.md) 是设计记录。
 
 ```bash
 npm run release -- patch        # also: minor | major
@@ -170,7 +170,7 @@ npm run release -- minor --push # cut it, then push the commit and the tag
 
 脚本会跑验收门、把版本号写在唯一的地方（`package.json`）、更新 changelog，并给通过验收的那个提交打 tag。它从不发布。**推送 tag 才是发布**：CI 会重跑验收门，从干净检出构建归档，写出 `SHA256SUMS` 并创建 GitHub Release，部署端会在更新前校验它。
 
-绝不手工修改版本号、CHANGELOG 顶部条目或 tag。详细规则见 [docs/versioning.md](docs/versioning.md)。
+绝不手工修改版本号、CHANGELOG 顶部条目或 tag。规范性规则见 [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)）；[docs/versioning.md](docs/versioning.md) 是设计记录。
 
 ## 许可证
 

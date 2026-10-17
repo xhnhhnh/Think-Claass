@@ -35,6 +35,8 @@ const REQUIRED_FILES = [
   'CODE_OF_CONDUCT.md',
   'CODE_OF_CONDUCT.zh-CN.md',
   'LICENSE',
+  'VERSIONING.md',
+  'VERSIONING.zh-CN.md',
   'CHANGELOG.md',
   'CLAUDE.md',
   'docs/README.md',
@@ -45,7 +47,7 @@ const REQUIRED_FILES = [
   '.github/ISSUE_TEMPLATE/config.yml',
 ];
 
-/** The six standard-document entries the README pair must both advertise. */
+/** The standard-document entries the README pair must both advertise. */
 const README_DOC_LINKS = [
   'AGENTS.md',
   'AGENTS.zh-CN.md',
@@ -55,6 +57,8 @@ const README_DOC_LINKS = [
   'SECURITY.zh-CN.md',
   'CODE_OF_CONDUCT.md',
   'CODE_OF_CONDUCT.zh-CN.md',
+  'VERSIONING.md',
+  'VERSIONING.zh-CN.md',
   'docs/README.md',
   'docs/README.zh-CN.md',
   'LICENSE',
@@ -228,6 +232,8 @@ describe('documentation standards', () => {
       'SECURITY.zh-CN.md',
       'CODE_OF_CONDUCT.md',
       'CODE_OF_CONDUCT.zh-CN.md',
+      'VERSIONING.md',
+      'VERSIONING.zh-CN.md',
       'CLAUDE.md',
       'docs/README.md',
       'docs/README.zh-CN.md',
@@ -304,6 +310,49 @@ describe('documentation standards', () => {
       expect(licenseSection, `${file} has no ## License section`).not.toBe('');
       expect(licenseSection, `${file} License section does not link LICENSE`).toMatch(/\]\(LICENSE\)/);
       expect(licenseSection, `${file} License section does not mention MIT`).toMatch(/MIT/);
+    }
+  });
+
+  it('documents the version numbering rules', () => {
+    const en = read('VERSIONING.md');
+    for (const token of [
+      'MAJOR.MINOR.PATCH',
+      'X.Y.Z-rc.N',
+      'package.json',
+      'package-lock.json',
+      'CHANGELOG.md',
+      'vX.Y.Z',
+      'npm run release',
+      'G19',
+      'KERNEL_API_VERSION',
+      'plugin.json',
+    ]) {
+      expect(en, `VERSIONING.md does not mention ${token}`).toContain(token);
+    }
+
+    const zh = read('VERSIONING.zh-CN.md');
+    for (const token of [
+      'MAJOR.MINOR.PATCH',
+      'X.Y.Z-rc.N',
+      'package.json',
+      'package-lock.json',
+      'CHANGELOG.md',
+      'npm run release',
+      'KERNEL_API_VERSION',
+      'plugin.json',
+    ]) {
+      expect(zh, `VERSIONING.zh-CN.md does not mention ${token}`).toContain(token);
+    }
+
+    for (const file of ['VERSIONING.md', 'VERSIONING.zh-CN.md']) {
+      const linked = new Set(relativeLinks(file));
+      for (const required of [
+        'docs/versioning.md',
+        'scripts/release.mjs',
+        'tests/guardrails/version-consistency.test.ts',
+      ]) {
+        expect(linked, `${file} does not link ${required}`).toContain(required);
+      }
     }
   });
 

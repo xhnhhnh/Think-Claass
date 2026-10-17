@@ -93,8 +93,8 @@ scripts/                发布、迁移棘轮、安全审计与验证脚本
 
 ### 3.5 版本与发布
 
-- `package.json` 的 `version` 是唯一事实源。不要在别的地方再写一遍版本号。
-- 只用 `npm run release -- patch|minor|major` 切版本（除非带 `--push`，否则是 dry-run）。绝不手改版本号、CHANGELOG 顶部小节或 tag。护栏 G19 强制 manifest、CHANGELOG 与 tag 三者一致。
+- `package.json` 的 `version` 是唯一事实源。不要在别的地方再写一遍版本号。规范规则 —— tag、插件版本、`KERNEL_API_VERSION` 与发布顺序 —— 见 [`VERSIONING.md`](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)）；[`docs/versioning.md`](docs/versioning.md) 是设计记录。
+- 只用 `npm run release -- patch|minor|major` 切版本（除非传 `--push`，否则不会推送）。绝不手改版本号、CHANGELOG 顶部小节或 tag。护栏 G19 强制 manifest、CHANGELOG 与 tag 三者一致。
 - 不要给 [`CHANGELOG.md`](CHANGELOG.md) 加 `## [Unreleased]` 小节：那会破坏 G19。发布提交由脚本更新 CHANGELOG。
 - 除非用户明确要求，不要推 tag、创建 GitHub Release 或运行发布脚本。推送 tag 就是发布；按正常工作流它不可逆。
 
@@ -264,7 +264,7 @@ type(scope): 一行摘要
 
 ### 7.4 发布
 
-只有维护者切版本。详细规则在 [`docs/versioning.md`](docs/versioning.md)。发布是一个原子事件：tag。不要在脏工作区上创建发布，也不要在发布后移动 tag。
+只有维护者切版本。规范性规则在 [`VERSIONING.md`](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)）；[`docs/versioning.md`](docs/versioning.md) 是设计记录。发布是一个原子事件：tag。不要在脏工作区上创建发布，也不要在发布后移动 tag。
 
 ## 8. 部署与运维安全
 

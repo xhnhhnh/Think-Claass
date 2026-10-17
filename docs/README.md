@@ -48,8 +48,8 @@ themselves:
   language switch) and the same code fences, so structure can be compared mechanically.
 - One-language documents are marked as such in the tables below. Chinese only: the migration
   archive's operational documents, the WeChat mini-program guides, the route-authorization matrix,
-  the versioning and branch-strategy documents, the older API integration notes and the
-  local-reinitialize guide. English only: the P0–P4 phase records and several older engineering
+  the versioning design record and the branch-strategy document, the older API integration notes and
+  the local-reinitialize guide. English only: the P0–P4 phase records and several older engineering
   notes.
 - [LICENSE](../LICENSE) is English only. The English text is the legally binding one; do not
   translate it.
@@ -59,6 +59,7 @@ themselves:
 | Document | What it is |
 | --- | --- |
 | [README.md](../README.md) ([简体中文](../README.zh-CN.md)) | The entry document: product overview, status, architecture, quick start, configuration, scripts, validation and deployment |
+| [VERSIONING.md](../VERSIONING.md) ([简体中文](../VERSIONING.zh-CN.md)) | The version numbering and release specification: semver rules, tags, plugin and kernel versions, the single source of truth |
 | [AGENTS.md](../AGENTS.md) ([简体中文](../AGENTS.zh-CN.md)) | The working agreement for AI agents and maintainers: authority order, non-negotiables, commands, change workflow, definition of done |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) ([简体中文](../CONTRIBUTING.zh-CN.md)) | Local setup, workflow, test commands and the pull-request process |
 | [SECURITY.md](../SECURITY.md) ([简体中文](../SECURITY.zh-CN.md)) | How to report a vulnerability privately, and how operators harden a deployment |
@@ -89,7 +90,7 @@ the phase records are evidence of how it landed, not a statement of the present.
 
 | Document | What it is |
 | --- | --- |
-| [versioning.md](versioning.md) | Version rules, the single source of truth, the release pipeline and the guardrail that enforces them. Chinese only |
+| [versioning.md](versioning.md) | The design record behind the version rules: rationale, release pipeline and historical breakpoints. The normative summary is `VERSIONING.md` at the repository root. Chinese only |
 | [branch-strategy.md](branch-strategy.md) | Which branch owns what: `main` as the Web release line, the mini-program feature branch, and how the two stay in step. Chinese only |
 | [design-system.md](design-system.md) | The front-end presentation layer: tokens, the UI-R shell contract, the interaction model and the commands that keep it in place |
 | [security/route-authorization-matrix.md](security/route-authorization-matrix.md) | Per-endpoint authorization matrix. It admits that it lags the route snapshot — `npm run auth:audit` is authoritative. Chinese only |

@@ -21,7 +21,7 @@ contains no business table names, and plugins never import each other directly.
 
 | | |
 | --- | --- |
-| Version | [`package.json`](package.json) → `version` is the single source of truth, and the top [CHANGELOG.md](CHANGELOG.md) entry must match it. See [docs/versioning.md](docs/versioning.md) |
+| Version | [`package.json`](package.json) → `version` is the single source of truth, and the top [CHANGELOG.md](CHANGELOG.md) entry must match it. See [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) |
 | Runtime | Node.js >= 24 ([`engines`](package.json)) |
 | Frontend | React 18, TypeScript, Vite 6, Tailwind CSS 3, TanStack Query 5, Zustand |
 | Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
@@ -294,8 +294,9 @@ the package manifests.
 
 ## Releases and versioning
 
-A release is one atomic event: a tag. The process is described in [docs/versioning.md](docs/versioning.md)
-and enforced by guardrail G19.
+A release is one atomic event: a tag. The normative numbering rules are in
+[VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)); [docs/versioning.md](docs/versioning.md)
+is the design record behind them, and the process is enforced by guardrail G19.
 
 ```bash
 npm run release -- patch        # also: minor | major | 2.1.0 | 2.1.0-rc.1
@@ -344,7 +345,8 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 | [docs/migration/BOOTSTRAP_PROMPT.md](docs/migration/BOOTSTRAP_PROMPT.md) | The prompt to paste into a fresh session to continue that refactor |
 | [docs/migration/00-baseline.md](docs/migration/00-baseline.md) – [04](docs/migration/04-capabilities-and-domains.md) | Phase-by-phase records: baseline freeze, kernel, contracts and auth, plugin runtime, capabilities and domains |
 | [docs/migration/admin-cascade-decision.md](docs/migration/admin-cascade-decision.md) | How cross-domain cascade deletion is owned and ordered |
-| [docs/versioning.md](docs/versioning.md) | Version rules, the release pipeline, and the three breakpoints it fixed |
+| [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) | Version numbering and release specification: semver rules, tags, plugin and kernel versions, the single source of truth |
+| [docs/versioning.md](docs/versioning.md) | The design record behind the version rules: rationale, release pipeline and the breakpoints it fixed |
 | [docs/branch-strategy.md](docs/branch-strategy.md) | Which branch owns what: `main` as the Web release line, `feat/wechat-miniprogram` for the mini program, and how the two stay in step |
 | [CHANGELOG.md](CHANGELOG.md) | User-facing changes per release |
 | [docs/wechat/](docs/wechat/README.md) | The WeChat mini program: 云托管 and self-hosted deployment, the competition/release checklist, troubleshooting |
