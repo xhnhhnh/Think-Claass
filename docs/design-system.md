@@ -220,6 +220,29 @@ Two things it deliberately does *not* do, both learned the hard way while writin
   page, which for a long route is thousands of pixels scaled down to fit — unreadable exactly
   where the shell detail is.
 
+### Interaction guarantees
+
+These are the rules the UI is held to when something fails; they were added after an audit
+found the same four lies repeated across consoles.
+
+1. **One owner for a failure message.** `src/lib/api.ts` reports the server's sentence. A page
+   must not replace it with 「网络错误」 / `Network error`, and must not toast the same failure
+   again. A form that needs the reason inline passes `showError: false` and renders
+   `apiErrorMessage(error, fallback)`. `tests/guardrails/interaction-feedback.test.ts` enforces
+   the "no generic network claim in page code" half mechanically.
+2. **A 401 on a sign-in call is credentials, not an expired session.** `authFailure: 'credential'`
+   is what makes the login pages show 「账号或密码错误」 instead of logging the reader out.
+3. **Failed reads are not empty data.** A list, a dashboard or a counter that can render an empty
+   state must distinguish `isError` and offer a retry. A failed read must never be drawn as
+   「暂无」 or as `0`.
+4. **Success is reported only after the server confirms it.** No dialog closes and no input
+   clears before `onSuccess`; no success toast is shown after a swallowed failure.
+5. **Navigation keeps the shell.** Page-level `Suspense` sits inside the routed element, so a
+   first visit to a lazy page replaces the content area only. `PrivateRoute` shows `AppSplash`
+   while settings resolve, a wrong-role URL goes to the reader's own console, `*` renders
+   `NotFoundPage`, and every routed page is wrapped in `PageErrorBoundary` so a render error keeps
+   the rail and the way home.
+
 ## 8. Phase log
 
 ### UI-R A — the token layer and the kit

@@ -788,14 +788,11 @@ export function createHttpProvider(config: HttpProviderConfig): HomeworkAiProvid
         .map((entry) => `${entry.role === 'student' ? '学生' : '老师'}：${entry.content}`)
         .join('\n');
       const user = [history, buildAskPrompt(request)].filter(Boolean).join('\n\n');
-      try {
-        const text = await complete(AI_ASK_SYSTEM_PROMPT, user);
-        return { text: text.trim() || '（模型没有返回内容）', confidence: null, message: this.state() };
-      } catch (error) {
-        // Rethrown rather than swallowed: unlike grading, an answer is the whole point of the
-        // request, and the route turns this into an `available: false` payload for the client.
-        throw error;
-      }
+      // Unlike grading, an answer is the whole point of the request: a failure here propagates
+      // and the route turns it into an `available: false` payload for the client. The former
+      // try/catch only rethrew, so it was removed rather than disabled.
+      const text = await complete(AI_ASK_SYSTEM_PROMPT, user);
+      return { text: text.trim() || '（模型没有返回内容）', confidence: null, message: this.state() };
     },
 
     /**
