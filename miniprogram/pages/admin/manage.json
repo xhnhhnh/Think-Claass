@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "管理",
-  "usingComponents": {}
+  "usingComponents": {
+    "custom-tab-bar": "/custom-tab-bar/index"
+  }
 }

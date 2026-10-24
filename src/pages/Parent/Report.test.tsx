@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ParentReport from './Report';
@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   useStore: vi.fn(),
   useSettings: vi.fn(),
   useStudentReport: vi.fn(),
+  refetch: vi.fn(),
 }));
 
 vi.mock('@/store/useStore', () => ({
@@ -54,6 +55,7 @@ describe('ParentReport', () => {
       },
       isLoading: false,
       error: null,
+      refetch: mocks.refetch,
     });
   });
 
@@ -77,5 +79,24 @@ describe('ParentReport', () => {
     render(<ParentReport />);
 
     expect(screen.getByText('报告功能暂未开放')).toBeInTheDocument();
+  });
+
+  /**
+   * A failed read used to be a red sentence and nothing else: the only recovery was a full reload.
+   * The other parent screens offer 重试, and this one reads the same report endpoint.
+   */
+  it('offers a retry on the error branch instead of dead-ending', () => {
+    mocks.useStudentReport.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('offline'),
+      refetch: mocks.refetch,
+    });
+
+    render(<ParentReport />);
+
+    expect(screen.getByText('成长报告加载失败，请稍后重试。')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 });

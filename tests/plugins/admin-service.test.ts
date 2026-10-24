@@ -369,6 +369,53 @@ describe('platform settings - kernel storage, written through the kernel API', (
     };
     expect(row.value).toBe('real-key');
   });
+
+  /**
+   * The console's form starts every secret input empty (it only ever sees the mask), so a save that
+   * leaves one untouched posts `''` for it. That must mean "keep", not "erase": before this rule a
+   * settings save after touching an unrelated field silently wiped the stored payment/AI secrets.
+   */
+  it('treats a blank sensitive field as "keep the stored secret"', async () => {
+    kernel.db
+      .prepare(`INSERT INTO settings (key, value) VALUES ('ai_api_key', 'sk-keep') ON CONFLICT(key) DO UPDATE SET value = 'sk-keep'`)
+      .run();
+    kernel.db
+      .prepare(`INSERT INTO settings (key, value) VALUES ('payment_alipay_private_key', 'alipay-keep') ON CONFLICT(key) DO UPDATE SET value = 'alipay-keep'`)
+      .run();
+    kernel.db
+      .prepare(`INSERT INTO settings (key, value) VALUES ('payment_wechat_private_key', 'real-key') ON CONFLICT(key) DO UPDATE SET value = 'real-key'`)
+      .run();
+
+    const saved = await call('PUT', '/api/admin/system/settings', {
+      token: adminToken,
+      body: {
+        ai_api_key: '',
+        payment_alipay_private_key: '',
+        payment_wechat_private_key: '',
+        site_title: '改了个不相关的字段',
+      },
+    });
+    expect(saved.status).toBe(200);
+    // The unrelated field was written and the blanks did not touch the three secrets.
+    expect(saved.body.data.site_title).toBe('改了个不相关的字段');
+
+    const valueOf = (key: string) => {
+      const row = kernel.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as
+        | { value: string }
+        | undefined;
+      return row?.value;
+    };
+    expect(valueOf('ai_api_key')).toBe('sk-keep');
+    expect(valueOf('payment_alipay_private_key')).toBe('alipay-keep');
+    expect(valueOf('payment_wechat_private_key')).toBe('real-key');
+
+    // A non-blank value is still an explicit replacement.
+    await call('PUT', '/api/admin/system/settings', {
+      token: adminToken,
+      body: { ai_api_key: 'sk-replaced' },
+    });
+    expect(valueOf('ai_api_key')).toBe('sk-replaced');
+  });
 });
 
 /**

@@ -56,6 +56,64 @@ function normalizeSettings(settings?: Partial<SystemSettings>): SystemSettings {
 }
 
 /**
+ * The settings the console must never render back as values.
+ *
+ * The server stores a real secret and answers the literal mask `'********'` on read; the form
+ * therefore starts these inputs empty and only sends a key when the operator typed a new one.
+ * Submitting a blank field means "keep what is stored" - the same rule the server applies to the
+ * mask, and the rule the delete-ability of a stored secret is deliberately not given here.
+ */
+const SENSITIVE_SETTING_KEYS = [
+  'payment_wechat_private_key',
+  'payment_wechat_api_v3_key',
+  'payment_alipay_private_key',
+  'payment_alipay_public_key',
+  'ai_api_key',
+] as const;
+
+type SensitiveSettingKey = (typeof SENSITIVE_SETTING_KEYS)[number];
+
+/** What the server puts in place of a configured secret. */
+const MASKED_SETTING_VALUE = '********';
+
+/** The settings as the form should hold them: stored secrets are blank, never the mask. */
+function toFormSettings(settings?: Partial<SystemSettings>): SystemSettings {
+  const next = normalizeSettings(settings);
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    next[key] = '';
+  }
+  return next;
+}
+
+/** Which sensitive settings the server reported as configured (i.e. it answered with the mask). */
+function readConfiguredSecrets(settings?: Partial<SystemSettings>): Record<SensitiveSettingKey, boolean> {
+  return {
+    payment_wechat_private_key: settings?.payment_wechat_private_key === MASKED_SETTING_VALUE,
+    payment_wechat_api_v3_key: settings?.payment_wechat_api_v3_key === MASKED_SETTING_VALUE,
+    payment_alipay_private_key: settings?.payment_alipay_private_key === MASKED_SETTING_VALUE,
+    payment_alipay_public_key: settings?.payment_alipay_public_key === MASKED_SETTING_VALUE,
+    ai_api_key: settings?.ai_api_key === MASKED_SETTING_VALUE,
+  };
+}
+
+/**
+ * The payload the settings form saves.
+ *
+ * A blank sensitive field is omitted entirely: it means "the operator did not replace this secret",
+ * and sending `''` would erase it (the server treats blank and the mask the same way, but the
+ * client should not depend on that to protect a value the operator never touched).
+ */
+function toSavePayload(formData: SystemSettings): Partial<SystemSettings> {
+  const payload: Partial<SystemSettings> = { ...formData };
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    if (!formData[key].trim()) {
+      delete payload[key];
+    }
+  }
+  return payload;
+}
+
+/**
  * 系统设置.
  *
  * Two things beyond the kit: the update log panel keeps its terminal look (an inverted
@@ -104,7 +162,12 @@ export default function AdminSettingsPage() {
    * could do to earn it.
    */
   const canUpdate = user?.role === 'superadmin';
-  const { data: settings, isPending: loading } = useAdminSystemSettingsQuery();
+  const {
+    data: settings,
+    isPending: loading,
+    isError: settingsError,
+    refetch: refetchSettings,
+  } = useAdminSystemSettingsQuery();
   const {
     data: updateStatus,
     isPending: updateStatusLoading,
@@ -114,14 +177,18 @@ export default function AdminSettingsPage() {
   const checkLatestReleaseMutation = useCheckLatestReleaseMutation();
   const startReleaseUpdateMutation = useStartReleaseUpdateMutation();
   const testAiConnectionMutation = useTestAiConnectionMutation();
-  const [formData, setFormData] = useState(DEFAULT_SYSTEM_SETTINGS);
+  const [formData, setFormData] = useState<SystemSettings>(() => toFormSettings());
+  const [configuredSecrets, setConfiguredSecrets] = useState<Record<SensitiveSettingKey, boolean>>(() =>
+    readConfiguredSecrets(),
+  );
   const [updateConfirmOpen, setUpdateConfirmOpen] = useState(false);
   /** The last 测试连接 answer, rendered in place so it survives the toast. */
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; message: string; provider: string } | null>(null);
 
   useEffect(() => {
     if (settings) {
-      setFormData(normalizeSettings(settings));
+      setFormData(toFormSettings(settings));
+      setConfiguredSecrets(readConfiguredSecrets(settings));
     }
   }, [settings]);
 
@@ -129,12 +196,17 @@ export default function AdminSettingsPage() {
   const handleSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
     try {
-      await updateSettingsMutation.mutateAsync(formData);
+      await updateSettingsMutation.mutateAsync(toSavePayload(formData));
       toast.success('系统设置已更新');
-    } catch (_error) {
-      toast.error('网络错误，无法保存设置');
+    } catch {
+      // The api layer already showed the server's sentence; the form keeps what was typed so a
+      // rejected field can be corrected instead of re-entered.
     }
   };
+
+  /** The hint above one secret input: whether a value is stored, and that blank keeps it. */
+  const secretHint = (key: SensitiveSettingKey, unconfiguredHint: string) =>
+    configuredSecrets[key] ? '已配置，留空保持不变。' : unconfiguredHint;
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -183,8 +255,9 @@ export default function AdminSettingsPage() {
           ? `发现新版本 ${status.latestVersion}`
           : `当前已是最新版本 ${status.currentVersion}`,
       );
-    } catch (_error) {
-      toast.error('无法获取 GitHub Release 最新版本');
+    } catch {
+      // The api layer already showed the server's sentence; the panel keeps its last state so the
+      // operator can retry instead of reading a second, vaguer message.
     }
   };
 
@@ -193,8 +266,8 @@ export default function AdminSettingsPage() {
     try {
       const status = await startReleaseUpdateMutation.mutateAsync();
       toast.success(status.message);
-    } catch (_error) {
-      toast.error('无法启动更新，请查看日志或稍后重试');
+    } catch {
+      // The api layer already showed the server's sentence; the update log panel carries the rest.
     }
   };
 
@@ -290,6 +363,22 @@ export default function AdminSettingsPage() {
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <Spinner size="lg" label="正在加载系统设置" className="text-role" />
+        </div>
+      ) : settingsError || !settings ? (
+        /*
+          A failed read must not fall through to the form. The form is pre-filled from the server,
+          and a save posts every field it holds - so rendering it with the defaults after a broken
+          read turns "the settings request failed" into "the operator overwrote the deployment's
+          configuration with empty values". The only action offered here is the retry.
+        */
+        <div className="mx-auto max-w-xl rounded-panel border border-danger/20 bg-danger/10 p-10 text-center">
+          <p className="text-lg font-bold text-danger">系统设置没有加载成功</p>
+          <p className="mt-2 text-sm text-fg-3">
+            表单没有显示：此时它只有默认值，直接保存会用默认值覆盖线上配置。请先重新加载。
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => void refetchSettings()}>
+            重新加载
+          </Button>
         </div>
       ) : (
         <div className="space-y-6">
@@ -635,21 +724,32 @@ export default function AdminSettingsPage() {
                         }
                       />
                     </FormField>
-                    <FormField label="微信 APIv3 密钥" hint="留空表示不修改已保存的密钥；密钥不会回传到浏览器。">
+                    <FormField
+                      label="微信 APIv3 密钥"
+                      hint={secretHint(
+                        'payment_wechat_api_v3_key',
+                        '尚未配置；填写后保存生效（服务端只回传掩码，不回传真实密钥）。',
+                      )}
+                    >
                       <Input
                         type="password"
                         autoComplete="new-password"
                         value={formData.payment_wechat_api_v3_key}
+                        placeholder={configuredSecrets.payment_wechat_api_v3_key ? '已配置，留空保持不变' : '尚未配置'}
                         onChange={(event) =>
                           setFormData({ ...formData, payment_wechat_api_v3_key: event.target.value })
                         }
                       />
                     </FormField>
-                    <FormField label="微信商户私钥" hint="PEM 内容，留空表示不修改。">
+                    <FormField
+                      label="微信商户私钥"
+                      hint={secretHint('payment_wechat_private_key', 'PEM 内容；尚未配置。')}
+                    >
                       <Textarea
                         rows={3}
                         className="resize-none"
                         value={formData.payment_wechat_private_key}
+                        placeholder={configuredSecrets.payment_wechat_private_key ? '已配置，留空保持不变' : '粘贴 PEM 私钥内容'}
                         onChange={(event) =>
                           setFormData({ ...formData, payment_wechat_private_key: event.target.value })
                         }
@@ -665,21 +765,29 @@ export default function AdminSettingsPage() {
                         }
                       />
                     </FormField>
-                    <FormField label="支付宝应用私钥" hint="留空表示不修改。">
+                    <FormField
+                      label="支付宝应用私钥"
+                      hint={secretHint('payment_alipay_private_key', '尚未配置。')}
+                    >
                       <Textarea
                         rows={3}
                         className="resize-none"
                         value={formData.payment_alipay_private_key}
+                        placeholder={configuredSecrets.payment_alipay_private_key ? '已配置，留空保持不变' : '粘贴应用私钥内容'}
                         onChange={(event) =>
                           setFormData({ ...formData, payment_alipay_private_key: event.target.value })
                         }
                       />
                     </FormField>
-                    <FormField label="支付宝公钥" hint="留空表示不修改。">
+                    <FormField
+                      label="支付宝公钥"
+                      hint={secretHint('payment_alipay_public_key', '尚未配置。')}
+                    >
                       <Textarea
                         rows={3}
                         className="resize-none"
                         value={formData.payment_alipay_public_key}
+                        placeholder={configuredSecrets.payment_alipay_public_key ? '已配置，留空保持不变' : '粘贴支付宝公钥内容'}
                         onChange={(event) =>
                           setFormData({ ...formData, payment_alipay_public_key: event.target.value })
                         }
@@ -751,13 +859,16 @@ export default function AdminSettingsPage() {
 
                   <FormField
                     label="API 密钥"
-                    hint="留空表示不修改已保存的密钥；密钥不会回传到浏览器。"
+                    hint={secretHint(
+                      'ai_api_key',
+                      '尚未配置；填写后保存生效（服务端只回传掩码，不回传真实密钥）。',
+                    )}
                   >
                     <Input
                       type="password"
                       value={formData.ai_api_key}
                       onChange={(event) => setFormData({ ...formData, ai_api_key: event.target.value })}
-                      placeholder="sk-..."
+                      placeholder={configuredSecrets.ai_api_key ? '已配置，留空保持不变' : 'sk-...'}
                       autoComplete="new-password"
                     />
                   </FormField>

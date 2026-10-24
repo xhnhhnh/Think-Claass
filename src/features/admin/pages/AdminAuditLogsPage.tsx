@@ -102,9 +102,10 @@ export default function AdminAuditLogs() {
         setLoadFailed(true);
         toast.error('获取审计日志失败');
       }
-    } catch (error) {
+    } catch {
+      // `@/lib/api` already showed the server's sentence; the table's own error state is the part
+      // that survives the toast.
       setLoadFailed(true);
-      toast.error('网络错误，无法获取审计日志');
     } finally {
       setLoading(false);
     }

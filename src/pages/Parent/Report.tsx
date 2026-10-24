@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, Calendar, Heart, LoaderCircle, Star, TrendingDown, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 
 import {
@@ -58,7 +59,7 @@ export default function ParentReport() {
   const user = useStore(state => state.user);
   // The shared gate: 学习采撷 renders the same report and has to honour the same switch.
   const { enabled: reportEnabled } = useParentReportEnabled();
-  const { data: report, isLoading, error } = useStudentReport(user?.studentId ?? null);
+  const { data: report, isLoading, error, refetch } = useStudentReport(user?.studentId ?? null);
 
   if (!user?.studentId) {
     return (
@@ -112,7 +113,10 @@ export default function ParentReport() {
 
       {!isLoading && error && (
         <div className="rounded-panel border border-danger/30 bg-danger-soft px-8 py-16 text-center text-danger shadow-raised">
-          成长报告加载失败，请稍后重试。
+          <p>成长报告加载失败，请稍后重试。</p>
+          <Button variant="outline" className="mt-4" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       )}
 

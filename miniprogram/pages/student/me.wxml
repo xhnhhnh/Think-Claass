@@ -22,8 +22,8 @@
       <view class="btn btn--sm btn--ghost mt-16" bindtap="onRetry">重新加载</view>
     </view>
 
-    <!-- points (students only) -->
-    <view class="card" wx:if="{{student}}">
+    <!-- points (students only: a parent session carries the child's id, not the pupil's own page) -->
+    <view class="card" wx:if="{{isStudent && student}}">
       <view class="card__title mb-16">我的学分</view>
       <view class="stat-grid">
         <view class="stat">
@@ -49,9 +49,9 @@
       </view>
     </view>
 
-    <!-- 奖状: only when the class has the achievements feature on -->
+    <!-- 奖状: the pupil's own honours, only while the class has the achievements feature on -->
     <feature-guard
-      wx:if="{{featuresReady}}"
+      wx:if="{{isStudent && featuresReady}}"
       flag="enable_achievements"
       features="{{features}}"
     >

@@ -149,13 +149,15 @@ describe('the teacher tab bar once a class is known', () => {
     const feature = await import('../../miniprogram/utils/feature');
     feature.applyLoginSnapshot({ enable_shop: true }, 1);
 
-    // A parent gets their own four pages, and `enable_shop` does not leak any of the child's tabs
-    // into that set - the parent's set is not the student set with a hole cut in it.
+    // A parent gets their own pages, and `enable_shop` does not leak any of the child's tabs into
+    // that set - the parent's set is not the student set with a hole cut in it. 我的 is the shared
+    // account page every role needs for 退出登录 / 解绑微信.
     expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
       'home',
       'communication',
       'report',
       'leave',
+      'me',
     ]);
     expect(feature.visibleTabs('student').map((tab) => tab.key)).toEqual(['home', 'homework', 'shop', 'me']);
   });

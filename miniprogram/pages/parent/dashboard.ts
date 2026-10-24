@@ -181,7 +181,9 @@ Page({
   },
 
   onGoHomework() {
-    wx.redirectTo({ url: '/pages/student/homework' })
+    // 我的作业 is one of the four pages declared in app.json's tabBar.list; `redirectTo` refuses a
+    // tabBar page, so the tap used to do nothing at all. `switchTab` is the only call that works.
+    wx.switchTab({ url: '/pages/student/homework' })
   },
 })
 

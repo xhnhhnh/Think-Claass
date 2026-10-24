@@ -3,6 +3,7 @@ import { Building2, CheckCircle, Copy, Key, Pencil, Plus, Trash2 } from 'lucide-
 import { toast } from 'sonner';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { copyText } from './copyText';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
@@ -104,12 +105,10 @@ export default function AdminOpenApi() {
           })),
         );
       }
-    } catch (error) {
-      // Both tabs share the fetch, so one flag covers both tables: whichever list is
-      // on screen says 「加载失败」 instead of its 「暂无...」 copy, which a rejected
-      // request used to reach by leaving the array empty.
+    } catch {
+      // Both tabs share the fetch, so one flag covers both tables: whichever list is on screen says
+      // 「加载失败」 instead of its 「暂无...」 copy. The api layer already showed the server's message.
       setLoadError(true);
-      toast.error('数据加载失败');
     } finally {
       setLoading(false);
     }
@@ -130,8 +129,8 @@ export default function AdminOpenApi() {
       } else {
         toast.error('生成失败');
       }
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the name stays typed for a retry.
     } finally {
       setSubmitting(false);
     }
@@ -145,15 +144,12 @@ export default function AdminOpenApi() {
       const data = await adminClient.deleteOpenApiKey(id);
       if (data.success) {
         toast.success('密钥已删除');
-        // Closed only after the server agreed: the dialog used to vanish first, so a failed delete
-        // looked exactly like a successful one and the key was still in the list. A refusal arrives
-        // as a thrown `FetchError` (the api layer turns `success: false` into one), so the catch
-        // below is the other half of that guarantee.
+        // Closed only after the server agreed: a failed delete keeps the confirmation on screen.
         setKeyToDelete(null);
         await fetchData();
       }
-    } catch (error) {
-      toast.error('删除失败');
+    } catch {
+      // The api layer already showed the server's sentence; the confirmation stays open.
     } finally {
       setDeleting(false);
     }
@@ -186,8 +182,8 @@ export default function AdminOpenApi() {
       } else {
         toast.error(editingSchool ? '更新失败' : '添加失败');
       }
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the dialog and typed values stay.
     } finally {
       setSubmitting(false);
     }
@@ -221,15 +217,19 @@ export default function AdminOpenApi() {
         setSchoolToDelete(null);
         await fetchData();
       }
-    } catch (error) {
-      toast.error('删除失败');
+    } catch {
+      // The api layer already showed the server's sentence; the confirmation stays open.
     } finally {
       setDeleting(false);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text: string) => {
+    const copied = await copyText(text);
+    if (!copied) {
+      toast.error('复制失败，请手动选择密钥');
+      return;
+    }
     setCopiedKey(text);
     toast.success('已复制到剪贴板');
     setTimeout(() => setCopiedKey(null), 2000);
@@ -324,7 +324,7 @@ export default function AdminOpenApi() {
                       aria-label={`复制密钥 ${key.name}`}
                       title="复制完整密钥"
                       className="ml-3 text-fg-3 hover:text-role"
-                      onClick={() => copyToClipboard(key.api_key)}
+                      onClick={() => void copyToClipboard(key.api_key)}
                     >
                       {copiedKey === key.api_key ? (
                         <CheckCircle className="text-success" />

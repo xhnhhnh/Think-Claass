@@ -42,7 +42,30 @@ describe('AdminSettings', () => {
   const checkLatestMutateAsync = vi.fn();
   const startUpdateMutateAsync = vi.fn();
   const refetchUpdateStatus = vi.fn();
+  const refetchSettings = vi.fn();
   const testAiMutateAsync = vi.fn();
+
+  /**
+   * The five settings the server only ever answers as `'********'`.
+   *
+   * The page must not put the mask (or an empty string) back on the wire for them: blank means
+   * "keep what is stored", so the field is omitted from the payload entirely.
+   */
+  const SECRET_KEYS = [
+    'payment_wechat_private_key',
+    'payment_wechat_api_v3_key',
+    'payment_alipay_private_key',
+    'payment_alipay_public_key',
+    'ai_api_key',
+  ] as const;
+
+  /** The settings object a save posts, with the blank secrets omitted. */
+  const withoutSecrets = <T extends Record<string, unknown>>(settings: T): Record<string, unknown> => {
+    const copy: Record<string, unknown> = { ...settings };
+    for (const key of SECRET_KEYS) delete copy[key];
+    return copy;
+  };
+
   const baseSettings = {
     ...DEFAULT_SYSTEM_SETTINGS,
     site_title: 'Think-Class',
@@ -68,11 +91,14 @@ describe('AdminSettings', () => {
     checkLatestMutateAsync.mockReset();
     startUpdateMutateAsync.mockReset();
     refetchUpdateStatus.mockReset();
+    refetchSettings.mockReset();
     testAiMutateAsync.mockReset();
 
     mocks.useAdminSystemSettingsQuery.mockReturnValue({
       data: baseSettings,
       isPending: false,
+      isError: false,
+      refetch: refetchSettings,
     });
     mocks.useUpdateAdminSystemSettingsMutation.mockReturnValue({
       mutateAsync,
@@ -121,11 +147,85 @@ describe('AdminSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith({
-        ...baseSettings,
-        enable_parent_report: '0',
-      });
+      expect(mutateAsync).toHaveBeenCalledWith(
+        withoutSecrets({ ...baseSettings, enable_parent_report: '0' }),
+      );
     });
+  });
+
+  /**
+   * The read-failure guard.
+   *
+   * The form is prefilled from the server and `PUT` upserts every field it holds, so rendering a
+   * default-valued form after a broken read turns "the settings request failed" into "the operator
+   * silently replaced the deployment's configuration with empty values". Only a retry may be offered.
+   */
+  it('does not render the form when the settings read failed, and retries from the error card', async () => {
+    mocks.useAdminSystemSettingsQuery.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      refetch: refetchSettings,
+    });
+
+    render(<AdminSettings />);
+
+    expect(await screen.findByText('系统设置没有加载成功')).toBeInTheDocument();
+    expect(screen.getByText(/直接保存会用默认值覆盖线上配置/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存设置' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetchSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the save error to the api layer instead of stacking a generic network toast', async () => {
+    mutateAsync.mockRejectedValue(new Error('保存被拒绝'));
+    render(<AdminSettings />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '保存设置' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    // `@/lib/api` already showed the server's sentence; the page must not replace it with
+    // 「网络错误」 or show both.
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The secrets contract.
+   *
+   * The server answers a configured secret as `'********'`; the form must start those inputs empty
+   * and only send a sensitive key when the operator actually typed a new value. Sending the mask
+   * back is a no-op server-side, but sending `''` used to erase the stored secret.
+   */
+  it('keeps configured secrets out of the form and omits untouched ones from the save payload', async () => {
+    const masked = {
+      ...baseSettings,
+      payment_wechat_private_key: '********',
+      payment_wechat_api_v3_key: '********',
+      payment_alipay_private_key: '********',
+      payment_alipay_public_key: '********',
+      ai_api_key: '********',
+    };
+    mocks.useAdminSystemSettingsQuery.mockReturnValue({
+      data: masked,
+      isPending: false,
+      isError: false,
+      refetch: refetchSettings,
+    });
+
+    render(<AdminSettings />);
+
+    // The value is blank, not the mask, and the field says what blank means.
+    expect(await screen.findByLabelText('API 密钥')).toHaveValue('');
+    expect(screen.getAllByText('已配置，留空保持不变。').length).toBeGreaterThanOrEqual(5);
+
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+
+    const payload = mutateAsync.mock.calls[0][0] as Record<string, unknown>;
+    for (const key of SECRET_KEYS) {
+      expect(payload).not.toHaveProperty(key);
+    }
   });
 
   it('hides the release-update panel from a plain admin, and says why', async () => {
@@ -205,9 +305,12 @@ describe('AdminSettings', () => {
 
       await waitFor(() => {
         expect(mutateAsync).toHaveBeenCalledWith({
-          ...baseSettings,
-          ai_provider: 'http',
-          ai_base_url: 'https://api.deepseek.com/v1',
+          ...withoutSecrets({
+            ...baseSettings,
+            ai_provider: 'http',
+            ai_base_url: 'https://api.deepseek.com/v1',
+          }),
+          // The one secret the operator did type is sent; the untouched ones are omitted.
           ai_api_key: 'sk-new',
         });
       });

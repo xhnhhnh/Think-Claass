@@ -59,10 +59,9 @@ describe('AdminAuditLogsPage', () => {
     mocks.getAuditLogs.mockRejectedValueOnce(new Error('offline'));
     render(<AdminAuditLogs />);
 
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('网络错误，无法获取审计日志'));
-
-    // The table's own empty state is the one sentence an audit page must never say on a failed read.
+    // The api layer owns the toast; the page must show the failure in the table, not double-report.
     expect(await screen.findByText('数据加载失败')).toBeInTheDocument();
     expect(screen.queryByText('没有找到符合条件的审计日志')).not.toBeInTheDocument();
+    expect(mocks.toastError).not.toHaveBeenCalledWith('网络错误，无法获取审计日志');
   });
 });

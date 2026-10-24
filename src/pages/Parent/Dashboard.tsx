@@ -52,7 +52,7 @@ export default function ParentDashboard() {
   const { features: classFeatures } = useResolvedClassFeatures(classId, { refetchInterval: 5000 });
   const familyTasksEnabled = classFeatures.enable_family_tasks;
   const parentBuffEnabled = classFeatures.enable_parent_buff;
-  const { data, isLoading: loading } = useParentDashboard(studentId);
+  const { data, isLoading: loading, isError: dashboardError, refetch: refetchDashboard } = useParentDashboard(studentId);
   const castBuffMutation = useParentBuffMutation(studentId);
   const student = (data?.student ?? null) as StudentInfo | null;
   const summaryQuery = useQuery({ queryKey: ['motivation-summary', studentId], queryFn: () => studentsApi.getSummary(studentId!), enabled: !!studentId });
@@ -61,6 +61,15 @@ export default function ParentDashboard() {
   const tasks = ((data?.tasks ?? []) as FamilyTask[]).slice(0, 5);
   const buffActive = !!summaryQuery.data?.summary.parentBlessingActive;
   const buffLoading = castBuffMutation.isPending;
+  /**
+   * What the blessing is worth, as a phrase for the button.
+   *
+   * A failed incentive-policy read used to print 「教师评分加成 0%」, which states a fact about the
+   * teacher's settings that the server never answered - and understates the bonus at that.
+   */
+  const bonusLabel = policyQuery.isError
+    ? '评分加成暂不可用'
+    : `教师评分加成 ${policyQuery.data?.policy.parentBonusPercent ?? 0}%`;
 
   const castParentBuff = async () => {
     if (!parentBuffEnabled) {
@@ -81,8 +90,9 @@ export default function ParentDashboard() {
         origin: { y: 0.6 },
         colors: [...CELEBRATION.brand],
       });
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the button and the summary stay as they
+      // were, so the parent can retry instead of reading a second, vaguer message.
     }
   };
 
@@ -132,6 +142,27 @@ export default function ParentDashboard() {
     return (
       <PageScaffold variant="dashboard" title="温馨家园" description="记录孩子的每一步">
         <div className="flex h-64 items-center justify-center font-medium text-fg-3">翻阅日记中...</div>
+      </PageScaffold>
+    );
+  }
+
+  /**
+   * A failed read is not “nothing recorded yet”.
+   *
+   * Without this branch the page drew the empty-state sentences (「还没有新的记录哦」 /
+   * 「没有进行中的约定」) on top of a request that never landed, which reads as a fact about the
+   * child. The retry re-runs the one query the whole page depends on.
+   */
+  if (dashboardError) {
+    return (
+      <PageScaffold variant="dashboard" title="温馨家园" description="记录孩子的每一步">
+        <div className="mx-auto max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-12 text-center">
+          <p className="font-semibold text-danger">孩子的成长数据没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表还没有记录，请重试后再看。</p>
+          <Button variant="outline" className="mt-4" onClick={() => void refetchDashboard()}>
+            重新加载
+          </Button>
+        </div>
       </PageScaffold>
     );
   }
@@ -218,7 +249,7 @@ export default function ParentDashboard() {
                       ? '老师开启后可送祝福'
                       : buffActive
                         ? '今日祝福已送达'
-                        : `送上今日祝福（教师评分加成 ${policyQuery.data?.policy.parentBonusPercent ?? 0}%）`}
+                        : `送上今日祝福（${bonusLabel}）`}
                   </span>
                 </Button>
               </motion.div>

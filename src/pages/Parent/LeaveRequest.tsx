@@ -62,7 +62,7 @@ function formatSubmittedAt(createdAt: string) {
 export default function ParentLeaveRequest() {
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
-  const { data: requests = [], isLoading, error } = useLeaves({ studentId }, !!studentId);
+  const { data: requests = [], isLoading, error, refetch } = useLeaves({ studentId }, !!studentId);
   const createLeaveMutation = useCreateLeaveMutation(studentId);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -176,7 +176,12 @@ export default function ParentLeaveRequest() {
             正在获取假条记录...
           </div>
         ) : error ? (
-          <div className="p-10 text-center text-danger">假条记录加载失败，请稍后重试。</div>
+          <div className="p-10 text-center text-danger">
+            <p>假条记录加载失败，请稍后重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+              重新加载
+            </Button>
+          </div>
         ) : requests.length > 0 ? (
           <div className="divide-y divide-line-1">
             {requests.map((request) => (

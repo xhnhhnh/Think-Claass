@@ -53,6 +53,8 @@ export default function AdminAnnouncements() {
   // keeps for its own delete.
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** One save at a time: a double click on 发布 used to publish two identical announcements. */
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -72,11 +74,9 @@ export default function AdminAnnouncements() {
         created_at: item.createdAt ?? '',
         is_active: item.isActive ? 1 : 0,
       })));
-    } catch (error) {
-      // The toast expires; this does not. Without it a failed read painted 「暂无公告」,
-      // which tells the admin there is nothing to publish rather than that nothing loaded.
+    } catch {
+      // `@/lib/api` already showed the server's sentence; the flag below is what survives the toast.
       setLoadError(true);
-      toast.error('网络错误，无法获取公告数据');
     } finally {
       setLoading(false);
     }
@@ -112,11 +112,13 @@ export default function AdminAnnouncements() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error('标题和内容不能为空');
       return;
     }
 
+    setSaving(true);
     try {
       const payload = { title: formData.title.trim(), content: formData.content.trim(), isActive: formData.is_active };
       const data = editingId
@@ -129,8 +131,10 @@ export default function AdminAnnouncements() {
       } else {
         toast.error(data.message || '操作失败');
       }
-    } catch (error) {
-      toast.error('网络错误，操作失败');
+    } catch {
+      // The api layer already showed the server's sentence; the dialog and the typed values stay.
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -142,15 +146,14 @@ export default function AdminAnnouncements() {
 
       if (data.success) {
         toast.success('公告已删除');
-        // Closed only on success, so a failure keeps the confirmation on screen with
-        // its error toast, exactly as the old `confirm()` flow ended in a retry.
+        // Closed only on success, so a failure keeps the confirmation on screen for a retry.
         setDeleteTarget(null);
         fetchAnnouncements();
       } else {
         toast.error(data.message || '删除失败');
       }
-    } catch (error) {
-      toast.error('网络错误，删除失败');
+    } catch {
+      // The api layer already showed the server's sentence; the confirmation stays open.
     } finally {
       setIsDeleting(false);
     }
@@ -285,7 +288,9 @@ export default function AdminAnnouncements() {
               <Button type="button" variant="outline" onClick={handleCloseModal}>
                 取消
               </Button>
-              <Button type="submit">{editingId ? '保存更改' : '发布'}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? '保存中...' : editingId ? '保存更改' : '发布'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -94,4 +94,49 @@ describe('ParentCommunication', () => {
       });
     });
   });
+
+  /**
+   * The initialisation window.
+   *
+   * The letters query is disabled until the child's class is known, so its `isLoading` is false while
+   * the class lookup is in flight. Without treating init as loading the page painted
+   * 「信箱空空如也」 from a request that had not started, and the composer looked usable while
+   * `handleSend` silently returned because `classId` was still null.
+   */
+  it('shows the initialising state and disables the composer until the class is known', async () => {
+    let resolveClass!: (value: unknown) => void;
+    mocks.getStudentById.mockReturnValue(
+      new Promise((resolve) => {
+        resolveClass = resolve;
+      }),
+    );
+
+    render(<ParentCommunication />);
+
+    expect(screen.getByText('正在打开信箱...')).toBeInTheDocument();
+    expect(screen.queryByText('信箱空空如也，写下第一封信吧')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('写下想对老师说的话...')).toBeDisabled();
+    expect(screen.getByRole('button', { name: '寄出信件' })).toBeDisabled();
+
+    resolveClass({ success: true, student: { id: 12, class_id: 3 } });
+
+    // With the class known, the empty thread can finally be stated honestly.
+    expect(await screen.findByText('信箱空空如也，写下第一封信吧')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('写下想对老师说的话...')).toBeEnabled();
+  });
+
+  it('does not add a 寄信失败 toast when the api layer already reported the refusal', async () => {
+    mocks.mutateAsync.mockRejectedValue(new Error('当前账号无权访问该功能'));
+
+    render(<ParentCommunication />);
+    const textarea = await screen.findByPlaceholderText('写下想对老师说的话...');
+    await waitFor(() => expect(textarea).toBeEnabled());
+
+    fireEvent.change(textarea, { target: { value: '想了解孩子今天的表现' } });
+    fireEvent.submit(textarea.closest('form')!);
+
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(1));
+    // The api layer owns the message; the page must not replace it with 「寄信失败，请重试」.
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
 });

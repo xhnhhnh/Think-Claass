@@ -45,8 +45,9 @@ export default function AdminSystemResetPage() {
       setTimeout(() => {
         navigate(`${ADMIN_PATH}/login`);
       }, 2000);
-    } catch (_error) {
-      toast.error('网络错误，重置失败');
+    } catch {
+      // The api layer already showed the server's sentence; the page stays put so the operator can
+      // read it and decide whether to try again.
     }
   };
 

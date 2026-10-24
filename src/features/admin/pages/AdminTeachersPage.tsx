@@ -48,6 +48,8 @@ export default function AdminTeachers() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Teacher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** One save at a time: a double click on 创建教师 used to create two accounts. */
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({ username: '', password: '' });
 
   const fetchTeachers = async () => {
@@ -55,11 +57,9 @@ export default function AdminTeachers() {
     setLoadError(false);
     try {
       setTeachers(await adminClient.getTeachers());
-    } catch (error) {
-      // Kept alongside the toast, because the toast is transient: a rejected read left
-      // `teachers` at `[]`, which the table rendered as 「暂无教师」.
+    } catch {
+      // `@/lib/api` already showed the server's sentence; the flag below is what survives the toast.
       setLoadError(true);
-      toast.error('网络错误，无法获取教师数据');
     } finally {
       setLoading(false);
     }
@@ -87,6 +87,7 @@ export default function AdminTeachers() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!formData.username.trim()) {
       toast.error('用户名不能为空');
       return;
@@ -96,6 +97,7 @@ export default function AdminTeachers() {
       return;
     }
 
+    setSaving(true);
     try {
       const data = editingId
         ? await adminClient.updateTeacher(editingId, {
@@ -110,8 +112,10 @@ export default function AdminTeachers() {
       } else {
         toast.error(data.message || '操作失败');
       }
-    } catch (error) {
-      toast.error('网络错误，操作失败');
+    } catch {
+      // The api layer already showed the server's sentence; the dialog and the typed values stay.
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -127,8 +131,8 @@ export default function AdminTeachers() {
       } else {
         toast.error(data.message || '删除失败');
       }
-    } catch (error) {
-      toast.error('网络错误，删除失败');
+    } catch {
+      // The api layer already showed the server's sentence; the confirmation stays open to retry.
     } finally {
       setIsDeleting(false);
     }
@@ -241,7 +245,9 @@ export default function AdminTeachers() {
               <Button type="button" variant="outline" onClick={handleCloseModal}>
                 取消
               </Button>
-              <Button type="submit">{editingId ? '保存修改' : '创建教师'}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? '保存中...' : editingId ? '保存修改' : '创建教师'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

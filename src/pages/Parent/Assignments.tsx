@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageScaffold } from '@/components/ui/page-scaffold';
@@ -58,7 +59,7 @@ export default function ParentAssignments() {
   const user = useStore((state) => state.user);
   const [activeTab, setActiveTab] = useState<'assignments' | 'exams'>('assignments');
   const studentId = user?.studentId ?? null;
-  const { data: report, isLoading, error } = useStudentReport(studentId);
+  const { data: report, isLoading, error, refetch } = useStudentReport(studentId);
   // The same switch 成长足迹 reads: both screens render one report, so one of them honouring
   // `enable_parent_report` and the other not made the setting half-applied.
   const { enabled: reportEnabled } = useParentReportEnabled();
@@ -124,7 +125,10 @@ export default function ParentAssignments() {
     return (
       <PageScaffold variant="detail" title="学习采撷">
         <div className="rounded-panel border border-danger/30 bg-danger-soft px-8 py-16 text-center text-danger shadow-raised">
-          学习记录加载失败，请稍后重试。
+          <p>学习记录加载失败，请稍后重试。</p>
+          <Button variant="outline" className="mt-4" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );

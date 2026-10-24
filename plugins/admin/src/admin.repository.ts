@@ -162,9 +162,10 @@ export class SqliteAdminRepository implements AdminRepositoryContract {
     for (const key of SYSTEM_SETTING_KEYS) {
       const value = input[key];
       if (value === undefined) continue;
-      // A masked field comes back from the browser unchanged when the operator did not touch it;
-      // writing the mask would erase the real key.
-      if (SENSITIVE_SETTING_KEYS.has(key) && value === MASKED_SETTING_VALUE) continue;
+      // A sensitive field is never rendered back as its value, and the form starts those inputs
+      // empty: `'********'` is "the operator did not touch it" and `''` is the same statement, so
+      // neither may erase a stored secret. Replacing a secret means sending the new value.
+      if (SENSITIVE_SETTING_KEYS.has(key) && (value === MASKED_SETTING_VALUE || value === '')) continue;
       this.ctx.settings.setPlatform(key, String(value));
     }
 

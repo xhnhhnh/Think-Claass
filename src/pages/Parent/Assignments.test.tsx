@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ParentAssignments from './Assignments';
@@ -6,6 +6,7 @@ import ParentAssignments from './Assignments';
 const mocks = vi.hoisted(() => ({
   useStudentReport: vi.fn(),
   useSettings: vi.fn(),
+  refetch: vi.fn(),
 }));
 
 vi.mock('@/hooks/queries/useAnalytics', () => ({
@@ -30,7 +31,12 @@ vi.mock('@/store/useStore', () => ({
 describe('ParentAssignments', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.useStudentReport.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    mocks.useStudentReport.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: null,
+      refetch: mocks.refetch,
+    });
   });
 
   it('closes the page when the admin switched the parent report off', () => {
@@ -59,5 +65,22 @@ describe('ParentAssignments', () => {
     render(<ParentAssignments />);
 
     expect(screen.getByText('正在获取学习记录...')).toBeInTheDocument();
+  });
+
+  /** A failed read used to be a red sentence with no retry - only a full reload recovered. */
+  it('offers a retry on the error branch instead of dead-ending', () => {
+    mocks.useSettings.mockReturnValue({ data: { enable_parent_report: '1' } });
+    mocks.useStudentReport.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('offline'),
+      refetch: mocks.refetch,
+    });
+
+    render(<ParentAssignments />);
+
+    expect(screen.getByText('学习记录加载失败，请稍后重试。')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -37,6 +37,7 @@ Page({
     username: '',
     roleLabel: '',
     isTeacher: false,
+    isStudent: false,
     classId: null as number | null,
     student: null as StudentDto | null,
     showAchievements: false,
@@ -63,6 +64,9 @@ Page({
       username: session.user.username,
       roleLabel: roleText(session.user.role),
       isTeacher: isTeacherRole(session.user.role),
+      // A parent session also carries the child's `studentId`, so "has a studentId" is not "is a
+      // student": the points and 奖状 blocks belong to the pupil's own page, not to the parent's.
+      isStudent: session.user.role === 'student',
       classId: classIdOf(session.user),
       formUsername: session.user.username,
     })
@@ -119,7 +123,7 @@ Page({
   },
 
   async fetchStudent(): Promise<{ value: StudentDto | null; error: string }> {
-    if (this.studentId === null) {
+    if (this.studentId === null || !this.data.isStudent) {
       return { value: null, error: '' }
     }
     try {
@@ -130,7 +134,7 @@ Page({
   },
 
   async fetchCertificates(): Promise<{ value: CertificateView[]; error: string }> {
-    if (this.studentId === null || !this.data.showAchievements) {
+    if (this.studentId === null || !this.data.isStudent || !this.data.showAchievements) {
       return { value: [], error: '' }
     }
     try {

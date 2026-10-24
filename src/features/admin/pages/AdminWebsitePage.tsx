@@ -56,9 +56,9 @@ export default function AdminWebsite() {
         setLoadFailed(true);
         toast.error('获取网站内容失败');
       }
-    } catch (error) {
+    } catch {
+      // `@/lib/api` already showed the server's sentence; `loadFailed` is what refuses the form.
       setLoadFailed(true);
-      toast.error('网络错误，无法获取网站内容');
     } finally {
       setLoading(false);
     }
@@ -93,8 +93,8 @@ export default function AdminWebsite() {
       } else {
         toast.error(data.message || '更新内容失败');
       }
-    } catch (error) {
-      toast.error('网络错误，无法保存内容');
+    } catch {
+      // The api layer already showed the server's sentence; the form keeps the editor's content.
     } finally {
       setSaving(false);
     }

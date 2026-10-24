@@ -201,7 +201,9 @@ Page({
         cancelText: '知道了',
       })
       if (go) {
-        wx.switchTab({ url: '/pages/teacher/class' })
+        // 班级 is an ordinary page, not a tabBar page (see the file comment in utils/feature.ts):
+        // `switchTab` rejects any url outside app.json's tabBar.list, so this used to do nothing.
+        wx.redirectTo({ url: '/pages/teacher/class' })
       }
       return
     }

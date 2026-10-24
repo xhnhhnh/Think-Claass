@@ -19,6 +19,21 @@ export interface RecordedRequest {
   header: Record<string, string>
 }
 
+/**
+ * The four pages `app.json` declares in `tabBar.list`, duplicated here on purpose.
+ *
+ * The platform, not the client, owns this rule: `switchTab` accepts these urls and `redirectTo`
+ * refuses them. A fake that accepted everything would let a call site keep the wrong one and still
+ * pass. `tests/miniprogram/client-feature.test.ts` pins the client's own mirror of the list, so a
+ * future fifth tab page fails there before it can drift from this constant.
+ */
+const DECLARED_TAB_PAGES = new Set([
+  'pages/student/home',
+  'pages/student/homework',
+  'pages/student/shop',
+  'pages/student/me',
+])
+
 /** One `wx.uploadFile` call, as the multipart transport makes it. */
 export interface RecordedUpload {
   url: string
@@ -57,6 +72,11 @@ export interface FakeWx {
   uploads: RecordedUpload[]
   toasts: string[]
   relaunches: string[]
+  /** Pages opened with `wx.switchTab` (only app.json's tabBar.list accepts these). */
+  switchTabs: string[]
+  /** Pages opened with `wx.redirectTo` (the stack's current page is replaced). */
+  redirects: string[]
+  navigations: string[]
   loginCalls: number
   setPages(pages: string[]): void
   /** The requests whose URL contains `fragment`, in order. */
@@ -71,6 +91,9 @@ export function installFakeWx(options: FakeWxOptions): FakeWx {
   const uploads: RecordedUpload[] = []
   const toasts: string[] = []
   const relaunches: string[] = []
+  const switchTabs: string[] = []
+  const redirects: string[] = []
+  const navigations: string[] = []
   let loginCalls = 0;
   let pages = options.pages ?? ['pages/student/home']
 
@@ -178,6 +201,38 @@ export function installFakeWx(options: FakeWxOptions): FakeWx {
     reLaunch(config: { url: string }): void {
       relaunches.push(config.url)
     },
+    /**
+     * Navigation.
+     *
+     * The real `switchTab` refuses every url outside `app.json`'s `tabBar.list`; a fake that
+     * accepted anything would hide exactly the defect these tests exist for, so the refusal is
+     * reproduced here (the failure callback runs and nothing is recorded).
+     */
+    switchTab(config: { url: string; fail?: (err: { errMsg: string }) => void }): void {
+      const path = config.url.replace(/^\//, '')
+      if (!DECLARED_TAB_PAGES.has(path)) {
+        config.fail?.({ errMsg: 'switchTab:fail can not switch to a tabbar page' })
+        return
+      }
+      switchTabs.push(config.url)
+    },
+    redirectTo(config: { url: string; fail?: (err: { errMsg: string }) => void }): void {
+      const path = config.url.replace(/^\//, '')
+      if (DECLARED_TAB_PAGES.has(path)) {
+        config.fail?.({ errMsg: 'redirectTo:fail can not redirectTo a tabbar page' })
+        return
+      }
+      redirects.push(config.url)
+    },
+    navigateTo(config: { url: string; fail?: (err: { errMsg: string }) => void }): void {
+      const path = config.url.split('?')[0].replace(/^\//, '')
+      if (DECLARED_TAB_PAGES.has(path)) {
+        config.fail?.({ errMsg: 'navigateTo:fail can not navigateTo a tabbar page' })
+        return
+      }
+      navigations.push(config.url)
+    },
+    navigateBack(): void {},
   };
 
   (globalThis as unknown as { wx: unknown }).wx = wx;
@@ -190,6 +245,9 @@ export function installFakeWx(options: FakeWxOptions): FakeWx {
     uploads,
     toasts,
     relaunches,
+    switchTabs,
+    redirects,
+    navigations,
     get loginCalls() {
       return loginCalls
     },

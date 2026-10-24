@@ -48,10 +48,23 @@ export default function ParentCommunication() {
    * there is no correspondence, on the strength of a request that never arrived.
    */
   const [initError, setInitError] = useState(false);
+  /** True while the child's class is being resolved - the thread cannot be read before it. */
+  const [initializing, setInitializing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { data: rawMessages = [], isLoading: loading, isError: isMessagesError, refetch } = useMessages(classId, 'HOME_SCHOOL');
+  const {
+    data: rawMessages = [],
+    isLoading: messagesLoading,
+    isError: isMessagesError,
+    refetch,
+  } = useMessages(classId, 'HOME_SCHOOL');
   const sendMutation = useSendMessageMutation(classId, 'HOME_SCHOOL');
   const loadError = initError || isMessagesError;
+  /**
+   * The thread is not "empty" while the class is still being looked up: the messages query is
+   * disabled until then, so its `isLoading` is false and the empty state would be drawn from a read
+   * that has not started. Init is part of the page's loading state.
+   */
+  const loading = messagesLoading || (classId === null && initializing && !initError);
   const messages = (rawMessages as Message[])
     .filter((m) => {
       const isOwnParentMessage = (m.sender_role === 'parent' || m.sender_role === 'user') && m.sender_id === user?.id;
@@ -61,8 +74,12 @@ export default function ParentCommunication() {
     .reverse();
 
   const initCommunication = async () => {
-    if (!user?.studentId) return;
+    if (!user?.studentId) {
+      setInitializing(false);
+      return;
+    }
     setInitError(false);
+    setInitializing(true);
     try {
       const data = (await studentsApi.getStudentById(user.studentId)) as any;
       if (data.success && data.student) {
@@ -71,6 +88,8 @@ export default function ParentCommunication() {
     } catch (error) {
       console.error('Failed to init communication', error);
       setInitError(true);
+    } finally {
+      setInitializing(false);
     }
   };
 
@@ -104,8 +123,9 @@ export default function ParentCommunication() {
       setNewMessage('');
       await refetch();
       toast.success('信件已寄出');
-    } catch (error) {
-      toast.error('寄信失败，请重试');
+    } catch {
+      // The api layer already showed the server's sentence; the letter stays in the box so it can be
+      // sent again instead of being re-typed.
     }
   };
 
@@ -159,7 +179,14 @@ export default function ParentCommunication() {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-3/80 to-surface-3/40"></div>
 
           <div className="relative z-10 h-full">
-            {loadError && !loading ? (
+            {loading ? (
+              <div className="flex h-full items-center justify-center text-fg-3">
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="size-5 animate-spin" />
+                  <p className="font-medium tracking-wide">正在打开信箱...</p>
+                </div>
+              </div>
+            ) : loadError ? (
               <div className="flex h-full items-center justify-center">
                 <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
                   <p className="font-semibold text-danger">信箱加载失败</p>
@@ -169,7 +196,7 @@ export default function ParentCommunication() {
                   </Button>
                 </div>
               </div>
-            ) : messages.length === 0 && !loading ? (
+            ) : messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-fg-3">
                 <div className="mb-4 flex size-20 items-center justify-center rounded-full bg-surface-2/60">
                   <MessageSquare className="size-8 opacity-50" />
@@ -216,6 +243,7 @@ export default function ParentCommunication() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="写下想对老师说的话..."
+                disabled={loading || !classId}
                 className="max-h-32 min-h-[44px] w-full resize-none border-none bg-transparent px-4 py-2 text-[15px] tracking-wide text-fg-2 placeholder:text-fg-3 focus:ring-0"
                 rows={1}
                 onKeyDown={(e) => {
@@ -228,7 +256,8 @@ export default function ParentCommunication() {
             </div>
             <Button
               type="submit"
-              disabled={!newMessage.trim() || sendMutation.isPending}
+              aria-label="寄出信件"
+              disabled={!newMessage.trim() || sendMutation.isPending || loading || !classId}
               className="h-14 w-14 flex-shrink-0 rounded-sheet bg-role text-role-contrast shadow-card transition-all duration-300 hover:-translate-y-1 hover:bg-role/90 hover:shadow-raised hover:shadow-role/30 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-role disabled:hover:shadow-card"
             >
               {sendMutation.isPending ? <RefreshCw className="size-6 animate-spin" /> : <Send className="ml-1 size-6" />}

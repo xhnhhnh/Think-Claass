@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { CheckCircle2, Copy, Download, Key, Plus } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
+import { copyText } from './copyText';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,12 +53,10 @@ export default function AdminCodes() {
     setLoadError(false);
     try {
       setCodes(await adminClient.getActivationCodes());
-    } catch (error) {
-      // The toast is gone after a few seconds; the table's error state is not. A failed
-      // read used to leave `codes` at its initial `[]`, which the table drew as
-      // 「暂无激活码记录」 - a statement about the data, from a request that never landed.
+    } catch {
+      // `@/lib/api` already showed the server's sentence; this flag outlives the toast and keeps
+      // a failed read from being drawn as 「暂无激活码记录」.
       setLoadError(true);
-      toast.error('网络错误');
     } finally {
       setLoading(false);
     }
@@ -81,19 +80,22 @@ export default function AdminCodes() {
       } else {
         toast.error(data.message || '生成失败');
       }
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the count and the button stay usable.
     } finally {
       setGenerating(false);
     }
   };
 
-  const copyToClipboard = (text: string, id: number) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-      toast.success('已复制到剪贴板');
-    });
+  const copyToClipboard = async (text: string, id: number) => {
+    const copied = await copyText(text);
+    if (!copied) {
+      toast.error('复制失败，请手动选择激活码');
+      return;
+    }
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+    toast.success('已复制到剪贴板');
   };
 
   const downloadCSV = () => {
@@ -192,7 +194,7 @@ export default function AdminCodes() {
                   aria-label={`复制激活码 ${code.code}`}
                   title="复制"
                   className="text-fg-3 hover:text-role"
-                  onClick={() => copyToClipboard(code.code, code.id)}
+                  onClick={() => void copyToClipboard(code.code, code.id)}
                 >
                   {copiedId === code.id ? (
                     <CheckCircle2 className="text-success" />

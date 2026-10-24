@@ -84,12 +84,13 @@ export default function ParentTasks() {
       setShowAddModal(false);
       setNewTaskTitle('');
       setNewTaskPoints('');
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the dialog keeps what was typed.
     }
   };
 
   const handleUpdateStatus = async (task: FamilyTask, newStatus: 'approved' | 'rejected') => {
+    if (updateMutation.isPending) return;
     try {
       await updateMutation.mutateAsync({
         taskId: task.id,
@@ -101,8 +102,8 @@ export default function ParentTasks() {
       });
       if (newStatus === 'approved') toast.success('约定已达成，小红花已颁发');
       else toast.success('约定需要改进');
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the row keeps its last known status.
     }
   };
 
@@ -111,11 +112,10 @@ export default function ParentTasks() {
     try {
       await deleteMutation.mutateAsync(deleteTargetId);
       toast.success('约定已删除');
-    } catch (error) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already showed the server's sentence; the row is still in the list.
     } finally {
-      // The old `confirm()` was dismissed before the request ran, so the dialog closes
-      // either way and a failure is reported by the toast instead.
+      // The old `confirm()` was dismissed before the request ran, so the dialog closes either way.
       setDeleteTargetId(null);
     }
   };
@@ -237,6 +237,7 @@ export default function ParentTasks() {
                           variant="ghost"
                           size="sm"
                           className="bg-success/10 font-bold text-success hover:bg-success/20 hover:text-success"
+                          disabled={updateMutation.isPending}
                           onClick={() => handleUpdateStatus(task, 'approved')}
                         >
                           <CheckCircle data-icon="inline-start" />
@@ -247,6 +248,7 @@ export default function ParentTasks() {
                           variant="ghost"
                           size="sm"
                           className="bg-warning/10 font-bold text-warning hover:bg-warning/20 hover:text-warning"
+                          disabled={updateMutation.isPending}
                           onClick={() => handleUpdateStatus(task, 'rejected')}
                         >
                           <XCircle data-icon="inline-start" />

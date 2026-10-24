@@ -56,6 +56,8 @@ export default function AdminArticles() {
   // The delete target and its in-flight flag, replacing the inline `confirm()`.
   const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** One save at a time: a double click on 发布 used to publish two identical articles. */
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -74,14 +76,12 @@ export default function AdminArticles() {
       if (data.success) {
         setArticles(data.articles);
       } else {
-        // A refused read is not an empty site. Both failure paths set the flag; the
-        // table renders it as 「加载失败」 rather than 「暂无文章」.
+        // A refused read is not an empty site. The table renders the flag as 「加载失败」.
         setLoadError(true);
-        toast.error('获取文章失败');
       }
-    } catch (error) {
+    } catch {
+      // `@/lib/api` already showed the server's sentence; the flag below is what survives the toast.
       setLoadError(true);
-      toast.error('网络错误，无法获取文章数据');
     } finally {
       setLoading(false);
     }
@@ -123,11 +123,13 @@ export default function AdminArticles() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error('标题和内容不能为空');
       return;
     }
 
+    setSaving(true);
     try {
       const payload = {
         title: formData.title.trim(),
@@ -145,8 +147,10 @@ export default function AdminArticles() {
       } else {
         toast.error(data.message || '操作失败');
       }
-    } catch (error) {
-      toast.error('网络错误，操作失败');
+    } catch {
+      // The api layer already showed the server's sentence; the dialog and the typed values stay.
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -158,15 +162,14 @@ export default function AdminArticles() {
 
       if (data.success) {
         toast.success('文章已删除');
-        // Closed on success only: a failed delete leaves the dialog up for a retry,
-        // which is where the old `confirm()` flow left the user too.
+        // Closed on success only: a failed delete leaves the dialog up for a retry.
         setDeleteTarget(null);
         fetchArticles();
       } else {
         toast.error(data.message || '删除失败');
       }
-    } catch (error) {
-      toast.error('网络错误，删除失败');
+    } catch {
+      // The api layer already showed the server's sentence; the confirmation stays open.
     } finally {
       setIsDeleting(false);
     }
@@ -345,7 +348,9 @@ export default function AdminArticles() {
               <Button type="button" variant="outline" onClick={handleCloseModal}>
                 取消
               </Button>
-              <Button type="submit">{editingId ? '保存更改' : '发布'}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? '保存中...' : editingId ? '保存更改' : '发布'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

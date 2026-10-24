@@ -2,6 +2,7 @@
   "navigationBarTitleText": "温馨家园",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "loading-block": "/components/loading-block/index"
+    "loading-block": "/components/loading-block/index",
+    "custom-tab-bar": "/custom-tab-bar/index"
   }
 }

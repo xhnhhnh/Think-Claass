@@ -117,13 +117,8 @@ export default function AdminDashboardPage() {
       const result = await importDatabaseMutation.mutateAsync(formData);
       toast.success(result.message);
       setTimeout(() => window.location.reload(), 3000);
-    } catch (error) {
-      const message =
-        (error as any)?.response?.data?.message ||
-        (error as any)?.data?.message ||
-        (error as Error)?.message ||
-        '网络错误，导入失败';
-      toast.error(message);
+    } catch {
+      // The api layer already showed the server's sentence (the rollback message when it could).
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }

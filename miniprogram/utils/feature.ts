@@ -85,10 +85,10 @@ export const TEACHER_TABS: TabDefinition[] = [
 ]
 
 /**
- * A parent's own tabs - the four the web console already assigns to a phone.
+ * A parent's own tabs - the screens the web console gives a parent, plus the shared account page.
  *
- * The web's route table gives these exact labels a `mobileTab` index (`routeTable.ts:820-865`), so
- * this set is not a design decision made here: it is the layout the parent experience was designed
+ * The web's route table gives these labels a `mobileTab` index (`routeTable.ts:820-865`), so the
+ * set is not a design decision made here: it is the layout the parent experience was designed
  * around, and the mini program follows it rather than reusing the child's pages. Before this, a
  * parent saw the student's bar (成长总览 / 我的作业 / 我的) with the shop removed, which gave them
  * nothing to *do* - not least because the daily blessing had no entry at all.
@@ -97,8 +97,14 @@ export const TEACHER_TABS: TabDefinition[] = [
  * ungated because a parent should always be able to reach their child's report, the mailbox and the
  * leave form.
  *
+ * 我的 (the shared `pages/student/me`) is last on purpose: it is the only surface that carries
+ * 修改资料 / 解绑微信 / 退出登录, and without it a parent had no way to end the session or switch
+ * accounts short of deleting the mini program. The custom bar is not the framework's `tabBar.list`,
+ * so the four-slot ceiling does not apply here; the account page is navigated with `switchTab`
+ * because it is one of the declared tab pages.
+ *
  * 学习采撷 (the web's assignments page) is deliberately absent: 我的作业 covers the same ground in
- * this client, and a fifth entry would be the sixth tab in a bar WeChat caps at five.
+ * this client.
  */
 export const PARENT_TABS: TabDefinition[] = [
   { key: 'home', text: '温馨家园', pagePath: 'pages/parent/dashboard', requires: null },
@@ -106,6 +112,7 @@ export const PARENT_TABS: TabDefinition[] = [
   { key: 'report', text: '成长足迹', pagePath: 'pages/parent/report', requires: null },
   { key: 'tasks', text: '家庭时光', pagePath: 'pages/parent/tasks', requires: FEATURE_KEYS.familyTasks },
   { key: 'leave', text: '请假假条', pagePath: 'pages/parent/leave-request', requires: null },
+  { key: 'me', text: '我的', pagePath: 'pages/student/me', requires: null },
 ]
 
 

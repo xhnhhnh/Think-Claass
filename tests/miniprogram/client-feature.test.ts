@@ -84,15 +84,18 @@ describe('visible tabs', () => {
     const feature = await loadFeature();
     feature.applyLoginSnapshot({ enable_shop: true }, 1);
 
-    // A parent has a set of their own now (`PARENT_TABS`), matching the four `mobileTab` entries the
-    // web console gives these screens - not the child's pages with the shop removed, which left the
-    // parent with a read-only mirror and no entry for the daily blessing.
+    // A parent has a set of their own now (`PARENT_TABS`), matching the `mobileTab` entries the web
+    // console gives these screens - not the child's pages with the shop removed, which left the
+    // parent with a read-only mirror and no entry for the daily blessing. 我的 is the shared account
+    // page: without it a parent had no 退出登录 / 解绑微信 / 修改资料 surface at all.
     expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
       'home',
       'communication',
       'report',
       'leave',
+      'me',
     ]);
+    expect(feature.PARENT_TABS.find((tab) => tab.key === 'me')?.pagePath).toBe('pages/student/me');
     expect(feature.visibleTabs('student').map((tab) => tab.key)).toEqual([
       'home',
       'homework',
@@ -107,13 +110,14 @@ describe('visible tabs', () => {
   it('gates the parent 家庭时光 entry on enable_family_tasks, and nothing else', async () => {
     const feature = await loadFeature();
 
-    // Off (which is how a new class starts): 家庭时光 is hidden, the other four stay.
+    // Off (which is how a new class starts): 家庭时光 is hidden, the other five stay.
     feature.applyLoginSnapshot({ enable_family_tasks: false }, 1);
     expect(feature.visibleTabs('parent').map((tab) => tab.key)).toEqual([
       'home',
       'communication',
       'report',
       'leave',
+      'me',
     ]);
 
     feature.applyLoginSnapshot({ enable_family_tasks: true }, 1);

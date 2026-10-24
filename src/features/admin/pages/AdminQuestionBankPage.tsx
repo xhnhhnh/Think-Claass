@@ -209,8 +209,9 @@ export default function AdminQuestionBankPage() {
       }
       setShowForm(false);
       await fetchQuestions();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '保存失败，请重试');
+    } catch {
+      // The api layer already showed the server's sentence; the dialog keeps the typed question so
+      // the operator can fix the rejected field instead of retyping it.
     } finally {
       setSaving(false);
     }
@@ -224,8 +225,8 @@ export default function AdminQuestionBankPage() {
       await adminClient.deleteQuestionBankItem(target.id);
       toast.success('题目已删除');
       await fetchQuestions();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '删除失败，请重试');
+    } catch {
+      // The api layer already showed the server's sentence; the row is still in the list to retry.
     }
   };
 
