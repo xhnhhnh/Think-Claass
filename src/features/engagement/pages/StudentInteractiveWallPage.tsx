@@ -191,7 +191,7 @@ export default function StudentInteractiveWall() {
     try {
       setSending(true);
 
-      const data = await messagesApi.sendMessage({
+      await messagesApi.sendMessage({
         class_id: classId,
         sender_id: user.studentId,
         content: newMessage.trim(),
@@ -200,15 +200,12 @@ export default function StudentInteractiveWall() {
         sender_role: 'student'
       });
 
-      if (data.success) {
-        setNewMessage('');
-        await fetchMessages();
-        toast.success('留言发送成功！');
-      } else {
-        toast.error(data.message || '发送失败');
-      }
-    } catch (error) {
-      toast.error('发送失败，请重试');
+      setNewMessage('');
+      await fetchMessages();
+      toast.success('留言发送成功！');
+    } catch {
+      // The api layer already toasted the server's reason (树洞未开启 / 内容不合规…). The draft
+      // stays in the composer so a retry does not lose it.
     } finally {
       setSending(false);
     }

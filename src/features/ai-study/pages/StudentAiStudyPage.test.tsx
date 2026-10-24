@@ -165,10 +165,24 @@ describe('StudentAiStudyPage', () => {
   });
 
   it('shows a retry affordance when the read fails', () => {
-    mocks.useMyAiStudySet.mockReturnValue({ data: undefined, isLoading: false, error: new Error('boom') });
+    const refetch = vi.fn();
+    mocks.useMyAiStudySet.mockReturnValue({ data: undefined, isLoading: false, error: new Error('boom'), refetch });
 
     render(<StudentAiStudyPage />);
 
-    expect(screen.getByText('智学练单加载失败，请稍后重试')).toBeInTheDocument();
+    expect(screen.getByText('智学练单加载失败')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('enters the open set instead of generating again', () => {
+    mocks.useMyAiStudySet.mockReturnValue({ data: setWithItems(), isLoading: false, error: null });
+
+    render(<StudentAiStudyPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /继续练习/ }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/student/ai-study/4');
+    expect(mocks.generate).not.toHaveBeenCalled();
   });
 });

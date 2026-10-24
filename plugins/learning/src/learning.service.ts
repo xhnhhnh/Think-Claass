@@ -409,6 +409,18 @@ export class LearningService {
 
   // -- paper submissions ----------------------------------------------------
 
+  /**
+   * Start (or resume) a paper attempt.
+   *
+   * The response is `{ submission, items, answers }`. It used to always INSERT a new
+   * `paper_submissions` row and answer no saved work at all, so a student who saved, went back to
+   * the list and reopened the paper was shown a blank sheet over an existing attempt - and
+   * submitting that blank sheet was scored instead of the answers they had written.
+   *
+   * Resuming is the open row for (student, paper): `submitted_at IS NULL`. Only a submitted sheet
+   * gets a new row, which keeps 重新作答 after submission working. Find + create run in one
+   * transaction so two tabs cannot both create an open row.
+   */
   async startPaperSubmission(actor: Actor, input: Record<string, any>) {
     const paperIdNum = Number(input?.paper_id);
     if (!Number.isFinite(paperIdNum)) throw new ApiError(400, 'Missing or invalid paper_id');
@@ -421,10 +433,17 @@ export class LearningService {
     if (paper.status !== 'published') throw new ApiError(403, '试卷未发布');
     if (paper.class_id !== student.classId) throw new ApiError(403, '无权限开始该试卷');
 
-    const submission = this.repository.createSubmission(paperIdNum, student.id);
+    const submission = this.repository.transaction(
+      () =>
+        this.repository.findOpenSubmission(paperIdNum, student.id) ??
+        this.repository.createSubmission(paperIdNum, student.id),
+    );
     const items = this.repository.listPaperItemsWithRelations(paperIdNum);
+    const answers = this.repository
+      .listAnswersForSubmission(submission.id)
+      .map((answer) => ({ paper_item_id: answer.paper_item_id, answer_json: answer.answer_json }));
 
-    return { submission, items };
+    return { submission, items, answers };
   }
 
   async savePaperAnswers(actor: Actor, idInput: string, input: Record<string, any>) {

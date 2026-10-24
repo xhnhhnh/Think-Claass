@@ -50,8 +50,8 @@ export default function StudentTaskTree() {
       await completeMutation.mutateAsync(selectedNode.id);
       toast.success(`成功完成节点：${selectedNode.title}，获得 ${selectedNode.points_reward} 积分！`);
       setSelectedNode(null);
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already toasted the server's reason (前置未解锁 / 已掌握 / 功能未开启).
     }
   };
 

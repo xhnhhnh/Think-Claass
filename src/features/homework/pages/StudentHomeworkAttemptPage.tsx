@@ -158,15 +158,25 @@ export default function StudentHomeworkAttempt() {
 
   const answersKey = useMemo(() => JSON.stringify(toAnswerInputs(answers, questions.map((question) => question.id))), [answers, questions]);
 
-  const persist = async (submissionId: number, payload: HomeworkAnswerInput[], key: string) => {
+  /**
+   * Write the answers and report whether they actually reached the server.
+   *
+   * It used to swallow the failure (`catch { setSaveState('error') }`) and return void, so the
+   * explicit 保存 button toasted 「已保存」 even when the write had failed - the status line said
+   * the opposite of the toast. The api layer already toasted the reason; this return value is what
+   * the button needs to stay honest.
+   */
+  const persist = async (submissionId: number, payload: HomeworkAnswerInput[], key: string): Promise<boolean> => {
     setSaveState('saving');
     try {
       await saveAnswers.mutateAsync({ submissionId, payload: { answers: payload } });
       lastSavedRef.current = key;
       setSaveState('saved');
       setSavedAt(new Date());
+      return true;
     } catch {
       setSaveState('error');
+      return false;
     }
   };
 
@@ -191,8 +201,10 @@ export default function StudentHomeworkAttempt() {
 
   const saveNow = async () => {
     if (!submission || !editable) return;
-    await persist(submission.id, JSON.parse(answersKey) as HomeworkAnswerInput[], answersKey);
-    toast.success('已保存');
+    const saved = await persist(submission.id, JSON.parse(answersKey) as HomeworkAnswerInput[], answersKey);
+    if (saved) toast.success('已保存');
+    // On failure the footer already says 「自动保存失败，请点「保存」重试」 and the api layer toasted
+    // the server's reason; a green 「已保存」 here was the lie this change removes.
   };
 
   const handleSubmit = async () => {

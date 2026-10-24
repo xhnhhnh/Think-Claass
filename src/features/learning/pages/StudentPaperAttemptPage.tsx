@@ -5,10 +5,12 @@ import { ArrowLeft, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useRegisterPageCommands } from '@/app/commands/registry';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { apiErrorMessage } from '@/lib/api';
 
 import { paperSubmissionsApi, type PaperSubmission } from '@/features/learning/api/paperSubmissionsApi';
 import type { PaperItem } from '@/features/learning/api/papersApi';
@@ -37,8 +39,11 @@ export default function StudentPaperAttempt() {
   const [items, setItems] = useState<PaperItem[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [result, setResult] = useState<{ total_score: number; correct_count: number; wrong_count: number } | null>(null);
 
   const answerPayload = useMemo(
@@ -50,25 +55,43 @@ export default function StudentPaperAttempt() {
     [answers],
   );
 
+  /**
+   * Start or resume the attempt.
+   *
+   * `start` now answers the open submission (same id) and the answers already saved on it, so a
+   * student who leaves and comes back sees their own work instead of a blank sheet. A failure is
+   * kept apart from "this paper cannot be opened": the message stays on screen with a retry rather
+   * than leaving the student on a dead page.
+   */
   useEffect(() => {
     if (!paperId) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     paperSubmissionsApi
       .start(paperId)
       .then((data) => {
         if (cancelled) return;
         setSubmission(data.data.submission);
         setItems(data.data.items);
+        const seeded: Record<number, string> = {};
+        for (const saved of data.data.answers ?? []) {
+          if (typeof saved.answer_json === 'string' && saved.answer_json !== '') {
+            seeded[saved.paper_item_id] = saved.answer_json;
+          }
+        }
+        setAnswers(seeded);
       })
-      .catch(() => {})
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(apiErrorMessage(error, '试卷没有加载出来，请重试。'));
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [paperId]);
+  }, [paperId, reloadNonce]);
 
   const handleSave = async () => {
     if (!submission) return;
@@ -88,6 +111,7 @@ export default function StudentPaperAttempt() {
 
   const handleSubmit = async () => {
     if (!submission) return;
+    setConfirmSubmitOpen(false);
     setSubmitting(true);
     try {
       if (answerPayload.length) {
@@ -120,9 +144,10 @@ export default function StudentPaperAttempt() {
 
   // The latest handlers, so a command run from the palette acts on the answers as
   // they are now rather than on the render that registered it.
-  const handlers = useRef({ save: handleSave, submit: handleSubmit });
+  const requestSubmit = () => setConfirmSubmitOpen(true);
+  const handlers = useRef({ save: handleSave, submit: requestSubmit });
   useEffect(() => {
-    handlers.current = { save: handleSave, submit: handleSubmit };
+    handlers.current = { save: handleSave, submit: requestSubmit };
   });
 
   useRegisterPageCommands([
@@ -165,9 +190,21 @@ export default function StudentPaperAttempt() {
 
   if (!submission) {
     return (
-      <PageScaffold variant="form">
+      <PageScaffold
+        variant="form"
+        actions={
+          <Button variant="outline" onClick={() => navigate('/student/papers')}>
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            返回
+          </Button>
+        }
+      >
         <div className="rounded-panel border border-dashed border-line-1 bg-surface-2 py-16 text-center text-fg-3">
-          无法开始该试卷
+          <p className="font-semibold text-danger">{loadError ?? '无法开始该试卷'}</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表试卷被删除了，也有可能是刚才没请求成功。请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => setReloadNonce((nonce) => nonce + 1)}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );
@@ -188,7 +225,7 @@ export default function StudentPaperAttempt() {
             <Save aria-hidden="true" className="size-4" />
             {saving ? '保存中...' : '保存'}
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !!result}>
+          <Button onClick={requestSubmit} disabled={submitting || !!result}>
             <Send aria-hidden="true" className="size-4" />
             {submitting ? '提交中...' : '提交'}
           </Button>
@@ -237,6 +274,17 @@ export default function StudentPaperAttempt() {
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={confirmSubmitOpen}
+        onOpenChange={setConfirmSubmitOpen}
+        title="确认提交试卷？"
+        description="提交后不能再修改答案，老师会按这次提交批改。"
+        confirmLabel="确认提交"
+        pendingLabel="提交中..."
+        isPending={submitting}
+        onConfirm={handleSubmit}
+      />
     </PageScaffold>
   );
 }

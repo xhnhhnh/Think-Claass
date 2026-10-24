@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import StudentPeerReviewPage from './StudentPeerReviewPage';
@@ -28,6 +28,9 @@ vi.mock('@/store/useStore', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+// jsdom has no canvas; the celebration is not what these tests assert.
+vi.mock('@/lib/confetti', () => ({ launchConfetti: vi.fn() }));
 
 /**
  * 我的互评记录 - the read half of a write-only feature.
@@ -108,5 +111,23 @@ describe('StudentPeerReviewPage 我的互评记录', () => {
     // The counts still render, so the section is present rather than silently missing.
     expect(screen.getByText('我收到的（0）')).toBeInTheDocument();
     expect(screen.getByText('我给出的（0）')).toBeInTheDocument();
+  });
+
+  /**
+   * Submitting is a write; 我的互评记录 is a separate read below it. Without a re-read the review
+   * the pupil just sent was missing from 「我给出的」 until a full reload, which looks like the
+   * submit failed.
+   */
+  it('re-reads the records after a successful submit', async () => {
+    mocks.getPendingPeerReviews.mockResolvedValue({ success: true, pending: [{ id: 102, name: '小红' }] });
+    mocks.submitPeerReview.mockResolvedValue({ success: true, message: '互评提交成功，已发放积分奖励！' });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByText('小红'));
+    fireEvent.click(screen.getByRole('button', { name: '给小红打5分' }));
+    fireEvent.click(screen.getByRole('button', { name: /发送评价并领奖/ }));
+
+    await waitFor(() => expect(mocks.listPeerReviews).toHaveBeenCalledTimes(2));
   });
 });

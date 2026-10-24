@@ -104,10 +104,23 @@ export default function StudentTeamQuests() {
       return;
     }
 
+    /**
+     * Validate before the first request.
+     *
+     * The missing-score check used to live inside the `map` that submits, so it threw after the
+     * earlier members' requests had already been sent: a partially submitted review, and on retry
+     * a duplicate for the classmates who did go through. Checking here means nothing is sent until
+     * every member has a score.
+     */
+    if (otherMembers.some((member) => !reviewForm[member.id])) {
+      toast.error('请为所有组员打分！');
+      return;
+    }
+
     try {
       await reviewMutation.mutateAsync();
-    } catch (mutationError: any) {
-      toast.error(mutationError.message || '提交失败，请重试');
+    } catch {
+      // The api layer already toasted the server's reason; the local guards above own their copy.
     }
   };
 
@@ -139,7 +152,13 @@ export default function StudentTeamQuests() {
 
       {!isLoading && error && (
         <div className="rounded-panel border border-danger/20 bg-danger-soft p-10 text-center text-danger-ink">
-          团队任务加载失败，请稍后重试
+          <p className="font-semibold">团队任务加载失败</p>
+          <p className="mt-1 text-sm text-danger-ink/80">
+            这不代表当前没有团队任务，只是这一次没读到。请重试。
+          </p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       )}
 

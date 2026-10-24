@@ -76,25 +76,28 @@ export default function StudentAuction() {
 
     setBidding(auction.id);
     try {
-      const data = await shopApi.bidAuction(auction.id, { studentId: user!.studentId!, bid_amount: amount });
+      await shopApi.bidAuction(auction.id, { studentId: user!.studentId!, bid_amount: amount });
 
-      if (data.success) {
-        toast.success(`成功出价 ${amount} 积分！`);
-        void launchConfetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.8 },
-          colors: [...CELEBRATION.brand]
-        });
-        fetchData();
-        setBidAmount(prev => ({ ...prev, [auction.id]: 0 }));
-      } else {
-        toast.error(data.message || '出价失败，可能已经被别人抢先出价了');
-        fetchData(); // refresh to get new price
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('网络错误');
+      toast.success(`成功出价 ${amount} 积分！`);
+      void launchConfetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.8 },
+        colors: [...CELEBRATION.brand]
+      });
+      void fetchData();
+      setBidAmount(prev => ({ ...prev, [auction.id]: 0 }));
+    } catch {
+      /**
+       * The api layer already toasted the server's reason - 「Bid amount must be greater than
+       * current price」, 「Not enough points」, 「Auction has ended」. The old code had an
+       * unreachable `else` branch for that message (a failed envelope throws in `src/lib/api.ts`)
+       * and then replaced it with a generic network-failure toast, so the pupil was told their
+       * network was broken when the auction had simply moved on.
+       *
+       * Refetch so the next bid starts from the real price and balance.
+       */
+      void fetchData();
     } finally {
       setBidding(null);
     }

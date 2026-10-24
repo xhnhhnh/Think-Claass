@@ -978,6 +978,36 @@ describe('paper submissions', () => {
     expect(wrongRole.message).toBe('无权限执行该操作');
   });
 
+  it('resumes the open submission instead of creating a blank one, and returns its saved answers', async () => {
+    const { paper, item } = publishedPaper();
+    const secondItem = addPaperItem(paper, addQuestion({ stem: '2+2', type: 'single' }), 2);
+
+    const first = await service.startPaperSubmission(STUDENT, { paper_id: paper });
+    expect(first.answers).toEqual([]);
+    await service.savePaperAnswers(STUDENT, String(first.submission.id), {
+      answers: [{ paper_item_id: item, answer_json: 'A', time_spent_sec: 7 }],
+    });
+
+    // Reopening the attempt is the same sheet: id, items and the work already saved.
+    const resumed = await service.startPaperSubmission(STUDENT, { paper_id: paper });
+    expect(resumed.submission.id).toBe(first.submission.id);
+    expect(resumed.submission.submitted_at).toBeNull();
+    expect(resumed.items.map((row) => row.id)).toEqual([item, secondItem]);
+    expect(resumed.answers).toEqual([{ paper_item_id: item, answer_json: 'A' }]);
+    expect(
+      db.prepare('SELECT COUNT(*) AS count FROM paper_submissions WHERE paper_id = ? AND student_id = 80').get(paper),
+    ).toEqual({ count: 1 });
+
+    // A submitted sheet is finished: starting again creates a new, empty attempt (重新作答).
+    await service.submitPaper(STUDENT, String(first.submission.id));
+    const retake = await service.startPaperSubmission(STUDENT, { paper_id: paper });
+    expect(retake.submission.id).not.toBe(first.submission.id);
+    expect(retake.answers).toEqual([]);
+    expect(
+      db.prepare('SELECT COUNT(*) AS count FROM paper_submissions WHERE paper_id = ? AND student_id = 80').get(paper),
+    ).toEqual({ count: 2 });
+  });
+
   it('saves answers with the legacy upsert semantics and guards', async () => {
     const { paper, item } = publishedPaper();
     const secondItem = addPaperItem(paper, addQuestion({ stem: '2+2', type: 'single' }), 2);

@@ -118,4 +118,32 @@ describe('StudentTeamQuests', () => {
       comment: undefined,
     });
   });
+
+  it('sends nothing until every teammate has a score', async () => {
+    renderPage();
+
+    const firstCard = (screen.getAllByText('张明')[0].closest('div[class*="rounded"]') ?? screen.getAllByText('张明')[0].parentElement) as HTMLElement;
+    fireEvent.click(within(firstCard).getAllByRole('button')[3]);
+    fireEvent.click(screen.getByRole('button', { name: '提交互评' }));
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('请为所有组员打分！'));
+    // The old code submitted 张明's review before noticing 李华 had no score.
+    expect(mocks.submitPeerReview).not.toHaveBeenCalled();
+  });
+
+  it('offers a retry after a failed read instead of a dead-end line', () => {
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    mocks.useStudentCurrentTeamQuest.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('offline'),
+      refetch,
+    });
+
+    renderPage();
+
+    expect(screen.getByText('团队任务加载失败')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
+  });
 });

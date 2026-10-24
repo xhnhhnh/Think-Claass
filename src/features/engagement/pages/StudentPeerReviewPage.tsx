@@ -156,27 +156,30 @@ export default function StudentPeerReview() {
         is_anonymous: isAnonymous
       });
 
-      if (data.success) {
-        toast.success(data.message);
-        void launchConfetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: [...CELEBRATION.cool]
-        });
-        
-        // Remove from list
-        setPendingPeers(prev => prev.filter(p => p.id !== selectedPeer.id));
-        // Reset form
-        setSelectedPeer(null);
-        setScore(0);
-        setComment('');
-        setIsAnonymous(false);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (err) {
-      toast.error('提交失败，请重试');
+      toast.success(data.message);
+      void launchConfetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: [...CELEBRATION.cool]
+      });
+
+      // Remove from list
+      setPendingPeers(prev => prev.filter(p => p.id !== selectedPeer.id));
+      // Reset form
+      setSelectedPeer(null);
+      setScore(0);
+      setComment('');
+      setIsAnonymous(false);
+
+      /**
+       * 我的互评记录 is a separate read and was never refreshed, so the review the pupil just sent
+       * was missing from 「我给出的」 (and the counts stayed old) until a full page reload - which
+       * reads as "it did not submit".
+       */
+      void fetchRecords();
+    } catch {
+      // The api layer already toasted the server's reason; the form stays filled so retry is one tap.
     } finally {
       setSubmitting(false);
     }

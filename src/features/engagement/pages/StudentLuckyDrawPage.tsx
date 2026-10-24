@@ -44,7 +44,28 @@ export default function StudentLuckyDraw() {
   const drawMutation = useLuckyDrawMutation(studentId);
   const configs = ((configData?.configs ?? []) as PrizeConfig[]);
   const costPoints = configData?.cost_points ?? 10;
-  const availablePoints = currentStudent?.available_points ?? 0;
+
+  /**
+   * The balance is the shell's live query, not the student list row.
+   *
+   * It comes from `['students']`, which nothing refreshes after a draw, so the card kept showing
+   * the pre-draw number and let the student draw again only for the server to refuse 积分不足. A
+   * failed read also collapsed to 0, which read as "you are broke". The global mutation hook
+   * invalidates `['motivation-summary']`, so this one updates by itself after each draw.
+   */
+  const {
+    data: summary,
+    isLoading: balanceLoading,
+    isError: balanceError,
+    refetch: refetchBalance,
+  } = useQuery({
+    queryKey: ['motivation-summary', studentId],
+    queryFn: () => studentsApi.getSummary(studentId!),
+    enabled: !!studentId,
+  });
+  const availablePoints = summary?.summary.availableCredits;
+  const balanceSettled = !balanceLoading && !balanceError && availablePoints !== undefined;
+
   const [drawing, setDrawing] = useState(false);
   const [result, setResult] = useState<{ prize_name: string; message: string } | null>(null);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
@@ -52,7 +73,13 @@ export default function StudentLuckyDraw() {
 
   const handleDraw = async (index: number) => {
     if (drawing || flippedIndex !== null) return;
-    if (availablePoints < costPoints) {
+    if (!balanceSettled) {
+      // Never guess the balance: treating "not read yet" (or "read failed") as 0 told a pupil with
+      // points that they had none.
+      if (balanceError) toast.error('积分余额没有加载出来，请点「重新加载」再试');
+      return;
+    }
+    if ((availablePoints ?? 0) < costPoints) {
       toast.error('积分不足');
       return;
     }
@@ -73,9 +100,9 @@ export default function StudentLuckyDraw() {
         }
         setDrawing(false);
       }, 1000);
-    } catch (err) {
-      console.error(err);
-      toast.error('网络错误');
+    } catch {
+      // The api layer toasted the refusal (积分不足 / 功能未开启…); a second generic
+      // network-failure toast was wrong.
       setFlippedIndex(null);
       setDrawing(false);
     }
@@ -140,13 +167,26 @@ export default function StudentLuckyDraw() {
               tone="warning"
               value={
                 <span className="text-4xl font-black text-role">
-                  {availablePoints} <span className="text-xl font-bold">币</span>
+                  {balanceError ? '—' : balanceLoading ? '…' : (availablePoints ?? 0)}{' '}
+                  <span className="text-xl font-bold">币</span>
                 </span>
               }
               className="shrink-0 border-b-8 border-l-4 border-r-4 border-t-4 border-role/30 shadow-raised"
             />
           </div>
         </motion.div>
+
+        {balanceError ? (
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">积分余额没有加载出来</p>
+            <p className="mt-1 text-sm text-fg-3">
+              这不代表你的积分是 0——余额读出来之前，翻牌不会按「积分不足」处理。请重试，或稍后再看。
+            </p>
+            <Button variant="outline" className="mt-3" onClick={() => void refetchBalance()}>
+              重新加载
+            </Button>
+          </div>
+        ) : null}
 
         {configError ? (
           // 「暂未配置抽奖」 after a failed request tells a pupil their teacher never set the prizes
@@ -195,9 +235,11 @@ export default function StudentLuckyDraw() {
                   }}
                   role="button"
                   tabIndex={0}
-                  aria-disabled={flippedIndex !== null && flippedIndex !== index}
+                  aria-disabled={!balanceSettled || (flippedIndex !== null && flippedIndex !== index)}
                   aria-label={`翻开第 ${index + 1} 张牌`}
-                  className={`relative aspect-[3/4] w-full cursor-pointer [perspective:1000px] [transform-style:preserve-3d] transition-transform duration-700 ${
+                  className={`relative aspect-[3/4] w-full [perspective:1000px] [transform-style:preserve-3d] transition-transform duration-700 ${
+                    balanceSettled ? 'cursor-pointer' : 'cursor-wait opacity-70'
+                  } ${
                     flippedIndex === index ? '[transform:rotateY(180deg)]' : ''
                   } ${flippedIndex !== null && flippedIndex !== index ? 'cursor-not-allowed opacity-50' : ''}`}
                 >

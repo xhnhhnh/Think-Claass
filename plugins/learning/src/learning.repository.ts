@@ -283,6 +283,16 @@ export interface LearningRepository {
 
   // -- submissions ----------------------------------------------------------
   createSubmission(paperId: number, studentId: number): PaperSubmissionRow;
+
+  /**
+   * The student's latest sheet for this paper that has not been submitted yet.
+   *
+   * `start` used to INSERT unconditionally, so reopening an attempt created a second, blank
+   * submission and hid the answers already saved on the first one. The open row is the identity
+   * of "the attempt in progress"; only once it is submitted does a start create a new one.
+   */
+  findOpenSubmission(paperId: number, studentId: number): PaperSubmissionRow | null;
+
   getSubmission(id: number): PaperSubmissionRow | null;
   getSubmissionWithAnswerSheet(id: number): SubmissionWithAnswerSheet | null;
   listPaperItemsWithRelations(paperId: number): PaperItemWithRelations[];
@@ -300,6 +310,9 @@ export interface LearningRepository {
   }): void;
   markSubmissionSubmitted(id: number, submittedAt: Date): void;
   createAnswerSheetRows(rows: Array<{ submission_id: number; paper_item_id: number }>): void;
+
+  /** The plain answer rows, for restoring an in-progress attempt (`start`). */
+  listAnswersForSubmission(submissionId: number): PaperAnswerRow[];
   listAnswersWithRelations(submissionId: number): AnswerWithItemQuestion[];
   updateAnswerScore(id: number, patch: { is_correct: number; score: number }): void;
 
@@ -866,6 +879,18 @@ export function createLearningRepository(db: DbApi): LearningRepository {
       ) as PaperSubmissionRow;
     },
 
+    findOpenSubmission(paperId, studentId) {
+      return mapRow<PaperSubmissionRow>(
+        'paper_submissions',
+        db.get(
+          `SELECT * FROM paper_submissions
+            WHERE paper_id = ? AND student_id = ? AND submitted_at IS NULL
+            ORDER BY id DESC LIMIT 1`,
+          [paperId, studentId],
+        ),
+      );
+    },
+
     getSubmission(id) {
       return mapRow<PaperSubmissionRow>(
         'paper_submissions',
@@ -936,6 +961,13 @@ export function createLearningRepository(db: DbApi): LearningRepository {
           [row.submission_id, row.paper_item_id, null, 0, 0, 0, null, stamp],
         );
       }
+    },
+
+    listAnswersForSubmission(submissionId) {
+      return mapRows<PaperAnswerRow>(
+        'paper_answers',
+        db.query('SELECT * FROM paper_answers WHERE submission_id = ? ORDER BY paper_item_id ASC', [submissionId]),
+      );
     },
 
     listAnswersWithRelations: answersWithRelations,

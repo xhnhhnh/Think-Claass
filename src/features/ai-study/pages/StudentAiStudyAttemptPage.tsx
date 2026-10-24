@@ -11,7 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 
-import type { AiStudySetItem, AiStudySubmitResult } from '@/features/ai-study/api/aiStudyApi';
+import type { AiStudySet, AiStudySetItem, AiStudySubmitResult } from '@/features/ai-study/api/aiStudyApi';
 import {
   useMyAiStudySet,
   useSaveAiStudyAnswersMutation,
@@ -55,6 +55,22 @@ export default function StudentAiStudyAttemptPage() {
   const [result, setResult] = useState<AiStudySubmitResult | null>(null);
 
   const set = data?.set ?? null;
+
+  /**
+   * The set as it was while it was open.
+   *
+   * Submitting closes the set, which invalidates `/my/sets/current` - so `set` becomes null at the
+   * very moment the result arrives. Without this snapshot the page would replace the verdicts with
+   * 「该练单已结束」 and the student would never see the result of the set they just submitted.
+   */
+  const [resolvedSet, setResolvedSet] = useState<AiStudySet | null>(null);
+  useEffect(() => {
+    if (!set) return;
+    // Return the previous value when the id is unchanged: a refetch hands back a fresh object, and
+    // storing it unconditionally would re-render for ever (and lose the student's scroll position).
+    setResolvedSet((previous) => (previous?.id === set.id ? previous : set));
+  }, [set]);
+  const activeSet = set ?? resolvedSet;
   const isCurrentSet = !!set && set.id === setId;
 
   /** Seed the local answer map from what the server has saved, once, when the set arrives. */
@@ -89,6 +105,26 @@ export default function StudentAiStudyAttemptPage() {
 
   const handleSubmit = async () => {
     if (!set) return;
+
+    /**
+     * Save before judging.
+     *
+     * `POST /sets/:id/submit` only judges answers that are already stored (an item with no saved
+     * answer lands in `pending` because "skipped" is not "wrong"), and it closes the set. Typing
+     * answers and pressing 交卷 without pressing 保存 first therefore dropped the whole attempt:
+     * nothing was judged and the set could not be answered again. The payload is the same one the
+     * 保存 button sends, and a failed save aborts the submit so the answers stay on screen.
+     */
+    if (payload.length > 0) {
+      try {
+        await saveAnswers.mutateAsync({ setId: set.id, answers: payload });
+      } catch {
+        // The api layer already toasted the reason; the answers are still in local state, so the
+        // student can retry with the same two buttons.
+        return;
+      }
+    }
+
     try {
       const response = await submitSet.mutateAsync(set.id);
       setResult(response.data);
@@ -143,7 +179,7 @@ export default function StudentAiStudyAttemptPage() {
     );
   }
 
-  if (!isCurrentSet || !set) {
+  if (!result && (!isCurrentSet || !activeSet)) {
     return (
       <PageScaffold
         variant="form"
@@ -161,13 +197,19 @@ export default function StudentAiStudyAttemptPage() {
     );
   }
 
+  if (!activeSet) {
+    // Only reachable if a submit result existed without a set ever having arrived; render nothing
+    // rather than crash, and keep the type narrowed for everything below.
+    return null;
+  }
+
   const answeredCount = payload.length;
 
   return (
     <PageScaffold
       variant="form"
       title="智学练习"
-      description={`共 ${set.items.length} 题，已作答 ${answeredCount} 题`}
+      description={`共 ${activeSet.items.length} 题，已作答 ${answeredCount} 题`}
       actions={
         <Button variant="outline" onClick={() => navigate('/student/ai-study')}>
           <ArrowLeft aria-hidden="true" className="size-4" />
@@ -180,7 +222,7 @@ export default function StudentAiStudyAttemptPage() {
             <Save aria-hidden="true" className="size-4" />
             {saveAnswers.isPending ? '保存中...' : '保存'}
           </Button>
-          <Button onClick={() => void handleSubmit()} disabled={submitSet.isPending || !!result}>
+          <Button onClick={() => void handleSubmit()} disabled={submitSet.isPending || saveAnswers.isPending || !!result}>
             <Send aria-hidden="true" className="size-4" />
             {submitSet.isPending ? '提交中...' : '交卷'}
           </Button>
@@ -198,7 +240,7 @@ export default function StudentAiStudyAttemptPage() {
           </SectionCard>
         ) : null}
 
-        {set.items.map((item) => (
+        {activeSet.items.map((item) => (
           <SectionCard
             key={item.id}
             title={`第 ${item.order_no} 题 · ${item.question.points} 分`}

@@ -46,8 +46,9 @@ export default function StudentDungeon() {
     try {
       await actionMutation.mutateAsync({ action: 'start' });
       toast.success('深入地下城...');
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already toasted the server's reason (功能未开启 / 已有进行中的探索…).
+      // The old page-level network-failure toast replaced that explanation with a wrong one.
     }
   };
 
@@ -61,8 +62,8 @@ export default function StudentDungeon() {
       } else {
         toast.success('成功推进至下一层！');
       }
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // Same: the door is still on screen, so a retry is one tap.
     }
   };
 
@@ -82,8 +83,8 @@ export default function StudentDungeon() {
     try {
       await actionMutation.mutateAsync({ action: 'abandon' });
       toast.success('已逃离地下城');
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer reported it; the run stays open so the student can try again.
     }
   };
 

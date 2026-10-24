@@ -190,4 +190,99 @@ describe('StudentAiStudyAttemptPage', () => {
 
     expect(screen.getByText('无效练单')).toBeInTheDocument();
   });
+
+  /**
+   * 交卷 must persist what is on screen first.
+   *
+   * The submit route judges only stored answers and closes the set, so a pupil who answered and
+   * pressed 交卷 used to lose the attempt: nothing judged, no way to answer again. The two
+   * assertions below are the contract: save runs first, and a failed save does not submit.
+   */
+  it('saves the current answers before submitting them for judging', async () => {
+    const order: string[] = [];
+    mocks.saveAnswers.mockImplementation(async () => {
+      order.push('save');
+      return { success: true, data: payload() };
+    });
+    mocks.submitSet.mockImplementation(async () => {
+      order.push('submit');
+      return {
+        success: true,
+        data: {
+          set_id: 4,
+          total: 2,
+          correct: 1,
+          pending: 1,
+          items: [{ item_id: 11, question_id: 100, is_correct: true, mastery_score: null }],
+          ai: { source: 'mock', available: false, confidence: null, message: '本地规则智选。' },
+        },
+      };
+    });
+
+    render(<StudentAiStudyAttemptPage />);
+    fireEvent.click(screen.getByRole('button', { name: /a\. 5\/6/ }));
+    fireEvent.click(screen.getByRole('button', { name: '交卷' }));
+
+    await waitFor(() => expect(mocks.submitSet).toHaveBeenCalledWith(4));
+    expect(order).toEqual(['save', 'submit']);
+    // The save payload is the same spelling the 保存 button sends.
+    expect(mocks.saveAnswers).toHaveBeenCalledWith({
+      setId: 4,
+      answers: [{ item_id: 11, value: '"a"' }],
+    });
+  });
+
+  it('does not submit when the answers could not be saved', async () => {
+    mocks.saveAnswers.mockRejectedValueOnce(new Error('offline'));
+
+    render(<StudentAiStudyAttemptPage />);
+    fireEvent.click(screen.getByRole('button', { name: /a\. 5\/6/ }));
+    fireEvent.click(screen.getByRole('button', { name: '交卷' }));
+
+    await waitFor(() => expect(mocks.saveAnswers).toHaveBeenCalled());
+    expect(mocks.submitSet).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Submitting closes the set, so `/my/sets/current` answers null immediately afterwards. The page
+   * must keep rendering the result it just received instead of falling into 「该练单已结束」.
+   */
+  it('keeps the result visible after the submitted set stops being the current one', async () => {
+    let submitted = false;
+    mocks.useMyAiStudySet.mockImplementation(() =>
+      submitted
+        ? {
+            data: {
+              set: null,
+              ai: { source: 'mock', available: false, confidence: null, message: '已提交' },
+            },
+            isLoading: false,
+            error: null,
+          }
+        : { data: payload(), isLoading: false, error: null },
+    );
+    mocks.submitSet.mockImplementation(async () => {
+      submitted = true;
+      return {
+        success: true,
+        data: {
+          set_id: 4,
+          total: 2,
+          correct: 1,
+          pending: 1,
+          items: [
+            { item_id: 11, question_id: 100, is_correct: true, mastery_score: null },
+            { item_id: 12, question_id: 101, is_correct: null, mastery_score: null },
+          ],
+          ai: { source: 'mock', available: false, confidence: null, message: '本地规则智选。' },
+        },
+      };
+    });
+
+    render(<StudentAiStudyAttemptPage />);
+    fireEvent.click(screen.getByRole('button', { name: '交卷' }));
+
+    await waitFor(() => expect(screen.getByText('答对 1 题')).toBeInTheDocument());
+    expect(screen.queryByText('该练单已结束或已被新的练单替代')).not.toBeInTheDocument();
+  });
 });

@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 
 interface Achievement {
-  id: number;
+  /** Absent: the read route answers the recorded names, not full rows. */
+  id?: number;
   achievement_name: string;
-  description: string;
-  unlocked_at: string;
+  description?: string;
+  unlocked_at?: string;
 }
 
 const ACHIEVEMENT_ICONS: Record<string, any> = {
@@ -64,8 +65,6 @@ export default function StudentAchievements() {
       setLoading(false);
     }
   };
-
-  const unlockedNames = achievements.map(a => a.achievement_name);
 
   return (
     <PageScaffold variant="dashboard">
@@ -164,7 +163,9 @@ export default function StudentAchievements() {
 
                     {isUnlocked && unlockedData && (
                       <div className="mt-6 rounded-card border border-line-1 bg-surface-3/50 px-4 py-2 text-xs font-bold text-fg-3">
-                        解锁于: {new Date(unlockedData.unlocked_at).toLocaleDateString()}
+                        {unlockedData.unlocked_at
+                          ? `解锁于: ${new Date(unlockedData.unlocked_at).toLocaleDateString()}`
+                          : '已解锁'}
                       </div>
                     )}
                     {!isUnlocked && (

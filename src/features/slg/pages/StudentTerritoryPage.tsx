@@ -58,7 +58,11 @@ export default function StudentTerritory() {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  /**
+   * Pan origin in a ref, not state: a touchmove/pointermove can fire several times between two
+   * renders, and a state-closure would keep reading the start coordinates of the previous frame.
+   */
+  const panOriginRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 });
 
   const handleContribute = async () => {
     if (!selectedNode || !user) return;
@@ -70,21 +74,48 @@ export default function StudentTerritory() {
       toast.success('捐献成功！');
       setContributeAmount('');
       setSelectedNode(null);
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already toasted the server's reason (积分不足 / 未解锁 / 功能未开启).
     }
   };
 
-  // Map Drag Handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+  /**
+   * Pan handlers, shared by mouse and touch.
+   *
+   * The map used to listen to mouse events only (plus a lone `onTouchStart`), so on a phone the
+   * 3000x3000 canvas could not be moved at all and every territory outside the first viewport was
+   * unreachable - the page is a phone-first surface.
+   */
+  const beginPan = (clientX: number, clientY: number) => {
+    panOriginRef.current = { active: true, x: clientX - mapPosition.x, y: clientY - mapPosition.y };
     setIsDragging(true);
-    setDragStart({ x: e.clientX - mapPosition.x, y: e.clientY - mapPosition.y });
   };
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setMapPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+
+  const movePan = (clientX: number, clientY: number) => {
+    if (!panOriginRef.current.active) return;
+    setMapPosition({ x: clientX - panOriginRef.current.x, y: clientY - panOriginRef.current.y });
   };
-  const handleMouseUp = () => setIsDragging(false);
+
+  const endPan = () => {
+    panOriginRef.current.active = false;
+    setIsDragging(false);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => beginPan(e.clientX, e.clientY);
+  const handleMouseMove = (e: React.MouseEvent) => movePan(e.clientX, e.clientY);
+  const handleMouseUp = () => endPan();
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (touch) beginPan(touch.clientX, touch.clientY);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!panOriginRef.current.active) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    // The container sets `touch-action: none`, so this is only the belt to that braces.
+    if (e.cancelable) e.preventDefault();
+    movePan(touch.clientX, touch.clientY);
+  };
 
   if (loading) {
     return (
@@ -173,18 +204,29 @@ export default function StudentTerritory() {
 
       {/* Draggable Map Area */}
       <div 
-        className="relative min-h-0 flex-1 cursor-grab select-none overflow-hidden rounded-panel border border-role-ink bg-fg-1 shadow-raised active:cursor-grabbing"
+        data-testid="territory-map"
+        className={`relative min-h-0 flex-1 touch-none select-none overflow-hidden rounded-panel border border-role-ink bg-fg-1 shadow-raised ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onTouchStart={(e) => handleMouseDown(e as any)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={endPan}
+        onTouchCancel={endPan}
       >
         {/* Isometric Grid Background */}
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
         
         <motion.div 
           ref={mapRef}
+          data-testid="territory-map-content"
+          // The position is readable for the touch-pan test; the transform itself stays with
+          // `motion` so no page writes an inline style.
+          data-map-x={mapPosition.x}
+          data-map-y={mapPosition.y}
           animate={{ x: mapPosition.x, y: mapPosition.y }}
           transition={{ type: 'tween', ease: 'easeOut', duration: 0.1 }}
           className="absolute left-1/2 top-1/2 h-[3000px] w-[3000px] -translate-x-1/2 -translate-y-1/2"

@@ -63,8 +63,8 @@ export default function StudentChallenge() {
       setAnswers({});
       setResult(null);
       setCurrentQIndex(0);
-    } catch (err) {
-      toast.error('获取题目失败');
+    } catch {
+      // A refetch failure is already shown inline as 题目没有加载出来, and the api layer toasted it.
     }
   };
 
@@ -95,8 +95,8 @@ export default function StudentChallenge() {
         setResult(data);
         toast.success(`挑战完成！得分: ${data.score}`);
       }
-    } catch (err) {
-      toast.error('提交失败');
+    } catch {
+      // The api layer already toasted the server's reason; the answers stay so retry is one tap.
     }
   };
 
@@ -113,8 +113,8 @@ export default function StudentChallenge() {
           setBoss(prev => prev ? { ...prev, hp: data.newHp } : null);
         }
       }
-    } catch (err) {
-      toast.error('攻击失败');
+    } catch {
+      // Same as submit: the attack button is still there for a retry.
     }
   };
 

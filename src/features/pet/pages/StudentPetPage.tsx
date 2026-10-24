@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { ShieldAlert, Zap, Cookie, Play, Star, Plus, Heart, List, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
  * surface, and `--warning` follows the role theme instead of being a fixed palette entry.
  */
 export default function StudentPet() {
+  const navigate = useNavigate();
   const user = useStore((state) => state.user);
   const studentId = user?.studentId ?? null;
   const classId = Number(user?.classId ?? user?.class_id) || null;
@@ -69,15 +71,16 @@ export default function StudentPet() {
       await petMutation.mutateAsync({ type: 'adopt', elementType: selectedElement });
       toast.success('领养成功！开启你的学习之旅吧');
       await refetch();
-    } catch (err) {
-      console.error(err);
-      toast.error('网络错误');
+    } catch {
+      // The api layer already toasted the reason (积分不足 / 已有精灵 / 功能未开启); a
+      // page-level network-failure toast had replaced that explanation.
     } finally {
       setAdopting(false);
     }
   };
 
   const handleInteract = async (actionType: string, cost: number, expGain: number, type: string = 'FEED_PET') => {
+    if (petMutation.isPending) return;
     if (availablePoints < cost) {
       toast.warning('可用积分不足！快去赚取更多积分吧');
       return;
@@ -103,9 +106,8 @@ export default function StudentPet() {
           icon: '🌟'
         });
       }
-    } catch (err) {
-      console.error(err);
-      toast.error('网络错误');
+    } catch {
+      // Same: the api layer's server message is the one the student needs.
     }
   };
 
@@ -270,6 +272,8 @@ export default function StudentPet() {
             </Button>
             <Button
               variant="outline"
+              onClick={() => navigate('/student/challenge')}
+              title="去答题挑战赚积分"
               className="h-auto rounded-card border-b-4 border-warning/20 bg-warning/10 px-5 py-3 font-bold text-warning hover:bg-warning/20 hover:text-warning"
             >
               <Plus className="size-5" /> 去赚积分
@@ -380,6 +384,7 @@ export default function StudentPet() {
                   type="button"
                   variant="outline"
                   onClick={() => handleInteract('喂食普通食物', 10, 10, 'FEED_PET')}
+                  disabled={petMutation.isPending}
                   className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-warning/30 bg-surface-2 p-6 shadow-card hover:border-warning hover:bg-warning/5"
                 >
                   <div className="mb-3 rounded-full bg-warning/10 p-4 shadow-inner transition-transform group-hover:scale-110">
@@ -395,6 +400,7 @@ export default function StudentPet() {
                   type="button"
                   variant="outline"
                   onClick={() => handleInteract('买玩具', 30, 35, 'BUY_TOY')}
+                  disabled={petMutation.isPending}
                   className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-role/30 bg-surface-2 p-6 shadow-card hover:border-role hover:bg-role/5"
                 >
                   <div className="mb-3 rounded-full bg-role/10 p-4 shadow-inner transition-transform group-hover:scale-110">
@@ -410,6 +416,7 @@ export default function StudentPet() {
                   type="button"
                   variant="outline"
                   onClick={() => handleInteract('基础训练', 60, 80, 'TRAIN')}
+                  disabled={petMutation.isPending}
                   className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-success/30 bg-surface-2 p-6 shadow-card hover:border-success hover:bg-success/5"
                 >
                   <div className="mb-3 rounded-full bg-success/10 p-4 shadow-inner transition-transform group-hover:scale-110">
@@ -425,6 +432,7 @@ export default function StudentPet() {
                   type="button"
                   variant="outline"
                   onClick={() => handleInteract('高阶特训', 150, 220, 'SPECIAL_TRAIN')}
+                  disabled={petMutation.isPending}
                   className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-role-ink/30 bg-surface-2 p-6 shadow-card hover:border-role-ink hover:bg-role-soft"
                 >
                   <div className="mb-3 rounded-full bg-role-soft p-4 shadow-inner transition-transform group-hover:scale-110">

@@ -94,7 +94,7 @@ function ItemRow({ item }: { item: AiStudySetItem }) {
  */
 export default function StudentAiStudyPage() {
   const navigate = useNavigate();
-  const { data, isLoading, error } = useMyAiStudySet();
+  const { data, isLoading, error, refetch } = useMyAiStudySet();
   const generate = useGenerateAiStudySetMutation();
 
   const set = data?.set ?? null;
@@ -118,8 +118,19 @@ export default function StudentAiStudyPage() {
       id: 'ai-study:generate',
       label: '生成今日智学',
       icon: Sparkles,
-      disabled: generate.isPending,
+      // With a set open, generating is a no-op that returns the same set; the useful action is
+      // entering it.
+      disabled: generate.isPending || !!set,
       run: () => void run(),
+    },
+    {
+      id: 'ai-study:continue',
+      label: '继续练习',
+      icon: ListChecks,
+      disabled: !set,
+      run: () => {
+        if (set) navigate(`/student/ai-study/${set.id}`);
+      },
     },
   ]);
 
@@ -137,8 +148,12 @@ export default function StudentAiStudyPage() {
   if (error) {
     return (
       <PageScaffold variant="dashboard" title="AI 智学">
-        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center text-danger">
-          智学练单加载失败，请稍后重试
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">智学练单加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表今天没有练单，只是这一次没读到。请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );
@@ -150,10 +165,17 @@ export default function StudentAiStudyPage() {
       title="AI 智学"
       description="按你的错题、知识点薄弱项和近期表现，为你挑出今天该练的几道题"
       actions={
-        <Button onClick={() => void run()} disabled={generate.isPending}>
-          <Sparkles data-icon="inline-start" aria-hidden="true" />
-          {generate.isPending ? '正在生成...' : set ? '查看进行中的练单' : '生成今日智学'}
-        </Button>
+        set ? (
+          <Button onClick={() => navigate(`/student/ai-study/${set.id}`)}>
+            <ListChecks data-icon="inline-start" aria-hidden="true" />
+            继续练习
+          </Button>
+        ) : (
+          <Button onClick={() => void run()} disabled={generate.isPending}>
+            <Sparkles data-icon="inline-start" aria-hidden="true" />
+            {generate.isPending ? '正在生成...' : '生成今日智学'}
+          </Button>
+        )
       }
     >
       <div className="space-y-4">

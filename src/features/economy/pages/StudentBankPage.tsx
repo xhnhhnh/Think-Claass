@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@/store/useStore';
 import { toast } from 'sonner';
 import { Briefcase, Building2, Coins, PiggyBank, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
@@ -22,6 +23,7 @@ import { SectionCard } from '@/components/ui/section-card';
 import { Spinner } from '@/components/ui/spinner';
 import { useEconomyBankMutation, useEconomyData, useEconomyTradeMutation } from '@/features/economy/hooks/useEconomy';
 import type { BankAccountDto, PortfolioItemDto, StockDto } from '@/features/economy/types';
+import { studentsApi } from '@/features/classroom/api/studentsApi';
 
 /** Trend history is a JSON string column; a malformed one means "no chart", not a crash. */
 function parseTrend(history: string | null): number[] {
@@ -75,6 +77,22 @@ export default function StudentEconomy() {
   const portfolio = (data?.portfolio ?? []) as PortfolioItemDto[];
   const bankMutation = useEconomyBankMutation(studentId);
   const tradeMutation = useEconomyTradeMutation(studentId);
+
+  /**
+   * The wallet balance, from the same live query the student shell renders.
+   *
+   * It used to be `user.available_points`, which is the login-time snapshot: after any deposit,
+   * withdrawal or trade the dialog kept showing the number from before the transaction (while the
+   * rail, which reads `['motivation-summary']`, showed the new one). A successful write invalidates
+   * this key globally (`src/app/queryClient.ts`), so it refreshes by itself.
+   */
+  const { data: summary } = useQuery({
+    queryKey: ['motivation-summary', studentId],
+    queryFn: () => studentsApi.getSummary(studentId!),
+    enabled: !!studentId,
+  });
+  const walletBalance = summary?.summary.availableCredits;
+
   const shouldReduceMotion = useReducedMotion();
 
   // Dialogs
@@ -98,8 +116,9 @@ export default function StudentEconomy() {
       await refetch();
       setShowBankModal(false);
       setBankAmount('');
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already toasted the reason (余额不足 / 存款不足 / 功能未开启). A second
+      // generic network-failure toast here replaced that explanation with a wrong one.
     }
   };
 
@@ -115,8 +134,8 @@ export default function StudentEconomy() {
       await refetch();
       setSelectedStock(null);
       setTradeShares('');
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // Same as the bank form: the api layer's server message is the useful one.
     }
   };
 
@@ -358,7 +377,7 @@ export default function StudentEconomy() {
             <div className="rounded-card border border-line-1 bg-surface-3/50 p-4">
               <div className="mb-1 flex justify-between text-sm">
                 <span className="text-fg-3">钱包可用积分:</span>
-                <span className="font-bold text-fg-1">{user?.available_points}</span>
+                <span className="font-bold text-fg-1">{walletBalance ?? '—'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-fg-3">银行当前存款:</span>
@@ -382,7 +401,9 @@ export default function StudentEconomy() {
                 <Button type="button" variant="outline" onClick={() => setShowBankModal(false)}>
                   取消
                 </Button>
-                <Button type="submit">确认</Button>
+                <Button type="submit" disabled={bankMutation.isPending}>
+                  {bankMutation.isPending ? '处理中...' : '确认'}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -405,7 +426,7 @@ export default function StudentEconomy() {
               </div>
               <div className="mb-1 flex justify-between text-sm">
                 <span className="text-fg-3">我的可用积分:</span>
-                <span className="font-bold text-fg-1">{user?.available_points}</span>
+                <span className="font-bold text-fg-1">{walletBalance ?? '—'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-fg-3">我的当前持仓:</span>
@@ -436,8 +457,14 @@ export default function StudentEconomy() {
                 <Button type="button" variant="outline" onClick={() => setSelectedStock(null)}>
                   取消
                 </Button>
-                <Button type="submit" variant={tradeAction === 'buy' ? 'default' : 'destructive'}>
-                  确认{tradeAction === 'buy' ? '买入' : '卖出'}
+                <Button
+                  type="submit"
+                  variant={tradeAction === 'buy' ? 'default' : 'destructive'}
+                  disabled={tradeMutation.isPending}
+                >
+                  {tradeMutation.isPending
+                    ? '处理中...'
+                    : `确认${tradeAction === 'buy' ? '买入' : '卖出'}`}
                 </Button>
               </DialogFooter>
             </form>

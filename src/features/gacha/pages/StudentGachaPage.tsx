@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { toast } from 'sonner';
 import { Sparkles, Star, Zap, Shield } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -10,6 +9,7 @@ import { launchConfetti } from '@/lib/confetti';
 import { CELEBRATION } from '@/lib/celebrationPalette';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -17,7 +17,12 @@ export default function StudentGacha() {
   const user = useStore(state => state.user);
   const classId = user?.class_id ?? null;
   const studentId = user?.studentId ?? user?.id ?? null;
-  const { data: pools = [], isLoading: loading } = useGachaPools(classId);
+  const {
+    data: pools = [],
+    isLoading: loading,
+    isError: poolsError,
+    refetch: refetchPools,
+  } = useGachaPools(classId);
   const drawMutation = useGachaDrawMutation(studentId);
   const [results, setResults] = useState<GachaPetResult[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -44,8 +49,9 @@ export default function StudentGacha() {
           }, 500);
         }
       }
-    } catch (err) {
-      toast.error('网络错误');
+    } catch {
+      // The api layer already toasted the server's reason (积分不足 / 功能未开启…). This catch
+      // used to add a second generic network-failure toast on top of it.
     }
   };
 
@@ -71,6 +77,22 @@ export default function StudentGacha() {
         <div className="flex items-center justify-center gap-3 text-fg-3">
           <Spinner size="lg" label="连接星空法阵中" />
           连接星空法阵中...
+        </div>
+      </PageScaffold>
+    );
+  }
+
+  if (poolsError) {
+    // A failed read is not "the teacher configured no pools": the page used to render the empty
+    // starfield, so the pupil saw a blank stage with no explanation and no way to ask again.
+    return (
+      <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-12">
+        <div className="w-full max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">召唤卡池没有加载出来</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表老师没有配置卡池。请重试，或稍后再看。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetchPools()}>
+            重新加载
+          </Button>
         </div>
       </PageScaffold>
     );
@@ -149,6 +171,14 @@ export default function StudentGacha() {
                 </motion.div>
               ))}
             </div>
+            {pools.length === 0 ? (
+              <EmptyState
+                icon={Sparkles}
+                title="还没有可召唤的卡池"
+                description="等老师在电脑端配置卡池后，这里就会出现。"
+                className="mx-auto mt-8 max-w-xl border-fg-inverse/20 bg-fg-inverse/5 [&_*]:text-fg-inverse"
+              />
+            ) : null}
           </div>
         </div>
       </div>

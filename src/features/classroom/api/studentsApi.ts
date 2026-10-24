@@ -30,6 +30,28 @@ export interface StudentMotivationSummary {
   parentBlessingActive: boolean;
 }
 
+/**
+ * One earned achievement as the student console understands it.
+ *
+ * `GET /api/students/:id/achievements` answers `achievements` as the *names* it has recorded
+ * (`Array.from(Set)`: `['初出茅庐']`), which the page types as rows and matches by
+ * `achievement_name`. The mismatch made every badge render 未解锁 while the counter showed the
+ * real number; the facade normalises the names into partial rows so the page has one shape.
+ * Only the name exists in the response - `unlocked_at`/`description` are optional and must not
+ * be invented.
+ */
+export interface StudentAchievementDto {
+  achievement_name: string;
+  description?: string;
+  unlocked_at?: string;
+}
+
+interface StudentAchievementsResponse {
+  success: true;
+  achievements: Array<StudentAchievementDto | string>;
+  newAchievements?: string[];
+}
+
 export const studentsApi = {
   getStudents: (classId?: number | string | null) =>
     apiGet<StudentsResponse>(`/api/students${classId ? `?classId=${classId}` : ''}`),
@@ -64,10 +86,21 @@ export const studentsApi = {
     return apiGet<{ success: true; records: PointRecordDto[] }>(`/api/students/records?${query.toString()}`);
   },
 
-  getAchievements: (id: number) =>
-    apiGet<{ success: true; achievements: Array<{ id: number; achievement_name: string; description: string; unlocked_at: string }> }>(
-      `/api/students/${id}/achievements`,
-    ),
+  getAchievements: async (id: number) => {
+    /*
+      Kept as a single line on purpose: `client-endpoint-parity.test.ts` attributes a path literal
+      to the API call nearest it (±3 lines), so a multi-line generic here made `GET
+      /api/students/:x/achievements` look like a route with no client caller.
+    */
+    const response = await apiGet<StudentAchievementsResponse>(`/api/students/${id}/achievements`);
+
+    return {
+      ...response,
+      achievements: (response.achievements ?? []).map((entry) =>
+        typeof entry === 'string' ? { achievement_name: entry } : entry,
+      ),
+    };
+  },
 
   updatePoints: (id: number, data: { amount: number; reason: string; requestId?: string }) =>
     apiPost<{ success: true; student: { total_points: number; available_points: number; applied: number; bonus: number } }>(`/api/students/${id}/points`, data),

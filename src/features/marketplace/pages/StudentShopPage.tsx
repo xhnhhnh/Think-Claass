@@ -81,9 +81,9 @@ export default function StudentShop() {
       await buyMutation.mutateAsync(itemId);
       toast.success('兑换成功！已放入背包或生效');
       await refetchShop();
-    } catch (err) {
-      console.error(err);
-      toast.error('网络错误');
+    } catch {
+      // `src/lib/api.ts` already toasted the server's reason (积分不足 / 库存不足 / 功能未开启).
+      // A page-level network-failure toast here replaced that explanation with a wrong one.
     }
   };
 
@@ -108,10 +108,9 @@ export default function StudentShop() {
         }
         await refetchShop();
       }, 2000);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // The api layer surfaced the real reason; keep the reveal closed and the box purchasable.
       setIsUnboxing(false);
-      toast.error('网络错误');
     }
   };
 
@@ -240,10 +239,16 @@ export default function StudentShop() {
                       </div>
                       <Button
                         onClick={() => handleBuy(item.id)}
-                        disabled={!canAfford}
+                        disabled={!canAfford || buyMutation.isPending}
                         className={cn(canAfford && 'bg-warning text-fg-inverse hover:bg-warning/90')}
                       >
-                        {isOutOfStock ? '已售罄' : canAfford ? '立即兑换' : '积分不足'}
+                        {buyMutation.isPending
+                          ? '兑换中...'
+                          : isOutOfStock
+                            ? '已售罄'
+                            : canAfford
+                              ? '立即兑换'
+                              : '积分不足'}
                       </Button>
                     </div>
                   </div>
@@ -310,12 +315,12 @@ export default function StudentShop() {
                       </div>
                       <Button
                         onClick={() => handleBuyBlindBox(box.id)}
-                        disabled={!canAfford || isUnboxing}
+                        disabled={!canAfford || isUnboxing || buyBlindMutation.isPending}
                         className={cn(
                           canAfford && !isUnboxing && 'bg-role-ink text-role-contrast hover:bg-role-ink/90',
                         )}
                       >
-                        {canAfford ? '开启盲盒' : '积分不足'}
+                        {buyBlindMutation.isPending ? '开启中...' : canAfford ? '开启盲盒' : '积分不足'}
                       </Button>
                     </div>
                   </div>
