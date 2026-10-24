@@ -76,4 +76,27 @@ describe('AdminLogin', () => {
     });
     expect(mocks.navigate).toHaveBeenCalledWith(ADMIN_PATH);
   });
+
+  it('shows the server’s credential message instead of claiming the session expired', async () => {
+    mocks.mutateAsync.mockRejectedValue({
+      response: { data: { message: '账号或密码错误，请重试' } },
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminLogin />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('输入超级管理员账号'), {
+      target: { value: 'root' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+      target: { value: 'wrong' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '进入控制台' }));
+
+    expect(await screen.findByText('账号或密码错误，请重试')).toBeInTheDocument();
+    expect(screen.queryByText('登录已过期，请重新登录')).not.toBeInTheDocument();
+  });
 });

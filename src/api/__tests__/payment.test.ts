@@ -23,7 +23,11 @@ describe('paymentApi', () => {
 
     await paymentApi.createOrder('wechat');
 
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/payment/create', { method: 'wechat' });
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/payment/create',
+      { method: 'wechat' },
+      { showError: false },
+    );
   });
 
   it('loads persisted order status by order number', async () => {
@@ -31,6 +35,9 @@ describe('paymentApi', () => {
 
     await paymentApi.getOrderStatus('ORD-123');
 
-    expect(mocks.apiGet).toHaveBeenCalledWith('/api/payment/status/ORD-123');
+    // A background poll must not toast on every failed tick.
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/payment/status/ORD-123', {
+      showError: false,
+    });
   });
 });

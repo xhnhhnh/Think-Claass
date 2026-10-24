@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,46 +13,31 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { PageScaffold } from "@/components/ui/page-scaffold";
 import { Spinner } from "@/components/ui/spinner";
-
-function getErrorMessage(error: unknown) {
-  if (error && typeof error === "object") {
-    const responseMessage = (error as any)?.response?.data?.message;
-    const dataMessage = (error as any)?.data?.message;
-    if (responseMessage) return responseMessage;
-    if (dataMessage) return dataMessage;
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return "网络或服务器错误";
-}
+import { apiErrorMessage } from "@/lib/api";
 
 /**
  * Superadmin console login.
  *
- * Lives in the admin feature but is a login surface, so it moved onto the same kit as
- * the public one: `Input` + `FormField` + `Button` + `Spinner` instead of two
- * hand-styled `<input>` elements and a `motion.button` painted with emerald
- * utilities. The admin accent comes from `data-role="admin"`, which is why the
- * submit button no longer names a colour.
- *
- * The placeholders and the button's accessible name are unchanged on purpose:
- * `src/pages/Admin/Login.test.tsx` drives this page by both.
- *
- * It is one of the admin console's pages, so its shape comes from
- * `PageScaffold variant="form"`; it passes no `title`, because the card below already
- * carries its own heading and a scaffold heading would print it twice on a standalone
- * render. The route sits outside `AdminLayout` (a login cannot require a session), so
- * in production the scaffold renders no heading at all.
+ * Lives in the admin feature but is a login surface, so it uses the same kit as the public one.
+ * The admin accent comes from `data-role="admin"` on the page wrapper. Its route sits outside
+ * `AdminLayout`, so the scaffold prints no heading beyond the card's own.
  */
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
   const setToken = useStore((state) => state.setToken);
   const sessionMutation = useAdminSessionMutation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // An operator who is already signed in belongs in the console, not on its login form.
+  useEffect(() => {
+    if (user && (user.role === "admin" || user.role === "superadmin")) {
+      navigate(ADMIN_PATH, { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -63,7 +48,8 @@ export default function AdminLoginPage() {
       setUser(session.user);
       navigate(ADMIN_PATH);
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      // Wrong credentials are not an expired session; show the server's own sentence.
+      setError(apiErrorMessage(requestError, "登录失败，请重试"));
     }
   };
 

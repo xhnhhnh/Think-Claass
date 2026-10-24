@@ -5,6 +5,9 @@ import { ADMIN_PATH } from '@/constants';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useStore } from '@/store/useStore';
 
+import { AppSplash } from './AppSplash';
+import { homePathForRole } from './homePath';
+
 export default function PrivateRoute({
   children,
   allowedRoles,
@@ -16,7 +19,7 @@ export default function PrivateRoute({
   const { data: settings = {}, isLoading } = useSettings();
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <AppSplash label="正在准备你的工作台…" />;
   }
 
   if (!user) {
@@ -28,7 +31,15 @@ export default function PrivateRoute({
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    /*
+     * A signed-in account that opens another console's URL belongs in its own console.
+     *
+     * This used to send everyone to `/`, the marketing homepage - so a teacher who followed a
+     * student link lost the console and was offered a sign-in form instead. Falling back to the
+     * role's home keeps the session and the navigation meaningful.
+     */
+    const home = homePathForRole(user.role);
+    return <Navigate to={home} replace />;
   }
 
   const needsActivation =

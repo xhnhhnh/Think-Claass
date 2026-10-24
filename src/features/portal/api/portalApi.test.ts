@@ -47,6 +47,10 @@ describe('portalApi', () => {
   it('submits contact messages', async () => {
     mocks.apiPost.mockResolvedValue({ success: true });
     await portalApi.submitContact({ name: 'A', email: 'a@example.com', message: 'Hello' });
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/website/contact', { name: 'A', email: 'a@example.com', message: 'Hello' });
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/website/contact',
+      { name: 'A', email: 'a@example.com', message: 'Hello' },
+      { showError: false },
+    );
   });
 });

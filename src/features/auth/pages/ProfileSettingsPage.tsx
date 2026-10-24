@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Spinner } from '@/components/ui/spinner';
 import { Select } from '@/components/ui/select';
+import { apiErrorMessage } from '@/lib/api';
 import { useShellStore, type ThemeMode } from '@/app/shell/shellStore';
 
 /**
@@ -47,6 +48,7 @@ export default function ProfileSettings() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const theme = useShellStore((state) => state.theme);
   const setTheme = useShellStore((state) => state.setTheme);
 
@@ -59,12 +61,13 @@ export default function ProfileSettings() {
   /** `event` is optional so the command palette can run the same save the form's button does. */
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    setError('');
     if (!username.trim()) {
-      toast.error('用户名不能为空');
+      setError('用户名不能为空');
       return;
     }
     if (password && password !== confirmPassword) {
-      toast.error('两次输入的密码不一致');
+      setError('两次输入的密码不一致');
       return;
     }
 
@@ -88,11 +91,12 @@ export default function ProfileSettings() {
           });
         }
       } else {
-        toast.error(data.message || '更新失败');
+        setError(data.message || '更新失败，请重试');
       }
     } catch (err) {
-      console.error('Update settings error:', err);
-      toast.error('网络错误');
+      // The API layer reports a duplicate username or a permissions answer; the page keeps the
+      // typed values so the fix is one edit, not a retype.
+      setError(apiErrorMessage(err, '保存失败，请重试'));
     } finally {
       setSaving(false);
     }
@@ -113,6 +117,12 @@ export default function ProfileSettings() {
     <PageScaffold variant="detail" title="个人设置" description="修改您的登录账号和密码">
       <div className="rounded-panel border border-line-1 bg-surface-2 p-8 shadow-card">
         <form onSubmit={handleSave} className="space-y-6">
+          {error ? (
+            <div role="alert" className="rounded-panel bg-danger-soft p-4 text-sm font-medium text-danger">
+              {error}
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <FormField label="用户名">
               <Input

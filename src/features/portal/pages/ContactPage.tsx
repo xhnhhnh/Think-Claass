@@ -10,6 +10,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { apiErrorMessage } from "@/lib/api";
 
 /**
  * 联系我们.
@@ -39,12 +40,14 @@ const CONTACT_ITEMS = [
 
 export default function ContactPage() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!formData.name.trim() || !formData.message.trim()) {
-      toast.error("姓名和留言内容为必填项");
+      setError("姓名和留言内容为必填项");
       return;
     }
     setLoading(true);
@@ -54,10 +57,10 @@ export default function ContactPage() {
         toast.success("留言提交成功，我们会尽快与您联系！");
         setFormData({ name: "", email: "", message: "" });
       } else {
-        toast.error(data.message || "提交失败，请重试");
+        setError(data.message || "提交失败，请重试");
       }
-    } catch {
-      toast.error("网络错误，请稍后再试");
+    } catch (err) {
+      setError(apiErrorMessage(err, "提交失败，请稍后再试"));
     } finally {
       setLoading(false);
     }
@@ -97,6 +100,12 @@ export default function ContactPage() {
           <div className="rounded-panel border border-line-1 bg-surface-2 p-8 shadow-card md:p-10">
             <h2 className="mb-6 text-xl font-semibold text-fg-1">在线留言</h2>
             <form onSubmit={handleSubmit} className="space-y-5">
+              {error ? (
+                <div role="alert" className="rounded-panel bg-danger-soft p-4 text-sm font-medium text-danger">
+                  {error}
+                </div>
+              ) : null}
+
               <FormField label="您的姓名" required>
                 <Input
                   type="text"

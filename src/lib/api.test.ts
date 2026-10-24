@@ -36,7 +36,7 @@ vi.mock('@/store/useStore', () => ({
   useStore: { getState: () => ({ user: null, token: 'tok', logout: mocks.logout }) },
 }));
 
-import { api } from './api';
+import { api, apiErrorMessage, FetchError } from './api';
 
 /** An axios-shaped rejection carrying a status. */
 function httpError(status: number, body: Record<string, unknown> = {}): AxiosError {
@@ -71,7 +71,7 @@ describe('api client error handling', () => {
     expect(assign).toHaveBeenCalledWith('/login');
   });
 
-  it('does NOT sign the user out on 403, and does not claim the login expired', async () => {
+  it('does NOT sign the user out on 403, and surfaces the server reason', async () => {
     mocks.request.mockRejectedValue(httpError(403, { message: '无权限执行该操作' }));
 
     await expect(api({ url: '/api/wrong-questions/my' })).rejects.toBeTruthy();
@@ -79,8 +79,47 @@ describe('api client error handling', () => {
     // The session is valid; the account is simply not allowed. Nothing to clear, nothing to retry.
     expect(mocks.logout).not.toHaveBeenCalled();
     expect(assign).not.toHaveBeenCalled();
-    expect(toast.error).toHaveBeenCalledWith('当前账号无权访问该功能');
+    // The server's sentence is more specific than the generic chip, so it wins.
+    expect(toast.error).toHaveBeenCalledWith('无权限执行该操作');
     expect(toast.error).not.toHaveBeenCalledWith('登录已过期，请重新登录');
+  });
+
+  it('falls back to the generic permission chip when a 403 has no message', async () => {
+    mocks.request.mockRejectedValue(httpError(403));
+
+    await expect(api({ url: '/api/wrong-questions/my' })).rejects.toBeTruthy();
+
+    expect(mocks.logout).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('当前账号无权访问该功能');
+  });
+
+  it('treats a credential 401 as a wrong password, not an expired session', async () => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { pathname: '/login', assign },
+    });
+    mocks.request.mockRejectedValue(httpError(401, { message: '账号或密码错误，请重试' }));
+
+    await expect(
+      api({ url: '/api/auth/login', authFailure: 'credential' }),
+    ).rejects.toBeTruthy();
+
+    expect(mocks.logout).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('账号或密码错误，请重试');
+    expect(toast.error).not.toHaveBeenCalledWith('登录已过期，请重新登录');
+  });
+
+  it('lets a credential 401 be reported inline without a toast', async () => {
+    mocks.request.mockRejectedValue(httpError(401, { message: '账号或密码错误，请重试' }));
+
+    await expect(
+      api({ url: '/api/auth/login', authFailure: 'credential', showError: false }),
+    ).rejects.toBeTruthy();
+
+    expect(mocks.logout).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('sends an admin-console 401 to the admin login, not the student one', async () => {
@@ -95,7 +134,7 @@ describe('api client error handling', () => {
     expect(assign).toHaveBeenCalledWith('/beiadmin/login');
   });
 
-  it('does not redirect when the page is already the login page', async () => {
+  it('does not redirect when a session 401 arrives on the login page', async () => {
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: { pathname: '/login', assign },
@@ -123,5 +162,34 @@ describe('api client error handling', () => {
     await expect(api({ url: '/api/students', showError: false })).rejects.toBeTruthy();
 
     expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('apiErrorMessage', () => {
+  it('prefers the server message for an HTTP failure', () => {
+    expect(apiErrorMessage(httpError(400, { message: '无效的激活码' }))).toBe('无效的激活码');
+  });
+
+  it('uses an envelope failure message', () => {
+    expect(apiErrorMessage(new FetchError(200, { message: '余额不足' }))).toBe('余额不足');
+  });
+
+  it('maps a timeout to Chinese instead of leaking the axios sentence', () => {
+    const timeout = new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED');
+    expect(apiErrorMessage(timeout)).toBe('请求超时，请检查网络后重试');
+  });
+
+  it('maps a network failure to Chinese instead of "Network Error"', () => {
+    expect(apiErrorMessage(new AxiosError('Network Error', 'ERR_NETWORK'))).toBe(
+      '网络连接失败，请检查网络后重试',
+    );
+  });
+
+  it('never returns an internal status sentence', () => {
+    expect(apiErrorMessage(httpError(500), '保存失败，请重试')).toBe('保存失败，请重试');
+  });
+
+  it('keeps a client-side guard sentence', () => {
+    expect(apiErrorMessage(new Error('学生信息不存在'), '提交失败')).toBe('学生信息不存在');
   });
 });

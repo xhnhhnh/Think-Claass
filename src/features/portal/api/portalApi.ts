@@ -20,5 +20,9 @@ export const portalApi = {
   createArticle: (payload: ArticlePayload) => apiPost<{ success: true; id: number; message?: string }>('/api/website/articles', payload),
   updateArticle: (id: number, payload: ArticlePayload) => apiPut<{ success: true; message?: string }>(`/api/website/articles/${id}`, payload),
   deleteArticle: (id: number) => apiDelete<{ success: true; message?: string }>(`/api/website/articles/${id}`),
-  submitContact: (payload: ContactMessagePayload) => apiPost<{ success: true; id: number; message: string }>('/api/website/contact', payload),
+  submitContact: (payload: ContactMessagePayload) =>
+    apiPost<{ success: true; id: number; message: string }>('/api/website/contact', payload, {
+      // The page renders the reason next to the form instead of stacking a toast on it.
+      showError: false,
+    }),
 };

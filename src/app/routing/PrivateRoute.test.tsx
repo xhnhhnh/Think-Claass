@@ -23,6 +23,80 @@ describe('PrivateRoute', () => {
     mocks.useStore.mockReset();
   });
 
+  it('shows a branded loading state while the site settings resolve', () => {
+    mocks.useSettings.mockReturnValue({ data: undefined, isLoading: true });
+    mocks.useStore.mockReturnValue({ user: { id: 8, role: 'student', username: 'student01' } });
+
+    render(
+      <MemoryRouter initialEntries={['/student']}>
+        <Routes>
+          <Route
+            path="/student"
+            element={(
+              <PrivateRoute allowedRoles={['student']}>
+                <div>Student content</div>
+              </PrivateRoute>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('正在准备你的工作台…')).toBeInTheDocument();
+    expect(screen.queryByText('Student content')).not.toBeInTheDocument();
+  });
+
+  it('sends a signed-in account that opens another console to its own console', () => {
+    mocks.useSettings.mockReturnValue({ data: {}, isLoading: false });
+    mocks.useStore.mockReturnValue({
+      user: { id: 7, role: 'teacher', username: 'teacher01', is_activated: true },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/student']}>
+        <Routes>
+          <Route
+            path="/student"
+            element={(
+              <PrivateRoute allowedRoles={['student']}>
+                <div>Student content</div>
+              </PrivateRoute>
+            )}
+          />
+          <Route path="/teacher" element={<div>Teacher console</div>} />
+          <Route path="/" element={<div>Marketing home</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // It used to send everyone to `/`, the marketing homepage.
+    expect(screen.getByText('Teacher console')).toBeInTheDocument();
+    expect(screen.queryByText('Marketing home')).not.toBeInTheDocument();
+  });
+
+  it('sends a visitor with no session to the login page', () => {
+    mocks.useSettings.mockReturnValue({ data: {}, isLoading: false });
+    mocks.useStore.mockReturnValue({ user: null });
+
+    render(
+      <MemoryRouter initialEntries={['/student']}>
+        <Routes>
+          <Route
+            path="/student"
+            element={(
+              <PrivateRoute allowedRoles={['student']}>
+                <div>Student content</div>
+              </PrivateRoute>
+            )}
+          />
+          <Route path="/login" element={<div>Sign in</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Sign in')).toBeInTheDocument();
+  });
+
   it('routes unactivated users to the payment page when the operator chose direct payment', () => {
     mocks.useSettings.mockReturnValue({
       data: {

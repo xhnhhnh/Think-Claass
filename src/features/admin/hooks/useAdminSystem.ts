@@ -45,6 +45,13 @@ export function useUpdateAdminSystemSettingsMutation() {
     mutationFn: (input: Partial<SystemSettings>) => adminClient.updateSystemSettings(input),
     onSuccess: (settings) => {
       queryClient.setQueryData(adminQueryKeys.settings, settings);
+      /**
+       * The console edits the *platform* settings; the rest of the application reads the public
+       * `['settings']` query (`useSettings`). Writing only the admin key made 「保存成功」 true for
+       * the form and false for the rest of the app: the document title, favicon, activation gate,
+       * payment channels and parent-report switches kept their old values until a hard reload.
+       */
+      void queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
   });
 }

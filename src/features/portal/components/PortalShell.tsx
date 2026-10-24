@@ -46,7 +46,7 @@ export default function PortalShell({
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="bg-surface-2 text-fg-3 shadow-card hover:text-role"
           >
             <ArrowLeft data-icon="inline-start" />

@@ -4,8 +4,19 @@ import { toast } from 'sonner';
 import { ADMIN_PATH } from '@/constants';
 import { useStore } from '@/store/useStore';
 
+/**
+ * What a 401 means for this request.
+ *
+ * `session` is the default: the token is gone and the browser has to sign in again. `credential`
+ * is for the sign-in calls themselves - a 401 there is "wrong username/password/role", not an
+ * expired session, and treating it as the latter used to show 「登录已过期」 to somebody who had
+ * simply mistyped a password.
+ */
+export type AuthFailure = 'session' | 'credential';
+
 interface ApiOptions extends AxiosRequestConfig {
   showError?: boolean;
+  authFailure?: AuthFailure;
 }
 
 export class FetchError extends Error {
@@ -35,6 +46,45 @@ const showErrorToast = (message: string) => {
   toast.error(message);
 };
 
+/** The server's own 中文解释, when it sent one. */
+function serverMessageOf(error: any): string | undefined {
+  const message = error?.response?.data?.message ?? error?.data?.message;
+  return typeof message === 'string' && message.trim() ? message.trim() : undefined;
+}
+
+/**
+ * Turn any thrown request failure into the sentence a person should read.
+ *
+ * The rule the audit found broken: a page used to substitute 「网络错误」 for every refusal,
+ * including 400/403 answers that explained exactly what was wrong. This helper is the one
+ * translator; pages use it when they own an inline error, and `api()` uses it for its toast.
+ * An Axios internal message ("Request failed with status code 403") is never returned.
+ */
+export function apiErrorMessage(error: unknown, fallback = '请求失败，请重试'): string {
+  if (error instanceof FetchError) {
+    return error.message || fallback;
+  }
+
+  const anyError = error as any;
+  const serverMessage = serverMessageOf(error);
+  if (serverMessage) return serverMessage;
+
+  const code = String(anyError?.code ?? '');
+  const raw = typeof anyError?.message === 'string' ? anyError.message : '';
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || /timeout/i.test(raw)) {
+    return '请求超时，请检查网络后重试';
+  }
+  // An Axios error with no response never reached the server. A plain Error (a client-side
+  // guard such as 「学生信息不存在」) has no `isAxiosError`, so its message is already user copy.
+  if (anyError?.isAxiosError && !anyError?.response) {
+    return '网络连接失败，请检查网络后重试';
+  }
+  if (error instanceof Error && raw && !/^Request failed with status code \d+$/.test(raw)) {
+    return raw;
+  }
+  return fallback;
+}
+
 /**
  * Send the browser back to the right login page after a 401.
  *
@@ -58,17 +108,29 @@ function redirectToLogin() {
 /**
  * 401 and 403 are different problems and used to share one message.
  *
- * `401` means the session is gone: clear it, and send the user to log in - the app previously left
- * the stale user in the store, so every subsequent request failed the same way while the UI kept
- * rendering as if signed in.
+ * `401` normally means the session is gone: clear it, and send the user to log in - the app
+ * previously left the stale user in the store, so every subsequent request failed the same way
+ * while the UI kept rendering as if signed in. The one exception is `authFailure: 'credential'`:
+ * the sign-in endpoints answer 401 for a wrong password or a wrong role, and telling that person
+ * their session expired is a false diagnosis.
  *
  * `403` means the session is perfectly valid and the account simply may not do this. Telling that
  * user "登录已过期或无权限，请重新登录" was actively misleading: it hid the real answer (a role or
  * ownership decision on the server) behind a symptom that never happens, and made authorization
- * defects look like a login problem.
+ * defects look like a login problem. The server's own sentence is preferred when it sent one.
  */
-function handleAuthError(status: number | undefined, showError: boolean) {
+function handleAuthError(
+  status: number | undefined,
+  showError: boolean,
+  authFailure: AuthFailure,
+  serverMessage?: string,
+) {
   if (status === 401) {
+    if (authFailure === 'credential') {
+      if (showError) showErrorToast(serverMessage || '账号或密码错误，请重试');
+      return true;
+    }
+
     useStore.getState().logout();
     if (showError) showErrorToast('登录已过期，请重新登录');
     redirectToLogin();
@@ -76,7 +138,7 @@ function handleAuthError(status: number | undefined, showError: boolean) {
   }
 
   if (status === 403) {
-    if (showError) showErrorToast('当前账号无权访问该功能');
+    if (showError) showErrorToast(serverMessage || '当前账号无权访问该功能');
     return true;
   }
 
@@ -144,7 +206,7 @@ axiosInstance.interceptors.response.use(
 );
 
 export const api = async <T = any>(config: ApiOptions): Promise<T> => {
-  const { showError = true, ...axiosConfig } = config;
+  const { showError = true, authFailure = 'session', ...axiosConfig } = config;
   
   try {
     const response = await axiosInstance(axiosConfig);
@@ -158,10 +220,9 @@ export const api = async <T = any>(config: ApiOptions): Promise<T> => {
   } catch (error: any) {
     // 处理未授权错误 (401/403)
     const status = error.response?.status || error.status;
-    if (!handleAuthError(status, showError)) {
+    if (!handleAuthError(status, showError, authFailure, serverMessageOf(error))) {
       if (showError) {
-        const message = error.response?.data?.message || error.data?.message || error.message || '网络请求错误，请重试';
-        showErrorToast(message);
+        showErrorToast(apiErrorMessage(error, '网络请求错误，请重试'));
       }
     }
     throw error;

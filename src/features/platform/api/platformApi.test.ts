@@ -40,8 +40,14 @@ describe('platform APIs', () => {
     await paymentApi.getOrderStatus('ORDER-1');
     await parentBuffApi.cast(7);
 
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/payment/create', { method: 'wechat' });
-    expect(mocks.apiGet).toHaveBeenCalledWith('/api/payment/status/ORDER-1');
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/payment/create',
+      { method: 'wechat' },
+      { showError: false },
+    );
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/payment/status/ORDER-1', {
+      showError: false,
+    });
     expect(mocks.apiPost).toHaveBeenCalledWith('/api/parent-buff', { studentId: 7 });
   });
 });

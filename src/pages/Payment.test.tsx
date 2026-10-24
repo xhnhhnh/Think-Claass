@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   setUser: vi.fn(),
   createOrder: vi.fn(),
   getOrderStatus: vi.fn(),
-  settings: { current: {} as Record<string, string> },
+  settings: { current: null as Record<string, string> | null },
+  settingsError: false,
+  refetchSettings: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
 }));
@@ -28,7 +30,11 @@ vi.mock('@/store/useStore', () => ({
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 
 vi.mock('@/hooks/queries/useSettings', () => ({
-  useSettings: () => ({ data: mocks.settings.current }),
+  useSettings: () => ({
+    data: mocks.settings.current ?? undefined,
+    isError: mocks.settingsError,
+    refetch: mocks.refetchSettings,
+  }),
 }));
 
 vi.mock('@/features/platform/api/paymentApi', () => ({
@@ -59,6 +65,7 @@ describe('Payment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.settings.current = { ...settings };
+    mocks.settingsError = false;
     mocks.createOrder.mockResolvedValue({
       success: true,
       message: '订单创建成功',
@@ -180,6 +187,25 @@ describe('Payment', () => {
 
     expect(screen.getByText(/管理员还没有启用任何支付渠道/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '生成支付订单' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer a channel before the settings have loaded', () => {
+    mocks.settings.current = null;
+    render(<Payment />);
+
+    expect(screen.getByText('正在读取支付配置…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '生成支付订单' })).not.toBeInTheDocument();
+  });
+
+  it('offers a retry when the settings read failed, instead of claiming channels are off', () => {
+    mocks.settingsError = true;
+    render(<Payment />);
+
+    expect(screen.getByText(/无法读取支付配置/)).toBeInTheDocument();
+    expect(screen.queryByText(/管理员还没有启用任何支付渠道/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '重试' }));
+    expect(mocks.refetchSettings).toHaveBeenCalled();
   });
 
   it('keeps the activation-code path reachable', () => {

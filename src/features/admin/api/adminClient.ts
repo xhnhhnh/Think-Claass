@@ -62,7 +62,13 @@ function unwrapData<T>(response: { data?: T } | T): T {
 
 export const adminClient = {
   createSession: async (credentials: AdminCredentials): Promise<AdminSession> => {
-    const response = await apiPost<{ success: true; data: AdminSession }>('/api/admin/session', credentials);
+    // A 401 from the sign-in endpoint means wrong credentials, not an expired session; the login
+    // page renders the server's sentence inline instead of a second toast.
+    const response = await apiPost<{ success: true; data: AdminSession }>(
+      '/api/admin/session',
+      credentials,
+      { showError: false, authFailure: 'credential' },
+    );
     return unwrapData(response);
   },
 

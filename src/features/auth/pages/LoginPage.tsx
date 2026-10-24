@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { User, Lock } from "lucide-react";
@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { apiErrorMessage } from "@/lib/api";
+import { homePathForRole } from "@/app/routing/homePath";
 import { cn } from "@/lib/utils";
 
 /**
@@ -50,20 +52,37 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
   const setToken = useStore((state) => state.setToken);
+  /**
+   * Which invite-code lookup is the current one.
+   *
+   * The lookup fires on every six-character value; a slow answer for an old code used to land
+   * after a newer one and attach the previous class's roster to the form. A sequence number makes
+   * "the answer the reader is waiting for" explicit.
+   */
+  const inviteLookupSeq = useRef(0);
 
   const isCodesRole = role === "student" || role === "parent";
   const isSuccessMessage = error.includes("成功");
 
+  // Already signed in: this page is not a place to retype credentials. Send the reader to the
+  // console that belongs to their role instead of showing them the marketing homepage.
+  useEffect(() => {
+    if (user) navigate(homePathForRole(user.role), { replace: true });
+  }, [user, navigate]);
+
   const handleInviteCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const code = e.target.value.toUpperCase();
+    const requestId = ++inviteLookupSeq.current;
     setInviteCode(code);
 
     if (code.length === 6) {
       setFetchingStudents(true);
       try {
         const data = (await authApi.verifyInviteCode(code, role)) as any;
+        if (requestId !== inviteLookupSeq.current) return;
         if (data.success) {
           setStudents(data.students);
           setSelectedStudentId(data.students.length > 0 ? data.students[0].id : null);
@@ -74,13 +93,17 @@ export default function Login() {
           setError(data.message);
         }
       } catch (err) {
-        setError("获取班级学生列表失败");
+        if (requestId !== inviteLookupSeq.current) return;
+        setStudents([]);
+        setSelectedStudentId(null);
+        setError(apiErrorMessage(err, "获取班级学生列表失败"));
       } finally {
-        setFetchingStudents(false);
+        if (requestId === inviteLookupSeq.current) setFetchingStudents(false);
       }
     } else {
       setStudents([]);
       setSelectedStudentId(null);
+      setFetchingStudents(false);
     }
   };
 
@@ -114,13 +137,7 @@ export default function Login() {
             ...data.user,
             classFeatures: data.classFeatures ?? undefined,
           });
-          if (data.user.role === "teacher") {
-            navigate("/teacher");
-          } else if (data.user.role === "parent") {
-            navigate("/parent/dashboard");
-          } else {
-            navigate("/student");
-          }
+          navigate(homePathForRole(data.user.role));
         } else {
           setIsLogin(true);
           setError(
@@ -128,10 +145,12 @@ export default function Login() {
           );
         }
       } else {
-        setError(data.message || "An error occurred");
+        setError(data.message || "登录失败，请重试");
       }
     } catch (err) {
-      setError("Network error");
+      // The server's sentence is the only one worth showing: `src/lib/api.ts` classifies a 401
+      // from the sign-in endpoint as wrong credentials, not as an expired session.
+      setError(apiErrorMessage(err, "登录失败，请重试"));
     } finally {
       setLoading(false);
     }
@@ -177,8 +196,20 @@ export default function Login() {
             onChange={(r) => {
               setRole(r);
               setIsLogin(true);
+              // A different identity changes which codes are valid and which roster can be shown;
+              // carrying the previous role's error or student list into the new form is how the
+              // wrong child got attached to an account.
+              setError("");
+              setInviteCode("");
+              setStudents([]);
+              setSelectedStudentId(null);
+              setFetchingStudents(false);
+              inviteLookupSeq.current += 1;
             }}
           />
+          <p className="text-xs text-fg-3">
+            请选择与账号一致的身份；身份选错时，服务端只会返回「账号或密码错误」。
+          </p>
 
           <AnimatePresence>
             {error && (

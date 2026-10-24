@@ -30,10 +30,26 @@ describe('authApi', () => {
     await authApi.activate({ code: 'ABC123', userId: 9 });
     await authApi.updateProfile({ username: 'teacher02', password: 'new-pass' });
 
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/auth/login', { username: 'student1', password: 'secret', role: 'student' });
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/auth/register', { username: 'parent1', password: 'secret', role: 'parent', student_id: 3 });
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/auth/activate', { code: 'ABC123', userId: 9 });
-    expect(mocks.apiPut).toHaveBeenCalledWith('/api/auth/profile', { username: 'teacher02', password: 'new-pass' });
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/auth/login',
+      { username: 'student1', password: 'secret', role: 'student' },
+      { showError: false, authFailure: 'credential' },
+    );
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/auth/register',
+      { username: 'parent1', password: 'secret', role: 'parent', student_id: 3 },
+      { showError: false, authFailure: 'credential' },
+    );
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/auth/activate',
+      { code: 'ABC123', userId: 9 },
+      { showError: false },
+    );
+    expect(mocks.apiPut).toHaveBeenCalledWith(
+      '/api/auth/profile',
+      { username: 'teacher02', password: 'new-pass' },
+      { showError: false },
+    );
   });
 
   it('keeps admin session and invite code compatibility paths', async () => {
@@ -44,7 +60,13 @@ describe('authApi', () => {
     await authApi.verifyInviteCode('ABCDEF', 'parent');
 
     expect(adminResponse).toEqual({ success: true, user: { id: 1 }, data: { user: { id: 1 } } });
-    expect(mocks.apiPost).toHaveBeenCalledWith('/api/admin/session', { username: 'admin', password: 'secret' });
-    expect(mocks.apiGet).toHaveBeenCalledWith('/api/classes/invite/ABCDEF?role=parent');
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/api/admin/session',
+      { username: 'admin', password: 'secret' },
+      { showError: false, authFailure: 'credential' },
+    );
+    expect(mocks.apiGet).toHaveBeenCalledWith('/api/classes/invite/ABCDEF?role=parent', {
+      showError: false,
+    });
   });
 });

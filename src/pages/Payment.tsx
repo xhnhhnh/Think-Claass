@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowRight, CheckCircle2, KeyRound, LoaderCircle, ScanLine } from 'lucide-react';
+import { ArrowRight, CheckCircle2, KeyRound, LoaderCircle, RefreshCw, ScanLine } from 'lucide-react';
 
 import { paymentApi, type PaymentMethod, type PaymentOrder } from '@/features/platform/api/paymentApi';
 import { useSettings } from '@/hooks/queries/useSettings';
+import { apiErrorMessage } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,17 +36,22 @@ export default function Payment() {
   const navigate = useNavigate();
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
-  const { data: settings } = useSettings();
+  const { data: settings, isError: settingsError, refetch: refetchSettings } = useSettings();
 
   const [method, setMethod] = useState<PaymentMethod>('wechat');
   const [order, setOrder] = useState<PaymentOrder | null>(null);
   const [phase, setPhase] = useState<Phase>('choose');
   const [creating, setCreating] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [pollingStopped, setPollingStopped] = useState(false);
   const pollTimer = useRef<number | null>(null);
+  /** 5 minutes at 3s: long enough for a slow callback, short enough not to poll forever. */
+  const pollAttempts = useRef(0);
+  const MAX_POLLS = 100;
 
   const wechatEnabled = settings?.payment_enable_wechat === '1';
   const alipayEnabled = settings?.payment_enable_alipay === '1';
+  const settingsLoading = !settings && !settingsError;
 
   // The first enabled channel is the default; a deployment with only Alipay must not open on a
   // channel whose button answers 400.
@@ -53,7 +59,6 @@ export default function Payment() {
     if (!settings) return;
     if (wechatEnabled) setMethod('wechat');
     else if (alipayEnabled) setMethod('alipay');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.payment_enable_wechat, settings?.payment_enable_alipay]);
 
   const stopPolling = useCallback(() => {
@@ -70,6 +75,7 @@ export default function Payment() {
       stopPolling();
       setOrder(paid);
       setPhase('paid');
+      setPollingStopped(false);
       // The callback activated the account *before* marking the order paid (`applyWebhook` calls
       // `identity.activateUser` first), so the session's own flag is all that is stale - and it is
       // what `PrivateRoute` reads.
@@ -81,29 +87,57 @@ export default function Payment() {
     [setUser, stopPolling, user],
   );
 
+  /**
+   * Check the order once.
+   *
+   * Also the way out of a stopped poll: if the callback was lost, the order may still have been
+   * paid, and the page must not require a reload to find out.
+   */
+  const refreshOrderStatus = useCallback(
+    async (orderNo: string, announce = false) => {
+      try {
+        const result = await paymentApi.getOrderStatus(orderNo);
+        const current = result.data;
+        if (current.status === 'PAID') {
+          settle(current);
+          return;
+        }
+        if (current.status === 'EXPIRED' || current.status === 'CANCELLED') {
+          stopPolling();
+          setStatusMessage('订单已过期，请重新下单。');
+          setPhase('choose');
+          setPollingStopped(false);
+          return;
+        }
+        if (announce) {
+          setStatusMessage('还没有收到支付结果。完成支付后，可以点「重新查询订单状态」。');
+        }
+      } catch (error) {
+        if (announce) {
+          setStatusMessage(apiErrorMessage(error, '查询订单状态失败，请稍后重试'));
+        }
+      }
+    },
+    [settle, stopPolling],
+  );
+
   const startPolling = useCallback(
     (orderNo: string) => {
       stopPolling();
-      pollTimer.current = window.setInterval(async () => {
-        try {
-          const result = await paymentApi.getOrderStatus(orderNo);
-          const current = result.data;
-          if (current.status === 'PAID') {
-            settle(current);
-            return;
-          }
-          if (current.status === 'EXPIRED' || current.status === 'CANCELLED') {
-            stopPolling();
-            setStatusMessage('订单已过期，请重新下单。');
-            setPhase('choose');
-          }
-        } catch {
-          // A failed poll is not the end of the order: the next tick tries again, and the order's
-          // own expiry is what ends it.
+      pollAttempts.current = 0;
+      setPollingStopped(false);
+      pollTimer.current = window.setInterval(() => {
+        pollAttempts.current += 1;
+        if (pollAttempts.current > MAX_POLLS) {
+          stopPolling();
+          setPollingStopped(true);
+          setStatusMessage('等待支付结果超时了。如果已经完成支付，请点「重新查询订单状态」；否则重新下单。');
+          return;
         }
+        void refreshOrderStatus(orderNo);
       }, 3000);
     },
-    [settle, stopPolling],
+    [refreshOrderStatus, stopPolling],
   );
 
   const handleCreate = async () => {
@@ -119,9 +153,8 @@ export default function Payment() {
         startPolling(result.data.orderNo);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : '下单失败，请稍后重试';
-      setStatusMessage(message);
-      toast.error(message);
+      // Inline on purpose: the page stays on the channel chooser with the reason visible.
+      setStatusMessage(apiErrorMessage(error, '下单失败，请稍后重试'));
     } finally {
       setCreating(false);
     }
@@ -129,11 +162,13 @@ export default function Payment() {
 
   const handleContinue = () => {
     if (user?.role === 'student') navigate('/student');
-    else if (user?.role === 'parent') navigate('/parent');
+    else if (user?.role === 'parent') navigate('/parent/dashboard');
     else navigate('/');
   };
 
   const channelsOff = settings !== undefined && !wechatEnabled && !alipayEnabled;
+  const methodEnabled = method === 'wechat' ? wechatEnabled : alipayEnabled;
+  const canCreate = Boolean(settings) && !channelsOff && methodEnabled;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-1 p-4">
@@ -159,7 +194,19 @@ export default function Payment() {
             </div>
           ) : null}
 
-          {channelsOff ? (
+          {settingsLoading ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-fg-3">
+              <LoaderCircle className="size-4 animate-spin" />
+              正在读取支付配置…
+            </div>
+          ) : settingsError ? (
+            <div className="rounded-card border border-danger/20 bg-danger/10 p-5 text-sm text-fg-2">
+              无法读取支付配置。这不代表支付被关闭，请重试。
+              <Button variant="outline" size="sm" className="ml-3" onClick={() => void refetchSettings()}>
+                重试
+              </Button>
+            </div>
+          ) : channelsOff ? (
             <div className="rounded-card border border-danger/20 bg-danger/10 p-5 text-sm text-fg-2">
               管理员还没有启用任何支付渠道。请联系老师使用激活码开通，或让管理员在「系统设置 → 支付渠道」里启用微信/支付宝。
             </div>
@@ -194,7 +241,7 @@ export default function Payment() {
               <Button
                 size="lg"
                 className="h-12 w-full font-bold"
-                disabled={creating}
+                disabled={creating || !canCreate}
                 onClick={() => void handleCreate()}
               >
                 {creating ? <LoaderCircle className="size-5 animate-spin" /> : '生成支付订单'}
@@ -232,10 +279,25 @@ export default function Payment() {
                   </span>
                 </div>
                 <p className="mt-3 flex items-center gap-2 text-xs text-fg-3">
-                  <LoaderCircle className="size-3.5 animate-spin" />
+                  {pollingStopped ? (
+                    <RefreshCw className="size-3.5" />
+                  ) : (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  )}
                   {statusMessage || '等待支付结果…支付完成后这个页面会自动继续。'}
                 </p>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => void refreshOrderStatus(order.orderNo, true)}
+              >
+                <RefreshCw data-icon="inline-start" />
+                重新查询订单状态
+              </Button>
             </>
           ) : (
             <div className="space-y-4 text-center">

@@ -32,16 +32,16 @@ export function EmptyState({
     <div
       data-slot="empty-state"
       className={cn(
-        'flex min-h-40 flex-col items-center justify-center gap-3 rounded-panel border border-dashed border-border bg-white/70 p-8 text-center',
+        'flex min-h-40 flex-col items-center justify-center gap-3 rounded-panel border border-dashed border-line-1 bg-surface-2/70 p-8 text-center',
         className,
       )}
     >
-      <span className="flex size-12 items-center justify-center rounded-card bg-primary/5 text-primary">
+      <span className="flex size-12 items-center justify-center rounded-card bg-role-soft text-role">
         <Icon aria-hidden="true" className="size-5" />
       </span>
       <div className="space-y-1">
-        <div className="text-sm font-semibold text-ink-1">{title}</div>
-        {description ? <div className="text-sm text-ink-3">{description}</div> : null}
+        <div className="text-sm font-semibold text-fg-1">{title}</div>
+        {description ? <div className="text-sm text-fg-3">{description}</div> : null}
       </div>
       {action}
     </div>

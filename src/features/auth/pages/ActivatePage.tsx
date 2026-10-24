@@ -6,10 +6,12 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 import { authApi } from '@/features/auth/api/authApi';
+import { homePathForRole } from '@/app/routing/homePath';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { apiErrorMessage } from '@/lib/api';
 
 /**
  * Activation-code entry.
@@ -24,14 +26,16 @@ import { Spinner } from '@/components/ui/spinner';
 export default function Activate() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const user = useStore((state) => state.user);
   const setUser = useStore((state) => state.setUser);
   const navigate = useNavigate();
 
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     if (!code.trim()) {
-      toast.error('请输入激活码');
+      setError('请输入激活码');
       return;
     }
 
@@ -44,18 +48,14 @@ export default function Activate() {
         if (user) {
           setUser({ ...user, is_activated: true });
         }
-        if (user?.role === 'student') {
-          navigate('/student');
-        } else if (user?.role === 'parent') {
-          navigate('/parent');
-        } else {
-          navigate('/');
-        }
+        navigate(user ? homePathForRole(user.role) : '/login');
       } else {
-        toast.error(data.message || '激活失败');
+        setError(data.message || '激活失败，请重试');
       }
     } catch (err) {
-      toast.error('网络错误，无法连接到服务器');
+      // A wrong code is a 400 with 「无效的激活码」; calling that a network failure sent people to
+      // check their Wi-Fi instead of the code.
+      setError(apiErrorMessage(err, '激活失败，请重试'));
     } finally {
       setLoading(false);
     }
@@ -77,6 +77,12 @@ export default function Activate() {
         </div>
 
         <form onSubmit={handleActivate} className="space-y-6 p-8">
+          {error ? (
+            <div role="alert" className="rounded-panel bg-danger-soft p-4 text-sm font-medium text-danger">
+              {error}
+            </div>
+          ) : null}
+
           <FormField label="激活码">
             <Input
               type="text"
