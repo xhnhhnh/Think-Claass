@@ -173,8 +173,54 @@ describe('TeacherCommunication', () => {
     expect(await page.findByText('旧通知')).toBeInTheDocument();
     fireEvent.click(page.getByRole('button', { name: '撤回通知 旧通知' }));
 
+    // Withdrawing a notice is irreversible from the pupils' wall, so it asks first. The alert
+    // dialog portals out of this render container, so it is queried from `screen`.
+    expect(screen.getByText('撤回这条班级通知？')).toBeInTheDocument();
+    expect(mocks.deleteClassAnnouncement).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '撤回' }));
+
     await waitFor(() => expect(mocks.deleteClassAnnouncement).toHaveBeenCalledWith(8));
     expect(mocks.toastSuccess).toHaveBeenCalledWith('通知已撤回');
+  });
+
+  it('does not coin a second message from a repeated Enter / click', async () => {
+    let resolveSend: (value: unknown) => void = () => undefined;
+    mocks.sendMessage.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    render(<TeacherCommunication />);
+
+    expect(await screen.findByText('请问作业需要签字吗？')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '回复' }));
+    const input = screen.getByPlaceholderText('回复 家长31...');
+    fireEvent.change(input, { target: { value: '需要签字' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
+    resolveSend({ success: true });
+  });
+
+  it('leaves the failure message to the api layer and keeps the reply draft', async () => {
+    mocks.sendMessage.mockRejectedValueOnce(new Error('403 无权限'));
+
+    render(<TeacherCommunication />);
+
+    expect(await screen.findByText('请问作业需要签字吗？')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '回复' }));
+    fireEvent.change(screen.getByPlaceholderText('回复 家长31...'), {
+      target: { value: '需要签字' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    // No page-level toast: the api layer owns the server message, and a second one would double it.
+    await waitFor(() => expect(mocks.sendMessage).toHaveBeenCalled());
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('需要签字')).toBeInTheDocument();
   });
 
   it('says the notice read failed instead of claiming the class has none', async () => {

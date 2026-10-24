@@ -45,7 +45,7 @@ export default function TeacherAiStudyPage() {
   const [confirming, setConfirming] = useState(false);
 
   const activeClassId = classId ?? classes[0]?.id ?? null;
-  const { data: insight, isLoading, error } = useAiStudyClassInsight(activeClassId);
+  const { data: insight, isLoading, error, refetch } = useAiStudyClassInsight(activeClassId);
   const assign = useAssignAiStudySetsMutation();
 
   /** Students the board can dispatch to: no open set already. */
@@ -175,8 +175,12 @@ export default function TeacherAiStudyPage() {
         ) : null}
 
         {!isLoading && error ? (
-          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center text-danger">
-            班级智学看板加载失败，请稍后重试
+          <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+            <p className="font-semibold text-danger">班级智学看板加载失败</p>
+            <p className="mt-1 text-sm text-fg-3">这不代表这个班没有数据，请重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+              重新加载
+            </Button>
           </div>
         ) : null}
 

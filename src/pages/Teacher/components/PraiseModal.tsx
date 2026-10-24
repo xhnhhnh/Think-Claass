@@ -23,12 +23,18 @@ export function PraiseModal({ isOpen, onClose, onSubmit, submitting }: PraiseMod
     { id: 'bg-role-soft/60', label: '神秘紫' }
   ];
 
+  /** The message the teacher wrote is only discarded once the dialog is gone (sent or cancelled). */
+  React.useEffect(() => {
+    if (!isOpen) {
+      setContent('');
+      setColor('bg-yellow-100');
+    }
+  }, [isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (content.trim()) {
       onSubmit(content.trim(), color);
-      setContent('');
-      setColor('bg-yellow-100');
     }
   };
 

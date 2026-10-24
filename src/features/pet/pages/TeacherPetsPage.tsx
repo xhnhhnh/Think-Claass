@@ -88,12 +88,16 @@ export default function TeacherPets() {
       toast.error('请选择精灵属性');
       return;
     }
+    if (savingImages) return;
     setSavingImages(true);
     try {
       await petMutation.mutateAsync({ studentId: editingStudent.student_id, data: editingImages });
       toast.success(editingStudent.has_pet ? '外观修改成功！' : '精灵分配成功！');
       setIsModalOpen(false);
       await refetch();
+    } catch (err) {
+      // The api layer already toasted the server's reason; the editor keeps the chosen images.
+      console.error(err);
     } finally {
       setSavingImages(false);
     }

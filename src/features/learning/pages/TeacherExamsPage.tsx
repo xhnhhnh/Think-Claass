@@ -4,12 +4,14 @@ import { Award, FileSpreadsheet, PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { examsApi, type Exam } from '@/features/learning/api/examsApi';
+import { apiErrorMessage } from '@/lib/api';
 import { useExamGrades, useExams } from '@/features/learning/hooks/useExams';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useStore } from '@/store/useStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -62,7 +64,7 @@ export default function TeacherExams() {
 
   const classId = selectedClassId;
 
-  const { data: exams = [], isLoading, error } = useExams(classId);
+  const { data: exams = [], isLoading, error, refetch } = useExams(classId);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -70,7 +72,17 @@ export default function TeacherExams() {
   const [newTotalScore, setNewTotalScore] = useState('100');
   const [showGradeModal, setShowGradeModal] = useState(false);
   const [currentExam, setCurrentExam] = useState<Exam | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Exam | null>(null);
+  const [createError, setCreateError] = useState('');
   const [editingGrades, setEditingGrades] = useState<Record<number, string>>({});
+  /**
+   * Exams whose grade sheet has been loaded *or saved* and has at least one score.
+   *
+   * The badge used to be computed from `currentExam` only, so on page load every exam read
+   * 「待录入成绩」 even when grades existed, and after opening a second exam the first one flipped
+   * back to 「待录入」. Recorded-ness is a property of the row that survives the dialog closing.
+   */
+  const [recordedExamIds, setRecordedExamIds] = useState<Set<number>>(() => new Set());
 
   const { data: examGradesData, isLoading: isGradesLoading } = useExamGrades(currentExam?.id ?? null, showGradeModal);
 
@@ -81,7 +93,21 @@ export default function TeacherExams() {
       nextState[grade.student_id] = grade.score === null ? '' : grade.score.toString();
     }
     setEditingGrades(nextState);
-  }, [examGradesData]);
+
+    // Remember what this read said about the exam, so the list badge does not depend on the dialog
+    // staying open on that one row.
+    if (currentExam) {
+      const examId = currentExam.id;
+      const hasAnyGrade = examGradesData.grades.some((grade) => grade.score !== null);
+      setRecordedExamIds((prev) => {
+        if (prev.has(examId) === hasAnyGrade) return prev;
+        const next = new Set(prev);
+        if (hasAnyGrade) next.add(examId);
+        else next.delete(examId);
+        return next;
+      });
+    }
+  }, [examGradesData, currentExam]);
 
   const createMutation = useMutation({
     mutationFn: examsApi.createExam,
@@ -95,6 +121,7 @@ export default function TeacherExams() {
       setNewDesc('');
       setNewDate('');
       setNewTotalScore('100');
+      setCreateError('');
       toast.success('考试创建成功');
     },
   });
@@ -127,6 +154,15 @@ export default function TeacherExams() {
     },
     onSuccess: async () => {
       if (currentExam) {
+        const examId = currentExam.id;
+        const hasAnyScore = Object.values(editingGrades).some((value) => String(value).trim() !== '');
+        setRecordedExamIds((prev) => {
+          if (prev.has(examId) === hasAnyScore) return prev;
+          const next = new Set(prev);
+          if (hasAnyScore) next.add(examId);
+          else next.delete(examId);
+          return next;
+        });
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['exam-grades', currentExam.id] }),
           queryClient.invalidateQueries({ queryKey: ['exams', classId] }),
@@ -145,19 +181,31 @@ export default function TeacherExams() {
       toast.error('请先选择班级');
       return;
     }
+    if (createMutation.isPending) return;
 
-    await createMutation.mutateAsync({
-      class_id: classId,
-      teacher_id: teacherId,
-      title: newTitle.trim(),
-      description: newDesc.trim() || undefined,
-      exam_date: newDate || null,
-      total_score: parseInt(newTotalScore, 10),
-    });
+    try {
+      await createMutation.mutateAsync({
+        class_id: classId,
+        teacher_id: teacherId,
+        title: newTitle.trim(),
+        description: newDesc.trim() || undefined,
+        exam_date: newDate || null,
+        total_score: parseInt(newTotalScore, 10),
+      });
+    } catch (error) {
+      // Inline, with the server's own sentence; the typed exam stays in the dialog.
+      setCreateError(apiErrorMessage(error, '创建失败，请重试'));
+    }
   };
 
-  const handleDeleteExam = async (id: number) => {
-    await deleteMutation.mutateAsync(id);
+  const handleDeleteExam = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      // The api layer already toasted the server's reason; the confirm stays open for a retry.
+    }
   };
 
   const openGradeModal = (exam: Exam) => {
@@ -168,14 +216,9 @@ export default function TeacherExams() {
   const handleSaveGrades = async () => {
     try {
       await saveGradesMutation.mutateAsync();
-    } catch (mutationError: any) {
-      toast.error(mutationError.message || '保存失败，请重试');
+    } catch {
+      // The api layer already toasted the failure; the typed scores stay in the dialog.
     }
-  };
-
-  const hasRecordedGrades = (examId: number) => {
-    if (currentExam?.id !== examId || !examGradesData?.grades) return false;
-    return examGradesData.grades.some((grade) => grade.score !== null);
   };
 
   // The page's primary action, reachable from the command palette as well as the context bar.
@@ -226,8 +269,12 @@ export default function TeacherExams() {
       )}
 
       {!isLoading && error && (
-        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center text-danger">
-          考试列表加载失败，请稍后重试
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">考试列表加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有考试，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       )}
 
@@ -256,7 +303,7 @@ export default function TeacherExams() {
                     title="删除"
                     className="text-danger hover:bg-danger/10 hover:text-danger"
                     disabled={deleteMutation.isPending}
-                    onClick={() => handleDeleteExam(exam.id)}
+                    onClick={() => setDeleteTarget(exam)}
                   >
                     <Trash2 />
                   </Button>
@@ -267,8 +314,8 @@ export default function TeacherExams() {
                   <p>说明: {exam.description || '暂无说明'}</p>
                   <p className="flex items-center gap-2">
                     状态:
-                    <Badge variant={hasRecordedGrades(exam.id) ? 'success' : 'warning'}>
-                      {hasRecordedGrades(exam.id) ? '已录入部分成绩' : '待录入成绩'}
+                    <Badge variant={recordedExamIds.has(exam.id) ? 'success' : 'warning'}>
+                      {recordedExamIds.has(exam.id) ? '已录入部分成绩' : '待录入成绩'}
                     </Badge>
                   </p>
                 </div>
@@ -283,7 +330,13 @@ export default function TeacherExams() {
         </div>
       )}
 
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <Dialog
+        open={showCreateModal}
+        onOpenChange={(open) => {
+          setShowCreateModal(open);
+          if (!open) setCreateError('');
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>新建考试</DialogTitle>
@@ -320,6 +373,11 @@ export default function TeacherExams() {
                 />
               </FormField>
             </div>
+            {createError && (
+              <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {createError}
+              </p>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
                 取消
@@ -383,6 +441,24 @@ export default function TeacherExams() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        destructive
+        title="删除这场考试？"
+        description={
+          deleteTarget
+            ? `「${deleteTarget.title}」以及已经录入的成绩都会被删除，且无法恢复。`
+            : '删除后无法恢复。'
+        }
+        confirmLabel="删除"
+        pendingLabel="删除中..."
+        isPending={deleteMutation.isPending}
+        onConfirm={() => void handleDeleteExam()}
+      />
     </PageScaffold>
   );
 }

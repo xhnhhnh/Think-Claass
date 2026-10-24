@@ -4,6 +4,7 @@ import { FileText, Plus, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { apiErrorMessage } from '@/lib/api';
 import { papersApi } from '@/features/learning/api/papersApi';
 import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
 import { useClasses } from '@/hooks/queries/useClasses';
@@ -57,6 +58,8 @@ export default function TeacherPapers() {
 
   const [showSubjectDialog, setShowSubjectDialog] = useState(false);
   const [subjectName, setSubjectName] = useState('');
+  /** The last failed write, shown in one banner. The api layer already toasted its own copy. */
+  const [actionError, setActionError] = useState('');
 
   const classOptions = useMemo(() => classes, [classes]);
 
@@ -84,6 +87,7 @@ export default function TeacherPapers() {
       toast.error('请选择试卷所属班级');
       return;
     }
+    setActionError('');
     try {
       const created = await papersApi.create({
         title: createState.title.trim(),
@@ -96,8 +100,8 @@ export default function TeacherPapers() {
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       navigate(`/teacher/papers/${created.data.id}/edit`);
     } catch (error) {
-      // Was an empty `catch`: a refusal (or a bad payload) looked like a dead button.
-      toast.error(error instanceof Error ? error.message : '创建失败，请重试');
+      // Inline, with the server's own sentence; the typed title stays in the form.
+      setActionError(apiErrorMessage(error, '创建失败，请重试'));
     }
   };
 
@@ -105,6 +109,7 @@ export default function TeacherPapers() {
     event.preventDefault();
     const name = subjectName.trim();
     if (!name) return;
+    setActionError('');
     try {
       await knowledgeApi.createSubject({ name });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-subjects'] });
@@ -112,33 +117,35 @@ export default function TeacherPapers() {
       setSubjectName('');
       setShowSubjectDialog(false);
     } catch (e) {
-      // Was an empty `catch`: a refused subject name looked like a dialog that would not close.
-      toast.error(e instanceof Error ? e.message : '新增学科失败，请重试');
+      // Inline, with the server's own sentence; the dialog stays open for a retry.
+      setActionError(apiErrorMessage(e, '新增学科失败，请重试'));
     }
   };
 
   const handlePublish = async (paperId: number) => {
+    setActionError('');
     try {
       await papersApi.update(paperId, { status: 'published' });
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       toast.success('已发布');
     } catch (e) {
       /**
-       * Was an empty `catch`, and this is the one that mattered: the backend refuses to publish a
-       * paper with no questions (400). The button looked dead - the row kept saying 草稿 with no
-       * reason given - so the teacher's next move was to press it again.
+       * The backend refuses to publish a paper with no questions (400). The row used to keep saying
+       * 草稿 with no reason given, so the teacher's next move was to press it again. The api layer
+       * already toasted the server's sentence; this banner keeps it visible.
        */
-      toast.error(e instanceof Error ? e.message : '发布失败，请重试');
+      setActionError(apiErrorMessage(e, '发布失败，请重试'));
     }
   };
 
   const handleUnpublish = async (paperId: number) => {
+    setActionError('');
     try {
       await papersApi.update(paperId, { status: 'draft' });
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       toast.success('已取消发布');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '取消发布失败，请重试');
+      setActionError(apiErrorMessage(e, '取消发布失败，请重试'));
     }
   };
 
@@ -226,6 +233,11 @@ export default function TeacherPapers() {
         />
       }
     >
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {actionError}
+        </p>
+      )}
       {isLoading ? (
         <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
           <Spinner label="正在加载试卷" />

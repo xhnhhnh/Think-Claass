@@ -92,7 +92,21 @@ export default function TeacherAttendance() {
   const statusOf = (studentId: number): string | null =>
     draftStatus[studentId] ?? savedStatusByStudent.get(studentId) ?? null;
   const studentNames = new Map(students.map((student) => [student.id, student.name]));
-  const hasPendingLeave = leaveRows.some((row) => row.status === 'pending');
+  /**
+   * Leave rows for the class currently selected.
+   *
+   * `GET /api/leaves` is scoped to the *teacher*, not to a class (the route has no class filter),
+   * so it answers with pupils from every class the teacher owns. The page shows one class at a
+   * time, and its name map is that class's roster - an unfiltered list rendered other-class rows as
+   * 「学生 #17」 and let 批准/拒绝 act on a pupil from a class the tabs say is not selected.
+   */
+  const rosterStudentIds = new Set(students.map((student) => student.id));
+  const classLeaveRows = leaveRows.filter(
+    (row) => row.student_id !== null && rosterStudentIds.has(row.student_id),
+  );
+  const leaveStudentName = (studentId: number): string =>
+    studentNames.get(studentId) ?? '该班学生';
+  const hasPendingLeave = classLeaveRows.some((row) => row.status === 'pending');
 
   const handleClassChange = (classId: number) => {
     setPreferredClassId(classId);
@@ -295,28 +309,35 @@ export default function TeacherAttendance() {
 
       {activeTab === 'leaves' && (
         <SectionCard title="请假审批">
-          {isLeavesLoading ? (
+          {isStudentsLoading || isLeavesLoading ? (
             <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
-          ) : isLeavesError ? (
+          ) : isStudentsError || isLeavesError ? (
             <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
               <p className="font-semibold text-danger">请假记录加载失败</p>
               <p className="mt-1 text-sm text-fg-3">这不代表没有请假申请，请重试。</p>
-              <Button variant="outline" className="mt-3" onClick={() => void refetchLeaves()}>
+              <Button
+                variant="outline"
+                className="mt-3"
+                onClick={() => {
+                  void refetchStudents();
+                  void refetchLeaves();
+                }}
+              >
                 重新加载
               </Button>
             </div>
-          ) : leaveRows.length === 0 ? (
+          ) : classLeaveRows.length === 0 ? (
             <EmptyState icon={CalendarCheck} title="暂无请假申请" />
           ) : (
             <div className="space-y-4">
-              {leaveRows.map(req => {
+              {classLeaveRows.map(req => {
                 const statusMeta = LEAVE_STATUS_META[req.status];
                 return (
                   <div key={req.id} className="flex flex-col justify-between gap-4 rounded-card border border-line-1 p-5 md:flex-row md:items-center">
                     <div className="flex-1">
                       <div className="mb-2 flex items-center space-x-3">
                         <span className="text-lg font-bold text-fg-1">
-                          {studentNames.get(req.student_id) ?? `学生 #${req.student_id}`}
+                          {leaveStudentName(req.student_id)}
                         </span>
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta?.className ?? 'bg-surface-3 text-fg-2'}`}>
                           {statusMeta?.label ?? req.status}

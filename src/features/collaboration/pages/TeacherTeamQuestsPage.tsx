@@ -11,6 +11,7 @@ import { useStore } from '@/store/useStore';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -66,11 +67,14 @@ export default function TeacherTeamQuests() {
   const [newTarget, setNewTarget] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [currentQuest, setCurrentQuest] = useState<TeamQuest | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TeamQuest | null>(null);
 
-  const { data: quests = [], isLoading, error } = useTeamQuests(classId);
+  const { data: quests = [], isLoading, error, refetch } = useTeamQuests(classId);
   const {
     data: progressData = [],
     isLoading: isProgressLoading,
+    isError: isProgressError,
+    refetch: refetchProgress,
   } = useTeamQuestGroupProgress(currentQuest?.id ?? null, classId, showProgressModal);
 
   const createMutation = useMutation({
@@ -114,18 +118,28 @@ export default function TeacherTeamQuests() {
       return;
     }
 
-    await createMutation.mutateAsync({
-      class_id: classId,
-      teacher_id: teacherId,
-      title: newTitle.trim(),
-      description: newDesc.trim(),
-      target_score: parseInt(newTarget, 10),
-      reward_points: parseInt(newPoints, 10),
-    });
+    try {
+      await createMutation.mutateAsync({
+        class_id: classId,
+        teacher_id: teacherId,
+        title: newTitle.trim(),
+        description: newDesc.trim(),
+        target_score: parseInt(newTarget, 10),
+        reward_points: parseInt(newPoints, 10),
+      });
+    } catch {
+      // The api layer already toasted the server's reason; the dialog keeps the typed values.
+    }
   };
 
-  const handleDeleteQuest = async (id: number) => {
-    await deleteMutation.mutateAsync(id);
+  const handleDeleteQuest = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      // The api layer already toasted the server's reason; the confirm stays open for a retry.
+    }
   };
 
   const openProgressModal = (quest: TeamQuest) => {
@@ -185,8 +199,12 @@ export default function TeacherTeamQuests() {
       )}
 
       {!isLoading && error && (
-        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center text-danger">
-          团队任务加载失败，请稍后重试
+        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
+          <p className="font-semibold text-danger">团队任务加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表没有团队任务，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       )}
 
@@ -218,7 +236,7 @@ export default function TeacherTeamQuests() {
                   title="删除"
                   disabled={deleteMutation.isPending}
                   className="text-fg-3 hover:bg-danger/10 hover:text-danger"
-                  onClick={() => handleDeleteQuest(quest.id)}
+                  onClick={() => setDeleteTarget(quest)}
                 >
                   <Trash2 />
                 </Button>
@@ -351,7 +369,17 @@ export default function TeacherTeamQuests() {
                 </div>
               )}
 
-              {!isProgressLoading && progressData.length === 0 && (
+              {!isProgressLoading && isProgressError && (
+                <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-8 text-center">
+                  <p className="font-semibold text-danger">各组进度加载失败</p>
+                  <p className="mt-1 text-sm text-fg-3">这不代表没有分组进度，请重试。</p>
+                  <Button variant="outline" className="mt-3" onClick={() => void refetchProgress()}>
+                    重新加载
+                  </Button>
+                </div>
+              )}
+
+              {!isProgressLoading && !isProgressError && progressData.length === 0 && (
                 <EmptyState
                   icon={Users}
                   title="暂无可展示的分组进度"
@@ -359,7 +387,7 @@ export default function TeacherTeamQuests() {
                 />
               )}
 
-              {!isProgressLoading &&
+              {!isProgressLoading && !isProgressError &&
                 progressData.map((progress) => {
                   const percent = currentQuest.target_score > 0
                     ? Math.min(100, Math.round((progress.contribution_score / currentQuest.target_score) * 100))
@@ -398,6 +426,24 @@ export default function TeacherTeamQuests() {
           </DialogContent>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        destructive
+        title="删除这个团队任务？"
+        description={
+          deleteTarget
+            ? `「${deleteTarget.title}」以及各组已经累计的进度都会被删除，且无法恢复。`
+            : '删除后无法恢复。'
+        }
+        confirmLabel="删除"
+        pendingLabel="删除中..."
+        isPending={deleteMutation.isPending}
+        onConfirm={() => void handleDeleteQuest()}
+      />
     </PageScaffold>
   );
 }

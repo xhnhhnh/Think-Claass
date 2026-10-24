@@ -111,8 +111,14 @@ export default function TeacherBlindBox() {
   const blindBoxMutation = useTeacherBlindBoxMutation();
 
   const handleToggle = async (box: BlindBox) => {
-    await blindBoxMutation.mutateAsync({ type: 'toggle', box });
-    toast.success(box.is_active === 1 ? '盲盒已下架' : '盲盒已上架');
+    if (blindBoxMutation.isPending) return;
+    try {
+      await blindBoxMutation.mutateAsync({ type: 'toggle', box });
+      toast.success(box.is_active === 1 ? '盲盒已下架' : '盲盒已上架');
+    } catch (err) {
+      // The api layer already toasted the server's reason; the tile keeps the server's state.
+      console.error(err);
+    }
   };
 
   useRegisterPageCommands([

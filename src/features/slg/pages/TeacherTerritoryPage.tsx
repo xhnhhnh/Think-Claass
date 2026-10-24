@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Map as MapIcon, Plus, Play, XCircle } from 'lucide-react';
 
+import { apiErrorMessage } from '@/lib/api';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useCreateTerritoryMutation, useTerritoryMap, useTriggerYieldMutation } from '@/features/slg/hooks/useTerritory';
 import type { Territory, TerritoryType } from '@/features/slg/api/slgApi';
@@ -51,6 +52,8 @@ export default function TeacherTerritory() {
   const yieldMutation = useTriggerYieldMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [yieldError, setYieldError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     type: 'forest' as TerritoryType,
@@ -66,22 +69,25 @@ export default function TeacherTerritory() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!classId) return;
+    if (!classId || createMutation.isPending) return;
 
     try {
       const data = await createMutation.mutateAsync({ ...formData, class_id: classId });
       if (data.success) {
         toast.success('领地已创建');
         setIsModalOpen(false);
+        setFormError('');
         await reloadMap();
       }
     } catch (err) {
-      toast.error('网络错误');
+      // Inline, with the server's own sentence; the api layer already toasted once.
+      setFormError(apiErrorMessage(err, '创建领地失败，请重试'));
     }
   };
 
   const triggerYield = async () => {
-    if (!classId) return;
+    if (!classId || yieldMutation.isPending) return;
+    setYieldError('');
     try {
       const data = await yieldMutation.mutateAsync(classId);
       if (data.success) {
@@ -89,7 +95,7 @@ export default function TeacherTerritory() {
         await reloadMap();
       }
     } catch (err) {
-      toast.error('网络错误');
+      setYieldError(apiErrorMessage(err, '结算失败，请重试'));
     }
   };
 
@@ -145,9 +151,9 @@ export default function TeacherTerritory() {
       description="配置大地图节点，设定解锁需要的全班积分捐献阈值。"
       actions={
         <>
-          <Button type="button" variant="outline" onClick={triggerYield}>
+          <Button type="button" variant="outline" onClick={() => void triggerYield()} disabled={yieldMutation.isPending}>
             <Play data-icon="inline-start" />
-            强制结算资源
+            {yieldMutation.isPending ? '结算中...' : '强制结算资源'}
           </Button>
           <Button type="button" onClick={() => setIsModalOpen(true)}>
             <Plus data-icon="inline-start" />
@@ -156,6 +162,12 @@ export default function TeacherTerritory() {
         </>
       }
     >
+
+      {yieldError && (
+        <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {yieldError}
+        </p>
+      )}
 
       <Card className="rounded-panel">
         <CardContent className="p-6">
@@ -178,12 +190,20 @@ export default function TeacherTerritory() {
         </CardContent>
       </Card>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => {
+        setIsModalOpen(open);
+        if (!open) setFormError('');
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>新建领地节点</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {formError}
+              </p>
+            )}
             <FormField label="领地名称" required>
               <Input
                 type="text"
@@ -238,7 +258,9 @@ export default function TeacherTerritory() {
                 <XCircle data-icon="inline-start" />
                 取消
               </Button>
-              <Button type="submit">确认部署领地</Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? '部署中...' : '确认部署领地'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

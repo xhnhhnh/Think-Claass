@@ -119,8 +119,12 @@ export default function TeacherAnalysis() {
       )}
 
       {!isLoading && error && (
-        <div className="rounded-card border border-danger/20 bg-danger/10 px-6 py-12 text-center text-danger">
-          分析数据加载失败，请稍后重试。
+        <div className="rounded-card border border-danger/20 bg-danger/10 px-6 py-12 text-center">
+          <p className="font-semibold text-danger">分析数据加载失败</p>
+          <p className="mt-1 text-sm text-fg-3">这不代表这个班没有数据，请重试。</p>
+          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+            重新加载
+          </Button>
         </div>
       )}
 

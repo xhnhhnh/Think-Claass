@@ -24,6 +24,29 @@ export {
   type ClassFeatures,
 } from './classFeatures.generated';
 
+import {
+  classFeatureKeys as generatedClassFeatureKeys,
+  type ClassFeatureKey as GeneratedClassFeatureKey,
+  type ClassFeatures as GeneratedClassFeatures,
+} from './classFeatures.generated';
+
+/**
+ * Every flag on.
+ *
+ * The state the teacher console paints *before* it can know a class's real flags: classes still
+ * loading, and a failed class or class-features read. Gating on all-`false` hides menu entries the
+ * moment the app opens and flickers them back when the answer arrives - the same "unknown is not
+ * off" mistake `useResolvedClassFeatures`'s `canDecide` exists to prevent for redirects.
+ * `TeacherLayout` passes this set to the shell while the answer is unknown, so an entry can only be
+ * hidden by a real "off".
+ *
+ * A class that genuinely has everything switched off resolves to `defaultClassFeatures`, never to
+ * this set.
+ */
+export const allClassFeatures: GeneratedClassFeatures = Object.fromEntries(
+  generatedClassFeatureKeys.map((key: GeneratedClassFeatureKey) => [key, true]),
+) as GeneratedClassFeatures;
+
 export {
   classFeatureRouteMap,
   getFirstEnabledRoute,

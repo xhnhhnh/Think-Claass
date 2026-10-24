@@ -4,17 +4,26 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { apiErrorMessage } from '@/lib/api';
 import { classroomApi, type IncentivePolicy } from '../api/classesApi';
 
 export function IncentivePolicyPanel({ classId }: { classId: number }) {
   const queryClient = useQueryClient();
   const { data, isError, isLoading, refetch } = useQuery({ queryKey: ['incentive-policy', classId], queryFn: () => classroomApi.getIncentivePolicy(classId) });
   const [draft, setDraft] = useState<Omit<IncentivePolicy, 'classId'>>({ schoolStage: 'general', parentBonusPercent: 0, teamRankingsVisible: true });
+  const [saveError, setSaveError] = useState('');
   useEffect(() => { if (data?.policy) setDraft(data.policy); }, [data]);
   const mutation = useMutation({
     mutationFn: () => classroomApi.updateIncentivePolicy(classId, draft),
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['incentive-policy', classId] }); toast.success('班级激励策略已保存'); },
-    onError: () => toast.error('保存失败，设置已保留，请重试'),
+    onSuccess: async () => {
+      setSaveError('');
+      await queryClient.invalidateQueries({ queryKey: ['incentive-policy', classId] });
+      toast.success('班级激励策略已保存');
+    },
+    onError: (error) => {
+      // Inline, with the server's own sentence; the draft (the teacher's selection) is kept.
+      setSaveError(apiErrorMessage(error, '保存失败，设置已保留，请重试'));
+    },
   });
   if (isLoading) return <p className="text-sm text-fg-3">正在加载班级策略…</p>;
   if (isError) return <div className="flex items-center gap-3 text-sm text-danger">策略加载失败 <Button variant="outline" onClick={() => void refetch()}>重试</Button></div>;
@@ -34,6 +43,11 @@ export function IncentivePolicyPanel({ classId }: { classId: number }) {
         </label>
         <label className="flex items-center gap-2 text-sm text-fg-2"><Checkbox checked={draft.teamRankingsVisible} onCheckedChange={(checked) => setDraft({ ...draft, teamRankingsVisible: checked === true })} />公开本周小组榜</label>
       </div>
+      {saveError ? (
+        <p role="alert" className="mt-3 rounded-card border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {saveError}
+        </p>
+      ) : null}
       <div className="mt-4 flex justify-end"><Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? '保存中…' : '保存策略'}</Button></div>
     </section>
   );

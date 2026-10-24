@@ -131,7 +131,8 @@ export default function TeacherDashboard() {
       });
     },
     onError: () => {
-      toast.error('AI 学情摘要生成失败，请稍后重试');
+      // The api layer already toasted the server's reason; close the fake "analysing" animation
+      // rather than leaving it spinning at stage 2.
       setShowAIModal(false);
     },
   });

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { apiErrorMessage } from '@/lib/api';
 import { papersApi, type PaperDetail } from '@/features/learning/api/papersApi';
 import { usePaper } from '@/features/learning/hooks/usePapers';
 import { useClasses } from '@/hooks/queries/useClasses';
@@ -53,6 +54,13 @@ export default function TeacherPaperEditor() {
   const [items, setItems] = useState<EditorItem[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [savingClass, setSavingClass] = useState(false);
+  const [savingStructure, setSavingStructure] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [classError, setClassError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  /** Bumping the key remounts the uncontrolled file input, clearing the filename it still shows. */
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   /**
    * Set - or clear - the class the paper belongs to.
@@ -65,13 +73,15 @@ export default function TeacherPaperEditor() {
     if (!paperId) return;
     const classId = value ? Number(value) : null;
     setSavingClass(true);
+    setClassError('');
     try {
       await papersApi.update(paperId, { class_id: classId });
       await queryClient.invalidateQueries({ queryKey: ['paper', paperId] });
       await queryClient.invalidateQueries({ queryKey: ['papers'] });
       toast.success(classId === null ? '已设为未指定班级：学生将看不到这份试卷' : '已设置试卷班级');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '设置班级失败，请重试');
+      // Inline, with the server's own sentence; the api layer already toasted once.
+      setClassError(apiErrorMessage(error, '设置班级失败，请重试'));
     } finally {
       setSavingClass(false);
     }
@@ -107,6 +117,9 @@ export default function TeacherPaperEditor() {
       toast.error('请至少添加 1 道题目');
       return;
     }
+    if (savingStructure) return;
+    setSavingStructure(true);
+    setSaveError('');
     try {
       const payload = {
         sections,
@@ -130,9 +143,11 @@ export default function TeacherPaperEditor() {
       toast.success('已保存');
       return saved.data as PaperDetail;
     } catch (e) {
-      // Was an empty `catch`: 保存结构 could fail and say nothing at all.
-      toast.error(e instanceof Error ? e.message : '保存失败，请重试');
+      // Inline, with the server's own sentence; the local edits stay on screen.
+      setSaveError(apiErrorMessage(e, '保存失败，请重试'));
       return undefined;
+    } finally {
+      setSavingStructure(false);
     }
   };
 
@@ -157,16 +172,24 @@ export default function TeacherPaperEditor() {
       toast.error('请选择文件');
       return;
     }
+    if (uploading) return;
+    setUploading(true);
+    setUploadError('');
     try {
       const formData = new FormData();
       formData.append('file', file);
       await papersApi.uploadAsset(paperId, formData);
       setFile(null);
+      // The picker is uncontrolled; clearing the state alone left the old filename on screen and
+      // the next click said 「请选择文件」 although a name was still displayed.
+      setFileInputKey((key) => key + 1);
       await queryClient.invalidateQueries({ queryKey: ['paper', paperId] });
       toast.success('已上传');
     } catch (e) {
-      // Was an empty `catch`: a rejected upload left the file picker unchanged and silent.
-      toast.error(e instanceof Error ? e.message : '上传失败，请重试');
+      // Inline, with the server's own sentence; the chosen file stays so the upload can be retried.
+      setUploadError(apiErrorMessage(e, '上传失败，请重试'));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -251,12 +274,23 @@ export default function TeacherPaperEditor() {
         </div>
       }
       footer={
-        <Button onClick={handleSave}>
-          <Save data-icon="inline-start" />
-          保存结构
+        <Button onClick={() => void handleSave()} disabled={savingStructure}>
+          {savingStructure ? <Spinner size="sm" label="正在保存" /> : <Save data-icon="inline-start" />}
+          {savingStructure ? '保存中...' : '保存结构'}
         </Button>
       }
     >
+
+      {classError && (
+        <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {classError}
+        </p>
+      )}
+      {saveError && (
+        <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {saveError}
+        </p>
+      )}
 
       <Card>
         <CardContent className="space-y-6">
@@ -393,16 +427,22 @@ export default function TeacherPaperEditor() {
         <SectionCard title="上传试卷文件（PDF/图片）">
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <Input
+              key={fileInputKey}
               type="file"
               aria-label="选择要上传的试卷文件"
               className="flex-1"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
-            <Button onClick={handleUpload}>
+            <Button onClick={() => void handleUpload()} disabled={uploading}>
               <UploadCloud data-icon="inline-start" />
-              上传
+              {uploading ? '上传中...' : '上传'}
             </Button>
           </div>
+          {uploadError && (
+            <p role="alert" className="mt-3 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+              {uploadError}
+            </p>
+          )}
           {paper.paper_assets?.length ? (
             <div className="mt-4 space-y-2">
               {paper.paper_assets.map((a) => (

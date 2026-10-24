@@ -35,14 +35,33 @@ const auctionFields: CrudField<AuctionForm>[] = [
   },
 ];
 
+/**
+ * `Date` -> the `YYYY-MM-DDTHH:mm` a `datetime-local` control expects, in the *browser's* zone.
+ *
+ * `toISOString().slice(0, 16)` is UTC, so every non-UTC browser saw a shifted value: a Chinese
+ * teacher's 20:00 deadline rendered as 12:00 in the edit dialog, and saving without touching the
+ * field moved the real deadline eight hours earlier. Mirrors `isoToLocalInput` in
+ * `TeacherHomeworkPage.tsx`.
+ */
+// The formatter is exported for its unit test; this file otherwise only exports the page component,
+// which the react-refresh rule cannot see through. Keep the helper next to the two call sites it
+// serves rather than introducing a one-function module.
+// eslint-disable-next-line react-refresh/only-export-components
+export function toLocalDateTimeInputValue(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function tomorrowInputValue() {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow.toISOString().slice(0, 16);
+  return toLocalDateTimeInputValue(tomorrow);
 }
 
 function toDateTimeInputValue(value: string) {
-  return value ? new Date(value).toISOString().slice(0, 16) : '';
+  return value ? toLocalDateTimeInputValue(value) : '';
 }
 
 function toAuctionPayload(form: AuctionForm): AuctionPayload {

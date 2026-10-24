@@ -134,4 +134,49 @@ describe('TeacherTeamQuests', () => {
     expect(await screen.findByText('第一组')).toBeInTheDocument();
     expect(screen.getByText('6 / 10')).toBeInTheDocument();
   });
+
+  it('asks for confirmation before deleting a team quest', async () => {
+    mocks.deleteTeamQuest.mockResolvedValue({ success: true });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '删除团队任务 阅读挑战' }));
+
+    expect(screen.getByText('删除这个团队任务？')).toBeInTheDocument();
+    expect(mocks.deleteTeamQuest).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    await waitFor(() => expect(mocks.deleteTeamQuest).toHaveBeenCalledWith(1, expect.anything()));
+  });
+
+  it('reports a failed progress read instead of claiming there is no progress', async () => {
+    const refetch = vi.fn();
+    mocks.useTeamQuestGroupProgress.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: true,
+      refetch,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: '查看各组进度' }));
+
+    expect(await screen.findByText('各组进度加载失败')).toBeInTheDocument();
+    expect(screen.queryByText('暂无可展示的分组进度')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('offers a retry when the quest list failed', async () => {
+    const refetch = vi.fn();
+    mocks.useTeamQuests.mockReturnValue({ data: [], isLoading: false, error: new Error('boom'), refetch });
+
+    renderPage();
+
+    expect(screen.getByText('团队任务加载失败')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
+  });
 });

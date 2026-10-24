@@ -143,6 +143,39 @@ describe('useFirstRun', () => {
     expect(hook().result.current.shouldShow).toBe(false);
   });
 
+  it('does not offer the wizard when the class list read failed', () => {
+    // A failed read is not "no classes": offering the wizard there would invite a teacher who
+    // already has classes to create another one, on the strength of a broken request.
+    mocks.useClasses.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    expect(hook().result.current.shouldShow).toBe(false);
+    expect(hook().result.current.isError).toBe(true);
+  });
+
+  it('keeps offering the wizard after its own first step creates the class', () => {
+    // Steps 2–4 write to the class step 1 just created, so the wizard must survive the query
+    // refetch that makes the account non-empty. Before the `everOffered` latch, the dashboard
+    // unmounted it the moment `classes.length` became 1.
+    mocks.useClasses.mockReturnValue({ data: [], isLoading: false });
+    const rendered = renderHook(() => useFirstRun());
+    expect(rendered.result.current.shouldShow).toBe(true);
+
+    mocks.useClasses.mockReturnValue({ data: [{ id: 42, name: '三年二班' }], isLoading: false });
+    rendered.rerender();
+
+    expect(rendered.result.current.shouldShow).toBe(true);
+  });
+
+  it('does not offer it after a dismissal, even when it had been offered before', () => {
+    mocks.useClasses.mockReturnValue({ data: [], isLoading: false });
+    const rendered = renderHook(() => useFirstRun());
+    expect(rendered.result.current.shouldShow).toBe(true);
+
+    rendered.result.current.dismiss();
+    rendered.rerender();
+
+    expect(rendered.result.current.shouldShow).toBe(false);
+  });
+
   it('stops offering it after a dismissal, and remembers that for the browser', () => {
     mocks.useClasses.mockReturnValue({ data: [], isLoading: false });
     window.localStorage.setItem('thinkclass-first-run-dismissed', '1');

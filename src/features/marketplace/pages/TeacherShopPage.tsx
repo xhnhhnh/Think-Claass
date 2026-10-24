@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle, Edit2, Plus, Store, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
 
+import { apiErrorMessage } from '@/lib/api';
 import { useTeacherShopItems, useTeacherShopMutation } from '@/hooks/queries/useTeacherShop';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Badge } from '@/components/ui/badge';
@@ -65,10 +65,8 @@ export default function TeacherShop() {
       await shopMutation.mutateAsync({ type: 'status', itemId: id, isActive: currentStatus === 1 ? 0 : 1 });
       await refetch();
     } catch (err) {
-      // `console.error` alone made 上架/下架 a button that did nothing at all when it failed:
-      // the badge kept its old value and the console is not somewhere a teacher looks.
+      // The api layer already toasted the server's reason; the badge still reflects the server.
       console.error(err);
-      toast.error(currentStatus === 1 ? '下架失败，请稍后重试' : '上架失败，请稍后重试');
     }
   };
 
@@ -79,13 +77,14 @@ export default function TeacherShop() {
       await shopMutation.mutateAsync({ type: 'update', itemId: item.id, data: { ...item, stock: newStock } });
       await refetch();
     } catch (err) {
+      // Already reported by the api layer; the row keeps its server value.
       console.error(err);
-      toast.error('网络错误，请稍后重试');
     }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (shopMutation.isPending) return;
     setError('');
 
     try {
@@ -97,7 +96,9 @@ export default function TeacherShop() {
       setShowModal(false);
       await refetch();
     } catch (err) {
-      setError('网络错误');
+      // One inline message that names the server's reason, instead of a second toast saying
+      // 「网络错误」 over the api layer's accurate one.
+      setError(apiErrorMessage(err, '保存失败，请重试'));
     }
   };
 
@@ -232,7 +233,7 @@ export default function TeacherShop() {
                               <Button
                                 variant="ghost"
                                 size="icon-xs"
-                                disabled={item.stock <= 0}
+                                disabled={shopMutation.isPending || item.stock <= 0}
                                 onClick={() => updateStock(item, item.stock - 1)}
                               >
                                 -
@@ -241,6 +242,7 @@ export default function TeacherShop() {
                               <Button
                                 variant="ghost"
                                 size="icon-xs"
+                                disabled={shopMutation.isPending}
                                 onClick={() => updateStock(item, item.stock + 1)}
                               >
                                 +
@@ -275,6 +277,7 @@ export default function TeacherShop() {
                   <Button
                     variant={item.is_active === 1 ? 'destructive' : 'secondary'}
                     className="flex-1"
+                    disabled={shopMutation.isPending}
                     onClick={() => toggleStatus(item.id, item.is_active)}
                   >
                     {item.is_active === 1 ? (
@@ -359,8 +362,8 @@ export default function TeacherShop() {
               >
                 取消
               </Button>
-              <Button type="submit">
-                保存
+              <Button type="submit" disabled={shopMutation.isPending}>
+                {shopMutation.isPending ? '保存中...' : '保存'}
               </Button>
             </DialogFooter>
           </form>

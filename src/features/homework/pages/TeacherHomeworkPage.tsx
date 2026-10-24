@@ -162,7 +162,12 @@ export default function TeacherHomework() {
   const { data: entries = [], isLoading, isError, refetch } = useHomeworkList();
 
   const homeworkIds = useMemo(() => entries.map((entry) => entry.id), [entries]);
-  const { data: counts = {} } = useHomeworkSubmissionCounts(homeworkIds);
+  const {
+    data: counts = {},
+    isLoading: countsLoading,
+    isError: countsError,
+    refetch: refetchCounts,
+  } = useHomeworkSubmissionCounts(homeworkIds);
 
   const publishHomework = usePublishHomeworkMutation();
   const updateHomework = useUpdateHomeworkMutation();
@@ -298,10 +303,29 @@ export default function TeacherHomework() {
           icon={ClipboardList}
           label="待批改"
           tone="warning"
-          value={entries.reduce((sum, entry) => {
-            const row = counts[entry.id];
-            return sum + (row ? Math.max(row.submitted - row.graded, 0) : 0);
-          }, 0)}
+          // A pending or failed counts read is unknown, not zero: showing 0 told the teacher nobody
+          // had submitted when the request had simply not answered.
+          value={
+            countsLoading || countsError
+              ? '—'
+              : entries.reduce((sum, entry) => {
+                  const row = counts[entry.id];
+                  return sum + (row ? Math.max(row.submitted - row.graded, 0) : 0);
+                }, 0)
+          }
+          hint={
+            countsError ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={() => void refetchCounts()}
+              >
+                提交数据读取失败，点此重试
+              </Button>
+            ) : undefined
+          }
         />
         <StatCard icon={CalendarClock} label="迁移前旧作业" tone="info" value={legacyCount} hint="只读，等待数据迁移" />
       </div>
@@ -357,6 +381,10 @@ export default function TeacherHomework() {
                     </div>
                     {entry.legacy ? (
                       <p className="text-xs text-fg-3">这条记录来自旧的作业表，没有题目，不能编辑或批改。</p>
+                    ) : countsLoading ? (
+                      <p className="text-xs text-fg-3">正在读取提交进度…</p>
+                    ) : countsError ? (
+                      <p className="text-xs text-danger">提交进度读取失败（不代表没人提交）</p>
                     ) : (
                       <div className="max-w-sm space-y-1">
                         <div className="flex items-center justify-between text-xs text-fg-2">

@@ -98,6 +98,10 @@ class FakeCollaborationRepository implements CollaborationRepository {
       title: input.title as string,
       description: (input.description ?? null) as string | null,
       points_reward: input.points_reward as number,
+      parent_node_id:
+        input.parent_node_id === undefined
+          ? node.parent_node_id
+          : (input.parent_node_id as number | null),
       x_pos: input.x_pos as number,
       y_pos: input.y_pos as number,
     });
@@ -487,6 +491,77 @@ describe('CollaborationService task tree', () => {
     expect(repository.nodes.has(2)).toBe(false);
   });
 
+  /**
+   * 前置节点 on the edit screen.
+   *
+   * The update route used to drop `parent_node_id`, so the select saved nothing while the page
+   * toasted success. These pin the four answers a parent change can get: accepted, and refused for
+   * self, another class, or one of the node's own descendants.
+   */
+  it('moves a node under another node of the same class', async () => {
+    const newRoot = await service.createTeacherNode({ class_id: CLASS_ID, title: 'Second root' });
+
+    await service.updateTeacherNode('2', { title: 'Child', parent_node_id: newRoot.id });
+
+    expect(repository.nodes.get(2)?.parent_node_id).toBe(newRoot.id);
+    // Collapsing the tree behind the class gate still works: the class's tree is read back as stored.
+    const nodes = await service.listTeacherNodes(CLASS_ID);
+    expect(nodes.find((node) => node.id === 2)?.parent_node_id).toBe(newRoot.id);
+  });
+
+  it('keeps the stored parent when the update does not mention it', async () => {
+    await service.updateTeacherNode('2', { title: 'Renamed' });
+    expect(repository.nodes.get(2)?.parent_node_id).toBe(1);
+  });
+
+  it('refuses to make a node its own parent', async () => {
+    await expect(service.updateTeacherNode('1', { title: 'Root', parent_node_id: 1 })).rejects.toMatchObject({
+      status: 400,
+      message: '前置节点不能是节点自身',
+    });
+    expect(repository.nodes.get(1)?.parent_node_id).toBeNull();
+  });
+
+  it('refuses a parent from another class', async () => {
+    repository.nodes.set(200, {
+      id: 200,
+      class_id: 777,
+      title: 'Other class root',
+      description: '',
+      points_reward: 0,
+      parent_node_id: null,
+      x_pos: 0,
+      y_pos: 0,
+      created_at: '2024-01-01 00:00:00',
+    });
+
+    await expect(service.updateTeacherNode('1', { title: 'Root', parent_node_id: 200 })).rejects.toMatchObject({
+      status: 400,
+      message: '前置节点不存在或不属于该班级',
+    });
+    expect(repository.nodes.get(1)?.parent_node_id).toBeNull();
+  });
+
+  it('refuses a parent that would close a cycle', async () => {
+    // 2 is 1's child, so 1 may not become 2's child.
+    await expect(service.updateTeacherNode('1', { title: 'Root', parent_node_id: 2 })).rejects.toMatchObject({
+      status: 400,
+      message: '前置节点不能是该节点的子节点（会形成循环）',
+    });
+    expect(repository.nodes.get(1)?.parent_node_id).toBeNull();
+  });
+
+  it('unlocks a node for the class when an edit turns it into a root', async () => {
+    expect([...repository.studentNodes.values()].filter((row) => row.nodeId === 2)).toEqual([]);
+
+    await service.updateTeacherNode('2', { title: 'Child', parent_node_id: null });
+
+    expect(repository.nodes.get(2)?.parent_node_id).toBeNull();
+    const unlocked = [...repository.studentNodes.values()].filter((row) => row.nodeId === 2);
+    expect(unlocked.map((row) => row.studentId).sort((a, b) => a - b)).toEqual([101, 102, 103, 104]);
+    expect(unlocked.every((row) => row.status === 'unlocked')).toBe(true);
+  });
+
   it('returns the student tree with locked defaults and unlocks the roots', async () => {
     repository.studentNodes.set('101:2', { studentId: 101, nodeId: 2, status: 'completed', completedAt: '2024-01-02' });
 
@@ -834,7 +909,14 @@ describe('createCollaborationRepository', () => {
     });
     repository.getTeacherNode(1);
     repository.getTeacherNodeClassId(1);
-    repository.updateTeacherNode(1, { title: 't', description: 'd', points_reward: 1, x_pos: 0, y_pos: 0 });
+    repository.updateTeacherNode(1, {
+      title: 't',
+      description: 'd',
+      points_reward: 1,
+      parent_node_id: null,
+      x_pos: 0,
+      y_pos: 0,
+    });
     repository.hasChildNodes(1);
     repository.deleteTeacherNode(1);
     repository.listRootNodeIds(9);

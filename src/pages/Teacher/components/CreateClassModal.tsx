@@ -14,11 +14,19 @@ interface CreateClassModalProps {
 export function CreateClassModal({ isOpen, onClose, onSubmit, submitting }: CreateClassModalProps) {
   const [name, setName] = React.useState('');
 
+  /**
+   * Clear only once the dialog is closed - i.e. on success or on cancel, never merely because the
+   * teacher pressed 确认. The request can fail while the dialog stays open (the parent closes it
+   * only on success), and wiping the field there made them retype the class name for nothing.
+   */
+  React.useEffect(() => {
+    if (!isOpen) setName('');
+  }, [isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
       onSubmit(name.trim());
-      setName('');
     }
   };
 

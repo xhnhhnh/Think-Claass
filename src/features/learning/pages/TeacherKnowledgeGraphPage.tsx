@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { apiErrorMessage } from '@/lib/api';
 import { knowledgeApi } from '@/features/learning/api/knowledgeApi';
 import { useKnowledgeEdges, useKnowledgeNodes, useSubjects } from '@/features/learning/hooks/useKnowledge';
 import { useRegisterPageCommands } from '@/app/commands/registry';
@@ -55,11 +56,14 @@ export default function TeacherKnowledgeGraph() {
   const [nodeToDelete, setNodeToDelete] = useState<number | null>(null);
   const [edgeToDelete, setEdgeToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** The last failed write, shown in one banner; the api layer already toasted its own copy. */
+  const [actionError, setActionError] = useState('');
 
   const handleCreateSubject = async (event: FormEvent) => {
     event.preventDefault();
     const name = subjectName.trim();
     if (!name) return;
+    setActionError('');
     try {
       await knowledgeApi.createSubject({ name });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-subjects'] });
@@ -67,8 +71,8 @@ export default function TeacherKnowledgeGraph() {
       setSubjectName('');
       setShowSubjectDialog(false);
     } catch (e) {
-      // Was an empty `catch`: the dialog stayed open with no explanation.
-      toast.error(e instanceof Error ? e.message : '新增学科失败，请重试');
+      // Inline, with the server's own sentence; the dialog stays open for a retry.
+      setActionError(apiErrorMessage(e, '新增学科失败，请重试'));
     }
   };
 
@@ -78,6 +82,7 @@ export default function TeacherKnowledgeGraph() {
       toast.error('请输入知识点名称');
       return;
     }
+    setActionError('');
     try {
       await knowledgeApi.createNode({
         subject_id: selectedSubjectId,
@@ -88,26 +93,23 @@ export default function TeacherKnowledgeGraph() {
       await queryClient.invalidateQueries({ queryKey: ['knowledge-nodes', selectedSubjectId] });
       toast.success('已新增知识点');
     } catch (e) {
-      // Was an empty `catch`: 添加 looked like it had simply not registered the click.
-      toast.error(e instanceof Error ? e.message : '新增知识点失败，请重试');
+      // Inline, with the server's own sentence; the typed name stays.
+      setActionError(apiErrorMessage(e, '新增知识点失败，请重试'));
     }
   };
 
   const handleDeleteNode = async () => {
     if (!selectedSubjectId || nodeToDelete === null) return;
     setIsDeleting(true);
+    setActionError('');
     try {
       await knowledgeApi.deleteNode(nodeToDelete);
       await queryClient.invalidateQueries({ queryKey: ['knowledge-nodes', selectedSubjectId] });
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已删除');
     } catch (e) {
-      /**
-       * Was an empty `catch`. The dialog still closes below, so without this the deletion
-       * failure was indistinguishable from a successful one: the row stayed on screen and
-       * nothing had been said. The toast is what makes the difference visible.
-       */
-      toast.error(e instanceof Error ? e.message : '删除知识点失败，请重试');
+      // The confirm closes either way, so this banner is what separates a refusal from a success.
+      setActionError(apiErrorMessage(e, '删除知识点失败，请重试'));
     } finally {
       setIsDeleting(false);
       setNodeToDelete(null);
@@ -120,6 +122,7 @@ export default function TeacherKnowledgeGraph() {
       toast.error('请选择起点与终点');
       return;
     }
+    setActionError('');
     try {
       await knowledgeApi.createEdge({
         subject_id: selectedSubjectId,
@@ -130,22 +133,23 @@ export default function TeacherKnowledgeGraph() {
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已新增依赖关系');
     } catch (e) {
-      // Was an empty `catch`, on a form whose two selects keep their values either way.
-      toast.error(e instanceof Error ? e.message : '新增依赖关系失败，请重试');
+      // Inline, with the server's own sentence; both selects keep their values.
+      setActionError(apiErrorMessage(e, '新增依赖关系失败，请重试'));
     }
   };
 
   const handleDeleteEdge = async () => {
     if (!selectedSubjectId || edgeToDelete === null) return;
     setIsDeleting(true);
+    setActionError('');
     try {
       await knowledgeApi.deleteEdge(edgeToDelete);
       await queryClient.invalidateQueries({ queryKey: ['knowledge-edges', selectedSubjectId] });
       toast.success('已删除');
     } catch (e) {
-      // Same shape as the node delete above: the confirm closes either way, so the toast is
-      // the only thing that separates a refusal from a success.
-      toast.error(e instanceof Error ? e.message : '删除依赖关系失败，请重试');
+      // Same shape as the node delete above: the confirm closes either way, so this banner is
+      // what separates a refusal from a success.
+      setActionError(apiErrorMessage(e, '删除依赖关系失败，请重试'));
     } finally {
       setIsDeleting(false);
       setEdgeToDelete(null);
@@ -218,6 +222,12 @@ export default function TeacherKnowledgeGraph() {
         />
       }
     >
+
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {actionError}
+        </p>
+      )}
 
       {!!selectedSubjectId && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

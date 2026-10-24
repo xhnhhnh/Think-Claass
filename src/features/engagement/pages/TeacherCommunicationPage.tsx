@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 import { MessageCircle, Megaphone, Send, Trash2, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,6 +9,7 @@ import { announcementsApi, type ClassAnnouncement } from '@/features/engagement/
 import { messagesApi } from '@/features/engagement/api/messagesApi';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
@@ -63,9 +64,13 @@ export default function TeacherCommunication() {
   const [noticeContent, setNoticeContent] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [deletingNoticeId, setDeletingNoticeId] = useState<number | null>(null);
+  const [noticeToDelete, setNoticeToDelete] = useState<ClassAnnouncement | null>(null);
   const [msgType, setMsgType] = useState('HOME_SCHOOL');
   const [replyContent, setReplyContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<number | null>(null); // student id to reply
+  const [sendingReply, setSendingReply] = useState(false);
+  /** Synchronous guard: two Enter keydowns can land before `sendingReply` re-renders. */
+  const sendingReplyRef = useRef(false);
 
   useEffect(() => {
     fetchClasses();
@@ -161,29 +166,33 @@ export default function TeacherCommunication() {
         await fetchAnnouncements();
       }
     } catch (err) {
+      // The api layer already toasted the server's reason; the composer keeps its values.
       console.error('Publish announcement failed:', err);
-      toast.error('发布失败，请稍后重试');
     } finally {
       setPublishing(false);
     }
   };
 
-  const handleDeleteNotice = async (id: number) => {
-    setDeletingNoticeId(id);
+  const handleDeleteNotice = async () => {
+    if (!noticeToDelete) return;
+    setDeletingNoticeId(noticeToDelete.id);
     try {
-      await announcementsApi.deleteClassAnnouncement(id);
+      await announcementsApi.deleteClassAnnouncement(noticeToDelete.id);
       toast.success('通知已撤回');
+      setNoticeToDelete(null);
       await fetchAnnouncements();
     } catch (err) {
+      // Already reported by the api layer; the confirm stays open so the click can be retried.
       console.error('Delete announcement failed:', err);
-      toast.error('撤回失败，请稍后重试');
     } finally {
       setDeletingNoticeId(null);
     }
   };
 
   const handleReply = async (receiverId: number) => {
-    if (!replyContent.trim()) return;
+    if (!replyContent.trim() || sendingReplyRef.current) return;
+    sendingReplyRef.current = true;
+    setSendingReply(true);
     try {
       const data = await messagesApi.sendMessage({
         class_id: selectedClassId,
@@ -200,12 +209,13 @@ export default function TeacherCommunication() {
         setReplyContent('');
         setReplyingTo(null);
         fetchMessages();
-      } else {
-        toast.error(data.message || '回复失败');
       }
     } catch (err) {
+      // The api layer already toasted the server's reason; the composer keeps the draft.
       console.error('Reply error:', err);
-      toast.error('网络错误');
+    } finally {
+      sendingReplyRef.current = false;
+      setSendingReply(false);
     }
   };
 
@@ -364,7 +374,7 @@ export default function TeacherCommunication() {
                   aria-label={`撤回通知 ${notice.title}`}
                   className="shrink-0 text-danger hover:bg-danger-soft hover:text-danger"
                   disabled={deletingNoticeId === notice.id}
-                  onClick={() => void handleDeleteNotice(notice.id)}
+                  onClick={() => setNoticeToDelete(notice)}
                 >
                   <Trash2 />
                 </Button>
@@ -464,11 +474,12 @@ export default function TeacherCommunication() {
                         }}
                       />
                       <Button
-                        onClick={() => handleReply(msg.sender_id)}
+                        onClick={() => void handleReply(msg.sender_id)}
+                        disabled={sendingReply || !replyContent.trim()}
                         className="bg-gradient-to-r from-role to-info text-role-contrast hover:from-role hover:to-info"
                       >
                         <Send className="mr-1 size-4" />
-                        发送
+                        {sendingReply ? '发送中...' : '发送'}
                       </Button>
                       <Button
                         variant="secondary"
@@ -484,6 +495,24 @@ export default function TeacherCommunication() {
           )}
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={noticeToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setNoticeToDelete(null);
+        }}
+        destructive
+        title="撤回这条班级通知？"
+        description={
+          noticeToDelete
+            ? `「${noticeToDelete.title}」会从学生的互动墙上移除，且无法恢复。`
+            : '撤回后学生将看不到这条通知。'
+        }
+        confirmLabel="撤回"
+        pendingLabel="撤回中..."
+        isPending={deletingNoticeId !== null}
+        onConfirm={() => void handleDeleteNotice()}
+      />
     </PageScaffold>
   );
 }

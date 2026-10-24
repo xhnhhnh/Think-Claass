@@ -43,8 +43,18 @@ export function useCreateTaskNodeMutation(classId?: number | null) {
 export function useUpdateTaskNodeMutation(classId?: number | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { nodeId: number; data: { title: string; description: string; points_reward: number; x_pos: number; y_pos: number } }) =>
-      taskTreeApi.updateNode(payload.nodeId, payload.data),
+    mutationFn: (payload: {
+      nodeId: number;
+      data: {
+        title: string;
+        description: string;
+        points_reward: number;
+        /** The edit form's 前置节点. `null` turns the node into a root. */
+        parent_node_id: number | null;
+        x_pos: number;
+        y_pos: number;
+      };
+    }) => taskTreeApi.updateNode(payload.nodeId, payload.data),
     onSuccess: async () => {
       if (classId) await queryClient.invalidateQueries({ queryKey: taskTreeKeys.teacher(classId) });
     },

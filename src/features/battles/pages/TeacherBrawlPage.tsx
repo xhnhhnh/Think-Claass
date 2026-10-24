@@ -42,6 +42,7 @@ export default function TeacherBrawl() {
   const [searchResults, setSearchResults] = useState<{id: number, name: string}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [challengeTarget, setChallengeTarget] = useState<{ id: number, name: string } | null>(null);
+  const [settleBattleId, setSettleBattleId] = useState<number | null>(null);
   const reloadBattles = async () => {
     if (!classId) return;
     await queryClient.invalidateQueries({ queryKey: ['teacher-battles', classId] });
@@ -67,14 +68,13 @@ export default function TeacherBrawl() {
       // The search had a `try/finally` and no `catch`, so a rejected request left the button
       // spinning nowhere: the results simply never changed and nothing said why.
       console.error('Failed to search classes:', err);
-      toast.error('搜索失败，请重试');
     } finally {
       setIsSearching(false);
     }
   };
 
-  const initiateBattle = async (targetId: number, targetName: string) => {
-    if (!classId) return;
+  const initiateBattle = async (targetId: number) => {
+    if (!classId) return false;
 
     try {
       const data = await initiateMutation.mutateAsync({ initiator_class_id: classId, target_class_id: targetId });
@@ -84,11 +84,21 @@ export default function TeacherBrawl() {
         setSearchQuery('');
         setSearchResults([]);
         await reloadBattles();
+        return true;
       }
+      return false;
     } catch (err) {
-      toast.error('网络错误');
+      // The api layer already toasted the server's reason.
+      console.error('Failed to initiate battle:', err);
+      return false;
     }
   };
+
+  const ACTION_RESULT_LABEL = {
+    accept: '已接受挑战',
+    reject: '已拒绝挑战',
+    end: '大乱斗已结束并结算',
+  } as const;
 
   const handleAction = async (battleId: number, action: 'accept' | 'reject' | 'end') => {
     try {
@@ -107,11 +117,15 @@ export default function TeacherBrawl() {
         winnerClassId,
       });
       if (data.success) {
-        toast.success(`操作成功: ${action}`);
+        toast.success(ACTION_RESULT_LABEL[action]);
         await reloadBattles();
+        return true;
       }
+      return false;
     } catch (err) {
-      toast.error('网络错误');
+      // The api layer already toasted the server's reason.
+      console.error('Failed to update battle:', err);
+      return false;
     }
   };
 
@@ -232,7 +246,8 @@ export default function TeacherBrawl() {
 
             <div className="mt-8 flex justify-center">
               <Button 
-                onClick={() => handleAction(activeBattle.id, 'end')}
+                onClick={() => setSettleBattleId(activeBattle.id)}
+                disabled={actionMutation.isPending}
                 className="bg-danger text-fg-inverse shadow-raised transition-all hover:scale-105 hover:bg-danger/90"
               >
                 结束大乱斗并结算
@@ -305,6 +320,7 @@ export default function TeacherBrawl() {
                       <Button
                         size="sm"
                         className="bg-success text-role-contrast hover:bg-success/90"
+                        disabled={actionMutation.isPending}
                         onClick={() => handleAction(b.id, 'accept')}
                       >
                         应战
@@ -312,6 +328,7 @@ export default function TeacherBrawl() {
                       <Button
                         size="sm"
                         variant="secondary"
+                        disabled={actionMutation.isPending}
                         onClick={() => handleAction(b.id, 'reject')}
                       >
                         拒绝
@@ -412,8 +429,26 @@ export default function TeacherBrawl() {
         isPending={initiateMutation.isPending}
         onConfirm={async () => {
           if (!challengeTarget) return;
-          await initiateBattle(challengeTarget.id, challengeTarget.name);
-          setChallengeTarget(null);
+          const sent = await initiateBattle(challengeTarget.id);
+          if (sent) setChallengeTarget(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={settleBattleId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSettleBattleId(null);
+        }}
+        destructive
+        title="结束大乱斗并结算？"
+        description="结算会按当前比分判定胜负并结束这场大乱斗，结束后无法撤销。"
+        confirmLabel="结束并结算"
+        pendingLabel="结算中..."
+        isPending={actionMutation.isPending}
+        onConfirm={async () => {
+          if (settleBattleId === null) return;
+          const ended = await handleAction(settleBattleId, 'end');
+          if (ended) setSettleBattleId(null);
         }}
       />
     </PageScaffold>

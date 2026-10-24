@@ -84,8 +84,9 @@ export default function ClassFeaturePanel({ classId, compact = false }: { classI
     try {
       await mutation.mutateAsync({ [key]: nextValue });
     } catch {
+      // The optimistic flip is rolled back; the api layer already toasted the server's reason,
+      // so a second generic toast here only made one failure look like two.
       setFeatures((prev) => ({ ...prev, [key]: !nextValue }));
-      toast.error('功能开关更新失败');
     }
   };
 

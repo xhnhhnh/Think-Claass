@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { certificatesApi } from '@/features/engagement/api/certificatesApi';
+import { apiErrorMessage } from '@/lib/api';
 import { launchConfetti } from '@/lib/confetti';
 import { CELEBRATION } from '@/lib/celebrationPalette';
 import { useRegisterPageCommands } from '@/app/commands/registry';
@@ -66,6 +67,7 @@ export default function TeacherCertificates() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [issueError, setIssueError] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -87,10 +89,8 @@ export default function TeacherCertificates() {
         setCertificates(certsData.certificates);
       }
     } catch (error) {
-      // The toast fades; the flag does not. Without it the grid drew 「暂无颁发记录」 for a
-      // request that failed, and 累计颁发 read 0 - both facts the page did not have.
+      // The banner below is the lasting state; the api layer already toasted the same failure once.
       setLoadError(true);
-      toast.error('数据加载失败');
     } finally {
       setLoading(false);
     }
@@ -102,8 +102,10 @@ export default function TeacherCertificates() {
       toast.error('请选择学生并填写荣誉称号');
       return;
     }
+    if (submitting) return;
 
     setSubmitting(true);
+    setIssueError('');
     try {
       const data = await certificatesApi.issueCertificate({
         student_id: selectedStudent,
@@ -124,11 +126,10 @@ export default function TeacherCertificates() {
         setTitle('');
         setDescription('');
         fetchData(); // Refresh list
-      } else {
-        toast.error(data.message || '颁发失败');
       }
     } catch (error) {
-      toast.error('网络错误，请重试');
+      // Inline, with the server's own sentence; the filled form stays so it can be retried.
+      setIssueError(apiErrorMessage(error, '颁发失败，请重试'));
     } finally {
       setSubmitting(false);
     }
@@ -175,10 +176,10 @@ export default function TeacherCertificates() {
       }
     >
 
-      {/* Stats */}
+      {/* Stats. While the read is unknown the total is unknown too - 0 would be a claim. */}
       <StatCard
         label="累计颁发"
-        value={certificates.length}
+        value={loading || loadError ? '—' : certificates.length}
         icon={Award}
         tone="warning"
         className="md:w-64"
@@ -234,7 +235,13 @@ export default function TeacherCertificates() {
       </div>
 
       {/* Issue Modal */}
-      <Dialog open={isModalOpen} onOpenChange={(open) => !open && setIsModalOpen(false)}>
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          setIsModalOpen(open);
+          if (!open) setIssueError('');
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
@@ -275,6 +282,12 @@ export default function TeacherCertificates() {
                 rows={3}
               />
             </FormField>
+
+            {issueError && (
+              <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {issueError}
+              </p>
+            )}
 
             <DialogFooter>
               <Button

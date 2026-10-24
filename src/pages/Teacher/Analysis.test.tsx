@@ -82,4 +82,17 @@ describe('TeacherAnalysis', () => {
 
     expect(mocks.useClassOverview).toHaveBeenLastCalledWith(2);
   });
+
+  it('offers a retry when the overview read failed and does not claim the class is empty', () => {
+    const refetch = vi.fn();
+    mocks.useClassOverview.mockReturnValue({ data: undefined, isLoading: false, error: new Error('boom'), refetch });
+
+    render(<TeacherAnalysis />);
+
+    expect(screen.getByText('分析数据加载失败')).toBeInTheDocument();
+    expect(screen.queryByText('暂无积分分布数据')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
+  });
 });

@@ -95,6 +95,9 @@ export default function TeacherTaskTree() {
               title: payload.title,
               description: payload.description,
               points_reward: payload.points_reward,
+              // The edit form shows 前置节点 too; without this line the select reported success and
+              // changed nothing (which is what the page used to do).
+              parent_node_id: payload.parent_node_id,
               x_pos: payload.x_pos,
               y_pos: payload.y_pos,
             },
@@ -106,7 +109,8 @@ export default function TeacherTaskTree() {
         await reloadNodes();
       }
     } catch (err) {
-      toast.error('网络错误');
+      // The api layer already toasted the server's reason (e.g. a parent cycle); keep the form.
+      console.error('Failed to save task node:', err);
     }
   };
 
@@ -116,9 +120,13 @@ export default function TeacherTaskTree() {
       if (data.success) {
         toast.success('节点已删除');
         await reloadNodes();
+        return true;
       }
+      return false;
     } catch (err) {
-      toast.error('网络错误');
+      // The api layer already toasted the server's reason.
+      console.error('Failed to delete task node:', err);
+      return false;
     }
   };
 
@@ -346,8 +354,12 @@ export default function TeacherTaskTree() {
             </div>
 
             <DialogFooter>
-              <Button type="submit" className="w-full">
-                保存节点
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={Boolean(createMutation.isPending || updateMutation.isPending)}
+              >
+                {createMutation.isPending || updateMutation.isPending ? '保存中...' : '保存节点'}
               </Button>
             </DialogFooter>
           </form>

@@ -358,15 +358,83 @@ export class CollaborationService {
     return this.repository.getTeacherNode(nodeId);
   }
 
+  /**
+   * Update a node, including its parent.
+   *
+   * The parent was editable in no path at all before: the update route dropped `parent_node_id`, so
+   * the console's 前置节点 select reported success and changed nothing. A parent change is now
+   * validated like a create - same class, not itself, not one of its own descendants - and a node
+   * that becomes a root unlocks for the class exactly as a created root does.
+   */
   async updateTeacherNode(nodeId: string, input: Record<string, any>) {
-    const { title, description, points_reward, x_pos, y_pos } = input ?? {};
-    const classId = this.repository.getTeacherNodeClassId(nodeId);
-    if (classId === null) throw new ApiError(404, 'Task node not found');
+    const { title, description, points_reward, parent_node_id, x_pos, y_pos } = input ?? {};
+    const node = this.repository.getTeacherNode(nodeId);
+    if (!node) throw new ApiError(404, 'Task node not found');
 
+    const classId = Number(node.class_id);
     await this.assertTaskTreeClassFeature(classId);
 
-    const update: TeacherNodeUpdate = { title, description, points_reward, x_pos, y_pos };
+    // `undefined` means the request did not speak about the parent: keep what is stored.
+    const nextParentId: number | null | undefined =
+      parent_node_id === undefined
+        ? undefined
+        : parent_node_id === null || parent_node_id === ''
+          ? null
+          : Number(parent_node_id);
+
+    if (nextParentId !== undefined && nextParentId !== null) {
+      if (nextParentId === Number(nodeId)) {
+        throw new ApiError(400, '前置节点不能是节点自身');
+      }
+      const parent = this.repository.getTeacherNode(nextParentId);
+      if (!parent || Number(parent.class_id) !== classId) {
+        throw new ApiError(400, '前置节点不存在或不属于该班级');
+      }
+      if (this.isDescendantNode(Number(nodeId), nextParentId)) {
+        throw new ApiError(400, '前置节点不能是该节点的子节点（会形成循环）');
+      }
+    }
+
+    const currentParentId = node.parent_node_id === null || node.parent_node_id === undefined
+      ? null
+      : Number(node.parent_node_id);
+    const update: TeacherNodeUpdate = {
+      title,
+      description,
+      points_reward,
+      x_pos,
+      y_pos,
+      parent_node_id: nextParentId === undefined ? currentParentId : nextParentId,
+    };
     this.repository.updateTeacherNode(nodeId, update);
+
+    // Mirrors `createTeacherNode`: a root is visible to the class without a contribution step.
+    // (Only for a node that actually became a root - an edit that keeps it a root does not need
+    // the unlock rows rewritten.)
+    if (nextParentId === null && currentParentId !== null) {
+      const students = await this.classroom.listClassStudents(classId);
+      this.repository.unlockNodesForStudents(
+        students.map((student) => student.id),
+        [Number(nodeId)],
+      );
+    }
+  }
+
+  /** Is `candidateId` a descendant of `nodeId` (any depth)? Used to refuse parent cycles. */
+  private isDescendantNode(nodeId: number, candidateId: number): boolean {
+    const visited = new Set<number>();
+    const stack = [nodeId];
+    while (stack.length > 0) {
+      const current = stack.pop() as number;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      for (const childId of this.repository.listChildNodeIds(current)) {
+        const child = Number(childId);
+        if (child === candidateId) return true;
+        stack.push(child);
+      }
+    }
+    return false;
   }
 
   async deleteTeacherNode(nodeId: string) {

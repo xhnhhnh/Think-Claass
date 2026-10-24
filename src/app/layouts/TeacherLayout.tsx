@@ -3,9 +3,11 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
 
 import { AppShell } from '@/app/layouts/AppShell';
+import { Button } from '@/components/ui/button';
 import { useResolvedClassFeatures } from '@/features/classroom/hooks/useResolvedClassFeatures';
 import { useClasses } from '@/hooks/queries/useClasses';
 import {
+  allClassFeatures,
   isFeatureRequirementEnabled,
   type FeatureRequirement,
 } from '@/lib/classFeatures';
@@ -26,10 +28,19 @@ import { useStore } from '@/store/useStore';
  *     route table;
  *   - `/teacher/task-tree` is gated here on `enable_task_tree` and is a menu entry in the route
  *     table now that it has a label - it used to be listed here with no way to reach it at all.
+ *   - `/teacher/verification` is the pickup counter for the *shop's* redemption tickets as well
+ *     as lucky-draw prizes (`plugins/marketplace` mints a ticket on every purchase), so it shows
+ *     when either feature is on - gating it on `enable_lucky_draw` alone hid the page from a
+ *     shop-only class that still had codes to verify.
  *
- * The list is also where "we cannot answer yet" is kept apart from "switched off": `canDecide`
- * from `useResolvedClassFeatures` gates every decision below, so a pending or failed class-features
- * request hides nothing and redirects nobody.
+ * ## "We cannot answer yet" is not "off"
+ *
+ * Two answers have to arrive before an entry may be hidden or a page redirected: the class list
+ * (which class's flags to read) and that class's feature flags. Until both are known the shell is
+ * given `allClassFeatures` and an empty `hiddenPaths`, so a hard refresh never flashes the rail
+ * empty or bounces the page. A failed class-list read is rendered as its own error card with a
+ * retry - it is not "this account has no classes", which is what the first-run wizard treats an
+ * empty list as.
  *
  * Collapsing the two into one would change which pages teachers can reach, so the list
  * stays explicit. This is preserved verbatim from the previous layout - it is behaviour,
@@ -43,7 +54,7 @@ const teacherMenuGates: Partial<Record<string, FeatureRequirement>> = {
   // rail. The route itself stays reachable - a menu gate is not a permission.
   '/teacher/ai-study': { key: 'enable_ai_study' },
   '/teacher/lucky-draw-config': { key: 'enable_lucky_draw' },
-  '/teacher/verification': { key: 'enable_lucky_draw' },
+  '/teacher/verification': { anyOf: ['enable_shop', 'enable_lucky_draw'] },
   '/teacher/brawl': { key: 'enable_class_brawl' },
   '/teacher/territory': { key: 'enable_slg' },
   '/teacher/task-tree': { key: 'enable_task_tree' },
@@ -69,8 +80,12 @@ export default function TeacherLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { data: classes = [] } = useClasses();
-  const defaultClassId = useMemo(() => classes[0]?.id ?? null, [classes]);
+  const classesQuery = useClasses();
+  const classesReady = !classesQuery.isLoading && !classesQuery.isError;
+  const classes = useMemo(() => (classesReady ? classesQuery.data ?? [] : []), [classesReady, classesQuery.data]);
+  const classesError = Boolean(classesQuery.isError);
+  const defaultClassId = useMemo(() => (classesReady ? classes[0]?.id ?? null : null), [classesReady, classes]);
+
   /**
    * The same resolver the student, parent and guard use.
    *
@@ -81,7 +96,13 @@ export default function TeacherLayout() {
    * arrived: refresh lost your place, and the back button lost it again. `canDecide` is the fix -
    * "we cannot answer yet" is not "the teacher turned it off".
    */
-  const { features, canDecide } = useResolvedClassFeatures(defaultClassId, { refetchInterval: 5000 });
+  const { features: classFeatures, canDecide } = useResolvedClassFeatures(defaultClassId, {
+    refetchInterval: 5000,
+  });
+
+  /** Gates are only decided once both halves of the answer are known, for the same reason. */
+  const canResolveGates = classesReady && canDecide;
+  const features = canResolveGates ? classFeatures : allClassFeatures;
 
   /**
    * The menu entries this console hides, resolved from the gate map.
@@ -94,29 +115,29 @@ export default function TeacherLayout() {
    */
   const hiddenPaths = useMemo(
     () =>
-      canDecide
+      canResolveGates
         ? Object.entries(teacherMenuGates)
             .filter(([, requirement]) => requirement)
-            .filter(([, requirement]) => !isFeatureRequirementEnabled(features, requirement))
+            .filter(([, requirement]) => !isFeatureRequirementEnabled(classFeatures, requirement))
             .map(([path]) => path)
         : [],
-    [canDecide, features],
+    [canResolveGates, classFeatures],
   );
 
   const fallbackPath = useMemo(() => {
     // The first destination the teacher can actually use, in the fallback order below. While the
     // answer is pending there is no "unusable" entry to skip, so the console's own home is used and
     // the effect below does nothing until the flags arrive.
-    if (!canDecide) return '/teacher';
+    if (!canResolveGates) return '/teacher';
     for (const path of GATE_ORDERED_PATHS) {
-      if (isFeatureRequirementEnabled(features, teacherMenuGates[path])) return path;
+      if (isFeatureRequirementEnabled(classFeatures, teacherMenuGates[path])) return path;
     }
     return '/teacher';
-  }, [canDecide, features]);
+  }, [canResolveGates, classFeatures]);
 
   useEffect(() => {
     // Never decide on "we cannot answer": that is what made a refresh of a gated page bounce.
-    if (!canDecide) return;
+    if (!canResolveGates) return;
 
     if (location.pathname === '/teacher' && fallbackPath !== '/teacher') {
       navigate(fallbackPath, { replace: true });
@@ -124,10 +145,10 @@ export default function TeacherLayout() {
     }
 
     const requirement = teacherMenuGates[location.pathname];
-    if (requirement && !isFeatureRequirementEnabled(features, requirement)) {
+    if (requirement && !isFeatureRequirementEnabled(classFeatures, requirement)) {
       navigate(fallbackPath, { replace: true });
     }
-  }, [canDecide, fallbackPath, features, location.pathname, navigate]);
+  }, [canResolveGates, fallbackPath, classFeatures, location.pathname, navigate]);
 
   if (!user) return null;
 
@@ -147,8 +168,39 @@ export default function TeacherLayout() {
         navigate('/login');
       }}
     >
-      <Outlet />
+      {classesError ? (
+        <ClassesUnavailableCard
+          onRetry={() => void classesQuery.refetch()}
+          isRetrying={Boolean(classesQuery.isFetching)}
+        />
+      ) : (
+        <Outlet />
+      )}
     </AppShell>
+  );
+}
+
+/**
+ * A failed class-list read, rendered where the page would be.
+ *
+ * It replaces the routed page on purpose: every teacher page resolves its class from this list, and
+ * the dashboard's first-run wizard treats "no classes yet" as an invitation to create one. Showing
+ * either over a failed request would state something the console does not know. The retry button is
+ * the visible recovery path (the class query is shared, so one refetch fixes every page).
+ */
+function ClassesUnavailableCard({ onRetry, isRetrying }: { onRetry: () => void; isRetrying: boolean }) {
+  return (
+    <div
+      role="alert"
+      data-testid="teacher-classes-error"
+      className="mx-auto mt-10 max-w-xl rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center"
+    >
+      <p className="font-semibold text-danger">班级列表加载失败</p>
+      <p className="mt-1 text-sm text-fg-3">这不代表你没有班级。请重试；在恢复之前，页面不会按“没有班级”处理。</p>
+      <Button variant="outline" className="mt-4" onClick={onRetry} disabled={isRetrying}>
+        {isRetrying ? '重新加载中…' : '重新加载'}
+      </Button>
+    </div>
   );
 }
 

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   useStudentMutations: vi.fn(),
   getStudentRadar: vi.fn(),
   getClassPraises: vi.fn(),
+  classroomCreateClass: vi.fn(),
 }));
 
 vi.mock('@/features/engagement/api/praisesApi', () => ({
@@ -66,6 +67,11 @@ vi.mock('@/features/classroom/api/classesApi', () => ({
     createPreset: vi.fn(),
     deletePreset: vi.fn(),
     sendPraise: vi.fn(),
+  },
+  // The first-run wizard is exercised through the real dashboard by one test below; it creates its
+  // class through `classroomApi.createClass` (the ordinary endpoint), not `teacherApi`.
+  classroomApi: {
+    createClass: mocks.classroomCreateClass,
   },
 }));
 
@@ -228,5 +234,38 @@ describe('TeacherDashboard', () => {
 
     expect(await screen.findByText('表扬记录没有加载出来')).toBeInTheDocument();
     expect(screen.queryByText(/还没有表扬记录/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * The first-run wizard's own step 1 creates the class, and steps 2–4 (roster, features, done)
+   * write to that class. Deriving visibility from a live `classes.length === 0` unmounted the
+   * wizard the moment the create succeeded, stranding the rest of the flow. The dashboard must
+   * keep rendering it after the classes query answers with the new class.
+   */
+  it('keeps the first-run wizard on the roster step after its class is created', async () => {
+    mocks.useClasses.mockReturnValue({ data: [], isLoading: false });
+    mocks.classroomCreateClass.mockResolvedValue({
+      success: true,
+      class: { id: 42, name: '三年二班', invite_code: 'ABC123' },
+    });
+
+    const queryClient = new QueryClient();
+    const ui = (
+      <QueryClientProvider client={queryClient}>
+        <TeacherDashboard />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(ui);
+
+    fireEvent.change(await screen.findByPlaceholderText('三年二班'), { target: { value: '三年二班' } });
+    fireEvent.click(screen.getByRole('button', { name: /创建班级/ }));
+
+    // Step 2 is now on screen; then the classes query answers with the class just created.
+    expect(await screen.findByText('学生名单')).toBeInTheDocument();
+    mocks.useClasses.mockReturnValue({ data: [{ id: 42, name: '三年二班' }], isLoading: false });
+    rerender(ui);
+
+    expect(screen.getByText('学生名单')).toBeInTheDocument();
+    expect(screen.queryByText('让每个孩子的进步都被看见')).not.toBeInTheDocument();
   });
 });

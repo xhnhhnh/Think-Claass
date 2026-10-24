@@ -167,6 +167,8 @@ export interface TeacherNodeUpdate {
   title?: SqlParam;
   description?: SqlParam;
   points_reward?: SqlParam;
+  /** New parent, `null` for a root node. The service validates it before it reaches here. */
+  parent_node_id?: SqlParam;
   x_pos?: SqlParam;
   y_pos?: SqlParam;
 }

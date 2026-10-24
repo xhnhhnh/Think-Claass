@@ -14,11 +14,15 @@ interface CreateGroupModalProps {
 export function CreateGroupModal({ isOpen, onClose, onSubmit, submitting }: CreateGroupModalProps) {
   const [name, setName] = React.useState('');
 
+  /** See `CreateClassModal`: the input survives a failed submit and clears only when closed. */
+  React.useEffect(() => {
+    if (!isOpen) setName('');
+  }, [isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
       onSubmit(name.trim());
-      setName('');
     }
   };
 

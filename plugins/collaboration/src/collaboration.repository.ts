@@ -84,11 +84,21 @@ export function createCollaborationRepository(db: DbApi): CollaborationRepositor
     updateTeacherNode(nodeId, input: TeacherNodeUpdate) {
       db.run(
         `
-      UPDATE task_nodes 
-      SET title = ?, description = ?, points_reward = ?, x_pos = ?, y_pos = ? 
+      UPDATE task_nodes
+      SET title = ?, description = ?, points_reward = ?, parent_node_id = ?, x_pos = ?, y_pos = ?
       WHERE id = ?
     `,
-        [input.title, input.description, input.points_reward, input.x_pos, input.y_pos, nodeId],
+        [
+          input.title,
+          input.description,
+          input.points_reward,
+          // `?? null` only guards a caller that omits the field entirely; the service always
+          // resolves it (stored value when the request did not carry one).
+          input.parent_node_id ?? null,
+          input.x_pos,
+          input.y_pos,
+          nodeId,
+        ],
       );
     },
 

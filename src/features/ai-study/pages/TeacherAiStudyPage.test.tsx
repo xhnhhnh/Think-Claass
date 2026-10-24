@@ -168,11 +168,17 @@ describe('TeacherAiStudyPage', () => {
     expect(screen.getByText('还没有班级')).toBeInTheDocument();
   });
 
-  it('shows the retry state when the board read fails', () => {
-    mocks.useInsight.mockReturnValue({ data: undefined, isLoading: false, error: new Error('boom') });
+  it('shows an error with a retry when the board read fails', () => {
+    const refetch = vi.fn();
+    mocks.useInsight.mockReturnValue({ data: undefined, isLoading: false, error: new Error('boom'), refetch });
 
     render(<TeacherAiStudyPage />);
 
-    expect(screen.getByText('班级智学看板加载失败，请稍后重试')).toBeInTheDocument();
+    expect(screen.getByText('班级智学看板加载失败')).toBeInTheDocument();
+    // A failed read must not be dressed as an empty board.
+    expect(screen.queryByText('本班暂无错题记录')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

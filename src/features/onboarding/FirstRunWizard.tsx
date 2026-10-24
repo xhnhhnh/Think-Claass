@@ -16,14 +16,15 @@
  *
  *   1. `POST /api/classes` - a class, which also mints its invite code
  *   2. `POST /api/students/batch-import` - the roster, which creates the logins
- *   3. `PUT /api/classes/:id/features` - the 19 feature flags, which default to ON
+ *   3. `PUT /api/classes/:id/features` - the 19 feature flags, which a new class starts with OFF
  *
  * ## Why it is dismissible and not a hard gate
  *
  * A teacher may want to import a roster from a file first, or simply look around. The wizard is a
  * scaffold, not a mode: "先跳过" records the choice locally and the ordinary dashboard renders
- * underneath. It is also shown only when `GET /api/classes` says there are none, so it never
- * reappears for a teacher who already has classes.
+ * underneath. It is offered only on a browser that saw the account empty (see `useFirstRun`), so it
+ * never reappears for a teacher who already had classes, while a class created *inside* the wizard
+ * does not tear the remaining steps down.
  */
 
 import { useMemo, useState } from 'react';
@@ -39,6 +40,7 @@ import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import ClassFeaturePanel from '@/pages/Teacher/components/ClassFeaturePanel';
+import { apiErrorMessage } from '@/lib/api';
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { studentsApi } from '@/features/classroom/api/studentsApi';
 import { useClasses } from '@/hooks/queries/useClasses';
@@ -62,6 +64,8 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
   const [classId, setClassId] = useState<number | null>(null);
   const [roster, setRoster] = useState('');
   const [imported, setImported] = useState(0);
+  /** The last failed step, inline: the api layer already toasted the server's own sentence. */
+  const [stepError, setStepError] = useState('');
 
   const parsed = useMemo(() => parseRoster(roster), [roster]);
   const inviteCode = classes.find((entry) => entry.id === classId)?.invite_code;
@@ -79,10 +83,11 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
       }
       setClassId(created.id);
       await queryClient.invalidateQueries({ queryKey: ['classes'] });
+      setStepError('');
       toast.success(`班级「${created.name}」已创建`);
       setStep('students');
     },
-    onError: () => toast.error('班级创建失败，请重试'),
+    onError: (error) => setStepError(apiErrorMessage(error, '班级创建失败，请重试')),
   });
 
   const importRoster = useMutation({
@@ -92,10 +97,11 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
       const count = (data as unknown as { importedCount?: number }).importedCount ?? parsed.entries.length;
       setImported(count);
       await queryClient.invalidateQueries({ queryKey: ['students'] });
+      setStepError('');
       toast.success(`已导入 ${count} 名学生`);
       setStep('features');
     },
-    onError: () => toast.error('学生导入失败，请检查名单后重试'),
+    onError: (error) => setStepError(apiErrorMessage(error, '学生导入失败，请检查名单后重试')),
   });
 
   const StepIcon = STEPS[stepIndex].icon;
@@ -137,6 +143,12 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
           <StepIcon className="size-5 text-primary" />
           <h2 className="text-lg font-bold text-ink-1">{STEPS[stepIndex].title}</h2>
         </div>
+
+        {stepError ? (
+          <p role="alert" className="mb-4 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+            {stepError}
+          </p>
+        ) : null}
 
         {step === 'class' && (
           <div className="space-y-4">
@@ -219,7 +231,8 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
         {step === 'features' && (
           <div className="space-y-4">
             <p className="text-sm text-ink-3">
-              这些开关控制学生能看到哪些玩法，默认全部开启。之后随时可以在「功能开关」里改。
+              这些开关控制学生能看到哪些玩法。新班级的开关默认全部关闭——想让学生用哪一项，就在这里打开它；
+              之后随时可以在「功能开关」里改。
             </p>
             {/* Reuses the real panel, so the wizard cannot drift from the page it previews. */}
             <div data-tour="firstrun-features">
@@ -239,7 +252,7 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
             <ul className="space-y-2 text-sm text-ink-2">
               <li>✅ 班级已创建{inviteCode ? `（邀请码 ${inviteCode}）` : ''}</li>
               <li>✅ 已导入 {imported} 名学生</li>
-              <li>✅ 课堂功能已按你的选择配置</li>
+              <li>✅ 已确认课堂功能开关（新班级默认全部关闭，可在「功能开关」里随时调整）</li>
             </ul>
             <p className="text-sm text-ink-3">
               学生用姓名或登录名 + 初始密码 <span className="font-mono font-bold">123456</span>{' '}

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { toast } from 'sonner';
 
+import { apiErrorMessage } from '@/lib/api';
 import { useRedemptionVerifyMutation } from '@/hooks/queries/useRedemption';
 
 /**
@@ -22,6 +23,7 @@ export default function TeacherVerification() {
   const verifyMutation = useRedemptionVerifyMutation();
   const loading = verifyMutation.isPending;
   const [result, setResult] = useState<any>(null);
+  const [verifyError, setVerifyError] = useState('');
 
   const handleVerify = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -29,6 +31,8 @@ export default function TeacherVerification() {
       toast.error('请输入核销码');
       return;
     }
+    if (loading) return;
+    setVerifyError('');
 
     try {
       const data = await verifyMutation.mutateAsync({ code: code.trim().toUpperCase(), teacherId: user?.id });
@@ -36,9 +40,10 @@ export default function TeacherVerification() {
       setResult(data.ticket);
       setCode('');
     } catch (err) {
+      // The api layer already toasted the server's reason (e.g. 无效的核销码); show it inline too
+      // instead of replacing it with 「网络错误」 and wiping the previous receipt.
       console.error('Verify error:', err);
-      toast.error('网络错误');
-      setResult(null);
+      setVerifyError(apiErrorMessage(err, '核销失败，请重试'));
     }
   };
 
@@ -88,6 +93,11 @@ export default function TeacherVerification() {
             {loading ? '核销中...' : '确认核销'}
           </Button>
         </form>
+        {verifyError && (
+          <p role="alert" className="mt-3 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+            {verifyError}
+          </p>
+        )}
       </div>
 
       {result && (

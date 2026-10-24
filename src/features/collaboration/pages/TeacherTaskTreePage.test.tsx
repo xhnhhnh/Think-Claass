@@ -52,9 +52,10 @@ describe('TeacherTaskTree', () => {
     mocks.deleteMutateAsync.mockReset();
     mocks.invalidateQueries.mockReset();
     mocks.createMutateAsync.mockResolvedValue({ success: true });
-    mocks.useCreateTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.createMutateAsync });
-    mocks.useUpdateTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.updateMutateAsync });
-    mocks.useDeleteTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.deleteMutateAsync });
+    mocks.updateMutateAsync.mockResolvedValue({ success: true });
+    mocks.useCreateTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.createMutateAsync, isPending: false });
+    mocks.useUpdateTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.updateMutateAsync, isPending: false });
+    mocks.useDeleteTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.deleteMutateAsync, isPending: false });
   });
 
   it('submits new nodes with the teacher task-tree write contract', async () => {
@@ -81,5 +82,43 @@ describe('TeacherTaskTree', () => {
     });
 
     expect(mocks.updateMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('sends the edited 前置节点 with the update so the select is not a no-op', async () => {
+    mocks.useTeacherTaskNodes.mockReturnValue({
+      data: [
+        { id: 5, title: '第一章', description: '', points_reward: 10, parent_node_id: null, x_pos: 20, y_pos: 20 },
+        { id: 6, title: '第二章', description: '', points_reward: 10, parent_node_id: 5, x_pos: 50, y_pos: 50 },
+      ],
+    });
+
+    render(<TeacherTaskTree />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '编辑 第二章' }));
+
+    // Move it to the root; the API update must carry the new parent, not just the text fields.
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '保存节点' }));
+
+    await waitFor(() => {
+      expect(mocks.updateMutateAsync).toHaveBeenCalledWith({
+        nodeId: 6,
+        data: expect.objectContaining({ title: '第二章', parent_node_id: null }),
+      });
+    });
+  });
+
+  it('locks the save button while a node write is pending', async () => {
+    mocks.useTeacherTaskNodes.mockReturnValue({
+      data: [{ id: 6, title: '第二章', description: '', points_reward: 10, parent_node_id: null, x_pos: 50, y_pos: 50 }],
+    });
+    mocks.useUpdateTaskNodeMutation.mockReturnValue({ mutateAsync: mocks.updateMutateAsync, isPending: true });
+
+    render(<TeacherTaskTree />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '编辑 第二章' }));
+
+    expect(screen.getByRole('button', { name: '保存中...' })).toBeDisabled();
   });
 });

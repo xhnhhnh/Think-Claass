@@ -148,15 +148,38 @@ export default function TeacherBigscreen() {
     }
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        toast.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
+  /**
+   * Keep "stage mode" honest with the browser.
+   *
+   * The old handler set `isFullscreen` before `requestFullscreen` resolved and had no listener, so
+   * pressing Esc (or a browser that refused the request) left the page rendering the dark
+   * full-screen stage while the document was not full screen - on a projected screen, a UI that
+   * said something untrue.
+   */
+  useEffect(() => {
+    const syncWithDocument = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', syncWithDocument);
+    document.addEventListener('fullscreenerror', syncWithDocument);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncWithDocument);
+      document.removeEventListener('fullscreenerror', syncWithDocument);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      toast.error(
+        `进入大屏失败：${err instanceof Error ? err.message : '浏览器拒绝了全屏请求，请检查权限或按 F11'}`,
+      );
       setIsFullscreen(false);
+    } finally {
+      setIsFullscreen(Boolean(document.fullscreenElement));
     }
   };
 
@@ -180,7 +203,7 @@ export default function TeacherBigscreen() {
       label: isFullscreen ? '退出大屏' : '进入大屏模式',
       icon: Maximize,
       keywords: ['大屏', '投影', '全屏'],
-      run: toggleFullscreen,
+      run: () => void toggleFullscreen(),
     },
   ]);
 

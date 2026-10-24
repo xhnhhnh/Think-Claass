@@ -19,7 +19,24 @@ vi.mock('@/hooks/queries/useTeacherShop', () => ({
   useTeacherAuctions: mocks.useTeacherAuctions,
 }));
 
-import TeacherAuction from '@/features/marketplace/pages/TeacherAuctionPage';
+import TeacherAuction, { toLocalDateTimeInputValue } from '@/features/marketplace/pages/TeacherAuctionPage';
+
+describe('toLocalDateTimeInputValue', () => {
+  it('round-trips a local wall-clock time instead of shifting it through UTC', () => {
+    // The old helper used `toISOString().slice(0, 16)`, which renders a Beijing 20:00 deadline as
+    // 12:00 in the edit dialog and then saves 12:00 back if the teacher only edits the title.
+    const local = new Date(2026, 10, 1, 20, 0); // 2026-11-01 20:00 local
+    const value = toLocalDateTimeInputValue(local);
+
+    expect(value).toBe('2026-11-01T20:00');
+    // And the value a datetime-local control produces round-trips to the same instant, to the minute.
+    expect(new Date(value).getTime()).toBe(new Date(2026, 10, 1, 20, 0).getTime());
+  });
+
+  it('returns an empty string for an unparsable value rather than "Invalid Date"', () => {
+    expect(toLocalDateTimeInputValue('not-a-date')).toBe('');
+  });
+});
 
 describe('TeacherAuction', () => {
   beforeEach(() => {

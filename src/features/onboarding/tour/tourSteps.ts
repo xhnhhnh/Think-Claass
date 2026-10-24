@@ -185,7 +185,7 @@ const TEACHER_CORE_FIRST_RUN: TourStep[] = [
     id: 'firstrun-features',
     anchor: 'firstrun-features',
     title: '第三步：挑选课堂功能',
-    description: '这里决定学生能看到哪些玩法，默认全开。之后在「功能开关」里随时能改。',
+    description: '这里决定学生能看到哪些玩法，新班级默认全部关闭。之后在「功能开关」里随时能改。',
     action: 'next',
     fallback: '功能开关在名单导入之后出现。',
   },

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Swords, Plus, Trash2, ShieldAlert, Trophy, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { apiErrorMessage } from '@/lib/api';
 import { useWorldBossMutation, useWorldBosses } from '@/features/challenge/hooks/useChallenge';
 import type { WorldBossDto } from '@/features/challenge/types';
 import { useRegisterPageCommands } from '@/app/commands/registry';
@@ -40,6 +41,7 @@ export default function TeacherWorldBoss() {
   const bossMutation = useWorldBossMutation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [formError, setFormError] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,21 +50,29 @@ export default function TeacherWorldBoss() {
     level: 1
   });
 
+  /** A stale failure should not greet the next summon; a failure while open stays visible. */
+  useEffect(() => {
+    if (isModalOpen) setFormError('');
+  }, [isModalOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
       toast.error('请输入BOSS名称');
       return;
     }
+    if (bossMutation.isPending) return;
 
     try {
       await bossMutation.mutateAsync({ type: 'create', data: formData });
       toast.success('召唤世界BOSS成功！');
       setIsModalOpen(false);
       setFormData({ name: '', description: '', hp: 10000, level: 1 });
+      setFormError('');
       await refetch();
     } catch (error) {
-      toast.error('网络错误');
+      // Inline, with the server's own sentence; the api layer already showed its toast.
+      setFormError(apiErrorMessage(error, '召唤失败，请重试'));
     }
   };
 
@@ -71,8 +81,10 @@ export default function TeacherWorldBoss() {
       await bossMutation.mutateAsync({ type: 'delete', id });
       toast.success('删除成功');
       await refetch();
+      return true;
     } catch (error) {
-      toast.error('网络错误');
+      // The api layer already toasted the server's reason; the confirm stays open for a retry.
+      return false;
     }
   };
 
@@ -250,6 +262,11 @@ export default function TeacherWorldBoss() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <p role="alert" className="rounded-card border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {formError}
+              </p>
+            )}
             <FormField label="BOSS 名称" required>
               <Input
                 type="text"
@@ -303,9 +320,10 @@ export default function TeacherWorldBoss() {
               </Button>
               <Button
                 type="submit"
+                disabled={bossMutation.isPending}
                 className="bg-danger text-fg-inverse hover:bg-danger/90"
               >
-                确认召唤
+                {bossMutation.isPending ? '召唤中...' : '确认召唤'}
               </Button>
             </DialogFooter>
           </form>
@@ -322,8 +340,8 @@ export default function TeacherWorldBoss() {
         isPending={bossMutation.isPending}
         onConfirm={async () => {
           if (deleteTarget === null) return;
-          await handleDelete(deleteTarget);
-          setDeleteTarget(null);
+          const deleted = await handleDelete(deleteTarget);
+          if (deleted) setDeleteTarget(null);
         }}
       />
     </PageScaffold>

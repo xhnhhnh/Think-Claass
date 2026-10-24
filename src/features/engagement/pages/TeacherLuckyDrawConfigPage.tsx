@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 
 import { useQuery } from '@tanstack/react-query';
 
+import { apiErrorMessage } from '@/lib/api';
 import { shopApi } from '@/features/marketplace/api/shopApi';
 import { useLuckyDrawConfig, useSaveLuckyDrawConfigMutation } from '@/hooks/queries/useLuckyDraw';
 import { useRegisterPageCommands } from '@/app/commands/registry';
@@ -42,6 +43,7 @@ export default function TeacherLuckyDrawConfig() {
   const user = useStore((state) => state.user);
   const [costPoints, setCostPoints] = useState<number>(10);
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
+  const [saveError, setSaveError] = useState('');
   const { data: shopItems = [] } = useQuery({
     queryKey: ['teacher-shop-items', user?.id],
     queryFn: async () => {
@@ -82,7 +84,7 @@ export default function TeacherLuckyDrawConfig() {
   };
 
   const handleSave = async () => {
-    if (!user?.id) return;
+    if (!user?.id || saving) return;
 
     // Validation
     for (let i = 0; i < 9; i++) {
@@ -101,6 +103,7 @@ export default function TeacherLuckyDrawConfig() {
       }
     }
 
+    setSaveError('');
     try {
       await saveMutation.mutateAsync({
         teacher_id: user.id,
@@ -110,8 +113,8 @@ export default function TeacherLuckyDrawConfig() {
       toast.success('保存成功');
       await refetch();
     } catch (err) {
-      console.error('Save error:', err);
-      toast.error('网络错误');
+      // Inline, with the server's own sentence; the nine cells stay editable for a retry.
+      setSaveError(apiErrorMessage(err, '保存失败，请重试'));
     }
   };
 
@@ -172,6 +175,12 @@ export default function TeacherLuckyDrawConfig() {
         </Button>
       }
     >
+
+      {saveError && (
+        <p role="alert" className="mb-4 rounded-card border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {saveError}
+        </p>
+      )}
 
       <Card className="rounded-panel border-line-1 bg-surface-2/80 backdrop-blur-xl">
         <CardContent className="space-y-6 px-6 sm:px-8">
