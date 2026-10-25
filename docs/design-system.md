@@ -447,6 +447,11 @@ teacher workbench is the first page built against it.
   login.
 - `KpiStrip`, `Avatar`, `OnboardingChecklist` — headline figures, initials, and a
   three-step first-run card that replaces an empty console's zero-wall.
+- `Switch` — an accessible `role="switch"` control; the feature matrix no longer rebuilds a
+  toggle out of a `Button` with a track-shaped padding.
+- The page-actions portal now survives React StrictMode: an outlet cleanup ran after the
+  simulated remount and left every page's primary action inline instead of in the context
+  bar. A StrictMode regression test covers it; `npm run shell:verify` covers the shell.
 - `DroppableGroup` / `DraggableStudent` — the workbench board: tinted group header, avatar
   rows, in-row ±1 scoring, and a per-row overflow menu for praise/AI/custom reasons.
 - `DataInsight` is now fully on tokens; it was the last shared analytics component still
