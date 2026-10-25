@@ -234,7 +234,7 @@ describe('TeacherExams', () => {
 
     renderPage();
 
-    expect(await screen.findAllByText('待录入成绩')).toHaveLength(2);
+    expect(await screen.findAllByText('待录入')).toHaveLength(2);
 
     fireEvent.click(screen.getAllByRole('button', { name: '录入成绩' })[0]);
     await screen.findByDisplayValue('95');
@@ -243,7 +243,7 @@ describe('TeacherExams', () => {
     await screen.findByDisplayValue('80');
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
 
-    expect(screen.getAllByText('已录入部分成绩')).toHaveLength(2);
+    expect(screen.getAllByText('已录入')).toHaveLength(2);
   });
 
   it('offers a retry when the exam list failed', async () => {

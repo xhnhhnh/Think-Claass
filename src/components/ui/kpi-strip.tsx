@@ -28,11 +28,21 @@ export interface KpiItem {
 }
 
 export function KpiStrip({ items, className }: { items: KpiItem[]; className?: string }) {
+  const columns =
+    items.length <= 1
+      ? 'grid-cols-1'
+      : items.length === 2
+        ? 'grid-cols-1 sm:grid-cols-2'
+        : items.length === 3
+          ? 'grid-cols-1 sm:grid-cols-3'
+          : 'grid-cols-2 lg:grid-cols-4';
+
   return (
     <div
       data-slot="kpi-strip"
       className={cn(
-        'grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line-1 bg-line-1 lg:grid-cols-4',
+        'grid gap-px overflow-hidden rounded-card border border-line-1 bg-line-1',
+        columns,
         className,
       )}
     >

@@ -17,6 +17,7 @@
  * 0x0 and would pass any assertion about position.
  */
 
+import { StrictMode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -136,6 +137,31 @@ describe('page actions', () => {
     const outlet = document.querySelector('[data-slot="page-actions"]');
     expect(outlet).toBeTruthy();
     // Portalled: the button lives under the outlet, not under the scaffold.
+    expect(outlet?.contains(button)).toBe(true);
+    expect(button.closest('[data-slot="page-scaffold"]')).toBeNull();
+  });
+
+  it('keeps the outlet attached under StrictMode', () => {
+    /*
+     * The outlet used to have an effect that set the store to null on cleanup. React 18
+     * StrictMode runs that cleanup after the simulated remount's ref callback, so the store
+     * ended up permanently null: the page took the inline fallback and the primary action sat
+     * at the top of the content instead of the context bar. jsdom tests that did not wrap the
+     * tree in StrictMode could not see it.
+     */
+    render(
+      <StrictMode>
+        <PageActionsProvider>
+          <PageActionsOutlet />
+          <PageScaffold actions={<button type="button">新建</button>}>
+            <p>body</p>
+          </PageScaffold>
+        </PageActionsProvider>
+      </StrictMode>,
+    );
+
+    const outlet = document.querySelector('[data-slot="page-actions"]');
+    const button = screen.getByRole('button', { name: '新建' });
     expect(outlet?.contains(button)).toBe(true);
     expect(button.closest('[data-slot="page-scaffold"]')).toBeNull();
   });

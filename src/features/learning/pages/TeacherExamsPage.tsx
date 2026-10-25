@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Award, FileSpreadsheet, PlusCircle, Trash2 } from 'lucide-react';
+import { Award, CheckCircle2, FileSpreadsheet, PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { examsApi, type Exam } from '@/features/learning/api/examsApi';
@@ -10,7 +10,6 @@ import { useClasses } from '@/hooks/queries/useClasses';
 import { useStore } from '@/store/useStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   Dialog,
@@ -23,8 +22,10 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { KpiStrip } from '@/components/ui/kpi-strip';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useRegisterPageCommands } from '@/app/commands/registry';
@@ -261,74 +262,92 @@ export default function TeacherExams() {
       }
     >
 
-      {isLoading && (
-        <div className="flex items-center justify-center gap-3 rounded-panel border border-line-1 bg-surface-2 py-16 text-fg-3">
-          <Spinner label="正在加载考试列表" />
-          正在加载考试列表...
-        </div>
-      )}
+      <div className="space-y-5">
+        {!isLoading && !error && classes.length > 0 ? (
+          <KpiStrip
+            items={[
+              { label: '考试总数', value: exams.length, icon: FileSpreadsheet, tone: 'role' },
+              { label: '待录入成绩', value: exams.filter((exam) => !recordedExamIds.has(exam.id)).length, icon: Award, tone: 'warning' },
+              { label: '已录入成绩', value: exams.filter((exam) => recordedExamIds.has(exam.id)).length, icon: CheckCircle2, tone: 'success' },
+            ]}
+          />
+        ) : null}
 
-      {!isLoading && error && (
-        <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
-          <p className="font-semibold text-danger">考试列表加载失败</p>
-          <p className="mt-1 text-sm text-fg-3">这不代表没有考试，请重试。</p>
-          <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
-            重新加载
-          </Button>
-        </div>
-      )}
-
-      {!isLoading && classes.length === 0 && (
-        <EmptyState icon={Award} title="还没有班级" description="请先在主控台创建班级，再安排考试。" />
-      )}
-
-      {!isLoading && !error && classes.length > 0 && exams.length === 0 && (
-        <EmptyState icon={Award} title="还没有安排任何考试" />
-      )}
-
-      {!isLoading && !error && exams.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {exams.map((exam) => (
-            <Card key={exam.id} className="h-full">
-              <CardContent className="flex h-full flex-col gap-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Badge variant="secondary">总分 {exam.total_score}</Badge>
-                    <h3 className="mt-3 text-lg font-bold break-words text-fg-1">{exam.title}</h3>
+        {isLoading ? (
+          <div className="space-y-2 rounded-card border border-line-1 bg-surface-2 p-4" aria-busy="true" aria-label="正在加载考试列表">
+            {[0, 1, 2, 3, 4].map((row) => <Skeleton key={row} className="h-14 w-full" />)}
+          </div>
+        ) : error ? (
+          <div className="rounded-card border border-danger/20 bg-danger-soft px-6 py-10 text-center">
+            <p className="font-semibold text-danger">考试列表加载失败</p>
+            <p className="mt-1 text-body-sm text-fg-3">这不代表没有考试，请重试。</p>
+            <Button variant="outline" className="mt-3" onClick={() => void refetch()}>
+              重新加载
+            </Button>
+          </div>
+        ) : classes.length === 0 ? (
+          <EmptyState icon={Award} title="还没有班级" description="请先在教师工作台创建班级，再安排考试。" />
+        ) : exams.length === 0 ? (
+          <EmptyState
+            icon={Award}
+            title="还没有安排任何考试"
+            description="新建一场考试后，就可以在这里录入成绩。"
+            action={
+              <Button onClick={() => setShowCreateModal(true)}>
+                <PlusCircle data-icon="inline-start" />
+                新建考试
+              </Button>
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-card border border-line-1 bg-surface-2">
+            <div className="flex items-center gap-4 border-b border-line-1 bg-surface-3/40 px-4 py-2 text-caption text-fg-3">
+              <span className="min-w-0 flex-1">考试</span>
+              <span className="hidden w-28 sm:block">日期</span>
+              <span className="hidden w-14 text-right sm:block">总分</span>
+              <span className="w-28">状态</span>
+              <span className="w-28 text-right">操作</span>
+            </div>
+            <div className="divide-y divide-line-2">
+              {exams.map((exam) => (
+                <div key={exam.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body font-semibold text-fg-1">{exam.title}</p>
+                    <p className="mt-0.5 truncate text-caption text-fg-3">{exam.description || '暂无说明'}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`删除${exam.title}`}
-                    title="删除"
-                    className="text-danger hover:bg-danger/10 hover:text-danger"
-                    disabled={deleteMutation.isPending}
-                    onClick={() => setDeleteTarget(exam)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-
-                <div className="flex-grow space-y-2 text-sm text-fg-3">
-                  <p>考试日期: {exam.exam_date || '未定'}</p>
-                  <p>说明: {exam.description || '暂无说明'}</p>
-                  <p className="flex items-center gap-2">
-                    状态:
+                  <span className="hidden w-28 shrink-0 text-body-sm text-fg-2 sm:block">
+                    {exam.exam_date || '未定'}
+                  </span>
+                  <span className="hidden w-14 shrink-0 text-right text-body-sm font-medium text-fg-2 tabular-nums sm:block">
+                    {exam.total_score}
+                  </span>
+                  <span className="w-28 shrink-0">
                     <Badge variant={recordedExamIds.has(exam.id) ? 'success' : 'warning'}>
-                      {recordedExamIds.has(exam.id) ? '已录入部分成绩' : '待录入成绩'}
+                      {recordedExamIds.has(exam.id) ? '已录入' : '待录入'}
                     </Badge>
-                  </p>
+                  </span>
+                  <div className="flex w-28 shrink-0 justify-end gap-1">
+                    <Button size="sm" variant="outline" onClick={() => openGradeModal(exam)}>
+                      录入成绩
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`删除${exam.title}`}
+                      title="删除"
+                      className="text-danger hover:bg-danger-soft hover:text-danger-ink"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => setDeleteTarget(exam)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
                 </div>
-
-                <Button variant="outline" className="w-full" onClick={() => openGradeModal(exam)}>
-                  <FileSpreadsheet data-icon="inline-start" />
-                  录入成绩
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <Dialog
         open={showCreateModal}

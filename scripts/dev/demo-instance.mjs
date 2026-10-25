@@ -257,6 +257,50 @@ async function seed() {
       reward_points: 2,
     },
   });
+
+  // A real homework row with questions, so the homework console and the student's
+  // "today" card show a populated, gradable assignment instead of only the legacy
+  // read-only rows the bridge exposes.
+  await request('/homework', {
+    method: 'POST',
+    token: teacherToken,
+    body: {
+      class_id: classId,
+      title: '第三课 · 分数的初步认识（练习）',
+      description: '先看例题，再完成下面三题；计算过程写在练习本上。',
+      due_at: new Date(Date.now() + 86_400_000).toISOString(),
+      status: 'published',
+      reward_points: 5,
+      questions: [
+        {
+          type: 'single',
+          stem: '1/2 + 1/4 的结果是？',
+          options: [
+            { id: 'A', text: '3/4' },
+            { id: 'B', text: '2/6' },
+            { id: 'C', text: '1/6' },
+            { id: 'D', text: '2/4' },
+          ],
+          reference: { choice: ['A'] },
+          explanation: '先通分，再相加。',
+          points: 2,
+        },
+        {
+          type: 'blank',
+          stem: '5/8 的分子是 ____。',
+          reference: { accept: ['5'] },
+          points: 1,
+        },
+        {
+          type: 'short',
+          stem: '用自己的话说一说：为什么 1/2 比 1/3 大？',
+          reference: { text: '同样一个整体，平均分的份数越少，每一份越大。' },
+          points: 2,
+        },
+      ],
+    },
+  });
+
   const exam = await request('/exams', {
     method: 'POST',
     token: teacherToken,

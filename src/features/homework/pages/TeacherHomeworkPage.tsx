@@ -18,12 +18,12 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { KpiStrip } from '@/components/ui/kpi-strip';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { Progress } from '@/components/ui/progress';
 import { SectionCard } from '@/components/ui/section-card';
 import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { StatCard } from '@/components/ui/stat-card';
 import { Textarea } from '@/components/ui/textarea';
 import { useStore } from '@/store/useStore';
 import type {
@@ -161,7 +161,12 @@ export default function TeacherHomework() {
   const { data: classes = [] } = useClasses();
   const { data: entries = [], isLoading, isError, refetch } = useHomeworkList();
 
-  const homeworkIds = useMemo(() => entries.map((entry) => entry.id), [entries]);
+  const homeworkIds = useMemo(
+    // The legacy bridge rows are read-only and have no submission sheet; asking for one made
+    // the whole counts query fail as soon as a deployment had both a bridged row and a new one.
+    () => entries.filter((entry) => !entry.legacy).map((entry) => entry.id),
+    [entries],
+  );
   const {
     data: counts = {},
     isLoading: countsLoading,
@@ -183,6 +188,7 @@ export default function TeacherHomework() {
   const seededFrom = useRef<number | null>(null);
 
   const defaultClassId = user?.class_id ?? classes[0]?.id ?? null;
+  const classNameById = new Map(classes.map((cls) => [cls.id, cls.name]));
 
   useEffect(() => {
     if (!dialogOpen || editingId === null) return;
@@ -297,40 +303,39 @@ export default function TeacherHomework() {
         </Button>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard icon={FileText} label="作业总数" value={entries.length} />
-        <StatCard
-          icon={ClipboardList}
-          label="待批改"
-          tone="warning"
-          // A pending or failed counts read is unknown, not zero: showing 0 told the teacher nobody
-          // had submitted when the request had simply not answered.
-          value={
-            countsLoading || countsError
-              ? '—'
-              : entries.reduce((sum, entry) => {
-                  const row = counts[entry.id];
-                  return sum + (row ? Math.max(row.submitted - row.graded, 0) : 0);
-                }, 0)
-          }
-          hint={
-            countsError ? (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs"
-                onClick={() => void refetchCounts()}
-              >
-                提交数据读取失败，点此重试
-              </Button>
-            ) : undefined
-          }
-        />
-        <StatCard icon={CalendarClock} label="迁移前旧作业" tone="info" value={legacyCount} hint="只读，等待数据迁移" />
-      </div>
+      <KpiStrip
+        items={[
+          { label: '作业总数', value: entries.length, icon: FileText, tone: 'role' },
+          {
+            label: '待批改',
+            // A pending or failed counts read is unknown, not zero: showing 0 told the teacher
+            // nobody had submitted when the request had simply not answered.
+            value:
+              countsLoading || countsError
+                ? '—'
+                : entries.reduce((sum, entry) => {
+                    const row = counts[entry.id];
+                    return sum + (row ? Math.max(row.submitted - row.graded, 0) : 0);
+                  }, 0),
+            icon: ClipboardList,
+            tone: 'warning',
+            hint: countsError ? '提交数据读取失败' : undefined,
+          },
+          { label: '迁移前旧作业', value: legacyCount, icon: CalendarClock, tone: 'info', hint: '只读，等待数据迁移' },
+        ]}
+      />
 
-      <SectionCard title="我的作业" description="按发布时间排列">
+      <SectionCard
+        title="我的作业"
+        description="按发布时间排列"
+        actions={
+          countsError ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetchCounts()}>
+              重试提交数据
+            </Button>
+          ) : undefined
+        }
+      >
         {isLoading ? (
           <div className="flex items-center justify-center gap-3 py-10 text-fg-3">
             <Spinner label="正在加载作业" />
@@ -365,7 +370,7 @@ export default function TeacherHomework() {
               return (
                 <li
                   key={entry.id}
-                  className="flex flex-col gap-3 rounded-card border border-line-1 bg-surface-2 p-4 shadow-card lg:flex-row lg:items-center lg:justify-between"
+                  className="flex flex-col gap-3 rounded-card border border-line-1 bg-surface-2 p-4 lg:flex-row lg:items-center lg:justify-between"
                 >
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -377,7 +382,7 @@ export default function TeacherHomework() {
                       <span>截止：{entry.due_at ? isoToLocalInput(entry.due_at).replace('T', ' ') : '不限'}</span>
                       <span>题目：{entry.question_count} 题</span>
                       <span>总分：{entry.total_points}</span>
-                      <span>班级 #{entry.class_id}</span>
+                      <span>班级 {classNameById.get(entry.class_id) ?? '—'}</span>
                     </div>
                     {entry.legacy ? (
                       <p className="text-xs text-fg-3">这条记录来自旧的作业表，没有题目，不能编辑或批改。</p>

@@ -91,6 +91,20 @@ describe('TeacherHomework submission counts', () => {
     expect(screen.queryByText(/已提交 0 \/ 应交 0/)).not.toBeInTheDocument();
   });
 
+  it('does not ask for submission counts of read-only legacy rows', () => {
+    mocks.useHomeworkList.mockReturnValue({
+      data: [homework, { ...homework, id: 2, legacy: true }],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.useHomeworkSubmissionCounts.mockReturnValue({ data: {}, isLoading: false, isError: false, refetch: vi.fn() });
+
+    renderPage();
+
+    expect(mocks.useHomeworkSubmissionCounts).toHaveBeenCalledWith([3]);
+  });
+
   it('reports a failed counts read and retries it', () => {
     const refetch = vi.fn();
     mocks.useHomeworkSubmissionCounts.mockReturnValue({ data: {}, isLoading: false, isError: true, refetch });
@@ -101,7 +115,7 @@ describe('TeacherHomework submission counts', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.queryByText(/已提交 0 \/ 应交 0/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '提交数据读取失败，点此重试' }));
+    fireEvent.click(screen.getByRole('button', { name: '重试提交数据' }));
     expect(refetch).toHaveBeenCalled();
   });
 });

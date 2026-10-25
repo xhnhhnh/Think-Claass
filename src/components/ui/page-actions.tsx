@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -112,13 +111,17 @@ export function PageActionsProvider({ children }: { children: ReactNode }) {
  * is worse than an empty slot.
  */
 export function PageActionsOutlet({ className }: { className?: string }) {
+  /*
+   * The ref callback is the whole lifecycle: React calls it with the element when the outlet
+   * mounts and with `null` when it unmounts. There used to be an extra cleanup effect that set
+   * the store to null, and under React 18 StrictMode it ran *after* the simulated remount's ref
+   * callback, leaving the store permanently null. Every page then took the inline fallback: the
+   * primary action rendered at the top of the content instead of the context bar, in the real
+   * browser, while the jsdom tests still saw the button because they never mount the shell.
+   */
   const attach = useCallback((node: HTMLDivElement | null) => {
     outletStore.set(node);
   }, []);
-
-  // A ref callback, not an effect: it runs during the commit that mounts the outlet, which is
-  // before any page effect, and the store notifies its subscribers itself.
-  useEffect(() => () => outletStore.set(null), []);
 
   return <div data-slot="page-actions" className={className} ref={attach} />;
 }
