@@ -79,7 +79,7 @@ export default function StudentAchievements() {
           animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
           className="relative overflow-hidden rounded-panel border border-fg-2 bg-gradient-to-br from-fg-1 to-fg-2 p-10 text-fg-inverse shadow-raised"
         >
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-40 mix-blend-overlay"></div>
+          <div className="absolute inset-0 pattern-stars opacity-40 mix-blend-overlay"></div>
           <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-warning opacity-40 mix-blend-screen blur-[100px] filter"></div>
 
           <div className="relative z-10 flex flex-col items-center justify-between text-center md:flex-row md:text-left">

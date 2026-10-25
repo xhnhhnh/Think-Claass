@@ -218,7 +218,7 @@ export default function StudentTerritory() {
         onTouchCancel={endPan}
       >
         {/* Isometric Grid Background */}
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+        <div className="absolute inset-0 pattern-grid opacity-10" />
         
         <motion.div 
           ref={mapRef}

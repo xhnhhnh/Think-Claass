@@ -121,7 +121,7 @@ export default function StudentAuction() {
           animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
           className="relative overflow-hidden rounded-panel bg-gradient-to-r from-warning to-danger p-10 text-fg-inverse shadow-raised"
         >
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
+          <div className="absolute inset-0 pattern-grid opacity-20 mix-blend-overlay"></div>
           <div className="absolute -right-24 -top-24 h-64 w-64 animate-pulse rounded-full bg-warning mix-blend-screen opacity-50 blur-[80px]"></div>
 
           <div className="relative z-10 flex flex-col items-center justify-between md:flex-row">
@@ -202,7 +202,7 @@ export default function StudentAuction() {
                   <div className={`relative flex h-40 flex-col justify-between p-6 ${
                     isHighestBidder ? 'bg-gradient-to-br from-success-soft to-success-soft' : 'bg-gradient-to-br from-warning-soft to-danger-soft'
                   }`}>
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-noise.png')] opacity-30"></div>
+                    <div className="absolute inset-0 pattern-noise opacity-30"></div>
 
                     <div className="relative z-10 flex items-start justify-between">
                       <div className={`flex items-center rounded-card px-3 py-1.5 text-xs font-black shadow-card ${

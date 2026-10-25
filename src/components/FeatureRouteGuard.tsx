@@ -51,8 +51,8 @@ export default function FeatureRouteGuard({
         <div className="mx-auto flex min-h-[50vh] max-w-md flex-col items-center justify-center gap-4 text-center">
           <AlertCircle className="size-8 text-warning" />
           <div>
-            <h2 className="text-lg font-bold text-ink-1">无法读取班级功能配置</h2>
-            <p className="mt-1 text-sm text-ink-3">
+            <h2 className="text-lg font-bold text-fg-1">无法读取班级功能配置</h2>
+            <p className="mt-1 text-sm text-fg-3">
               班级功能开关没有加载成功，这不代表功能被关闭。请重试。
             </p>
           </div>
@@ -64,8 +64,8 @@ export default function FeatureRouteGuard({
     }
 
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-ink-3">
-        <LoaderCircle className="size-6 animate-spin text-primary" />
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-fg-3">
+        <LoaderCircle className="size-6 animate-spin text-role" />
         <p className="text-sm">正在读取班级功能配置...</p>
       </div>
     );

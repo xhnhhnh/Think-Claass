@@ -288,7 +288,7 @@ export default function StudentShop() {
                   )}
                 >
                   <div className="group relative flex h-44 items-center justify-center overflow-hidden border-b border-role-ink bg-gradient-to-br from-role-ink to-info p-6">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay" />
+                    <div className="absolute inset-0 pattern-stars opacity-30 mix-blend-overlay" />
                     <motion.div
                       animate={shouldReduceMotion ? undefined : { rotate: [0, 5, -5, 0] }}
                       transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}

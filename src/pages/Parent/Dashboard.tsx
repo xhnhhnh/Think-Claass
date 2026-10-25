@@ -83,7 +83,7 @@ export default function ParentDashboard() {
     }
     try {
       await castBuffMutation.mutateAsync();
-      toast.success('✨ 母爱的祝福已施放！');
+      toast.success('母爱的祝福已施放');
       void launchConfetti({
         particleCount: 150,
         spread: 100,

@@ -77,7 +77,7 @@ export default function ParentLayout() {
   return (
     <AppShell
       role="parent"
-      brand={{ label: '成长日记', meta: user.name || user.username || '家长', icon: Heart }}
+      brand={{ label: '家长空间', meta: '陪伴每一步', icon: Heart }}
       fallbackTitle="温馨家园"
       homePath={fallbackPath}
       settingsPath="/parent/settings"

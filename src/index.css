@@ -289,7 +289,14 @@
   }
 
   html {
-    font-family: "Geist Variable", system-ui, sans-serif;
+    font-family:
+      "Geist Variable",
+      "PingFang SC",
+      "Hiragino Sans GB",
+      "Microsoft YaHei",
+      "Noto Sans SC",
+      system-ui,
+      sans-serif;
     /* The shell owns scrolling; a document-level scrollbar next to the rail's
        own scroll container produces two scrollbars on every console route. */
     scrollbar-gutter: stable;
@@ -330,6 +337,112 @@
 }
 
 @layer components {
+  /*
+   * Semantic surfaces.
+   *
+   * The product has four visual climates, not one: a calm console, a warm public
+   * hero, a brand entry panel and a game canvas. They used to be re-invented as
+   * ~95 `bg-gradient-to-*` combinations spread over the pages; these classes are
+   * the only place a gradient is allowed, so the decoration can be reviewed and
+   * changed in one file.
+   */
+  .surface-console {
+    background-color: hsl(var(--surface-1));
+    color: hsl(var(--fg-1));
+  }
+
+  .surface-brand {
+    background:
+      radial-gradient(120% 90% at 100% 0%, hsl(var(--brand) / 0.55) 0%, transparent 55%),
+      linear-gradient(155deg, hsl(var(--brand-strong)) 0%, hsl(var(--brand)) 62%, hsl(var(--brand-strong)) 100%);
+    color: hsl(var(--brand-contrast));
+  }
+
+  .surface-hero {
+    background:
+      radial-gradient(70% 60% at 50% 0%, hsl(var(--role) / 0.1) 0%, transparent 70%),
+      radial-gradient(35% 35% at 85% 20%, hsl(var(--info) / 0.08) 0%, transparent 70%),
+      hsl(var(--surface-1));
+  }
+
+  .surface-immersive {
+    background:
+      radial-gradient(90% 70% at 15% 0%, hsl(var(--role) / 0.32) 0%, transparent 55%),
+      radial-gradient(70% 60% at 85% 100%, hsl(var(--brand) / 0.4) 0%, transparent 60%),
+      linear-gradient(160deg, hsl(var(--brand-strong)) 0%, hsl(155 48% 12%) 100%);
+    color: hsl(var(--brand-contrast));
+  }
+
+  .surface-celebration {
+    background:
+      radial-gradient(60% 60% at 50% 0%, hsl(var(--role) / 0.22) 0%, transparent 70%),
+      linear-gradient(180deg, hsl(var(--surface-1)) 0%, hsl(var(--surface-3)) 100%);
+  }
+
+  .surface-danger {
+    background: linear-gradient(180deg, hsl(var(--danger-soft)) 0%, hsl(var(--surface-1)) 100%);
+  }
+
+  /* Dotted, star and paper patterns drawn locally: no transparenttextures.com request. */
+  .pattern-grid {
+    background-image: radial-gradient(circle, hsl(var(--fg-1) / 0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* The same grid on a brand-green panel, where the ink token is unreadable. */
+  .pattern-grid-light {
+    background-image: radial-gradient(circle, hsl(var(--brand-contrast) / 0.13) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .pattern-stars {
+    background-image:
+      radial-gradient(circle at 20% 30%, hsl(var(--brand-contrast) / 0.45) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 70% 15%, hsl(var(--brand-contrast) / 0.28) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 45% 70%, hsl(var(--brand-contrast) / 0.32) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 85% 60%, hsl(var(--brand-contrast) / 0.2) 0 1.5px, transparent 2px);
+    background-size: 180px 180px, 220px 220px, 160px 160px, 260px 260px;
+  }
+
+  .pattern-paper {
+    background-image:
+      radial-gradient(circle at 25% 20%, hsl(var(--fg-1) / 0.035) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 75% 70%, hsl(var(--fg-3) / 0.03) 0 1px, transparent 1.5px);
+    background-size: 90px 90px, 130px 130px;
+  }
+
+  /* The remaining game textures: local noise and diagonal stripes, replacing the
+     transparenttextures.com requests the pages used to make. */
+  .pattern-noise {
+    background-image:
+      radial-gradient(circle at 18% 28%, hsl(var(--fg-1) / 0.05) 0 1px, transparent 1.4px),
+      radial-gradient(circle at 68% 72%, hsl(var(--fg-1) / 0.04) 0 1px, transparent 1.4px),
+      radial-gradient(circle at 42% 88%, hsl(var(--fg-1) / 0.035) 0 1px, transparent 1.4px);
+    background-size: 23px 23px, 31px 31px, 41px 41px;
+  }
+
+  .pattern-stripes {
+    background-image: repeating-linear-gradient(
+      135deg,
+      hsl(var(--fg-1) / 0.06) 0 1px,
+      transparent 1px 9px
+    );
+  }
+
+  /* Density is a property of the console, not of each page. Compact is for the
+     admin/teacher workbench; comfortable is for parent/student/public surfaces. */
+  [data-density='compact'] {
+    --control-h: 2rem;
+    --control-h-sm: 1.625rem;
+    --control-h-lg: 2.5rem;
+  }
+
+  [data-density='comfortable'] {
+    --control-h: 2.5rem;
+    --control-h-sm: 2rem;
+    --control-h-lg: 3rem;
+  }
+
   /* The shell's grid.
      Tailwind's JIT only emits a `@layer components` rule when the class name
      appears in the files it scans, so `AppShell.tsx` writes the `app-shell`

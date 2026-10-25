@@ -261,7 +261,7 @@ const roleLayoutRoutes: LayoutRoute[] = [
       {
         path: '',
         component: '@/features/classroom/pages/TeacherDashboardPage',
-        label: '班级与学生管理',
+        label: '教师工作台',
         icon: Users,
         group: 'class',
         mobileTab: 1,

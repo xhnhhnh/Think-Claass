@@ -36,12 +36,12 @@ import waterStage5 from '@/assets/pets/water/stage-5-cutout.png';
 import waterStage6 from '@/assets/pets/water/stage-6-cutout.png';
 
 export const PET_ELEMENTS = [
-  { id: 'fire', name: '火系', color: 'bg-red-500', bg: 'bg-red-50', icon: '🔥' },
-  { id: 'water', name: '水系', color: 'bg-blue-500', bg: 'bg-blue-50', icon: '💧' },
-  { id: 'grass', name: '草系', color: 'bg-green-500', bg: 'bg-green-50', icon: '🌿' },
-  { id: 'electric', name: '电系', color: 'bg-yellow-400', bg: 'bg-yellow-50', icon: '⚡' },
-  { id: 'ice', name: '冰系', color: 'bg-cyan-300', bg: 'bg-cyan-50', icon: '❄️' },
-  { id: 'dragon', name: '龙系', color: 'bg-accent-foreground', bg: 'bg-accent/40', icon: '🐉' },
+  { id: 'fire', name: '火系', color: 'bg-chart-5', bg: 'bg-chart-5/10', icon: '🔥' },
+  { id: 'water', name: '水系', color: 'bg-chart-2', bg: 'bg-chart-2/10', icon: '💧' },
+  { id: 'grass', name: '草系', color: 'bg-chart-1', bg: 'bg-chart-1/10', icon: '🌿' },
+  { id: 'electric', name: '电系', color: 'bg-chart-3', bg: 'bg-chart-3/10', icon: '⚡' },
+  { id: 'ice', name: '冰系', color: 'bg-chart-2', bg: 'bg-chart-2/10', icon: '❄️' },
+  { id: 'dragon', name: '龙系', color: 'bg-chart-4', bg: 'bg-chart-4/10', icon: '🐉' },
 ] as const;
 
 export type PetElementId = (typeof PET_ELEMENTS)[number]['id'];

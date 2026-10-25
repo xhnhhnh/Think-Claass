@@ -116,7 +116,7 @@ export default function StudentGacha() {
             dark while everything around it is on the tokens. */}
         <div className="relative min-h-[600px] overflow-hidden rounded-panel bg-fg-1 p-6 sm:p-10">
           <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute inset-0 animate-[spin_120s_linear_infinite] bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay" />
+            <div className="absolute inset-0 animate-[spin_120s_linear_infinite] pattern-stars opacity-30 mix-blend-overlay" />
             <div className="pointer-events-none absolute left-1/2 top-1/2 size-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-role/20 blur-[100px]" />
           </div>
 

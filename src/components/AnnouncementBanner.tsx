@@ -27,7 +27,7 @@ export default function AnnouncementBanner() {
     <div className="relative z-50 border-b border-success/20 bg-success/10 px-4 py-3 text-emerald-900">
       <div className="max-w-7xl mx-auto flex items-start sm:items-center justify-between">
         <div className="flex items-start sm:items-center flex-1 pr-8">
-          <div className="mr-3 flex-shrink-0 rounded-lg bg-paper p-1.5 text-success shadow-sm">
+          <div className="mr-3 flex-shrink-0 rounded-lg bg-surface-2 p-1.5 text-success shadow-sm">
             <Megaphone className="h-5 w-5" />
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
@@ -37,7 +37,7 @@ export default function AnnouncementBanner() {
         </div>
         <Button 
           onClick={handleDismiss}
-          className="ml-4 flex-shrink-0 rounded-lg p-1.5 text-success transition-colors hover:bg-paper"
+          className="ml-4 flex-shrink-0 rounded-lg p-1.5 text-success transition-colors hover:bg-surface-2"
           aria-label="关闭"
         >
           <X className="h-5 w-5" />

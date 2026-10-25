@@ -148,7 +148,7 @@ describe('UI-R destinations', () => {
      *      destination in the rail twice.
      */
     const OPENED_FROM: Record<string, string> = {
-      '/teacher/add-student': '班级与学生管理',
+      '/teacher/add-student': '教师工作台',
       '/teacher/task-tree': '团队任务',
     };
 
@@ -190,7 +190,7 @@ describe('UI-R destinations', () => {
     const labels = new Set(
       layoutRoutes().flatMap((layout) => layout.children.map((child) => child.label).filter(Boolean)),
     );
-    const ghost = ['班级与学生管理', '团队任务'].filter((label) => !labels.has(label));
+    const ghost = ['教师工作台', '团队任务'].filter((label) => !labels.has(label));
     expect(ghost, `the reachability list names destinations that do not exist: ${ghost.join(', ')}`).toEqual(
       [],
     );

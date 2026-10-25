@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, PanelLeftClose, PanelLeftOpen, Search, UserCog } from 'lucide-react';
+import { LogOut, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun, UserCog } from 'lucide-react';
 
 import { useShellStore } from '@/app/shell/shellStore';
 import type { PageMeta } from '@/app/nav/usePageMeta';
@@ -82,14 +82,16 @@ export function ContextBar({ meta, actions, className }: ContextBarProps) {
           )}
         </Button>
 
-        <div className="flex min-w-0 flex-col justify-center">
-          <Breadcrumbs items={meta.breadcrumbs} className="hidden sm:flex" />
+        <div className="flex min-w-0 flex-col justify-center gap-0.5">
           <h1
             data-slot="page-title"
-            className="truncate text-base font-bold tracking-tight text-fg-1"
+            className="truncate text-page-title text-fg-1"
           >
             {meta.title}
           </h1>
+          {meta.breadcrumbs.length > 0 ? (
+            <Breadcrumbs items={meta.breadcrumbs} className="hidden sm:flex" />
+          ) : null}
         </div>
 
         {/* The page's heading, description and actions, portalled in by the page. */}
@@ -156,6 +158,8 @@ export function AccountMenu({
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
   const { pathname } = useLocation();
+  const theme = useShellStore((state) => state.theme);
+  const setTheme = useShellStore((state) => state.setTheme);
 
   /*
    * Closing the menu is the one thing a `<details>` does not give you.
@@ -215,6 +219,31 @@ export function AccountMenu({
           <UserCog aria-hidden="true" className="size-4" />
           个人设置
         </Link>
+
+        <div className="my-1 border-t border-line-1" />
+        <div className="flex items-center gap-1 px-1 pb-1 pt-0.5" aria-label="主题">
+          <span className="mr-auto px-1 text-caption text-fg-3">主题</span>
+          {([
+            { value: 'light', label: '浅色', icon: Sun },
+            { value: 'dark', label: '深色', icon: Moon },
+            { value: 'system', label: '跟随系统', icon: Monitor },
+          ] as const).map(({ value, label, icon: Icon }) => (
+            <Button
+              key={value}
+              type="button"
+              variant={theme === value ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              onClick={() => setTheme(value)}
+              aria-label={label}
+              aria-pressed={theme === value}
+              title={label}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+            </Button>
+          ))}
+        </div>
+
+        <div className="my-1 border-t border-line-1" />
         <button
           type="button"
           onClick={onLogout}

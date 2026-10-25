@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, BookOpen, CheckCircle2, Sparkles, Zap } from "lucide-react";
 import { heroSignals } from "./homeContent";
-import learningWorld from "@/assets/portal/learning-world.png";
+import learningWorld from "@/assets/brand/learning-world.png";
 
 interface HomeHeroProps {
   shouldReduceMotion: boolean | null;

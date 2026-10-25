@@ -245,7 +245,7 @@ export default function StudentLuckyDraw() {
                 >
                   {/* Front of card */}
                   <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-panel border-4 border-b-8 border-role-ink bg-gradient-to-br from-role-ink to-info shadow-raised [backface-visibility:hidden]">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
+                    <div className="absolute inset-0 pattern-grid opacity-20 mix-blend-overlay"></div>
                     <Sparkles className="size-16 animate-pulse text-fg-inverse/80 drop-shadow-md" />
                   </div>
 

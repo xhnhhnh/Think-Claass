@@ -84,14 +84,18 @@ export function SidebarNav({
       >
         <span
           aria-hidden="true"
-          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand"
+          className="flex size-9 shrink-0 items-center justify-center rounded-card bg-role-soft text-role-ink"
         >
           <BrandMark variant="glyph" className="size-6" />
         </span>
         {!iconOnly ? (
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold tracking-tight text-fg-1">Think-Class</div>
-            <div className="truncate text-[0.6875rem] font-medium text-fg-3">{brand.label} · {brand.meta}</div>
+            <div className="truncate text-[0.9375rem] font-semibold tracking-tight text-fg-1">
+              Think-Class
+            </div>
+            <div className="truncate text-caption text-fg-3">
+              {brand.label} · {brand.meta}
+            </div>
           </div>
         ) : null}
       </div>

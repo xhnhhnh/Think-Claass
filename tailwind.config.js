@@ -37,8 +37,48 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Geist Variable"', 'system-ui', 'sans-serif'],
-        heading: ['"Geist Variable"', 'system-ui', 'sans-serif'],
+        /*
+         * Geist for Latin, and an explicit CJK stack rather than `system-ui` alone.
+         *
+         * The product is Chinese-first. Leaving CJK to `system-ui` means the fallback is
+         * `Microsoft YaHei` on Windows, `PingFang SC` on macOS and whatever the Android
+         * WebView ships; the same screen therefore has three different metrics. Naming the
+         * stack makes the Latin wordmark and the Chinese UI share one rhythm across the
+         * platforms the product is used on.
+         */
+        sans: [
+          '"Geist Variable"',
+          '"PingFang SC"',
+          '"Hiragino Sans GB"',
+          '"Microsoft YaHei"',
+          '"Noto Sans SC"',
+          'system-ui',
+          'sans-serif',
+        ],
+        heading: [
+          '"Geist Variable"',
+          '"PingFang SC"',
+          '"Hiragino Sans GB"',
+          '"Microsoft YaHei"',
+          '"Noto Sans SC"',
+          'system-ui',
+          'sans-serif',
+        ],
+      },
+      /*
+       * Semantic type scale. Pages name the job, not the pixel size: a title that is
+       * `text-page-title` stays the same weight and rhythm in every console, while the raw
+       * `text-2xl`/`font-black` pairs this replaces drifted per page.
+       */
+      fontSize: {
+        display: ['2.5rem', { lineHeight: '1.15', letterSpacing: '-0.025em', fontWeight: '700' }],
+        'page-title': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'section-title': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],
+        'card-title': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '600' }],
+        body: ['0.875rem', { lineHeight: '1.375rem', fontWeight: '400' }],
+        'body-sm': ['0.8125rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+        caption: ['0.75rem', { lineHeight: '1.125rem', fontWeight: '400' }],
+        metric: ['1.75rem', { lineHeight: '2rem', letterSpacing: '-0.02em', fontWeight: '700' }],
       },
       colors: {
         /* --- product palette ------------------------------------------------ */

@@ -400,8 +400,69 @@ Recorded rather than hidden. Each is a real gap, and none of them is a surprise 
 | Item | Why it is not done |
 | --- | --- |
 | Delete the pre-UI-R aliases (`--canvas`, `--paper`, `--ink-*`, `--primary`, `--card*`, `--sidebar*`) and their `tailwind.config.js` entries | They have no page consumer left now that `legacyTokenPages` is 0, so this is mechanical — but it touches the kit and the shell, and it wants its own verified pass rather than riding along on the page migration. |
-| `src/features/pet/petConfig.ts` supplies `el.bg` as `bg-red-50` / `bg-blue-50` / … | A data file consumed by two pages, outside both batches' write scopes, and no audit metric counts it. The pet stage still renders those tiles in the old colour families. |
-| `src/features/classroom/components/analytics/DataInsight.tsx` still writes `bg-paper-warm` / `text-slate-*` | It is a component, not a page module, so `legacyTokenPages` does not see it; `Parent/Report` and `Parent/Assignments` render it. |
+| The student game pages still contain hand-built gradients, display type and heavy shadows | The v2 design-language ratchet records the ceiling in `tests/guardrails/design-language.test.ts`; the student wave lowers it rather than hiding it. |
 | `HomeClosingCta`'s desktop state is `text-fg-1` on `bg-role` | A contrast defect inherited verbatim (it was `ink-1` on `primary`) and preserved rather than redesigned mid-migration. One `md:text-role-contrast` fixes it. |
 | The `prose` palette on `NewsPage` | Re-pointing the typography plugin at the tokens needs `theme.typography` in the config. |
-| A browser-based visual regression baseline | Still deferred: the project does not add dependencies. `shell:verify` and `sweep:verify` are the substitute, and they assert structure and absence of errors, not pixels. |
+| A pixel-diff visual regression baseline | Still deferred: the project does not add dependencies. `npm run design:capture` records screenshots and computed-style counts, and `npm run design:verify` fails on layout defects (overflow, duplicate `h1`, external images) but does not compare pixels. |
+
+## 12. Product design language v2
+
+The v2 wave turns UI-R from "one token set and one kit" into "one product with three voices".
+The reference implementation for the console is
+[`docs/design/selected-teacher-workbench.png`](design/selected-teacher-workbench.png); the
+teacher workbench is the first page built against it.
+
+### Three voices, one system
+
+| Surface | Voice | What that means in practice |
+| --- | --- | --- |
+| Admin / teacher consoles | Calm professional | White surfaces, hairline borders, 13–14px body, compact rows, no decorative shadow, one primary action, a work queue instead of a wall of zeroes. |
+| Public site / parent console | Warm editorial | Warm paper, larger reading type, generous spacing, the local illustration, one brand-colour CTA. |
+| Student console | Controlled playful | Immersive surfaces for play; the same typography, spacing and component anatomy as the rest; no random gradients or external textures; celebration only at a real result. |
+
+### Type and density
+
+- The sans stack is Geist for Latin plus an explicit CJK stack (`PingFang SC`,
+  `Hiragino Sans GB`, `Microsoft YaHei`, `Noto Sans SC`, `system-ui`). Leaving Chinese to
+  `system-ui` gave the same screen three different metrics on the three platforms the
+  product runs on.
+- Semantic sizes, defined in `tailwind.config.js` and used instead of raw steps in new
+  code: `text-display`, `text-page-title`, `text-section-title`, `text-card-title`,
+  `text-body`, `text-body-sm`, `text-caption`, `text-metric`.
+- Density is a property of the shell (`[data-density]` on the app-shell root): `compact`
+  for admin/teacher, `comfortable` for parent/student/public. A page does not set its own
+  control height.
+
+### Surfaces and patterns
+
+`src/index.css` owns the only gradients in the product, as semantic classes:
+`surface-console`, `surface-brand`, `surface-hero`, `surface-immersive`,
+`surface-celebration`, `surface-danger`, plus local `pattern-grid`, `pattern-grid-light`,
+`pattern-stars`, `pattern-paper`, `pattern-noise` and `pattern-stripes`. Pages do not write
+`bg-gradient-to-*`; the design-language guardrail counts any that remain.
+
+### Component vocabulary added in v2
+
+- `AuthLayout` — one split-screen brand entry shared by the public login and the superadmin
+  login.
+- `KpiStrip`, `Avatar`, `OnboardingChecklist` — headline figures, initials, and a
+  three-step first-run card that replaces an empty console's zero-wall.
+- `DroppableGroup` / `DraggableStudent` — the workbench board: tinted group header, avatar
+  rows, in-row ±1 scoring, and a per-row overflow menu for praise/AI/custom reasons.
+- `DataInsight` is now fully on tokens; it was the last shared analytics component still
+  writing `bg-paper-warm` and `text-slate-*`.
+- `Card` defaults to a border, not a shadow. Elevation is reserved for overlays.
+
+### Verification
+
+```bash
+npm run demo            # isolated seeded instance in .tmp/demo (web 5174, API 3002)
+npm run design:capture  # screenshots + computed-style report in .tmp/design-review
+npm run design:verify   # hard layout checks (overflow, duplicate h1, external images)
+npx vitest run --config vitest.guardrails.config.ts tests/guardrails/design-language.test.ts
+```
+
+`design:capture` needs headless Chrome on CDP port 9222, the same dependency as
+`shell:verify` and `tour:verify`. It is a review tool, not a pixel baseline: it records
+the number of distinct radii, font sizes, shadows and weights on each reviewed screen so
+the next wave can lower them without guessing.

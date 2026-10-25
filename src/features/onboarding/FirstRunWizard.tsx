@@ -108,14 +108,14 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <Card className="border-white/60 bg-paper/80 p-6 shadow-card backdrop-blur-xl">
+      <Card className="p-6">
         <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-full bg-primary/10">
-            <Compass className="size-6 text-primary" />
+          <div className="flex size-11 items-center justify-center rounded-card bg-role-soft">
+            <Compass className="size-6 text-role-ink" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-ink-1">欢迎使用 Think-Class</h1>
-            <p className="text-sm text-ink-3">
+            <h1 className="text-page-title text-fg-1">欢迎使用 Think-Class</h1>
+            <p className="mt-1 text-body text-fg-3">
               这个实例是全新的，还没有任何班级。按下面三步走完，就能开始上课了。
             </p>
           </div>
@@ -125,11 +125,11 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
             list rather than tracked separately. */}
         <div className="mt-5 space-y-2">
           <Progress label="设置进度" value={((stepIndex + 1) / STEPS.length) * 100} />
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-caption">
             {STEPS.map((entry, index) => (
               <span
                 key={entry.key}
-                className={index <= stepIndex ? 'font-semibold text-primary' : 'text-ink-3'}
+                className={index <= stepIndex ? 'font-semibold text-role-ink' : 'text-fg-3'}
               >
                 {index + 1}. {entry.title}
               </span>
@@ -138,10 +138,10 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
         </div>
       </Card>
 
-      <Card className="border-white/60 bg-paper/80 p-6 shadow-card backdrop-blur-xl">
+      <Card className="p-6">
         <div className="mb-5 flex items-center gap-2">
-          <StepIcon className="size-5 text-primary" />
-          <h2 className="text-lg font-bold text-ink-1">{STEPS[stepIndex].title}</h2>
+          <StepIcon className="size-5 text-role-ink" />
+          <h2 className="text-section-title text-fg-1">{STEPS[stepIndex].title}</h2>
         </div>
 
         {stepError ? (
@@ -180,9 +180,9 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
         {step === 'students' && (
           <div className="space-y-4">
             {inviteCode && (
-              <p className="rounded-card border border-border bg-muted/50 p-3 text-sm text-ink-2">
+              <p className="rounded-card border border-line-1 bg-surface-3/50 p-3 text-body text-fg-2">
                 学生也可以自己注册：把这个邀请码给他们 ——{' '}
-                <span className="font-mono font-bold text-primary">{inviteCode}</span>
+                <span className="font-mono font-bold text-role-ink">{inviteCode}</span>
               </p>
             )}
             <FormField
@@ -206,8 +206,8 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
               </ul>
             )}
 
-            <p className="text-sm text-ink-3">
-              将导入 <span className="font-bold text-ink-1">{parsed.entries.length}</span> 名学生
+            <p className="text-body text-fg-3">
+              将导入 <span className="font-bold text-fg-1">{parsed.entries.length}</span> 名学生
             </p>
 
             <div className="flex flex-wrap gap-3">
@@ -230,7 +230,7 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
 
         {step === 'features' && (
           <div className="space-y-4">
-            <p className="text-sm text-ink-3">
+            <p className="text-body text-fg-3">
               这些开关控制学生能看到哪些玩法。新班级的开关默认全部关闭——想让学生用哪一项，就在这里打开它；
               之后随时可以在「功能开关」里改。
             </p>
@@ -249,12 +249,19 @@ export function FirstRunWizard({ onFinish }: { onFinish: () => void }) {
 
         {step === 'done' && (
           <div className="space-y-4">
-            <ul className="space-y-2 text-sm text-ink-2">
-              <li>✅ 班级已创建{inviteCode ? `（邀请码 ${inviteCode}）` : ''}</li>
-              <li>✅ 已导入 {imported} 名学生</li>
-              <li>✅ 已确认课堂功能开关（新班级默认全部关闭，可在「功能开关」里随时调整）</li>
+            <ul className="space-y-2 text-body text-fg-2">
+              {[
+                `班级已创建${inviteCode ? `（邀请码 ${inviteCode}）` : ''}`,
+                `已导入 ${imported} 名学生`,
+                '已确认课堂功能开关（新班级默认全部关闭，可在「功能开关」里随时调整）',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
+                  {item}
+                </li>
+              ))}
             </ul>
-            <p className="text-sm text-ink-3">
+            <p className="text-body text-fg-3">
               学生用姓名或登录名 + 初始密码 <span className="font-mono font-bold">123456</span>{' '}
               登录，登录后请提醒他们尽快修改密码。
             </p>

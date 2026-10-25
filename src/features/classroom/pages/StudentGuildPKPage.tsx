@@ -150,7 +150,7 @@ export default function StudentGuildPK() {
           {...bannerEntrance}
           className="relative overflow-hidden rounded-panel bg-gradient-to-r from-danger to-warning p-10 text-fg-inverse shadow-raised"
         >
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-30 mix-blend-overlay"></div>
+          <div className="absolute inset-0 pattern-noise opacity-30 mix-blend-overlay"></div>
           <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-warning mix-blend-screen opacity-40 blur-[80px]"></div>
 
           <div className="relative z-10 flex flex-col items-center justify-between text-center md:flex-row md:text-left">
@@ -238,7 +238,7 @@ export default function StudentGuildPK() {
                                   : 'bg-gradient-to-r from-info to-role'
                           }`}
                         >
-                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-20"></div>
+                          <div className="absolute inset-0 pattern-stripes opacity-20"></div>
                         </motion.div>
                       </div>
                     </div>

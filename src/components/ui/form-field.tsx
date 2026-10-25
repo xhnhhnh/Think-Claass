@@ -51,17 +51,17 @@ export function FormField({
       <label className={cn('flex flex-col gap-1.5', inline && 'flex-row items-center gap-2')}>
         <span
           className={cn(
-            'font-medium text-ink-2',
-            required && "after:ml-0.5 after:text-destructive after:content-['*']",
+            'font-medium text-fg-2',
+            required && "after:ml-0.5 after:text-danger after:content-['*']",
           )}
         >
           {label}
         </span>
         {children}
       </label>
-      {hint && !error ? <span className="text-xs text-ink-3">{hint}</span> : null}
+      {hint && !error ? <span className="text-caption text-fg-3">{hint}</span> : null}
       {error ? (
-        <span role="alert" className="text-xs font-medium text-destructive">
+        <span role="alert" className="text-caption font-medium text-danger">
           {error}
         </span>
       ) : null}

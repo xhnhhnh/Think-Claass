@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "@/store/useStore";
-import { User, Lock } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Eye, EyeOff, Lock, User } from "lucide-react";
 
 import { authApi } from "@/features/auth/api/authApi";
-import LoginBackground from "@/features/auth/components/LoginBackground";
-import LoginCard from "@/features/auth/components/LoginCard";
+import AuthLayout from "@/features/auth/components/AuthLayout";
 import LoginInput from "@/features/auth/components/LoginInput";
-import LoginSubmitButton from "@/features/auth/components/LoginSubmitButton";
 import RoleSelector, { ROLE_SCOPE_ATTR, type RoleType } from "@/features/auth/components/RoleSelector";
-import WebsiteIcon from "@/components/WebsiteIcon";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Select } from "@/components/ui/select";
@@ -22,29 +18,21 @@ import { cn } from "@/lib/utils";
 /**
  * Public login / registration / invite-code binding.
  *
- * The role accent is a **token scope**, not a JavaScript colour map. Choosing a role
- * sets `data-role` on the page wrapper, which is the same mechanism the four shells
- * use (`RoleTheme` puts it on `<html>`), so `bg-role` and `text-role-ink` inside the
- * form follow the choice without a single component knowing what a role is - while
- * `bg-brand` and the status colours stay the product's.
+ * The role accent is a **token scope**, not a JavaScript colour map: choosing a role sets
+ * `data-role` on the page wrapper, the same mechanism the four shells use. The public
+ * login shares `AuthLayout` with the admin login, so the brand promise, the form rhythm
+ * and the mobile collapse cannot drift between the two doors into the product.
  *
- * What that replaced: `loginStyles.ts`, which held eleven hex colours, a second copy
- * of the three role palettes, and a `ROLE_THEME` map that four components read from -
- * plus inline `style` props on the role buttons and the submit button to apply it.
- * The page also used to be repainted wholesale by the `.public-campus-page` block in
- * `index.css`; P3 deleted that block, because the page now says what it means.
- *
- * Public site, so it wears no console page scaffold: `/login` is a flat route with no
- * console shell above it and the page keeps its own centred composition. Everything below
- * is the UI-R vocabulary now - `bg-surface-*`, `text-fg-*`, `border-line-*`, `text-role`,
- * the status `-soft`/`-ink` pairs - instead of the `bg-paper` / `text-ink-*` / `primary`
- * aliases.
+ * The previous version was a card floating in a field of paper, with the product name
+ * centred above it and no statement of what the product is for. `AuthLayout` supplies
+ * the brand panel on desktop; the form column here owns only the task.
  */
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<RoleType>("student");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [students, setStudents] = useState<{ id: number; name: string }[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -67,8 +55,7 @@ export default function Login() {
   const isCodesRole = role === "student" || role === "parent";
   const isSuccessMessage = error.includes("成功");
 
-  // Already signed in: this page is not a place to retype credentials. Send the reader to the
-  // console that belongs to their role instead of showing them the marketing homepage.
+  // Already signed in: this page is not a place to retype credentials.
   useEffect(() => {
     if (user) navigate(homePathForRole(user.role), { replace: true });
   }, [user, navigate]);
@@ -130,8 +117,6 @@ export default function Login() {
 
       if (data.success) {
         if (isLogin) {
-          // The server issues a session token alongside the user payload; storing it
-          // is what moves this session off the header-assertion bridge.
           if (data.token) setToken(data.token);
           setUser({
             ...data.user,
@@ -140,9 +125,7 @@ export default function Login() {
           navigate(homePathForRole(data.user.role));
         } else {
           setIsLogin(true);
-          setError(
-            isCodesRole ? "绑定成功，请使用新账号登录" : "注册成功，请登录"
-          );
+          setError(isCodesRole ? "绑定成功，请使用新账号登录" : "注册成功，请登录");
         }
       } else {
         setError(data.message || "登录失败，请重试");
@@ -156,40 +139,16 @@ export default function Login() {
     }
   };
 
+  const title = isLogin ? "欢迎回来" : isCodesRole ? "激活并绑定账号" : "创建账号";
+  const subtitle = isLogin
+    ? "选择身份，登录你的 Think-Class 账号"
+    : isCodesRole
+      ? "输入老师发放的邀请码，绑定你或孩子的账号"
+      : "注册一个账号，开始使用 Think-Class";
+
   return (
-    <div
-      {...ROLE_SCOPE_ATTR[role]}
-      className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-surface-1 py-12 font-sans text-fg-1 sm:px-6 lg:px-8"
-    >
-      <LoginBackground />
-
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md"
-      >
-        <div className="absolute left-0 top-0 sm:left-auto sm:right-full sm:mr-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/")}
-            className="border-line-1 bg-surface-2/85 text-fg-3 backdrop-blur-sm hover:text-role"
-          >
-            &larr; 返回官网
-          </Button>
-        </div>
-
-        <WebsiteIcon className="mx-auto mt-8 h-16 w-16 rounded-card object-cover" />
-
-        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-fg-1 md:text-3xl">
-          Think-Class
-        </h2>
-        <p className="mt-2 text-center text-sm text-fg-3">
-          {isLogin ? "登录你的账号" : isCodesRole ? "使用邀请码激活绑定账号" : "注册新账号"}
-        </p>
-      </motion.div>
-
-      <LoginCard>
+    <div {...ROLE_SCOPE_ATTR[role]}>
+      <AuthLayout variant="public" title={title} subtitle={subtitle}>
         <form className="space-y-5" onSubmit={handleSubmit}>
           <RoleSelector
             value={role}
@@ -207,132 +166,150 @@ export default function Login() {
               inviteLookupSeq.current += 1;
             }}
           />
-          <p className="text-xs text-fg-3">
-            请选择与账号一致的身份；身份选错时，服务端只会返回「账号或密码错误」。
-          </p>
 
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className={cn(
-                  "rounded-panel p-4 text-sm",
-                  isSuccessMessage
-                    ? "bg-success-soft text-success-ink"
-                    : "bg-danger-soft text-danger",
-                )}
-              >
-                {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {error ? (
+            <div
+              role="alert"
+              className={cn(
+                "rounded-lg px-3.5 py-3 text-body-sm font-medium",
+                isSuccessMessage ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger",
+              )}
+            >
+              {error}
+            </div>
+          ) : null}
 
-          <div className="space-y-4">
-            <FormField label="账号">
-              <LoginInput
-                icon={User}
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="输入账号"
-              />
-            </FormField>
+          <FormField label="账号">
+            <LoginInput
+              icon={User}
+              type="text"
+              required
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="输入账号"
+            />
+          </FormField>
 
-            {isCodesRole && !isLogin && (
-              <>
-                <Divider label="班级邀请码绑定" />
+          {isCodesRole && !isLogin ? (
+            <>
+              <Divider label="班级邀请码" />
 
-                <FormField label="班级邀请码">
-                  <LoginInput
-                    icon={Lock}
-                    type="text"
+              <FormField label="邀请码">
+                <LoginInput
+                  icon={Lock}
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={inviteCode}
+                  onChange={handleInviteCodeChange}
+                  placeholder="输入 6 位班级邀请码"
+                  className="uppercase tracking-widest"
+                />
+              </FormField>
+
+              {fetchingStudents ? (
+                <div className="flex items-center justify-center gap-2 py-1 text-body-sm text-fg-3">
+                  <Spinner size="sm" label="正在查询班级" />
+                  正在查询班级…
+                </div>
+              ) : inviteCode.length === 6 && students.length === 0 ? (
+                <div className="rounded-lg bg-danger-soft px-3.5 py-3 text-body-sm text-danger">
+                  未找到班级，或班里的小伙伴都已绑定。
+                </div>
+              ) : inviteCode.length === 6 && students.length > 0 ? (
+                <FormField
+                  label="绑定到"
+                  hint={role === "parent" ? "选择您要绑定的孩子" : "选择老师预先添加的名字"}
+                >
+                  <Select
                     required
-                    maxLength={6}
-                    value={inviteCode}
-                    onChange={handleInviteCodeChange}
-                    placeholder="输入6位班级邀请码"
-                    className="uppercase"
-                  />
+                    value={selectedStudentId || ""}
+                    onChange={(e) => setSelectedStudentId(Number(e.target.value))}
+                  >
+                    <option value="" disabled>
+                      {role === "parent" ? "请选择您的孩子" : "请选择你的名字"}
+                    </option>
+                    {students.map((student) => (
+                      <option key={student.id} value={student.id}>
+                        {student.name}
+                      </option>
+                    ))}
+                  </Select>
                 </FormField>
+              ) : null}
+            </>
+          ) : null}
 
-                {fetchingStudents ? (
-                  <div className="flex items-center justify-center py-2 text-sm text-fg-3">
-                    <Spinner size="sm" label="正在寻找小伙伴" className="mr-2" />
-                    正在寻找小伙伴...
-                  </div>
-                ) : inviteCode.length === 6 && students.length === 0 ? (
-                  <div className="rounded-panel bg-danger-soft p-4 text-center text-sm text-danger">
-                    未找到班级或所有小伙伴都已绑定啦
-                  </div>
-                ) : inviteCode.length === 6 && students.length > 0 ? (
-                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
-                    <FormField
-                      label="我是谁"
-                      hint={role === "parent" ? "选择您要绑定的孩子名字" : "选择老师为你预先添加的名字进行账号绑定"}
-                    >
-                      <Select
-                        required
-                        value={selectedStudentId || ""}
-                        onChange={(e) => setSelectedStudentId(Number(e.target.value))}
-                      >
-                        <option value="" disabled>
-                          {role === "parent" ? "请选择您的孩子" : "请选择你的名字"}
-                        </option>
-                        {students.map((student) => (
-                          <option key={student.id} value={student.id}>
-                            {student.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                  </motion.div>
-                ) : null}
-              </>
-            )}
+          <FormField label="密码">
+            <LoginInput
+              icon={Lock}
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="输入密码"
+              trailing={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  title={showPassword ? "隐藏密码" : "显示密码"}
+                >
+                  {showPassword ? (
+                    <EyeOff aria-hidden="true" className="size-4" />
+                  ) : (
+                    <Eye aria-hidden="true" className="size-4" />
+                  )}
+                </Button>
+              }
+            />
+          </FormField>
 
-            <FormField label="密码">
-              <LoginInput
-                icon={Lock}
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="输入密码"
-              />
-            </FormField>
-          </div>
-
-          <div className="pt-4">
-            <LoginSubmitButton loading={loading}>
-              {isLogin ? "开启旅程" : isCodesRole ? "绑定并激活" : "注册新账号"}
-            </LoginSubmitButton>
-          </div>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={loading}
+            className="w-full bg-brand text-brand-contrast hover:bg-brand-strong"
+          >
+            {loading ? <Spinner label="正在登录" className="text-role-contrast" /> : null}
+            {loading
+              ? "正在登录…"
+              : isLogin
+                ? "登录"
+                : isCodesRole
+                  ? "绑定并激活"
+                  : "注册账号"}
+          </Button>
         </form>
 
-        <div className="mt-8">
-          <Divider label={isLogin ? (isCodesRole ? "首次使用？" : "还没有账号？") : "已有账号？"} />
-
-          <div className="mt-6 text-center">
+        <div className="mt-6 space-y-3">
+          <Divider label={isLogin ? "首次使用？" : "已有账号？"} />
+          <div className="text-center">
             <Button
               type="button"
               variant="link"
               onClick={() => setIsLogin(!isLogin)}
-              className="h-auto font-semibold text-role hover:text-role/80"
+              className="h-auto font-semibold"
             >
               {isLogin ? (isCodesRole ? "使用邀请码激活绑定" : "注册新账号") : "返回登录"}
             </Button>
           </div>
-
-          {role === "student" && isLogin && (
-            <div className="mt-4 text-center text-xs text-fg-3">
+          {role === "student" && isLogin ? (
+            <p className="text-center text-caption text-fg-3">
               学生账号由老师统一创建并发放，无需自主注册。
-            </div>
-          )}
+            </p>
+          ) : null}
+          {isLogin ? (
+            <p className="text-center text-caption text-fg-3">
+              身份选错时会提示「账号或密码错误」，请先确认上方身份。
+            </p>
+          ) : null}
         </div>
-      </LoginCard>
+      </AuthLayout>
     </div>
   );
 }
@@ -344,8 +321,8 @@ function Divider({ label }: { label: string }) {
       <div className="absolute inset-0 flex items-center">
         <div className="w-full border-t border-line-1" />
       </div>
-      <div className="relative flex justify-center text-sm">
-        <span className="bg-surface-2 px-4 font-medium text-fg-3">{label}</span>
+      <div className="relative flex justify-center text-caption">
+        <span className="bg-surface-1 px-3 font-medium text-fg-3">{label}</span>
       </div>
     </div>
   );

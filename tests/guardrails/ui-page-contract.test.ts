@@ -139,6 +139,11 @@ const NON_COLOUR = new Set([
   'wrap', 'nowrap', 'balance', 'pretty', 'clip', 'ellipsis', 'solid', 'dashed', 'dotted',
   'double', 'none', 'hidden', 'auto', 'full', 'screen', 'min', 'max', 'fit', 'px', 'opacity',
   'transparent', 'current', 'inherit', 'initial', 'unset', 'white', 'black', 'gradient',
+  // Semantic font sizes introduced with the console type scale. These share the `text-`
+  // prefix with colours but are answered by `theme.fontSize`, not `theme.colors`; without
+  // this list a page using `text-body-sm` reads as an unknown colour family.
+  'body', 'body-sm', 'caption', 'metric', 'display',
+  'page-title', 'section-title', 'card-title',
   // Tailwind's non-colour scales that share a colour prefix: `ring-offset-4`,
   // `text-shadow-*`, `border-spacing-*`.
   'offset', 'spacing', 'shadow', 'width', 'size', 'inset', 'indent', 'radius', 'align',

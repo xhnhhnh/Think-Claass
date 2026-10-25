@@ -60,7 +60,7 @@ describe('LoginPage', () => {
 
     fireEvent.change(screen.getByPlaceholderText('输入账号'), { target: { value: 'teacher01' } });
     fireEvent.change(screen.getByPlaceholderText('输入密码'), { target: { value: 'wrong' } });
-    fireEvent.click(screen.getByRole('button', { name: '开启旅程' }));
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
 
     expect(await screen.findByText('账号或密码错误，请重试')).toBeInTheDocument();
     expect(screen.queryByText('Network error')).not.toBeInTheDocument();
@@ -70,7 +70,7 @@ describe('LoginPage', () => {
   it('tells the reader to check the role selector, because the server cannot', () => {
     renderLogin();
 
-    expect(screen.getByText(/请选择与账号一致的身份/)).toBeInTheDocument();
+    expect(screen.getByText(/身份选错时会提示/)).toBeInTheDocument();
   });
 
   it('does not make an already signed-in reader type their credentials again', async () => {

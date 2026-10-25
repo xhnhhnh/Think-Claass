@@ -8,26 +8,26 @@ import { cva } from "class-variance-authority"
  * `rounded-pill` and the v3 important form `!size-3`.
  */
 export const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-pill border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-[[data-icon=inline-end]]:pr-1.5 has-[[data-icon=inline-start]]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:!size-3",
+  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-pill border border-transparent px-2 py-0.5 text-caption font-medium whitespace-nowrap transition-colors focus-visible:border-role focus-visible:ring-[3px] focus-visible:ring-role/25 has-[[data-icon=inline-end]]:pr-1.5 has-[[data-icon=inline-start]]:pl-1.5 aria-invalid:border-danger aria-invalid:ring-danger/20 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        default: "bg-role text-role-contrast [a]:hover:bg-role/90",
         secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
+          "bg-surface-3 text-fg-2 [a]:hover:bg-surface-3/80",
         destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+          "bg-danger/10 text-danger-ink focus-visible:ring-danger/20 dark:bg-danger/20 [a]:hover:bg-danger/20",
         // Status. Registered as tokens in P1; before that, a page that wanted a
         // "saved" or "pending" badge invented its own emerald/amber utility, which is
         // how the off-brand palette spread.
-        success: "bg-success/10 text-success [a]:hover:bg-success/20",
-        warning: "bg-warning/10 text-warning [a]:hover:bg-warning/20",
-        info: "bg-info/10 text-info [a]:hover:bg-info/20",
+        success: "bg-success-soft text-success-ink [a]:hover:bg-success-soft/80",
+        warning: "bg-warning-soft text-warning-ink [a]:hover:bg-warning-soft/80",
+        info: "bg-info-soft text-info-ink [a]:hover:bg-info-soft/80",
         outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+          "border-line-1 text-fg-2 [a]:hover:bg-surface-3 [a]:hover:text-fg-1",
         ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "hover:bg-surface-3 hover:text-fg-1",
+        link: "text-role-ink underline-offset-4 hover:underline",
       },
     },
     defaultVariants: {

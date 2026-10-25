@@ -37,9 +37,9 @@ const PADDING = 8;
  * hard-coded black, and the level matches the full-screen layer below so crossfading between the
  * two anchored and unanchored states is invisible.
  */
-const MASK_SHADOW = 'shadow-[0_0_0_9999px_hsl(var(--ink-1)/0.6)]';
+const MASK_SHADOW = 'shadow-[0_0_0_9999px_hsl(var(--fg-1)/0.6)]';
 
-const DIM_BACKGROUND = 'bg-ink-1/60';
+const DIM_BACKGROUND = 'bg-fg-1/60';
 
 export interface TourSpotlightProps {
   rect: TargetRect | null;
@@ -94,7 +94,7 @@ export function TourSpotlight({ rect, reduceMotion }: TourSpotlightProps) {
         transition={slide}
       >
         {/* A steady edge, so the boundary reads clearly in every mode. */}
-        <div className="absolute inset-0 rounded-card ring-2 ring-primary/70" />
+        <div className="absolute inset-0 rounded-card ring-2 ring-role/70" />
 
         {/*
           The breathing halo. Deliberately the *inner* ring and not the mask itself: scaling the
@@ -104,7 +104,7 @@ export function TourSpotlight({ rect, reduceMotion }: TourSpotlightProps) {
           saying "here" when movement has been switched off.
         */}
         <motion.div
-          className="absolute inset-0 rounded-card ring-2 ring-primary/40"
+          className="absolute inset-0 rounded-card ring-2 ring-role/40"
           animate={{ opacity: [0.2, 0.7, 0.2] }}
           transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
         />

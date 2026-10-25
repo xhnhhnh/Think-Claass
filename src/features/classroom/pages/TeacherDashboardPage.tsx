@@ -1,11 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, UserPlus, Users, PlusCircle, CheckSquare, Square, Edit2, Dice5 } from 'lucide-react';
+import {
+  Activity,
+  Award,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Dice5,
+  Edit2,
+  Minus,
+  Network,
+  Plus,
+  PlusCircle,
+  Search,
+  Settings2,
+  Timer,
+  UserPlus,
+  Users,
+  UsersRound,
+  CheckSquare,
+  Square,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { KpiStrip } from '@/components/ui/kpi-strip';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 import { SectionCard } from '@/components/ui/section-card';
 import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, closestCorners } from '@dnd-kit/core';
 import { DroppableGroup } from '@/pages/Teacher/components/DroppableGroup';
@@ -37,6 +60,7 @@ import { EditStudentsModal } from '@/pages/Teacher/components/EditStudentsModal'
 import { AIRadarModal } from '@/pages/Teacher/components/AIRadarModal';
 import ClassFeaturePanel from '@/pages/Teacher/components/ClassFeaturePanel';
 import { IncentivePolicyPanel } from '@/features/classroom/components/IncentivePolicyPanel';
+import { cn } from '@/lib/utils';
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
@@ -209,6 +233,7 @@ export default function TeacherDashboard() {
   const classAverage = students.length > 0
     ? (students.reduce((sum, student) => sum + student.total_points, 0) / students.length).toFixed(1)
     : '0.0';
+  const classTotalPoints = students.reduce((sum, student) => sum + student.total_points, 0);
 
   const allGroups = [...groups, { id: 'ungrouped' as any, name: '未分组' }];
   const groupedStudentsWithEmpty = allGroups.map(group => ({
@@ -251,6 +276,54 @@ export default function TeacherDashboard() {
     } catch {
       // The API layer displays the server message; keep the dialog and entered values.
     }
+  };
+
+  /**
+   * One-tap ±1, the reference workbench's primary classroom gesture.
+   *
+   * It talks to the same two mutations the dialogs use, so the server contract, the replay
+   * key and the cache invalidation are unchanged. The dialogs stay for custom reasons and
+   * for presets; this is just the path a teacher takes ten times between two questions.
+   */
+  const quickScoreStudent = async (studentId: number, amount: 1 | -1) => {
+    try {
+      await addPointsMutation.mutateAsync({
+        studentId,
+        amount,
+        reason: amount > 0 ? '课堂表现' : '课堂提醒',
+        requestId: crypto.randomUUID(),
+      });
+      if (amount > 0) triggerConfetti();
+    } catch {
+      // The api layer already showed the server's sentence.
+    }
+  };
+
+  const quickScoreSelected = async (amount: 1 | -1) => {
+    if (selectedStudents.length === 0) {
+      toast.info('先在左侧勾选学生，再批量加减分');
+      return;
+    }
+    try {
+      await addBatchPointsMutation.mutateAsync({
+        studentIds: selectedStudents,
+        amount,
+        reason: amount > 0 ? '课堂表现' : '课堂提醒',
+        requestId: crypto.randomUUID(),
+      });
+      setSelectedStudents([]);
+      if (amount > 0) triggerConfetti();
+    } catch {
+      // Keep the selection so the teacher can retry without hunting for the same rows.
+    }
+  };
+
+  /** Reveal the policy panel below the fold, used by the right rail's 积分策略 entry. */
+  const openPolicy = () => {
+    const panel = document.getElementById('class-policy');
+    if (!panel) return;
+    panel.setAttribute('open', '');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleBatchEditSubmit = async (action: 'change_class' | 'change_group' | 'reset_password', value: string) => {
@@ -313,251 +386,398 @@ export default function TeacherDashboard() {
   return (
     <PageScaffold variant="dashboard">
       {/*
-        First-run guidance. Rendered instead of the (empty) class tabs when the account has no
-        class yet - an instance that has just been installed has exactly one superadmin and nothing
-        else, so this is the first thing its owner sees. Everything the wizard does goes through the
-        ordinary endpoints; nothing is seeded. It disappears as soon as a class exists, and can be
-        dismissed for this browser.
+        First-run guidance. Rendered instead of the class workspace when the account has no
+        class yet - an instance that has just been installed has exactly one superadmin and
+        nothing else, so this is the first thing its owner sees. Everything the wizard does
+        goes through the ordinary endpoints; nothing is seeded.
       */}
       {showFirstRun && <FirstRunWizard onFinish={dismissFirstRun} />}
 
       {!showFirstRun && (
-        <>
-      <div className="rounded-panel border border-line-1 bg-surface-2 p-5 shadow-card">
-        <p className="text-sm text-fg-3">选择班级 · 管理小组 · 课堂评分</p>
-        <h2 className="mt-1 text-xl font-semibold text-fg-1">让每个孩子的进步都被看见</h2>
-      </div>
-      {/* Class Tabs */}
-      <div data-tour="teacher-class-tabs" className="flex flex-col gap-3 rounded-panel border border-line-1 bg-surface-2 p-4 shadow-card sm:flex-row sm:items-center">
-        <label className="flex items-center gap-3 text-sm font-medium text-fg-2">当前班级
-          <Select value={selectedClassId ?? ''} onChange={(event) => setSelectedClassId(Number(event.target.value))} className="min-w-44 rounded-card border border-line-1 bg-surface-2 px-3 py-2 text-fg-1">
-            {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
-          </Select>
-        </label>
-        <Button variant="outline" onClick={() => setShowAddClass(true)}><PlusCircle className="mr-1 size-4" />新建班级</Button>
-
-        {selectedClassId && (
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide sm:ml-auto">
-            <span className="flex-shrink-0 text-sm font-medium text-fg-3">小组</span>
-            {groups.map((group) => (
-              <div
-                key={group.id}
-                className="flex-shrink-0 px-3 py-1.5 rounded-card text-sm font-medium bg-info-soft text-info-ink border border-info/30"
-              >
-                {group.name}
-              </div>
-            ))}
-            <Button variant="ghost"
-              onClick={() => setShowAddGroup(true)}
-              className="flex-shrink-0 flex items-center px-3 py-1.5 rounded-card text-sm font-medium bg-surface-2/80 backdrop-blur-xl text-info border border-info/30 hover:bg-info-soft transition-colors border-dashed"
-            >
-              <PlusCircle className="h-3.5 w-3.5 mr-1" />
-              新建小组
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {selectedClassId && <div className="grid grid-cols-2 gap-3 rounded-panel border border-line-1 bg-surface-2 p-4 shadow-card sm:grid-cols-4">
-        <div><p className="text-sm text-fg-3">小组数量</p><p className="text-2xl font-semibold text-fg-1">{groups.length}</p></div>
-        <div><p className="text-sm text-fg-3">学生总数</p><p className="text-2xl font-semibold text-fg-1">{students.length}</p></div>
-        <div><p className="text-sm text-fg-3">人均成长值</p><p className="text-2xl font-semibold text-fg-1">{classAverage}</p></div>
-        <div><p className="text-sm text-fg-3">今日课堂</p><p className="mt-1 font-medium text-success">继续加油！</p></div>
-      </div>}
-
-      {/* Top Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface-2/80 backdrop-blur-xl p-4 rounded-card shadow-card border border-line-1 gap-4 sm:gap-0">
-        <div className="flex items-center space-x-4 w-full sm:w-auto">
-          <div className="relative w-full sm:w-80">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="size-5 text-fg-3" />
-            </div>
-            <Input
-              type="text"
-              data-tour="teacher-search"
-              className="pl-10"
-              placeholder="搜索学生姓名或账号..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          {selectedClassId && (
-            <>
-              <span className="sr-only">班级人均成长值 {classAverage}</span>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <Button variant="ghost"
-            onClick={() => setShowTools(!showTools)}
-            data-tour="teacher-tools-toggle"
-            className="flex items-center px-3 py-1.5 bg-role-soft/60 text-role-ink rounded-card hover:bg-role-soft transition-colors font-medium text-sm"
-          >
-            <Dice5 className="h-4 w-4 mr-1" />
-            课堂工具
-          </Button>
-          {filteredStudents.length > 0 && (
-            <Button variant="link" onClick={toggleSelectAll} className="flex items-center text-sm text-fg-2 hover:text-role">
-              {selectedStudents.length === filteredStudents.length ? <CheckSquare className="h-5 w-5 mr-1 text-role" /> : <Square className="h-5 w-5 mr-1" />}
-              全选
-            </Button>
-          )}
-          {selectedStudents.length > 0 && (
-            <Button variant="ghost" onClick={() => openPointsModal('batch')} className="flex items-center px-3 py-1.5 bg-warning-soft text-warning-ink rounded-card hover:bg-warning/20 transition-colors font-medium text-sm">
-              <Users className="h-4 w-4 mr-1" />
-              批量评分 ({selectedStudents.length})
-            </Button>
-          )}
-          {selectedStudents.length > 0 && (
-            <Button variant="ghost" onClick={() => setShowEditModal(true)} className="flex items-center px-3 py-1.5 bg-info-soft text-info-ink rounded-card hover:bg-info/20 transition-colors font-medium text-sm">
-              <Edit2 className="h-4 w-4 mr-1" />
-              批量修改 ({selectedStudents.length})
-            </Button>
-          )}
-          <Button variant="ghost"
-            onClick={() => navigate('/teacher/add-student', { state: { classId: selectedClassId } })}
-            data-tour="teacher-add-student"
-            className="w-full sm:w-auto flex justify-center items-center px-4 py-2 bg-gradient-to-r from-role to-role-ink text-role-contrast rounded-card shadow-card font-medium"
-          >
-            <UserPlus className="h-5 w-5 mr-2" />
-            添加学生
-          </Button>
-        </div>
-      </div>
-
-      {showTools && (
-        <div data-tour="teacher-tools-panel">
-          <ClassroomTools students={filteredStudents} />
-        </div>
-      )}
-
-      {/* Student Grid */}
-      {loadingStudents ? (
-        <div className="rounded-panel border border-line-1 bg-surface-2 py-12 text-center text-fg-3">正在加载学生名单…</div>
-      ) : (
-        <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
-            {groupedStudentsWithEmpty.map(({ groupId, groupName, students: groupStudents }) => {
-              const groupAverage = groupStudents.length > 0
-                ? (groupStudents.reduce((sum, student) => sum + student.total_points, 0) / groupStudents.length).toFixed(1)
-                : '0.0';
-
-              return (groupId !== 'ungrouped' || groupStudents.length > 0) && (
-                <DroppableGroup
-                  key={groupId}
-                  groupId={groupId}
-                  groupName={groupName}
-                  count={groupStudents.length}
-                  average={groupAverage}
+        <div className="space-y-5">
+          {/* class + search toolbar ------------------------------------------------ */}
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 whitespace-nowrap text-caption text-fg-3">
+                当前班级
+                <Select
+                  value={selectedClassId ?? ''}
+                  onChange={(event) => setSelectedClassId(Number(event.target.value))}
+                  data-tour="teacher-class-tabs"
+                  className="h-9 w-44"
                 >
-                  {groupStudents.map((student) => (
-                    <DraggableStudent
-                      key={student.id}
-                      student={student as any}
-                      selectedStudents={selectedStudents}
-                      toggleSelectStudent={toggleSelectStudent}
-                      openPointsModal={openPointsModal}
-                      openPraiseModal={openPraiseModal}
-                      openAIModal={openAIModal}
-                    />
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
                   ))}
-                  {groupStudents.length === 0 && (
-                    <div className="col-span-full flex items-center justify-center h-24 border-2 border-dashed border-line-1 rounded-card text-fg-3 text-sm">
-                      拖拽学生到这里
-                    </div>
+                </Select>
+              </label>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddClass(true)}>
+                <PlusCircle aria-hidden="true" />
+                新建班级
+              </Button>
+
+              {selectedClassId ? (
+                <>
+                  <span className="hidden h-5 w-px bg-line-1 sm:block" aria-hidden="true" />
+                  <span className="text-caption text-fg-3">小组</span>
+                  {groups.map((group) => (
+                    <span
+                      key={group.id}
+                      className="inline-flex h-7 items-center rounded-pill border border-line-1 bg-surface-2 px-2.5 text-caption font-medium text-fg-2"
+                    >
+                      {group.name}
+                    </span>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => setShowAddGroup(true)}>
+                    <PlusCircle aria-hidden="true" />
+                    新建小组
+                  </Button>
+                </>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:w-64">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3"
+                />
+                <Input
+                  type="text"
+                  data-tour="teacher-search"
+                  className="h-9 pl-9"
+                  placeholder="搜索学生姓名或账号"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Button
+                data-tour="teacher-add-student"
+                onClick={() => navigate('/teacher/add-student', { state: { classId: selectedClassId } })}
+              >
+                <UserPlus aria-hidden="true" />
+                添加学生
+              </Button>
+              {filteredStudents.length > 0 ? (
+                <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="hidden sm:inline-flex">
+                  {selectedStudents.length === filteredStudents.length ? (
+                    <CheckSquare aria-hidden="true" />
+                  ) : (
+                    <Square aria-hidden="true" />
                   )}
-                </DroppableGroup>
-              )
-            })}
-            {filteredStudents.length === 0 && (
-              <div className="col-span-full text-center py-12 text-fg-3 bg-surface-2/80 backdrop-blur-xl rounded-card border border-dashed border-line-1">
-                {/*
-                  Three different situations used to share one sentence: an empty roster, a search
-                  with no hits, and a *failed read*. The last one is the dangerous one - a teacher
-                  reading 「班级还没有学生，点击"添加学生"开始」 while the request is broken will
-                  re-add pupils who are already there.
-                */}
-                {studentsFailed ? (
-                  <div className="space-y-3">
-                    <p className="font-semibold text-danger">学生名单没有加载出来</p>
-                    <p className="text-sm">这不代表班级是空的。请重试后再决定是否添加学生。</p>
-                    <Button variant="outline" onClick={() => void refetchStudents()}>
-                      重新加载
+                  {selectedStudents.length === filteredStudents.length ? '取消全选' : '全选'}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* class figures ------------------------------------------------------- */}
+          {selectedClassId ? (
+            <KpiStrip
+              items={[
+                { label: '小组数量', value: groups.length, icon: UsersRound, tone: 'role' },
+                { label: '学生总数', value: students.length, icon: Users, tone: 'info' },
+                { label: '人均成长值', value: classAverage, icon: Award, tone: 'success' },
+                { label: '班级总积分', value: classTotalPoints, icon: Activity, tone: 'warning' },
+              ]}
+            />
+          ) : (
+            <Card className="items-center px-6 py-10 text-center">
+              <p className="text-section-title text-fg-1">先创建一个班级</p>
+              <p className="mt-1 text-body-sm text-fg-3">班级创建后，学生、小组和课堂评分都会出现在这里。</p>
+              <Button className="mt-4" onClick={() => setShowAddClass(true)}>
+                <PlusCircle aria-hidden="true" />
+                创建班级
+              </Button>
+            </Card>
+          )}
+
+          {/* workspace ---------------------------------------------------------- */}
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="min-w-0 space-y-4">
+              {selectedStudents.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-card border border-role/20 bg-role-soft/50 px-3 py-2">
+                  <span className="text-body-sm font-medium text-role-ink">
+                    已选 {selectedStudents.length} 人
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => openPointsModal('batch')}>
+                    批量评分
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowEditModal(true)}>
+                    批量修改
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedStudents([])}>
+                    取消选择
+                  </Button>
+                </div>
+              ) : null}
+
+              {loadingStudents ? (
+                <div className="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-label="正在加载学生名单">
+                  {[0, 1].map((index) => (
+                    <div key={index} className="rounded-card border border-line-1 bg-surface-2 p-4">
+                      <Skeleton className="h-5 w-32" />
+                      <div className="mt-4 space-y-2">
+                        {[0, 1, 2, 3].map((row) => <Skeleton key={row} className="h-12 w-full" />)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : studentsFailed ? (
+                <Card className="items-center px-6 py-10 text-center">
+                  <p className="font-semibold text-danger">学生名单没有加载出来</p>
+                  <p className="mt-1 text-body-sm text-fg-3">这不代表班级是空的。请重试后再决定是否添加学生。</p>
+                  <Button variant="outline" className="mt-4" onClick={() => void refetchStudents()}>
+                    重新加载
+                  </Button>
+                </Card>
+              ) : (
+                <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
+                  <div className="grid items-start gap-4 lg:grid-cols-2">
+                    {groupedStudentsWithEmpty.map(({ groupId, groupName, students: groupStudents }, index) => {
+                      const groupAverage = groupStudents.length > 0
+                        ? (groupStudents.reduce((sum, student) => sum + student.total_points, 0) / groupStudents.length).toFixed(1)
+                        : '0.0';
+
+                      return (groupId !== 'ungrouped' || groupStudents.length > 0) && (
+                        <DroppableGroup
+                          key={groupId}
+                          groupId={groupId}
+                          groupName={groupName}
+                          count={groupStudents.length}
+                          average={groupAverage}
+                          index={index}
+                        >
+                          {groupStudents.map((student) => (
+                            <DraggableStudent
+                              key={student.id}
+                              student={student as any}
+                              selectedStudents={selectedStudents}
+                              toggleSelectStudent={toggleSelectStudent}
+                              openPointsModal={openPointsModal}
+                              openPraiseModal={openPraiseModal}
+                              openAIModal={openAIModal}
+                              onQuickScore={quickScoreStudent}
+                            />
+                          ))}
+                          {groupStudents.length === 0 && (
+                            <div className="flex min-h-16 items-center justify-center rounded-card border border-dashed border-line-1 text-body-sm text-fg-3">
+                              拖拽学生到这里
+                            </div>
+                          )}
+                        </DroppableGroup>
+                      );
+                    })}
+                    {filteredStudents.length === 0 && (
+                      <div className="col-span-full rounded-card border border-dashed border-line-1 bg-surface-2 px-6 py-10 text-center">
+                        {search ? (
+                          <p className="text-body text-fg-3">没有匹配的学生，请调整搜索词。</p>
+                        ) : (
+                          <>
+                            <p className="text-body font-medium text-fg-2">班级还没有学生</p>
+                            <p className="mt-1 text-body-sm text-fg-3">点击「添加学生」开始建立名单。</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </DndContext>
+              )}
+            </div>
+
+            {/* right rail ------------------------------------------------------ */}
+            <aside className="space-y-4" aria-label="课堂操作">
+              <Card>
+                <CardHeader className="border-b border-line-1 pb-3">
+                  <CardTitle>课堂评分</CardTitle>
+                  <CardDescription>勾选左侧学生，一次给多人加减分</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => void quickScoreSelected(1)}
+                      disabled={selectedStudents.length === 0 || addBatchPointsMutation.isPending}
+                    >
+                      <Plus aria-hidden="true" />
+                      加 1 分
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => void quickScoreSelected(-1)}
+                      disabled={selectedStudents.length === 0 || addBatchPointsMutation.isPending}
+                    >
+                      <Minus aria-hidden="true" />
+                      减 1 分
                     </Button>
                   </div>
-                ) : search ? (
-                  '没有匹配的学生，请调整搜索词。'
-                ) : (
-                  '班级还没有学生，点击“添加学生”开始。'
-                )}
-              </div>
-            )}
+                  <p className="rounded-card bg-surface-3/60 px-3 py-2 text-caption text-fg-3">
+                    {selectedStudents.length > 0
+                      ? `已选 ${selectedStudents.length} 人；点 ±1 直接记录课堂表现`
+                      : '先在左侧勾选学生，再批量加减分'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowEditModal(true)}
+                    disabled={selectedStudents.length === 0}
+                  >
+                    <Edit2 aria-hidden="true" />
+                    批量修改
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <SectionCard title="课堂工具" description="常用的课堂小工具">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    {
+                      label: '随机点名',
+                      icon: Dice5,
+                      onClick: () => {
+                        setShowTools(true);
+                        requestAnimationFrame(() => {
+                          document.getElementById('classroom-tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
+                      },
+                    },
+                    {
+                      label: '倒计时',
+                      icon: Timer,
+                      onClick: () => {
+                        setShowTools(true);
+                        requestAnimationFrame(() => {
+                          document.getElementById('classroom-tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
+                      },
+                    },
+                    { label: '分组调整', icon: UsersRound, onClick: () => setShowAddGroup(true) },
+                    { label: '课堂记录', icon: ClipboardList, onClick: () => navigate('/teacher/records') },
+                  ].map((tool) => (
+                    <Button
+                      key={tool.label}
+                      variant="outline"
+                      onClick={tool.onClick}
+                      className="h-auto flex-col items-start gap-1.5 px-3 py-3 text-left"
+                    >
+                      <tool.icon aria-hidden="true" className="size-4 text-fg-3" />
+                      <span className="text-body-sm font-medium text-fg-1">{tool.label}</span>
+                    </Button>
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="功能设置" description="班级范围">
+                <div className="divide-y divide-line-2">
+                  {[
+                    { label: '功能开关', description: '控制学生能看到哪些玩法', icon: Settings2, onClick: () => navigate('/teacher/features') },
+                    { label: '积分策略', description: '评分预设与家长增益', icon: Award, onClick: openPolicy },
+                    { label: '学情分析', description: '班级与学生的数据看板', icon: Activity, onClick: () => navigate('/teacher/analysis') },
+                  ].map((item) => (
+                    <Button
+                      key={item.label}
+                      variant="ghost"
+                      onClick={item.onClick}
+                      className="h-auto w-full justify-between gap-2 rounded-none px-0 py-2.5 text-left"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <item.icon aria-hidden="true" className="size-4 shrink-0 text-fg-3" />
+                        <span className="min-w-0">
+                          <span className="block text-body-sm font-medium text-fg-1">{item.label}</span>
+                          <span className="mt-0.5 block whitespace-normal text-caption text-fg-3">{item.description}</span>
+                        </span>
+                      </span>
+                      <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-3" />
+                    </Button>
+                  ))}
+                </div>
+              </SectionCard>
+            </aside>
           </div>
-        </DndContext>
-      )}
 
-      {/*
-        最近表扬 - the class roll-up of the praise the teacher hands out one pupil at a time.
-
-        `GET /api/praises?classId=` was the last route in the praise family with no caller: the modal
-        below can send a praise and each pupil's page can read their own, but nothing showed a class
-        what it had been praised for.
-      */}
-      {selectedClassId ? (
-        <SectionCard
-          title="最近表扬"
-          description="这个班收到过的表扬，最新的在上面"
-          actions={
-            <Button variant="outline" size="sm" onClick={() => navigate('/teacher/features')}>
-              班级功能
-            </Button>
-          }
-        >
-          {praisesLoading ? (
-            <p className="py-4 text-sm text-fg-3">正在加载表扬记录...</p>
-          ) : praisesFailed ? (
-            <div className="rounded-panel border border-danger/20 bg-danger/10 px-4 py-6 text-center text-sm">
-              <p className="font-semibold text-danger">表扬记录没有加载出来</p>
-              <p className="mt-1 text-fg-3">这不代表这个班没有被表扬过，请重试。</p>
-              <Button variant="outline" className="mt-3" onClick={() => void loadPraises()}>
-                重新加载
-              </Button>
+          {showTools && (
+            <div id="classroom-tools" className="scroll-mt-24" data-tour="teacher-tools-panel">
+              <SectionCard
+                title="课堂工具"
+                description="随机点名与课堂倒计时"
+                actions={
+                  <Button variant="ghost" size="sm" onClick={() => setShowTools(false)}>
+                    收起
+                  </Button>
+                }
+              >
+                <ClassroomTools students={filteredStudents} />
+              </SectionCard>
             </div>
-          ) : praises.length === 0 ? (
-            <p className="text-sm text-fg-3">还没有表扬记录。点学生卡片上的「表扬」写下第一条。</p>
-          ) : (
-            <ul className="space-y-2">
-              {praises.slice(0, 5).map((praise) => (
-                <li
-                  key={praise.id}
-                  className="flex items-start justify-between gap-4 rounded-card border border-line-1 bg-surface-3/40 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-fg-1">
-                      {praise.student_name || `学生 #${praise.student_id}`}
-                    </p>
-                    <p className="mt-0.5 line-clamp-2 text-sm text-fg-2">{praise.content}</p>
-                  </div>
-                  <span className="shrink-0 text-xs text-fg-3">{String(praise.created_at ?? '').slice(0, 10)}</span>
-                </li>
-              ))}
-              {praises.length > 5 ? (
-                <li className="text-xs text-fg-3">共 {praises.length} 条，只显示最近 5 条。</li>
-              ) : null}
-            </ul>
           )}
-        </SectionCard>
-      ) : null}
 
-      {selectedClassId && <details className="rounded-panel border border-line-1 bg-surface-2 p-5 shadow-card">
-        <summary className="cursor-pointer font-semibold text-fg-1">班级策略与功能设置</summary>
-        <div className="mt-4 space-y-4">
-          <IncentivePolicyPanel classId={selectedClassId} />
-          <ClassFeaturePanel classId={selectedClassId} compact />
-          <Button variant="outline" onClick={() => navigate('/teacher/features')}>进入完整功能控制台</Button>
+          {/* recent praise ------------------------------------------------------ */}
+          {selectedClassId ? (
+            <SectionCard
+              title="最近表扬"
+              description="这个班收到过的表扬，最新的在上面"
+              actions={
+                <Button variant="outline" size="sm" onClick={() => navigate('/teacher/features')}>
+                  班级功能
+                </Button>
+              }
+            >
+              {praisesLoading ? (
+                <p className="py-4 text-body-sm text-fg-3">正在加载表扬记录...</p>
+              ) : praisesFailed ? (
+                <div className="rounded-card border border-danger/20 bg-danger-soft px-4 py-6 text-center">
+                  <p className="font-semibold text-danger">表扬记录没有加载出来</p>
+                  <p className="mt-1 text-body-sm text-fg-3">这不代表这个班没有被表扬过，请重试。</p>
+                  <Button variant="outline" className="mt-3" onClick={() => void loadPraises()}>
+                    重新加载
+                  </Button>
+                </div>
+              ) : praises.length === 0 ? (
+                <p className="text-body-sm text-fg-3">还没有表扬记录。点学生卡片上的「表扬」写下第一条。</p>
+              ) : (
+                <ul className="space-y-2">
+                  {praises.slice(0, 5).map((praise) => (
+                    <li
+                      key={praise.id}
+                      className="flex items-start justify-between gap-4 rounded-card border border-line-1 bg-surface-3/40 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-body font-semibold text-fg-1">
+                          {praise.student_name || `学生 #${praise.student_id}`}
+                        </p>
+                        <p className="mt-0.5 line-clamp-2 text-body-sm text-fg-2">{praise.content}</p>
+                      </div>
+                      <span className="shrink-0 text-caption text-fg-3">{String(praise.created_at ?? '').slice(0, 10)}</span>
+                    </li>
+                  ))}
+                  {praises.length > 5 ? (
+                    <li className="text-caption text-fg-3">共 {praises.length} 条，只显示最近 5 条。</li>
+                  ) : null}
+                </ul>
+              )}
+            </SectionCard>
+          ) : null}
+
+          {/* strategy + feature settings ---------------------------------------- */}
+          {selectedClassId ? (
+            <details id="class-policy" className="scroll-mt-24 rounded-card border border-line-1 bg-surface-2">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-body font-semibold text-fg-1 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2">
+                  <Settings2 aria-hidden="true" className="size-4 text-fg-3" />
+                  班级策略与功能设置
+                </span>
+                <ChevronDown aria-hidden="true" className="size-4 text-fg-3" />
+              </summary>
+              <div className="space-y-4 border-t border-line-1 p-4">
+                <IncentivePolicyPanel classId={selectedClassId} />
+                <ClassFeaturePanel classId={selectedClassId} compact />
+                <Button variant="outline" onClick={() => navigate('/teacher/features')}>
+                  进入完整功能控制台
+                </Button>
+              </div>
+            </details>
+          ) : null}
         </div>
-      </details>}
+      )}
 
       {/* Modals. Scoped to the dashboard, not the wizard: they act on a class that has to exist. */}
       <CreateClassModal
@@ -608,8 +828,6 @@ export default function TeacherDashboard() {
         stage={aiAnalysisStage}
         report={aiReport}
       />
-        </>
-      )}
     </PageScaffold>
   );
 }

@@ -239,7 +239,7 @@ export default function TeacherBigscreen() {
           <div className="absolute left-1/4 top-0 h-96 w-96 animate-pulse rounded-full bg-role/20 mix-blend-screen blur-[120px]"></div>
           <div className="absolute bottom-0 right-1/4 h-96 w-96 animate-pulse rounded-full bg-role-soft/30 mix-blend-screen blur-[120px] [animation-delay:2s]"></div>
           <div className={`absolute left-1/2 top-1/2 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[150px] mix-blend-screen transition-all duration-1000 ${isBossActive ? 'animate-pulse bg-danger/30' : 'bg-transparent'}`}></div>
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay"></div>
+          <div className="absolute inset-0 pattern-stars opacity-30 mix-blend-overlay"></div>
         </div>
       )}
       {!isFullscreen && (
@@ -391,7 +391,7 @@ export default function TeacherBigscreen() {
               isFullscreen ? 'border-2 border-danger/50 bg-surface-2/80 backdrop-blur-xl' : 'border border-danger/30 bg-danger/10'
             }`}
           >
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] opacity-20 mix-blend-overlay"></div>
+            <div className="absolute inset-0 pattern-noise opacity-20 mix-blend-overlay"></div>
             <div className="relative flex flex-col items-center justify-between gap-8 p-8 md:flex-row">
               <div className="flex w-full flex-1 items-center">
                 <div className={`mr-6 flex-shrink-0 rounded-card p-4 shadow-inner ${isFullscreen ? 'bg-danger/20' : 'bg-danger/10'}`}>
@@ -401,7 +401,7 @@ export default function TeacherBigscreen() {
                   <div className="mb-2 flex items-end justify-between">
                     <div>
                       <h2 className={`text-3xl font-black tracking-tight text-danger ${isFullscreen ? 'drop-shadow-raised' : ''}`}>
-                        ⚠️ 世界BOSS降临: {bigscreenData.activeBoss.name}
+                        <ShieldAlert aria-hidden="true" className="mr-2 inline size-6" />世界BOSS降临：{bigscreenData.activeBoss.name}
                       </h2>
                       <p className="mt-1 text-sm font-medium text-danger/80">
                         Lv.{bigscreenData.activeBoss.level} - {bigscreenData.activeBoss.description || '请全班同学前往挑战！'}
@@ -419,7 +419,7 @@ export default function TeacherBigscreen() {
                       transition={{ type: 'spring', bounce: 0 }}
                       className="relative h-full overflow-hidden bg-gradient-to-r from-danger to-warning"
                     >
-                      <div className="absolute inset-0 animate-[slideRight_2s_linear_infinite] bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')] opacity-30"></div>
+                      <div className="absolute inset-0 animate-[slideRight_2s_linear_infinite] pattern-stripes opacity-30"></div>
                     </motion.div>
                   </div>
                 </div>

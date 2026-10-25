@@ -26,7 +26,7 @@ export default function FeatureDisabledState({
       <div className="w-full max-w-md">
         <EmptyState
           icon={Ban}
-          title={<span className="text-base font-bold text-ink-1">{title}</span>}
+          title={<span className="text-base font-bold text-fg-1">{title}</span>}
           description={<span className="leading-6">{description}</span>}
           action={
             actionLabel && onAction ? (

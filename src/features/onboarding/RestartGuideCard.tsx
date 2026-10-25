@@ -23,7 +23,7 @@ export function RestartGuideCard() {
         description="第一次进入时会自动开始的分步引导，可以随时重看。"
         actions={<RestartGuideButton />}
       >
-        <p className="text-sm text-ink-3">
+        <p className="text-sm text-fg-3">
           教程会一步步指出界面上的位置，并等你真的完成那一步操作。重看不会影响任何数据，也不会改变「已经看过」的记录。
         </p>
       </SectionCard>

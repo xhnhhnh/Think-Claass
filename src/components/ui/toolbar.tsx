@@ -37,7 +37,7 @@ export function Toolbar({ search, searchLabel = '搜索', filters, actions, clas
           <div className={cn('relative w-full', filters ? 'sm:max-w-xs' : 'sm:max-w-sm')}>
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-3"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3"
             />
             <Input
               type="search"

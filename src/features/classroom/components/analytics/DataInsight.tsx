@@ -17,15 +17,11 @@ type InsightTone = 'primary' | 'success' | 'warning' | 'info' | 'destructive';
 type InsightSurface = 'glass' | 'paper';
 
 const toneClasses: Record<InsightTone, { icon: string; value: string; bar: string }> = {
-  primary: { icon: 'bg-primary/10 text-primary', value: 'text-primary', bar: 'from-primary/70 to-primary' },
-  success: { icon: 'bg-success/10 text-success', value: 'text-success', bar: 'from-success/70 to-success' },
-  warning: { icon: 'bg-warning/10 text-warning', value: 'text-warning', bar: 'from-warning/70 to-warning' },
-  info: { icon: 'bg-info/10 text-info', value: 'text-info', bar: 'from-info/70 to-info' },
-  destructive: {
-    icon: 'bg-destructive/10 text-destructive',
-    value: 'text-destructive',
-    bar: 'from-destructive/70 to-destructive',
-  },
+  primary: { icon: 'bg-role-soft text-role-ink', value: 'text-role-ink', bar: 'bg-role' },
+  success: { icon: 'bg-success-soft text-success-ink', value: 'text-success-ink', bar: 'bg-success' },
+  warning: { icon: 'bg-warning-soft text-warning-ink', value: 'text-warning-ink', bar: 'bg-warning' },
+  info: { icon: 'bg-info-soft text-info-ink', value: 'text-info-ink', bar: 'bg-info' },
+  destructive: { icon: 'bg-danger-soft text-danger-ink', value: 'text-danger-ink', bar: 'bg-danger' },
 };
 
 const TONE_CYCLE: InsightTone[] = ['primary', 'info', 'success', 'warning', 'destructive'];
@@ -36,13 +32,13 @@ export function toneForIndex(index: number): InsightTone {
 }
 
 const metricSurfaceClasses: Record<InsightSurface, string> = {
-  glass: 'rounded-card border border-border bg-paper/80 p-6 shadow-card backdrop-blur-xl',
-  paper: 'rounded-panel border border-border bg-paper-warm p-7 shadow-raised transition-all duration-300',
+  glass: 'rounded-card border border-line-1 bg-surface-2 p-6',
+  paper: 'rounded-card border border-line-1 bg-surface-3/60 p-6',
 };
 
 const panelSurfaceClasses: Record<InsightSurface, string> = {
-  glass: 'rounded-panel border border-border bg-paper/80 p-8 shadow-card backdrop-blur-xl',
-  paper: 'rounded-panel border border-border bg-paper-warm p-7 shadow-raised',
+  glass: 'rounded-card border border-line-1 bg-surface-2 p-6',
+  paper: 'rounded-card border border-line-1 bg-surface-3/60 p-6',
 };
 
 export interface MetricCardItem {
@@ -63,7 +59,7 @@ export function MetricGrid({
   className?: string;
 }) {
   return (
-    <div className={cn('grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3', className)}>
+    <div className={cn('grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3', className)}>
       {items.map((item) => (
         <MetricCard key={item.label} item={item} surface={surface} />
       ))}
@@ -73,20 +69,18 @@ export function MetricGrid({
 
 function MetricCard({ item, surface }: { item: MetricCardItem; surface: InsightSurface }) {
   const Icon = item.icon;
-  const tone = toneClasses[item.tone ?? 'indigo'];
+  const tone = toneClasses[item.tone ?? 'primary'];
 
   return (
     <div className={cn('flex items-center', metricSurfaceClasses[surface])}>
-      <div className={cn('mr-4 flex size-12 shrink-0 items-center justify-center rounded-card shadow-inner', tone.icon)}>
-        <Icon className="size-6" />
+      <div className={cn('mr-4 flex size-11 shrink-0 items-center justify-center rounded-card', tone.icon)}>
+        <Icon aria-hidden="true" className="size-5" />
       </div>
       <div className="min-w-0">
-        <div className="text-sm font-medium text-slate-500">{item.label}</div>
+        <div className="text-caption font-medium text-fg-3">{item.label}</div>
         <div className="flex items-baseline gap-2">
-          <div className={cn('text-2xl font-bold text-slate-800', surface === 'paper' && 'text-4xl', surface === 'paper' && tone.value)}>
-            {item.value}
-          </div>
-          {item.unit ? <span className="font-medium text-stone-400">{item.unit}</span> : null}
+          <div className={cn('text-metric', tone.value)}>{item.value}</div>
+          {item.unit ? <span className="text-caption text-fg-3">{item.unit}</span> : null}
         </div>
       </div>
     </div>
@@ -116,8 +110,8 @@ export function DataPanel({
 }) {
   return (
     <section className={cn(panelSurfaceClasses[surface], className)}>
-      <h2 className="mb-6 flex items-center text-lg font-bold text-slate-800">
-        {Icon ? <Icon className={cn('mr-2 size-5', iconClassName)} /> : null}
+      <h2 className="mb-5 flex items-center gap-2 text-section-title text-fg-1">
+        {Icon ? <Icon aria-hidden="true" className={cn('size-4 text-fg-3', iconClassName)} /> : null}
         {title}
       </h2>
       {isEmpty ? (
@@ -130,7 +124,11 @@ export function DataPanel({
 }
 
 export function EmptyData({ text }: { text: ReactNode }) {
-  return <div className="rounded-card border border-dashed border-slate-200 bg-white/50 p-6 text-center text-sm text-slate-500">{text}</div>;
+  return (
+    <div className="rounded-card border border-dashed border-line-1 bg-surface-3/50 p-6 text-center text-body-sm text-fg-3">
+      {text}
+    </div>
+  );
 }
 
 export function HorizontalBarList({
@@ -152,14 +150,14 @@ export function HorizontalBarList({
 
         return (
           <div key={item.label} className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3">
-            <div className="truncate text-right text-sm font-medium text-slate-600">{item.label}</div>
+            <div className="truncate text-right text-body-sm font-medium text-fg-2">{item.label}</div>
             <div className="flex min-w-0 items-center gap-3">
               <div
-                className={cn('h-6 rounded-card bg-gradient-to-r shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all duration-500 ease-out', toneClass.bar)}
+                className={cn('h-5 rounded-card transition-all duration-500 ease-out', toneClass.bar)}
                 style={{ width, minWidth: item.value > 0 ? '2rem' : '0' }}
                 aria-label={`${item.label}: ${item.value}${unit ?? ''}`}
               />
-              <span className="shrink-0 text-sm font-bold text-slate-700">
+              <span className="shrink-0 text-body-sm font-semibold text-fg-1">
                 {item.value} {unit}
               </span>
             </div>
@@ -190,14 +188,13 @@ export function KeyValueRows({
   rows: Array<{ label: ReactNode; value: ReactNode; valueClassName?: string }>;
 }) {
   return (
-    <div className="flex flex-col gap-3 text-stone-600">
+    <div className="flex flex-col gap-3 text-body-sm text-fg-2">
       {rows.map((row) => (
         <div key={String(row.label)} className="flex items-center justify-between gap-4">
           <span>{row.label}</span>
-          <span className={cn('font-bold text-primary', row.valueClassName)}>{row.value}</span>
+          <span className={cn('font-semibold text-role-ink', row.valueClassName)}>{row.value}</span>
         </div>
       ))}
     </div>
   );
 }
-

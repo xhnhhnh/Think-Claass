@@ -234,7 +234,7 @@ export default function TeacherAiStudyPage() {
               }
             >
               {insight.suggestions.length === 0 ? (
-                <EmptyState icon={Sparkles} title="本班还没有学生" description="先在班级与学生管理里添加学生。" />
+                <EmptyState icon={Sparkles} title="本班还没有学生" description="先在教师工作台里添加学生。" />
               ) : (
                 <ul className="space-y-2">
                   {insight.suggestions.map((suggestion) => (

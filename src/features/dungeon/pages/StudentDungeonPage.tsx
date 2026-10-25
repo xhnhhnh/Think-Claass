@@ -133,7 +133,7 @@ export default function StudentDungeon() {
       <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-4 pt-16 sm:p-8">
         <div className="relative mx-auto flex min-h-[600px] w-full max-w-4xl flex-col justify-center overflow-hidden rounded-panel p-4 shadow-floating sm:p-8">
           <div className="absolute inset-0 z-0 overflow-hidden bg-fg-1">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30 mix-blend-overlay" />
+            <div className="absolute inset-0 pattern-noise opacity-30 mix-blend-overlay" />
             <div className="absolute bottom-0 h-1/2 w-full bg-gradient-to-t from-danger/50 to-transparent" />
           </div>
 
@@ -191,7 +191,7 @@ export default function StudentDungeon() {
       <div className="relative mx-auto flex min-h-[800px] max-w-6xl flex-col overflow-hidden rounded-panel border border-danger/30 p-4 shadow-floating sm:p-8">
         {/* Immersive Dungeon Background */}
         <div className="absolute inset-0 z-0 overflow-hidden bg-fg-1">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] opacity-40 mix-blend-overlay" />
+          <div className="absolute inset-0 pattern-noise opacity-40 mix-blend-overlay" />
 
           {/* Floor Indicator Depth Effect */}
           <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none text-[30vw] font-black text-fg-inverse/5">

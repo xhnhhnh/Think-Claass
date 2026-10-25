@@ -155,8 +155,8 @@ export default function TeacherLayout() {
   return (
     <AppShell
       role="teacher"
-      brand={{ label: '教师主控台', meta: `老师 ${user.username}`, icon: GraduationCap }}
-      fallbackTitle="班级与学生管理"
+      brand={{ label: '教师工作台', meta: '让每个课堂都发光', icon: GraduationCap }}
+      fallbackTitle="教师工作台"
       homePath={fallbackPath}
       settingsPath="/teacher/settings"
       features={features}

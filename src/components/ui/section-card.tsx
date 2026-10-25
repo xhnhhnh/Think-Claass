@@ -29,7 +29,12 @@ export function SectionCard({
 }: SectionCardProps) {
   return (
     <Card data-slot="section-card" className={cn('gap-4', className)}>
-      <CardHeader className={cn('border-b border-border pb-4', actions && 'flex-row items-center justify-between')}>
+      <CardHeader
+        className={cn(
+          'border-b border-line-1 pb-4',
+          actions && 'flex-row items-center justify-between',
+        )}
+      >
         <div className="space-y-1">
           <CardTitle>{title}</CardTitle>
           {description ? <CardDescription>{description}</CardDescription> : null}

@@ -58,13 +58,13 @@ describe('scoreCommand', () => {
 describe('rankCommands', () => {
   const commands = [
     command({ id: 'nav:/teacher/exams', label: '考试与成绩' }),
-    command({ id: 'nav:/teacher/classes', label: '班级与学生管理' }),
+    command({ id: 'nav:/teacher/classes', label: '教师工作台' }),
     command({ id: 'nav:/teacher/features', label: '功能开关' }),
   ];
 
   it('sorts by score and drops non-matches', () => {
-    const results = rankCommands(commands, '班');
-    expect(results.map((entry) => entry.label)).toContain('班级与学生管理');
+    const results = rankCommands(commands, '工作');
+    expect(results.map((entry) => entry.label)).toContain('教师工作台');
     expect(results.map((entry) => entry.label)).not.toContain('考试与成绩');
   });
 

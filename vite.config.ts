@@ -37,9 +37,16 @@ export default defineConfig({
         '**/.tmp/**',
       ],
     },
+    /*
+     * The demo instance (`npm run demo`) starts a second Vite on another port and points
+     * it at its own API copy. Both values are env-overridable so the normal dev server
+     * keeps its historical 5173 -> 3001 wiring, and a design-review instance can run
+     * beside it without touching the developer's database.
+     */
+    port: Number(process.env.VITE_PORT || 5173),
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {

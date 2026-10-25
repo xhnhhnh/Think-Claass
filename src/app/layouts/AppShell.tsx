@@ -171,7 +171,8 @@ export function AppShell({
             data-slot="app-shell"
             data-mode="immersive"
             data-role-scope={role}
-            className={cn('relative min-h-dvh bg-surface-1', className)}
+            data-density="comfortable"
+            className={cn('surface-immersive relative min-h-dvh', className)}
           >
             <ImmersiveExit homePath={homePath} title={meta.title} />
             {/*
@@ -205,13 +206,20 @@ export function AppShell({
           data-slot="app-shell"
           data-mode={isDesktop ? 'workbench' : 'mobile'}
           data-collapsed={railCollapsed ? 'true' : 'false'}
+          data-density={role === 'admin' || role === 'teacher' ? 'compact' : 'comfortable'}
           className={cn(
             // A literal, not a variable: Tailwind's JIT only emits the `.app-shell` block
             // in `index.css` when it sees this class name in a scanned file.
-            'app-shell bg-surface-1 text-fg-1',
+            'app-shell surface-console text-fg-1',
             className,
           )}
         >
+        <a
+          href="#main-content"
+          className="sr-only z-50 rounded-card bg-surface-4 px-4 py-2 text-body font-semibold text-fg-1 shadow-floating focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        >
+          跳到主要内容
+        </a>
         {/* --- desktop rail ------------------------------------------------- */}
         {isDesktop ? (
           <div className="sticky top-0 h-dvh border-r border-line-1">
@@ -249,9 +257,10 @@ export function AppShell({
           )}
 
           <main
+            id="main-content"
             data-slot="page-content"
             className={cn(
-              'min-w-0 flex-1 px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6',
+              'min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7',
               // A list page's sticky toolbar and a form's sticky action bar both need the
               // scroll container to be the document, not this element - so no `overflow`
               // is set here, deliberately.
@@ -260,6 +269,11 @@ export function AppShell({
           >
             {page}
           </main>
+
+          <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line-2 px-4 py-3 text-caption text-fg-3 sm:px-6 lg:px-8">
+            <span className="font-medium text-fg-2">Think-Class</span>
+            <span>让每一份进步都被看见</span>
+          </footer>
         </div>
 
         {/* --- mobile dock --------------------------------------------------- */}

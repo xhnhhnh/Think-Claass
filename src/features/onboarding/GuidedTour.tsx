@@ -195,7 +195,7 @@ function TourRun({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void 
         aria-live="polite"
         aria-labelledby="guided-tour-title"
         data-slot="tour-tooltip"
-        className="pointer-events-auto fixed left-0 top-0 z-[63] rounded-panel border border-border bg-paper p-4 shadow-floating"
+        className="pointer-events-auto fixed left-0 top-0 z-[63] rounded-panel border border-line-1 bg-surface-4 p-4 shadow-floating"
         initial={false}
         animate={{
           x: position.left,
@@ -206,7 +206,7 @@ function TourRun({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void 
         transition={highlight}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold tabular-nums text-primary">
+          <span className="text-xs font-semibold tabular-nums text-role-ink">
             第 {stepIndex + 1} / {steps.length} 步
           </span>
           <Button
@@ -214,7 +214,7 @@ function TourRun({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void 
             variant="ghost"
             size="xs"
             onClick={onFinish}
-            className="text-ink-3 hover:text-ink-1"
+            className="text-fg-3 hover:text-fg-1"
           >
             <X data-icon="inline-start" />
             跳过引导
@@ -235,13 +235,13 @@ function TourRun({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void 
           animate={{ opacity: 1, y: 0 }}
           transition={shouldReduceMotion ? { duration: 0.22 } : { duration: 0.26, ease: 'easeOut' }}
         >
-          <h2 id="guided-tour-title" className="font-heading text-sm font-bold text-ink-1">
+          <h2 id="guided-tour-title" className="font-heading text-sm font-bold text-fg-1">
             {step.title}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-ink-2">{body}</p>
+          <p className="mt-1 text-sm leading-6 text-fg-2">{body}</p>
 
           {needsAction ? (
-            <p className="mt-2 text-xs text-ink-3">完成上面的操作会自动继续，也可以点「{primaryLabel}」。</p>
+            <p className="mt-2 text-xs text-fg-3">完成上面的操作会自动继续，也可以点「{primaryLabel}」。</p>
           ) : null}
         </motion.div>
 
@@ -252,7 +252,7 @@ function TourRun({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void 
             size="sm"
             onClick={goPrevious}
             disabled={stepIndex === 0}
-            className="text-ink-3 hover:text-ink-1"
+            className="text-fg-3 hover:text-fg-1"
           >
             <ArrowLeft data-icon="inline-start" />
             上一步

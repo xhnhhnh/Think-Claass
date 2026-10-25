@@ -3,14 +3,13 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 /**
- * Card surface, in Tailwind 3.4 syntax.
+ * Card surface.
  *
- * The v4 spellings this file shipped with - `has-data-[slot=…]`, `*:[img:…]`,
- * `[.border-b]`, `@container/card-header` - compile to nothing in v3, so the
- * footer padding, the image corner rounding and the bordered-header padding never
- * applied. They are now the v3 arbitrary variants. `@container/card-header` is
- * deleted rather than translated: no container-query variant is used anywhere, so
- * the class was a declaration with nothing behind it.
+ * The console's default card is a **border, not a shadow**: a page full of
+ * `shadow-card` boxes reads as a stack of floating widgets, while the workbench
+ * language this product is converging on uses one hairline surface and lets spacing
+ * do the grouping. Elevation is reserved for things that actually float (dialog,
+ * sheet, popover).
  */
 function Card({
   className,
@@ -22,7 +21,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-lg border border-border bg-card py-4 text-sm text-card-foreground shadow-sm has-[[data-slot=card-footer]]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-[[data-slot=card-footer]]:pb-0 [&>img:first-child]:rounded-t-lg [&>img:last-child]:rounded-b-lg",
+        "group/card flex flex-col gap-4 overflow-hidden rounded-card border border-line-1 bg-surface-2 py-4 text-sm text-fg-1 has-[[data-slot=card-footer]]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-[[data-slot=card-footer]]:pb-0 [&>img:first-child]:rounded-t-card [&>img:last-child]:rounded-b-card",
         className
       )}
       {...props}
@@ -35,7 +34,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header grid auto-rows-min items-start gap-1 rounded-t-lg px-4 group-data-[size=sm]/card:px-3 has-[[data-slot=card-action]]:grid-cols-[1fr_auto] has-[[data-slot=card-description]]:grid-rows-[auto_auto] [&.border-b]:pb-4 group-data-[size=sm]/card:[&.border-b]:pb-3",
+        "group/card-header grid auto-rows-min items-start gap-1 rounded-t-card px-4 group-data-[size=sm]/card:px-3 has-[[data-slot=card-action]]:grid-cols-[1fr_auto] has-[[data-slot=card-description]]:grid-rows-[auto_auto] [&.border-b]:pb-4 group-data-[size=sm]/card:[&.border-b]:pb-3",
         className
       )}
       {...props}
@@ -48,7 +47,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-bold tracking-tight group-data-[size=sm]/card:text-sm",
+        "font-heading text-card-title text-fg-1",
         className
       )}
       {...props}
@@ -60,7 +59,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-body-sm text-fg-3", className)}
       {...props}
     />
   )
@@ -94,7 +93,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-lg border-t bg-muted/45 p-4 group-data-[size=sm]/card:p-3",
+        "flex items-center rounded-b-card border-t border-line-2 bg-surface-3/50 p-4 group-data-[size=sm]/card:p-3",
         className
       )}
       {...props}

@@ -13,11 +13,11 @@ import { cn } from '@/lib/utils';
  * design system.
  */
 const TONES = {
-  primary: 'bg-primary',
+  primary: 'bg-role',
   success: 'bg-success',
   warning: 'bg-warning',
   info: 'bg-info',
-  destructive: 'bg-destructive',
+  destructive: 'bg-danger',
 } as const;
 
 export interface ProgressProps {
@@ -40,7 +40,7 @@ export function Progress({ value, min = 0, max = 100, label, tone = 'primary', c
       aria-label={label}
       className={className}
     >
-      <ProgressPrimitive.Track className="h-2.5 w-full overflow-hidden rounded-full border border-border bg-muted">
+      <ProgressPrimitive.Track className="h-2 w-full overflow-hidden rounded-full bg-surface-3">
         <ProgressPrimitive.Indicator
           className={cn('h-full rounded-full transition-all duration-500', TONES[tone])}
         />

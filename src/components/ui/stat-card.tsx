@@ -13,11 +13,11 @@ import { cn } from '@/lib/utils';
  * introduce a ninth palette.
  */
 const TONES = {
-  primary: 'bg-primary/10 text-primary',
-  success: 'bg-success/10 text-success',
-  warning: 'bg-warning/10 text-warning',
-  info: 'bg-info/10 text-info',
-  destructive: 'bg-destructive/10 text-destructive',
+  primary: 'bg-role-soft text-role-ink',
+  success: 'bg-success-soft text-success-ink',
+  warning: 'bg-warning-soft text-warning-ink',
+  info: 'bg-info-soft text-info-ink',
+  destructive: 'bg-danger-soft text-danger-ink',
 } as const;
 
 export interface StatCardProps {
@@ -34,19 +34,19 @@ export function StatCard({ label, value, icon: Icon, tone = 'primary', hint, cla
     <div
       data-slot="stat-card"
       className={cn(
-        'flex items-center gap-4 rounded-panel border border-border bg-card p-5 shadow-card',
+        'flex items-center gap-3 rounded-card border border-line-1 bg-surface-2 p-4',
         className,
       )}
     >
       {Icon ? (
-        <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-card', TONES[tone])}>
+        <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-card', TONES[tone])}>
           <Icon aria-hidden="true" className="size-5" />
         </span>
       ) : null}
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-ink-3">{label}</div>
-        <div className="text-2xl font-bold tracking-tight text-ink-1">{value}</div>
-        {hint ? <div className="mt-0.5 truncate text-xs text-ink-3">{hint}</div> : null}
+        <div className="truncate text-caption font-medium text-fg-3">{label}</div>
+        <div className="mt-0.5 text-metric text-fg-1 tabular-nums">{value}</div>
+        {hint ? <div className="mt-0.5 truncate text-caption text-fg-3">{hint}</div> : null}
       </div>
     </div>
   );

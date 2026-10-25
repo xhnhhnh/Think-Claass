@@ -81,6 +81,47 @@ describe('AdminDashboard', () => {
     expect(screen.getByRole('button', { name: '系统重置' })).toBeInTheDocument();
   });
 
+  it('guides a fresh install instead of showing a wall of zeroes', async () => {
+    mocks.useAdminStatsQuery.mockReturnValue({
+      data: {
+        server: {
+          cpuUsage: 5,
+          cpuCount: 8,
+          totalMem: 16000000000,
+          usedMem: 4000000000,
+          freeMem: 12000000000,
+          memUsage: 25,
+          uptime: 600,
+          platform: 'win32',
+        },
+        database: {
+          totalUsers: 1,
+          teachers: 0,
+          students: 0,
+          classes: 0,
+          totalActivity: 0,
+          totalAssignments: 0,
+          totalLeaves: 0,
+          totalTeamQuests: 0,
+          totalPoints: 0,
+        },
+      },
+      isPending: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('开始使用 Think-Class')).toBeInTheDocument();
+    expect(screen.getByText('创建教师账号')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '复制登录地址' })).toBeInTheDocument();
+  });
+
   it('downloads the database through the authenticated client, not a page navigation', async () => {
     // `window.location.href = '/api/admin/system/database/export'` could not carry the Bearer token
     // the route requires, so the button always answered 401. The export now goes through the api

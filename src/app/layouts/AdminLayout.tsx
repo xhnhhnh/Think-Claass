@@ -47,7 +47,7 @@ export default function AdminLayout() {
        * is also what the console's own login page already calls itself, so this is one
        * name rather than two.
        */
-      brand={{ label: '管理后台', meta: user.username, icon: ShieldCheck }}
+      brand={{ label: '管理后台', meta: '平台运营', icon: ShieldCheck }}
       fallbackTitle="系统仪表盘"
       homePath={basePath}
       settingsPath={`${basePath}/profile`}

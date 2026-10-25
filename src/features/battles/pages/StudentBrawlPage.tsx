@@ -111,7 +111,7 @@ export default function StudentBrawl() {
               className="h-full bg-gradient-to-l from-info to-info/60"
             />
           </div>
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 mix-blend-overlay" />
+          <div className="absolute inset-0 pattern-stars opacity-20 mix-blend-overlay" />
         </div>
 
         <div className="relative z-10 flex flex-col items-center justify-center space-y-16">

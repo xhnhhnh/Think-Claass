@@ -64,16 +64,16 @@ export function ConfirmDialog({
         <AlertDialogPrimitive.Popup
           data-slot="confirm-dialog-popup"
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm',
+            'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-sheet border border-line-1 bg-surface-4 p-4 text-body text-fg-1 shadow-floating outline-none sm:max-w-md',
             'data-[open]:animate-zoom-in data-[closed]:animate-zoom-out',
           )}
         >
           <div className="flex flex-col gap-2">
-            <AlertDialogPrimitive.Title className="font-heading text-base leading-none font-medium">
+            <AlertDialogPrimitive.Title className="font-heading text-section-title text-fg-1">
               {title}
             </AlertDialogPrimitive.Title>
             {description ? (
-              <AlertDialogPrimitive.Description className="text-sm text-muted-foreground">
+              <AlertDialogPrimitive.Description className="text-body-sm text-fg-3">
                 {description}
               </AlertDialogPrimitive.Description>
             ) : null}

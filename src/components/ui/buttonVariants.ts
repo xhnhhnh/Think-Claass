@@ -40,7 +40,7 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-role text-role-contrast shadow-card hover:bg-role/90",
+        default: "bg-role text-role-contrast hover:bg-role/90",
         outline:
           "border-line-1 bg-surface-2 text-fg-1 hover:border-role/40 hover:bg-role-soft hover:text-role-ink aria-expanded:bg-role-soft",
         secondary: "bg-surface-3 text-fg-1 hover:bg-surface-steel aria-expanded:bg-surface-steel",

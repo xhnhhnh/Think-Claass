@@ -184,7 +184,7 @@ export function TourCursor({ rect, stepKey, action, reduceMotion }: TourCursorPr
             motion the ring holds its size and breathes instead of expanding. */}
         {action === 'click' || action === 'drag' ? (
           <motion.span
-            className="absolute -left-3 -top-3 size-6 rounded-pill border-2 border-primary"
+            className="absolute -left-3 -top-3 size-6 rounded-pill border-2 border-role"
             animate={reduceMotion ? { opacity: [0.85, 0, 0.85] } : { scale: [0.25, 2.2], opacity: [0.75, 0] }}
             transition={
               reduceMotion
@@ -198,7 +198,7 @@ export function TourCursor({ rect, stepKey, action, reduceMotion }: TourCursorPr
             stays under reduced motion - it is the only cue that says "text goes here". */}
         {action === 'input' ? (
           <motion.span
-            className="absolute left-5 top-5 h-5 w-0.5 rounded-pill bg-primary"
+            className="absolute left-5 top-5 h-5 w-0.5 rounded-pill bg-role"
             animate={{ opacity: [1, 0.1, 1] }}
             transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
           />
@@ -206,7 +206,7 @@ export function TourCursor({ rect, stepKey, action, reduceMotion }: TourCursorPr
 
         {/* Choosing from a list: the affordance of the control being pointed at. */}
         {action === 'select' ? (
-          <ChevronDown className="absolute left-4 top-5 size-3.5 text-primary" aria-hidden="true" />
+          <ChevronDown className="absolute left-4 top-5 size-3.5 text-role-ink" aria-hidden="true" />
         ) : null}
       </motion.div>
     </motion.div>

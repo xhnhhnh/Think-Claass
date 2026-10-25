@@ -64,7 +64,7 @@ export default function StudentLayout() {
   return (
     <AppShell
       role="student"
-      brand={{ label: '我的成长', meta: user.name || user.username, icon: Sparkles }}
+      brand={{ label: '学生空间', meta: '让成长看得见', icon: Sparkles }}
       fallbackTitle="学生空间"
       homePath="/student"
       settingsPath="/student/settings"
