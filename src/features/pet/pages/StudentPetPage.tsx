@@ -178,14 +178,14 @@ export default function StudentPet() {
         <motion.div
           initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: 20 }) }}
           animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
-          className="mx-auto max-w-4xl overflow-hidden rounded-panel border-8 border-warning/20 bg-surface-2 shadow-floating"
+          className="mx-auto max-w-4xl overflow-hidden rounded-panel border-2 border-warning/20 bg-surface-2 shadow-raised"
         >
           <div className="border-b-8 border-warning/70 bg-warning p-8 text-center text-fg-inverse">
-            <h2 className="mb-2 text-4xl font-black drop-shadow-md">欢迎来到 Think-Class</h2>
+            <h2 className="mb-2 text-3xl font-bold ">欢迎来到 Think-Class</h2>
             <p className="text-xl font-bold text-fg-inverse/80">领养你的专属精灵伙伴，开启学习冒险之旅！</p>
           </div>
           <div className="p-8">
-            <h3 className="mb-6 text-center text-2xl font-black text-fg-1">选择精灵属性</h3>
+            <h3 className="mb-6 text-center text-2xl font-bold text-fg-1">选择精灵属性</h3>
             <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
               {PET_ELEMENTS.map((el) => (
                 /*
@@ -204,14 +204,14 @@ export default function StudentPet() {
                     aria-pressed={selectedElement === el.id}
                     onClick={() => setSelectedElement(el.id)}
                     className={cn(
-                      'h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 p-6',
+                      'h-full w-full flex-col gap-0 rounded-panel border border-b-8 p-6',
                       selectedElement === el.id
                         ? cn('border-role shadow-raised ring-4 ring-role/30 ring-offset-4', el.bg)
                         : 'border-line-1 bg-surface-3/50 hover:border-role/30 hover:bg-surface-3',
                     )}
                   >
-                    <div className="mb-4 text-6xl drop-shadow-md">{el.icon}</div>
-                    <div className="text-xl font-black text-fg-1">{el.name}</div>
+                    <div className="mb-4 text-3xl ">{el.icon}</div>
+                    <div className="text-xl font-bold text-fg-1">{el.name}</div>
                   </Button>
                 </motion.div>
               ))}
@@ -226,7 +226,7 @@ export default function StudentPet() {
                 <Button
                   onClick={handleAdopt}
                   disabled={!selectedElement || adopting}
-                  className="h-auto rounded-panel border-b-8 border-fg-1/20 px-12 py-5 text-2xl font-black shadow-raised"
+                  className="h-auto rounded-panel border-b-8 border-fg-1/20 px-12 py-5 text-2xl font-bold shadow-raised"
                 >
                   {adopting ? '领养中...' : '确认领养'}
                 </Button>
@@ -259,7 +259,7 @@ export default function StudentPet() {
             </div>
             <div>
               <p className="text-sm font-bold text-fg-3">当前可用积分</p>
-              <p className="text-3xl font-black text-warning">{availablePoints} <span className="text-lg font-bold">币</span></p>
+              <p className="text-3xl font-bold text-warning">{availablePoints} <span className="text-lg font-bold">币</span></p>
             </div>
           </div>
           <div className="flex space-x-4">
@@ -286,7 +286,7 @@ export default function StudentPet() {
           initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.95 }) }}
           animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1 }) }}
           className={cn(
-            'relative flex min-h-[500px] flex-col justify-between overflow-hidden rounded-panel border-8 border-surface-2 shadow-floating',
+            'relative flex min-h-[500px] flex-col justify-between overflow-hidden rounded-panel border-2 border-surface-2 shadow-raised',
             element.bg,
           )}
         >
@@ -296,7 +296,7 @@ export default function StudentPet() {
           {/* Parent Buff Effect */}
           {pet.has_parent_buff && (
             <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-panel">
-              <div className="absolute left-0 top-0 h-full w-full animate-pulse bg-gradient-to-b from-warning/20 to-transparent" />
+              <div className="absolute left-0 top-0 h-full w-full animate-pulse bg-warning/10" />
               <div className="absolute -left-20 -top-20 size-64 animate-[pulse_4s_ease-in-out_infinite] rounded-full bg-warning opacity-60 mix-blend-screen blur-[80px] filter" />
               <div className="absolute -bottom-20 -right-20 size-64 animate-[pulse_5s_ease-in-out_infinite] rounded-full bg-warning opacity-60 mix-blend-screen blur-[80px] filter" />
             </div>
@@ -305,8 +305,8 @@ export default function StudentPet() {
           {/* Status Bar */}
           <div className="relative z-10 flex flex-col items-start justify-between gap-4 p-6 sm:flex-row">
             <div className="inline-block rounded-panel border-b-4 border-line-1 bg-surface-2/90 px-6 py-4 shadow-card backdrop-blur-sm">
-              <h2 className="flex items-center text-3xl font-black text-fg-1 drop-shadow-sm">
-                <span className="mr-3 text-4xl">{element.icon}</span> {element.name}精灵
+              <h2 className="flex items-center text-3xl font-bold text-fg-1 ">
+                <span className="mr-3 text-3xl">{element.icon}</span> {element.name}精灵
               </h2>
               <div className="mt-3 flex items-center space-x-4 text-sm font-bold text-fg-2">
                 <span className="flex items-center rounded-pill border-b-4 border-line-1 bg-surface-2 px-4 py-2 shadow-card">
@@ -322,7 +322,7 @@ export default function StudentPet() {
               <motion.div
                 initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.8 }) }}
                 animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1 }) }}
-                className="flex shrink-0 animate-bounce items-center rounded-panel border-4 border-surface-2 bg-gradient-to-r from-warning to-warning/70 px-6 py-4 font-black text-fg-inverse shadow-glow-role [animation-duration:3s]"
+                className="flex shrink-0 animate-bounce items-center rounded-panel border border-surface-2 bg-warning px-6 py-4 font-bold text-fg-inverse shadow-raised [animation-duration:3s]"
               >
                 <Heart className="mr-2 size-6 fill-current" />
                 <div>
@@ -339,30 +339,30 @@ export default function StudentPet() {
               <motion.div
                 initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: 10, scale: 0.8 }) }}
                 animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0, scale: 1 }) }}
-                className="absolute top-4 z-30 whitespace-nowrap rounded-panel border-4 border-warning/20 bg-surface-2 px-6 py-3 text-lg font-black text-warning shadow-raised"
+                className="absolute top-4 z-30 whitespace-nowrap rounded-panel border border-warning/20 bg-surface-2 px-6 py-3 text-lg font-bold text-warning shadow-raised"
               >
                 {petMessage}
-                <div className="absolute -bottom-3 left-1/2 h-0 w-0 -translate-x-1/2 transform border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-surface-2 drop-shadow-md" />
+                <div className="absolute -bottom-3 left-1/2 h-0 w-0 -translate-x-1/2 transform border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-surface-2 " />
               </motion.div>
             )}
 
             <motion.div
               animate={shouldReduceMotion ? undefined : { y: [0, -15, 0] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              className="group-hover:scale-105 relative flex size-72 items-center justify-center rounded-full border-8 border-surface-2 bg-surface-2 shadow-floating transition-transform duration-300"
+              className="group-hover:scale-105 relative flex size-72 items-center justify-center rounded-full border-2 border-surface-2 bg-surface-2 shadow-raised transition-transform duration-300"
             >
               <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full">
                 <img src={currentPetImage} alt="我的精灵" className="h-full w-full object-contain" />
               </div>
 
               {pet.level > 1 && (
-                <div className="absolute -bottom-6 z-20 rounded-pill border-4 border-surface-2 bg-warning px-6 py-2 text-xl font-black text-fg-inverse shadow-raised">
+                <div className="absolute -bottom-6 z-20 rounded-pill border border-surface-2 bg-warning px-6 py-2 text-xl font-bold text-fg-inverse shadow-raised">
                   Lv.{pet.level}
                 </div>
               )}
 
               {/* Mood Badge */}
-              <div className="absolute right-0 top-0 z-20 flex size-16 items-center justify-center rounded-full border-4 border-line-1 bg-surface-2 text-3xl shadow-raised">
+              <div className="absolute right-0 top-0 z-20 flex size-16 items-center justify-center rounded-full border border-line-1 bg-surface-2 text-3xl shadow-raised">
                 {(pet as any).mood === 'excited' ? '🤩' : (pet as any).mood === 'sad' ? '😢' : (pet as any).mood === 'dizzy' ? '😵' : '😊'}
               </div>
             </motion.div>
@@ -371,7 +371,7 @@ export default function StudentPet() {
           {/* Experience Bar & Actions */}
           <div className="relative z-10 border-t-4 border-surface-2 bg-surface-2/95 p-8 backdrop-blur-md">
             <div className="mb-8">
-              <div className="mb-3 flex justify-between text-base font-black text-fg-2">
+              <div className="mb-3 flex justify-between text-base font-bold text-fg-2">
                 <span>经验值 ({pet.experience} / {pet.level * 100})</span>
                 <span>距下一级 {pet.level * 100 - pet.experience}</span>
               </div>
@@ -385,14 +385,14 @@ export default function StudentPet() {
                   variant="outline"
                   onClick={() => handleInteract('喂食普通食物', 10, 10, 'FEED_PET')}
                   disabled={petMutation.isPending}
-                  className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-warning/30 bg-surface-2 p-6 shadow-card hover:border-warning hover:bg-warning/5"
+                  className="group h-full w-full flex-col gap-0 rounded-panel border border-b-8 border-warning/30 bg-surface-2 p-6 shadow-card hover:border-warning hover:bg-warning/5"
                 >
                   <div className="mb-3 rounded-full bg-warning/10 p-4 shadow-inner transition-transform group-hover:scale-110">
                     <Cookie className="size-8 text-warning" />
                   </div>
-                  <span className="text-lg font-black text-fg-1">喂食</span>
+                  <span className="text-lg font-bold text-fg-1">喂食</span>
                   <span className="mt-1 text-sm font-bold text-fg-3">(10币)</span>
-                  <span className="mt-2 rounded-pill bg-warning/10 px-3 py-1 text-sm font-black text-warning">+10 EXP</span>
+                  <span className="mt-2 rounded-pill bg-warning/10 px-3 py-1 text-sm font-bold text-warning">+10 EXP</span>
                 </Button>
               </motion.div>
               <motion.div whileHover={shouldReduceMotion ? undefined : { scale: 1.05, y: -5 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}>
@@ -401,14 +401,14 @@ export default function StudentPet() {
                   variant="outline"
                   onClick={() => handleInteract('买玩具', 30, 35, 'BUY_TOY')}
                   disabled={petMutation.isPending}
-                  className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-role/30 bg-surface-2 p-6 shadow-card hover:border-role hover:bg-role/5"
+                  className="group h-full w-full flex-col gap-0 rounded-panel border border-b-8 border-role/30 bg-surface-2 p-6 shadow-card hover:border-role hover:bg-role/5"
                 >
                   <div className="mb-3 rounded-full bg-role/10 p-4 shadow-inner transition-transform group-hover:scale-110">
                     <Play className="size-8 text-role" />
                   </div>
-                  <span className="text-lg font-black text-fg-1">玩具</span>
+                  <span className="text-lg font-bold text-fg-1">玩具</span>
                   <span className="mt-1 text-sm font-bold text-fg-3">(30币)</span>
-                  <span className="mt-2 rounded-pill bg-role/10 px-3 py-1 text-sm font-black text-role">+35 EXP</span>
+                  <span className="mt-2 rounded-pill bg-role/10 px-3 py-1 text-sm font-bold text-role">+35 EXP</span>
                 </Button>
               </motion.div>
               <motion.div whileHover={shouldReduceMotion ? undefined : { scale: 1.05, y: -5 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}>
@@ -417,14 +417,14 @@ export default function StudentPet() {
                   variant="outline"
                   onClick={() => handleInteract('基础训练', 60, 80, 'TRAIN')}
                   disabled={petMutation.isPending}
-                  className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-success/30 bg-surface-2 p-6 shadow-card hover:border-success hover:bg-success/5"
+                  className="group h-full w-full flex-col gap-0 rounded-panel border border-b-8 border-success/30 bg-surface-2 p-6 shadow-card hover:border-success hover:bg-success/5"
                 >
                   <div className="mb-3 rounded-full bg-success/10 p-4 shadow-inner transition-transform group-hover:scale-110">
                     <Zap className="size-8 text-success" />
                   </div>
-                  <span className="text-lg font-black text-fg-1">训练</span>
+                  <span className="text-lg font-bold text-fg-1">训练</span>
                   <span className="mt-1 text-sm font-bold text-fg-3">(60币)</span>
-                  <span className="mt-2 rounded-pill bg-success/10 px-3 py-1 text-sm font-black text-success">+80 EXP</span>
+                  <span className="mt-2 rounded-pill bg-success/10 px-3 py-1 text-sm font-bold text-success">+80 EXP</span>
                 </Button>
               </motion.div>
               <motion.div whileHover={shouldReduceMotion ? undefined : { scale: 1.05, y: -5 }} whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}>
@@ -433,14 +433,14 @@ export default function StudentPet() {
                   variant="outline"
                   onClick={() => handleInteract('高阶特训', 150, 220, 'SPECIAL_TRAIN')}
                   disabled={petMutation.isPending}
-                  className="group h-full w-full flex-col gap-0 rounded-panel border-4 border-b-8 border-role-ink/30 bg-surface-2 p-6 shadow-card hover:border-role-ink hover:bg-role-soft"
+                  className="group h-full w-full flex-col gap-0 rounded-panel border border-b-8 border-role-ink/30 bg-surface-2 p-6 shadow-card hover:border-role-ink hover:bg-role-soft"
                 >
                   <div className="mb-3 rounded-full bg-role-soft p-4 shadow-inner transition-transform group-hover:scale-110">
                     <Star className="size-8 text-role-ink" />
                   </div>
-                  <span className="text-lg font-black text-fg-1">特训</span>
+                  <span className="text-lg font-bold text-fg-1">特训</span>
                   <span className="mt-1 text-sm font-bold text-fg-3">(150币)</span>
-                  <span className="mt-2 rounded-pill bg-role-soft px-3 py-1 text-sm font-black text-role-ink">+220 EXP</span>
+                  <span className="mt-2 rounded-pill bg-role-soft px-3 py-1 text-sm font-bold text-role-ink">+220 EXP</span>
                 </Button>
               </motion.div>
             </div>
@@ -449,7 +449,7 @@ export default function StudentPet() {
         {/* Praise Wall Area */}
         {praises.length > 0 && (
           <div className="mt-8 rounded-panel border-b-8 border-line-1 bg-surface-2 p-8 shadow-card">
-            <h3 className="mb-8 flex items-center text-2xl font-black text-fg-1">
+            <h3 className="mb-8 flex items-center text-2xl font-bold text-fg-1">
               <Heart className="mr-3 size-8 fill-current text-danger" />
               心里话墙 (老师的表扬)
             </h3>
@@ -469,7 +469,7 @@ export default function StudentPet() {
                   <p className="whitespace-pre-wrap pt-3 text-base font-bold leading-relaxed text-fg-1">
                     {praise.content}
                   </p>
-                  <div className="mt-4 text-right text-sm font-black text-fg-2">
+                  <div className="mt-4 text-right text-sm font-bold text-fg-2">
                     — {new Date(praise.created_at).toLocaleDateString()}
                   </div>
                 </motion.div>
@@ -482,7 +482,7 @@ export default function StudentPet() {
         <Dialog open={showRecords} onOpenChange={setShowRecords}>
           <DialogContent className="flex max-h-[80vh] flex-col overflow-hidden sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center text-2xl font-black text-fg-1">
+              <DialogTitle className="flex items-center text-2xl font-bold text-fg-1">
                 <List className="mr-3 size-8 text-role" />
                 积分明细
               </DialogTitle>
@@ -495,10 +495,10 @@ export default function StudentPet() {
                   {records.map((record) => (
                     <div key={record.id} className="flex items-center justify-between rounded-card border-b-4 border-line-1 bg-surface-2 p-5 shadow-card">
                       <div>
-                        <div className="mb-1 text-lg font-black text-fg-1">{record.description}</div>
+                        <div className="mb-1 text-lg font-bold text-fg-1">{record.description}</div>
                         <div className="text-sm font-bold text-fg-3">{new Date(record.created_at).toLocaleString()}</div>
                       </div>
-                      <div className={cn('flex items-center rounded-card px-4 py-2 text-2xl font-black', record.amount > 0 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning')}>
+                      <div className={cn('flex items-center rounded-card px-4 py-2 text-2xl font-bold', record.amount > 0 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning')}>
                         {record.amount > 0 ? <ArrowUpRight className="mr-1 size-6" /> : <ArrowDownRight className="mr-1 size-6" />}
                         {Math.abs(record.amount)}
                       </div>

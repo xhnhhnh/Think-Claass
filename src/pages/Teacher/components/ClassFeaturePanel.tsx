@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 import { classroomApi as classFeaturesApi } from '@/features/classroom/api/classesApi';
@@ -91,31 +92,35 @@ export default function ClassFeaturePanel({ classId, compact = false }: { classI
   };
 
   return (
-    <div className={`space-y-5 ${compact ? '' : 'bg-surface-2/80 backdrop-blur-xl p-6 rounded-card shadow-card border border-line-1'}`}>
-      {!compact && <h2 className="text-xl font-bold text-fg-1">课堂功能开关</h2>}
+    <div className="space-y-6">
       {content.map((group) => (
-        <div key={group.title} className="space-y-3">
-          <h3 className="text-sm font-bold text-fg-3">{group.title}</h3>
-          <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+        <section key={group.title} className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="text-body font-semibold text-fg-1">{group.title}</h3>
+            <span className="text-caption text-fg-3">{group.items.length} 项</span>
+          </div>
+          <div className={`grid gap-2 ${compact ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
             {group.items.map((key) => (
-              <div key={key} className="flex items-center justify-between rounded-card border border-line-1 bg-surface-2/70 px-4 py-3">
-                <div className="pr-4">
-                  <div className="font-semibold text-fg-1">{classFeatureLabels[key]}</div>
-                  <div className="text-xs text-fg-3">{features[key] ? '当前已开启' : '当前已关闭'}</div>
+              <div
+                key={key}
+                className="flex items-center justify-between gap-4 rounded-card border border-line-1 bg-surface-2 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold text-body text-fg-1">{classFeatureLabels[key]}</div>
+                  <div className="mt-0.5 text-caption text-fg-3">
+                    {features[key] ? '已开启，学生可以看到' : '已关闭，学生看不到'}
+                  </div>
                 </div>
-                <Button variant="ghost"
-                  onClick={() => toggleFeature(key)}
+                <Switch
+                  checked={features[key]}
+                  onCheckedChange={() => void toggleFeature(key)}
                   disabled={mutation.isPending}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${features[key] ? 'bg-gradient-to-r from-role to-role-ink' : 'bg-line-strong'} disabled:opacity-50`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-surface-2 transition-transform ${features[key] ? 'translate-x-5' : 'translate-x-1'}`}
-                  />
-                </Button>
+                  aria-label={classFeatureLabels[key]}
+                />
               </div>
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );
