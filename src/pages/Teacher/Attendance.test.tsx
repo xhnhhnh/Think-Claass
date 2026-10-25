@@ -114,7 +114,7 @@ describe('TeacherAttendance leave approvals', () => {
     render(<TeacherAttendance />);
 
     fireEvent.click(screen.getByRole('button', { name: '请假审批' }));
-    fireEvent.click(screen.getByRole('button', { name: '二班' }));
+    fireEvent.change(screen.getByLabelText('班级'), { target: { value: '2' } });
 
     expect(screen.getByText('李四')).toBeInTheDocument();
     expect(screen.getByText('家事')).toBeInTheDocument();

@@ -4,11 +4,12 @@ import { AlertCircle, CalendarCheck, CheckCircle, Clock, UserCheck, Users, XCirc
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
-import { SectionCard } from '@/components/ui/section-card';
-import { Toolbar } from '@/components/ui/toolbar';
+import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterPageCommands } from '@/app/commands/registry';
 import type { SaveAttendanceRecordPayload } from '@/features/classroom/api/attendanceApi';
 import { useAttendance, useSaveAttendanceMutation } from '@/features/classroom/hooks/useAttendance';
@@ -33,7 +34,7 @@ const ATTENDANCE_OPTIONS: AttendanceOption[] = [
 ];
 
 const INACTIVE_STATUS_CLASS =
-  'border-line-1 bg-surface-2/80 text-fg-2 backdrop-blur-xl hover:bg-surface-3/60';
+  'border-line-1 bg-surface-2 text-fg-2 hover:bg-surface-3';
 
 /** Status labels; an unknown status keeps its own text instead of a guessed one. */
 const LEAVE_STATUS_META: Record<string, { label: string; className: string }> = {
@@ -154,6 +155,13 @@ export default function TeacherAttendance() {
     toast.success(status === 'approved' ? '已批准请假申请' : '已拒绝请假申请');
   };
 
+  const markAllPresent = () => {
+    setDraftStatus(Object.fromEntries(students.map((student) => [student.id, 'present'])));
+  };
+
+  const markedCount = students.filter((student) => statusOf(student.id)).length;
+  const presentCount = students.filter((student) => statusOf(student.id) === 'present').length;
+
   // The page's primary action, reachable from the command palette as well as the card header.
   useRegisterPageCommands([
     {
@@ -170,213 +178,254 @@ export default function TeacherAttendance() {
     <PageScaffold
       variant="list"
       title="考勤与请假"
-      description={currentDate}
+      description={`${currentDate} · 共 ${students.length} 人`}
       actions={
-        <div className="flex space-x-2 rounded-card bg-surface-3/50 p-1">
-          <Button variant="ghost"
+        <div className="flex items-center gap-1 rounded-lg border border-line-1 bg-surface-3/60 p-1">
+          <Button
+            variant={activeTab === 'take' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-8"
             onClick={() => setActiveTab('take')}
-            className={`rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === 'take' ? 'bg-surface-2/80 text-role shadow-card backdrop-blur-xl' : 'text-fg-2 hover:text-fg-1'
-            }`}
           >
             考勤打卡
           </Button>
-          <Button variant="ghost"
+          <Button
+            variant={activeTab === 'leaves' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-8"
             onClick={() => setActiveTab('leaves')}
-            className={`flex items-center rounded-card px-4 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === 'leaves' ? 'bg-surface-2/80 text-role shadow-card backdrop-blur-xl' : 'text-fg-2 hover:text-fg-1'
-            }`}
           >
             请假审批
-            {hasPendingLeave && (
-              <span className="ml-1.5 h-2 w-2 rounded-full bg-danger"></span>
-            )}
+            {hasPendingLeave ? <span className="ml-0.5 size-1.5 rounded-pill bg-danger" aria-hidden="true" /> : null}
           </Button>
         </div>
       }
-      toolbar={
-        classes.length > 0 ? (
-          <Toolbar
-            filters={
-              <>
-                <span className="mr-2 shrink-0 text-sm font-bold text-fg-3">选择班级:</span>
-                {classes.map((cls) => (
-                  <Button variant="ghost"
-                    key={cls.id}
-                    onClick={() => handleClassChange(cls.id)}
-                    className={cn(
-                      'shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                      selectedClassId === cls.id
-                        ? 'bg-gradient-to-r from-role to-role-ink text-role-contrast shadow-card'
-                        : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/60',
-                    )}
-                  >
-                    {cls.name}
-                  </Button>
-                ))}
-              </>
-            }
-          />
-        ) : undefined
-      }
     >
+      <div className="space-y-4">
+        {activeTab === 'take' ? (
+          <div className="overflow-hidden rounded-card border border-line-1 bg-surface-2">
+            <div className="flex flex-col gap-3 border-b border-line-1 p-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="flex flex-col gap-1 text-caption text-fg-3">
+                  班级
+                  <Select
+                    value={selectedClassId ?? ''}
+                    onChange={(event) => handleClassChange(Number(event.target.value))}
+                    disabled={isClassesLoading || classes.length === 0}
+                    className="h-9 w-44"
+                  >
+                    {classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>{cls.name}</option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="flex flex-col gap-1 text-caption text-fg-3">
+                  考勤日期
+                  <Input
+                    id="attendance-date"
+                    type="date"
+                    value={currentDate}
+                    onChange={(event) => handleDateChange(event.target.value)}
+                    className="h-9 w-40"
+                  />
+                </label>
+                <p className="pb-2 text-caption text-fg-3">
+                  已标记 <span className="font-semibold text-fg-1 tabular-nums">{markedCount}</span> / {students.length} 人
+                  {markedCount > 0 ? ` · 出勤 ${presentCount} 人` : ''}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={markAllPresent}
+                  disabled={students.length === 0 || saveAttendanceMutation.isPending}
+                >
+                  全部出勤
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDraftStatus({})}
+                  disabled={markedCount === 0 || saveAttendanceMutation.isPending}
+                >
+                  清除标记
+                </Button>
+                <Button
+                  onClick={handleSaveAttendance}
+                  disabled={saveAttendanceMutation.isPending || markedCount === 0}
+                >
+                  <UserCheck aria-hidden="true" />
+                  {saveAttendanceMutation.isPending ? '保存中…' : '保存今日考勤'}
+                </Button>
+              </div>
+            </div>
 
-      {activeTab === 'take' && (
-        <SectionCard
-          title="考勤打卡"
-          description="选择每个学生的状态后保存；未选择的学生不会写入考勤记录。"
-          actions={
-            <div className="flex items-center gap-3">
-              <label htmlFor="attendance-date" className="text-sm font-medium text-fg-2">考勤日期:</label>
-              <Input
-                id="attendance-date"
-                type="date"
-                value={currentDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="rounded-card border border-line-1 px-3 py-1.5 sm:text-sm"
-              />
-              <Button
-                onClick={handleSaveAttendance}
-                disabled={saveAttendanceMutation.isPending}
-                className="flex items-center rounded-card bg-gradient-to-r from-role to-role-ink px-5 py-2 font-medium text-role-contrast shadow-card transition-colors hover:from-role/90 hover:to-role-ink/90"
-              >
-                <UserCheck className="mr-2 h-4 w-4" />
-                保存今日考勤
-              </Button>
+            {isClassesLoading || (classes.length > 0 && (isStudentsLoading || isAttendanceLoading)) ? (
+              <div className="space-y-2 p-4" aria-busy="true" aria-label="正在加载考勤">
+                {[0, 1, 2, 3, 4, 5].map((row) => <Skeleton key={row} className="h-11 w-full" />)}
+              </div>
+            ) : isClassesError || isStudentsError || isAttendanceError ? (
+              <div className="px-6 py-10 text-center">
+                <p className="font-semibold text-danger">考勤数据加载失败</p>
+                <p className="mt-1 text-body-sm text-fg-3">这不代表没有学生或当天没有记录，请重试。</p>
+                <Button
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => {
+                    void refetchClasses();
+                    void refetchStudents();
+                    void refetchAttendance();
+                  }}
+                >
+                  重新加载
+                </Button>
+              </div>
+            ) : classes.length === 0 ? (
+              <div className="p-6">
+                <EmptyState icon={Users} title="暂无班级数据" description="请先在班级管理中创建班级。" />
+              </div>
+            ) : students.length === 0 ? (
+              <div className="p-6">
+                <EmptyState icon={UserCheck} title="班级暂无学生" description="请先在班级管理中添加学生。" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 border-b border-line-2 bg-surface-3/40 px-4 py-2 text-caption text-fg-3">
+                  <span className="flex-1">学生</span>
+                  <span>考勤状态</span>
+                </div>
+                <div className="divide-y divide-line-2">
+                  {students.map((student) => {
+                    const currentStatus = statusOf(student.id);
+                    return (
+                      <div key={student.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                        <Avatar name={student.name} size="sm" className="hidden shrink-0 sm:flex" />
+                        <span className="min-w-24 flex-1 truncate text-body font-medium text-fg-1">
+                          {student.name}
+                        </span>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          {ATTENDANCE_OPTIONS.map((option) => {
+                            const Icon = option.icon;
+                            const isActive = currentStatus === option.value;
+                            return (
+                              <Button
+                                key={option.value}
+                                variant="outline"
+                                size="xs"
+                                onClick={() => handleStatusChange(student.id, option.value)}
+                                aria-pressed={isActive}
+                                className={cn(
+                                  'h-7 gap-1 px-2.5',
+                                  isActive ? option.activeClassName : INACTIVE_STATUS_CLASS,
+                                )}
+                              >
+                                <Icon aria-hidden="true" className="size-3.5" />
+                                {option.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-card border border-line-1 bg-surface-2">
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line-1 p-4">
+              <div>
+                <h2 className="text-section-title text-fg-1">请假审批</h2>
+                <p className="mt-0.5 text-body-sm text-fg-3">批准或拒绝本班学生的请假申请。</p>
+              </div>
+              <label className="flex flex-col gap-1 text-caption text-fg-3">
+                班级
+                <Select
+                  value={selectedClassId ?? ''}
+                  onChange={(event) => handleClassChange(Number(event.target.value))}
+                  disabled={isClassesLoading || classes.length === 0}
+                  className="h-9 w-40"
+                >
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                  ))}
+                </Select>
+              </label>
             </div>
-          }
-        >
-          {isClassesLoading || (classes.length > 0 && (isStudentsLoading || isAttendanceLoading)) ? (
-            <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
-          ) : isClassesError || isStudentsError || isAttendanceError ? (
-            /**
-             * The roster and the day's marks are both needed before anything may be saved: with a
-             * failed read every pupil looks unmarked, and 保存 would then write that guess back.
-             */
-            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
-              <p className="font-semibold text-danger">考勤数据加载失败</p>
-              <p className="mt-1 text-sm text-fg-3">这不代表没有学生或当天没有记录，请重试。</p>
-              <Button
-                variant="outline"
-                className="mt-3"
-                onClick={() => {
-                  void refetchClasses();
-                  void refetchStudents();
-                  void refetchAttendance();
-                }}
-              >
-                重新加载
-              </Button>
-            </div>
-          ) : classes.length === 0 ? (
-            <EmptyState icon={Users} title="暂无班级数据" description="请先在班级管理中创建班级。" />
-          ) : students.length === 0 ? (
-            <EmptyState icon={UserCheck} title="班级暂无学生" description="请先在班级管理中添加学生。" />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {students.map(student => {
-                const currentStatus = statusOf(student.id);
-                return (
-                  <div key={student.id} className="rounded-card border border-line-1 bg-surface-3/50 p-4 transition-shadow hover:shadow-md">
-                    <h3 className="mb-3 text-lg font-bold text-fg-1">{student.name}</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {ATTENDANCE_OPTIONS.map(option => {
-                        const Icon = option.icon;
-                        const isActive = currentStatus === option.value;
-                        return (
-                          <Button variant="ghost"
-                            key={option.value}
-                            onClick={() => handleStatusChange(student.id, option.value)}
-                            aria-pressed={isActive}
-                            className={cn(
-                              'flex items-center justify-center rounded-card border py-2 text-sm font-medium',
-                              isActive ? option.activeClassName : INACTIVE_STATUS_CLASS,
-                            )}
+            {isStudentsLoading || isLeavesLoading ? (
+              <div className="space-y-2 p-4" aria-busy="true" aria-label="正在加载请假申请">
+                {[0, 1, 2].map((row) => <Skeleton key={row} className="h-20 w-full" />)}
+              </div>
+            ) : isStudentsError || isLeavesError ? (
+              <div className="px-6 py-10 text-center">
+                <p className="font-semibold text-danger">请假记录加载失败</p>
+                <p className="mt-1 text-body-sm text-fg-3">这不代表没有请假申请，请重试。</p>
+                <Button
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => {
+                    void refetchStudents();
+                    void refetchLeaves();
+                  }}
+                >
+                  重新加载
+                </Button>
+              </div>
+            ) : classLeaveRows.length === 0 ? (
+              <div className="p-6">
+                <EmptyState icon={CalendarCheck} title="暂无请假申请" />
+              </div>
+            ) : (
+              <div className="divide-y divide-line-2">
+                {classLeaveRows.map((req) => {
+                  const statusMeta = LEAVE_STATUS_META[req.status];
+                  return (
+                    <div key={req.id} className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1.5 flex items-center gap-2.5">
+                          <span className="text-body font-semibold text-fg-1">{leaveStudentName(req.student_id)}</span>
+                          <span className={cn('rounded-pill px-2 py-0.5 text-caption font-medium', statusMeta?.className ?? 'bg-surface-3 text-fg-2')}>
+                            {statusMeta?.label ?? req.status}
+                          </span>
+                        </div>
+                        <div className="space-y-0.5 text-body-sm text-fg-2">
+                          <p><span className="text-fg-3">请假时间：</span>{req.start_date} 至 {req.end_date}</p>
+                          <p><span className="text-fg-3">请假事由：</span>{req.reason}</p>
+                          {req.review_comment ? (
+                            <p><span className="text-fg-3">审批意见：</span>{req.review_comment}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                      {req.status === 'pending' ? (
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleLeaveAction(req.id, 'rejected')}
+                            disabled={updateLeaveMutation.isPending}
+                            className="text-danger"
                           >
-                            <Icon className="mr-1 h-4 w-4" />
-                            {option.label}
+                            拒绝
                           </Button>
-                        );
-                      })}
+                          <Button
+                            size="sm"
+                            onClick={() => handleLeaveAction(req.id, 'approved')}
+                            disabled={updateLeaveMutation.isPending}
+                          >
+                            批准
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </SectionCard>
-      )}
-
-      {activeTab === 'leaves' && (
-        <SectionCard title="请假审批">
-          {isStudentsLoading || isLeavesLoading ? (
-            <p className="py-8 text-center text-sm text-fg-3">加载中...</p>
-          ) : isStudentsError || isLeavesError ? (
-            <div className="rounded-panel border border-danger/20 bg-danger/10 px-6 py-10 text-center">
-              <p className="font-semibold text-danger">请假记录加载失败</p>
-              <p className="mt-1 text-sm text-fg-3">这不代表没有请假申请，请重试。</p>
-              <Button
-                variant="outline"
-                className="mt-3"
-                onClick={() => {
-                  void refetchStudents();
-                  void refetchLeaves();
-                }}
-              >
-                重新加载
-              </Button>
-            </div>
-          ) : classLeaveRows.length === 0 ? (
-            <EmptyState icon={CalendarCheck} title="暂无请假申请" />
-          ) : (
-            <div className="space-y-4">
-              {classLeaveRows.map(req => {
-                const statusMeta = LEAVE_STATUS_META[req.status];
-                return (
-                  <div key={req.id} className="flex flex-col justify-between gap-4 rounded-card border border-line-1 p-5 md:flex-row md:items-center">
-                    <div className="flex-1">
-                      <div className="mb-2 flex items-center space-x-3">
-                        <span className="text-lg font-bold text-fg-1">
-                          {leaveStudentName(req.student_id)}
-                        </span>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusMeta?.className ?? 'bg-surface-3 text-fg-2'}`}>
-                          {statusMeta?.label ?? req.status}
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-sm text-fg-2">
-                        <p><span className="text-fg-3">请假时间：</span> {req.start_date} 至 {req.end_date}</p>
-                        <p><span className="text-fg-3">请假事由：</span> {req.reason}</p>
-                        {req.review_comment && (
-                          <p><span className="text-fg-3">审批意见：</span> {req.review_comment}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {req.status === 'pending' && (
-                      <div className="flex shrink-0 space-x-3">
-                        <Button variant="ghost"
-                          onClick={() => handleLeaveAction(req.id, 'rejected')}
-                          disabled={updateLeaveMutation.isPending}
-                          className="rounded-card border border-danger/30 px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-                        >
-                          拒绝
-                        </Button>
-                        <Button variant="ghost"
-                          onClick={() => handleLeaveAction(req.id, 'approved')}
-                          disabled={updateLeaveMutation.isPending}
-                          className="rounded-card bg-gradient-to-r from-role to-role-ink px-4 py-2 text-sm font-medium text-role-contrast shadow-card transition-colors hover:from-role/90 hover:to-role-ink/90"
-                        >
-                          批准
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </SectionCard>
-      )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </PageScaffold>
   );
 }
