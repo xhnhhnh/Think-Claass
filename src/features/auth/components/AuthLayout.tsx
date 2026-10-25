@@ -51,12 +51,19 @@ export function AuthLayout({ variant, title, subtitle, children }: AuthLayoutPro
             </div>
           </div>
 
-          <div className="mt-auto max-w-[34rem] pb-10">
+          <div className="mt-auto max-w-[38rem] pb-10">
             <p className="text-caption font-semibold tracking-[0.18em] text-brand-contrast/60">
               {admin ? 'PLATFORM OPERATIONS' : 'FOR EVERY CLASSROOM'}
             </p>
             <h1 className="mt-4 text-display text-brand-contrast">
-              {admin ? '把平台运营，做得简单而可靠。' : '让每一堂课，都成为成长的起点。'}
+              {admin ? (
+                '把平台运营，做得简单而可靠。'
+              ) : (
+                <>
+                  <span className="block">让每一堂课，</span>
+                  <span className="block">都成为成长的起点。</span>
+                </>
+              )}
             </h1>
             <p className="mt-4 max-w-[30rem] text-body text-brand-contrast/75">
               {admin
