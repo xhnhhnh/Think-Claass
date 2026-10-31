@@ -1,51 +1,29 @@
 /**
- * The two data paths must open the same SQLite file.
+ * One SQLite file, a small known set of readers.
  *
- * This repository reaches its database two ways, and until P4.3b.9 they were configured by two
- * independent settings:
+ * The application used to open its database through two independent clients: the kernel's
+ * `better-sqlite3` handle and `@prisma/client`. They were configured by different environment
+ * variables, so setting `DATABASE_FILE` to a temp copy moved the request path while Prisma kept
+ * writing the real file. The Prisma client was the last runtime consumer of a second path; P7
+ * removed `api/prismaClient.ts`, leaving:
  *
- *   - the kernel / `ctx.db` / `api/db.ts`   ->  `DATABASE_FILE`  (resolved against the repo root)
- *   - `@prisma/client` (admin, UserService) ->  `DATABASE_URL`   (a `file:` URL from `.env`)
+ *   1. packages/kernel/src/config/loadConfig.ts   the kernel connection
+ *   2. api/db.ts                                  the legacy composition's connection
+ *   3. scripts/dev/demo-instance.mjs               a tool that *sets* DATABASE_FILE for its children
  *
- * Measured with a real probe (`DATABASE_FILE=<tmp> npx tsx .tmp/prisma-override-check.mts`):
- *
- *   as shipped                app -> <root>/database.sqlite    prisma -> <root>/database.sqlite
- *   DATABASE_FILE overridden  app -> <tmp>/x.sqlite            prisma -> <root>/database.sqlite   <- DIVERGENT
- *
- * That divergence is not cosmetic. Prisma would insert a `users` row into the real database while
- * the request read it back through `better-sqlite3` from a temp copy, so the row exists and the
- * answer is still "not found". Tests and probes set `DATABASE_FILE` constantly, which is why this
- * only ever bit people who were isolating a database - the ones being careful.
- *
- * The fix in `api/prismaClient.ts` resolves the file with the same rule `loadConfig` uses and
- * passes it to `PrismaClient` as an explicit datasource URL, which takes precedence over `.env`.
- *
- * The three tests below are the three ways that can silently regress: the rule itself drifts, the
- * override stops reaching the engine, or the two source files stop agreeing.
+ * The rule is still duplicated between (1) and (2), deliberately: the kernel must not import the
+ * application and the legacy composition must not drag the kernel's config in. This test keeps the
+ * duplication honest, and fails if a fourth reader appears.
  */
 
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { loadConfig } from '@thinkclass/kernel';
 
-import { applicationDatabaseFile, applicationDatabaseUrl } from '../../api/prismaClient.js';
-
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-
-let scratch = '';
-
-beforeAll(() => {
-  scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-db-path-'));
-});
-
-afterAll(() => {
-  if (scratch) fs.rmSync(scratch, { recursive: true, force: true });
-});
 
 /** Run a function with `DATABASE_FILE` set to `value`, then restore whatever was there. */
 function withDatabaseFile<T>(value: string | undefined, run: () => T): T {
@@ -60,116 +38,47 @@ function withDatabaseFile<T>(value: string | undefined, run: () => T): T {
   }
 }
 
-describe('one database file, two access paths', () => {
-  it('resolves DATABASE_FILE the same way the kernel config does', () => {
-    const isolated = path.join(scratch, 'isolated.sqlite');
+describe('one database file, known readers', () => {
+  it('resolves DATABASE_FILE against the kernel root', () => {
+    const isolated = path.join(ROOT, 'tmp', 'isolated.sqlite');
 
-    // The property that matters: whatever `DATABASE_FILE` says, BOTH resolve to it - not to two
-    // different things that happen to agree in the default deployment.
     withDatabaseFile(isolated, () => {
-      expect(applicationDatabaseFile()).toBe(isolated);
       expect(loadConfig({ rootDir: ROOT }).databaseFile).toBe(path.resolve(ROOT, isolated));
     });
 
-    // And the default, when nothing is set: <cwd>/database.sqlite on both sides.
     withDatabaseFile(undefined, () => {
-      expect(applicationDatabaseFile()).toBe(path.resolve(process.cwd(), 'database.sqlite'));
       expect(loadConfig({ rootDir: process.cwd() }).databaseFile).toBe(
         path.resolve(process.cwd(), 'database.sqlite'),
       );
     });
   });
 
-  it('hands Prisma a file: URL for that exact path', () => {
-    const isolated = path.join(scratch, 'isolated.sqlite');
-    withDatabaseFile(isolated, () => {
-      expect(applicationDatabaseUrl()).toBe(`file:${isolated}`);
-    });
-  });
-
-  /**
-   * The end-to-end half, and the one that would have caught the original bug.
-   *
-   * It runs a child process because the Prisma client is constructed at module load: an in-process
-   * test would either reuse a client built by an earlier import (measuring nothing) or import the
-   * module twice with different environments (impossible). The child sets `DATABASE_FILE`, imports
-   * `api/prismaClient.ts`, and reports the file Prisma actually has open - ground truth from
-   * SQLite itself, not from the configuration.
-   *
-   * It also asserts the child really opened the isolated file, so a broken child cannot pass by
-   * printing the same value twice.
-   */
-  it('makes a freshly constructed Prisma client open the isolated file', () => {
-    const isolated = path.join(scratch, 'child.sqlite');
-    // A tracked fixture, not a `.tmp/` probe: the first version of this test pointed into `.tmp/`,
-    // which is gitignored, so it would have failed on a fresh clone.
-    const script = path.join(ROOT, 'tests', 'kernel', 'fixtures', 'database-path-probe.mts');
-    expect(fs.existsSync(script), `probe fixture missing: ${script}`).toBe(true);
-
-    const child = spawnSync(process.execPath, [path.join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'), script], {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        DATABASE_FILE: isolated,
-        // Deliberately pointed elsewhere: the explicit datasource must win over this, otherwise the
-        // fix only works in deployments where `.env` happens to agree.
-        DATABASE_URL: 'file:./prisma/database.sqlite',
-      },
-      encoding: 'utf8',
-    });
-
-    expect(child.status, `child failed:\n${child.stdout}\n${child.stderr}`).toBe(0);
-    expect(child.stdout).toContain('VERDICT                : override honoured');
-    expect(child.stdout).toContain(isolated);
-    // The isolated file is created by opening it, which is the proof it was really used.
-    expect(fs.existsSync(isolated)).toBe(true);
-  }, 60_000);
-
-  it('keeps the resolution rule in exactly three places, all of them known', () => {
-    // The rule cannot be shared as code: `api/prismaClient.ts` is loaded by the Vercel serverless
-    // entry and importing the kernel would drag `better-sqlite3` in, while the kernel must not
-    // import the application. So it is duplicated - deliberately, and enumerated here.
-    //
-    // Three writers exist, and the third is real debt rather than a design:
-    //
-    //   1. packages/kernel/src/config/loadConfig.ts   the kernel's own connection
-    //   2. api/prismaClient.ts                        the Prisma client
-    //   3. api/db.ts                                  a SECOND better-sqlite3 connection, opened
-    //                                                 directly rather than through the kernel
-    //
-    // (3) exists because `api/db.ts` is still the legacy composition's `db` handle, reachable from
-    // `api/**` and the un-migrated modules. It resolves the same file with its own copy of the rule,
-    // which is why it is on this list instead of being invisible: the moment a fourth reader
-    // appears, the two data paths can disagree again with nothing to catch it.
-    //
-    // (4) is the design-review demo instance. It does not implement the resolution rule: it copies
-    // the database and sets DATABASE_FILE for its two child processes so they open the copy. It is
-    // named here because it is the one tool allowed to point the app at a different file.
-    const KNOWN_PATH_READERS = [
-      'packages/kernel/src/config/loadConfig.ts',
-      'api/prismaClient.ts',
-      'api/db.ts',
-      'scripts/dev/demo-instance.mjs',
-    ];
-
-    for (const rel of KNOWN_PATH_READERS) {
-      expect(fs.readFileSync(path.join(ROOT, rel), 'utf8'), `${rel} should read DATABASE_FILE`).toMatch(
-        /DATABASE_FILE/,
-      );
-    }
-
-    const prismaClient = fs.readFileSync(path.join(ROOT, 'api', 'prismaClient.ts'), 'utf8');
-    expect(prismaClient).toContain("path.resolve(process.cwd(), process.env.DATABASE_FILE ?? 'database.sqlite')");
-
+  it('keeps the resolution rule in the two known implementations', () => {
     const loader = fs.readFileSync(path.join(ROOT, 'packages', 'kernel', 'src', 'config', 'loadConfig.ts'), 'utf8');
     expect(loader).toContain("path.resolve(rootDir, env.DATABASE_FILE ?? 'database.sqlite')");
 
     const legacyDb = fs.readFileSync(path.join(ROOT, 'api', 'db.ts'), 'utf8');
     expect(legacyDb).toContain('path.resolve(process.cwd(), process.env.DATABASE_FILE)');
+  });
 
-    // No fourth reader. Comments are stripped first: `plugins/payment` explains this trap in prose,
-    // and a substring scan over raw source would flag documentation as a violation - the same
-    // mistake the api-surface scanner made with decorators in comments (P4.3b.6b).
+  it('has no unknown DATABASE_FILE reader', () => {
+    // The demo tool does not resolve the path; it copies the database and sets DATABASE_FILE for
+    // its two child processes. It is known here because it is the only tool allowed to point the
+    // application at a different file.
+    const KNOWN_READERS = [
+      'packages/kernel/src/config/loadConfig.ts',
+      'api/db.ts',
+      'scripts/dev/demo-instance.mjs',
+    ];
+
+    for (const rel of KNOWN_READERS) {
+      expect(fs.readFileSync(path.join(ROOT, rel), 'utf8'), `${rel} should mention DATABASE_FILE`).toMatch(
+        /DATABASE_FILE/,
+      );
+    }
+
+    // Comments are stripped first: plugins explain this trap in prose, and a substring scan over
+    // raw source would flag documentation as a violation.
     const stripComments = (source: string) =>
       source
         .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -191,7 +100,7 @@ describe('one database file, two access paths', () => {
           }
           if (!/\.(ts|mts|mjs)$/.test(entry.name)) continue;
           const relPath = path.relative(ROOT, full).replace(/\\/g, '/');
-          if (KNOWN_PATH_READERS.includes(relPath)) continue;
+          if (KNOWN_READERS.includes(relPath)) continue;
           if (/\.test\.(ts|mts)$/.test(entry.name)) continue;
           if (/(^|[^A-Za-z_])DATABASE_FILE/.test(stripComments(fs.readFileSync(full, 'utf8')))) {
             offenders.push(relPath);

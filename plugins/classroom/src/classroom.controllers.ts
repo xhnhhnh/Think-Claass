@@ -6,11 +6,12 @@
  * load-bearing and easy to lose in a rewrite:
  *
  *   * **Two controller bases.** The classes controller is registered under both `api/classes`
- *     and `api/class`. The second base is a real alias the frontend still calls (`src/api/*`),
- *     and the endpoint snapshot counts distinct METHOD+PATH pairs - so both bases must be
- *     registered. The same applies to the two-path PUT inside that controller
- *     (`:id/settings` plus `:id/features`): settings and features are two paths on one
- *     handler, which is how the admin page toggles flags.
+ *     and `api/class`. The second base is a compatibility alias for existing callers; the current
+ *     feature APIs use `/api/classes`. It is part of the published HTTP surface, so removing it is
+ *     an API retirement, not an internal cleanup. The endpoint snapshot counts distinct
+ *     METHOD+PATH pairs, so both bases must stay registered. The same applies to the two-path PUT
+ *     inside that controller (`:id/settings` plus `:id/features`): settings and features are two
+ *     paths on one handler, which is how the admin page toggles flags.
  *   * **Every POST pins `HttpCode(HttpStatus.OK)`.** Nest defaults POST to 201; the legacy
  *     controllers pinned 200 and the frontend's error handling was written against it.
  *   * **Declaration order matters**, and mirrors the legacy file: the `records` and

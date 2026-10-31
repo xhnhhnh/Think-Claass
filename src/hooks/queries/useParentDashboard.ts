@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { parentBuffApi } from '@/api/parentBuff';
-import { parentDashboardApi } from '@/api/parentDashboard';
+import { parentBuffApi } from '@/features/platform/api/parentBuffApi';
+import { parentDashboardApi } from '@/features/platform/api/parentDashboardApi';
 import { defaultClassFeatures } from '@/lib/classFeatures';
 import { useStore } from '@/store/useStore';
 

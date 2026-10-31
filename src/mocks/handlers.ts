@@ -9,9 +9,8 @@
  * rosters, seeded submissions, mock payment URLs - has been removed.
  *
  * What the values are for:
- *   - `admin` / `123456` is the identity `src/api/__tests__/auth.test.ts` asserts against, i.e. the
- *     fixture a client test logs in with. It is not a credential the application accepts: the real
- *     login reads the `users` table.
+ *   - `admin` / `123456` is the fixture a client login test uses. It is not a credential the
+ *     application accepts: the real login reads the `users` table.
  *   - `Class 1` / `Student A` / the `TEST-N` activation codes are the minimum rows the client API
  *     suites need so a request can succeed at all.
  *   - `payment_environment: 'mock'` mirrors what the server seeds outside production; the handlers
@@ -46,7 +45,7 @@ export const handlers = [
     return HttpResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
   }),
   
-  http.post('/api/auth/register', async ({ request }) => {
+  http.post('/api/auth/register', async () => {
     return HttpResponse.json({ success: true, message: 'Registered' });
   }),
 

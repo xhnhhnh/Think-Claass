@@ -21,7 +21,6 @@ import {
 
 const mocks = vi.hoisted(() => ({
   updateProfile: vi.fn(),
-  updateTeacher: vi.fn(),
   setUser: vi.fn(),
   user: {
     id: 5,
@@ -36,12 +35,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/features/auth/api/authApi', () => ({
   authApi: {
     updateProfile: mocks.updateProfile,
-  },
-}));
-
-vi.mock('@/api/admin', () => ({
-  adminApi: {
-    updateTeacher: mocks.updateTeacher,
   },
 }));
 
@@ -62,21 +55,11 @@ vi.mock('sonner', () => ({
 describe('ProfileSettings', () => {
   beforeEach(() => {
     mocks.updateProfile.mockReset();
-    mocks.updateTeacher.mockReset();
     mocks.setUser.mockReset();
     mocks.toastSuccess.mockReset();
     mocks.toastError.mockReset();
 
     mocks.updateProfile.mockResolvedValue({
-      success: true,
-      user: {
-        id: 5,
-        role: 'teacher',
-        username: 'new-teacher',
-        is_activated: true,
-      },
-    });
-    mocks.updateTeacher.mockResolvedValue({
       success: true,
       user: {
         id: 5,
@@ -111,7 +94,6 @@ describe('ProfileSettings', () => {
         password: 'new-pass',
       });
     });
-    expect(mocks.updateTeacher).not.toHaveBeenCalled();
     expect(mocks.setUser).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 5,
