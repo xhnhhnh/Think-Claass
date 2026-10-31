@@ -1,7 +1,10 @@
 <view class="page page--tabbar parent-dash">
-  <view class="parent-dash__head">
-    <view class="h1">{{childName || '温馨家园'}}</view>
-    <view class="muted mt-8">{{child ? ('学分 ' + child.total_points + ' · 可用 ' + child.available_points) : '正在读取孩子的成长数据…'}}</view>
+  <view class="card card--brand parent-dash__hero">
+    <view class="parent-dash__eyebrow">家长空间</view>
+    <view class="h1 parent-dash__name">{{childName || '温馨家园'}}</view>
+    <view class="parent-dash__meta">
+      {{child ? ('累计 ' + child.total_points + ' 学分 · 可用 ' + child.available_points) : '正在读取孩子的成长数据…'}}
+    </view>
   </view>
 
   <view class="card error-card" wx:if="{{error}}">

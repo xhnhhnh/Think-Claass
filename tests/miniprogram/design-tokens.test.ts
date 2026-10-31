@@ -104,4 +104,19 @@ describe('mini program design tokens', () => {
     expect(tabbar).toMatch(/\.tabbar--teacher \.tabbar__item\.is-active\s*\{[^}]*color:\s*#1C5C87/);
     expect(tabbar).toMatch(/\.tabbar--teacher \.tabbar__item\.is-active \.tabbar__mark\s*\{[^}]*background:\s*#1C5C87/);
   });
+
+  it('gives both warm home screens the same brand hero', () => {
+    const studentHome = fs.readFileSync(path.join(root, 'miniprogram', 'pages', 'student', 'home.wxml'), 'utf8');
+    const parentHome = fs.readFileSync(path.join(root, 'miniprogram', 'pages', 'parent', 'dashboard.wxml'), 'utf8');
+    expect(studentHome).toContain('card card--brand hero');
+    expect(parentHome).toContain('card card--brand parent-dash__hero');
+  });
+
+  it('keeps the login doors on the shared primary button and role pills', () => {
+    const login = fs.readFileSync(path.join(root, 'miniprogram', 'pages', 'login', 'login.wxml'), 'utf8');
+    expect(login).toContain('btn btn--primary btn--block');
+    expect(login).toContain('class="roles"');
+    const loginStyles = fs.readFileSync(path.join(root, 'miniprogram', 'pages', 'login', 'login.wxss'), 'utf8');
+    expect(loginStyles).toMatch(/\.login__card \.role--on\s*\{[^}]*#17583E/);
+  });
 });
