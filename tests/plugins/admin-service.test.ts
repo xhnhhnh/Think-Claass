@@ -558,6 +558,11 @@ describe('stats, audit log and OpenAPI surface', () => {
     // Two updates above: one without a password, one with.
     expect(body.total).toBe(2);
     expect(body.data[0].action).toBe('ADMIN_UPDATE_TEACHER');
+    // The viewer contract is camelCase and UTC-qualified; returning the raw SQLite row made the
+    // console print `Invalid Date` and blank operator columns.
+    expect(body.data[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    expect(body.data[0].created_at).toBeUndefined();
+    expect(body.data[0]).toHaveProperty('teacherId');
   });
 
   it('keeps the OpenAPI key and school routes working for the console, and only for it', async () => {

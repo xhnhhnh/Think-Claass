@@ -28,6 +28,7 @@ import crypto from 'crypto';
 import type {
   AdminAnnouncementListItem,
   AdminMutationResult,
+  AuditLogListItem,
   SystemDatabaseStats,
   SystemSettings,
   UpsertAdminAnnouncementInput,
@@ -59,9 +60,13 @@ const MASKED_SETTING_VALUE = '********';
 const API_KEY_COLUMNS = 'id, name, key, created_at, last_used_at, is_active';
 
 function toIsoString(value: string | null | undefined): string | null {
-  // SQLite hands back `YYYY-MM-DD HH:MM:SS`; the pre-migration mapper passed strings through
-  // unchanged and the console renders them as-is, so this deliberately does not reformat.
-  return value ?? null;
+  if (value == null) return null;
+  // SQLite's CURRENT_TIMESTAMP is UTC but has no zone designator. The console passes these
+  // strings to `new Date()`, which would otherwise read them as local time and show every audit
+  // entry eight hours early in Asia/Shanghai. Normalise the one SQLite shape; leave anything that
+  // already has a zone (or is not a timestamp) untouched.
+  const sqliteUtc = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(value);
+  return sqliteUtc ? `${sqliteUtc[1]}T${sqliteUtc[2]}Z` : value;
 }
 
 function mapAnnouncementRecord(record: {
@@ -312,14 +317,37 @@ export class SqliteAdminRepository implements AdminRepositoryContract {
       params.push(action);
     }
 
-    const rows = this.db.query(
+    const rows = this.db.query<{
+      id: number;
+      teacher_id: number | null;
+      user_id: number | null;
+      role: string | null;
+      action: string;
+      details: string | null;
+      ip_address: string | null;
+      created_at: string | null;
+    }>(
       `SELECT * FROM operation_logs WHERE 1=1${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       [...params, Number(limit), Number(offset)],
     );
 
     const total = count(this.db, `SELECT COUNT(*) AS n FROM operation_logs WHERE 1=1${where}`, params);
 
-    return { data: rows, total };
+    // The contract is camelCase (`AuditLogListItem`); the table is snake_case. Returning the raw
+    // row made the console render `Invalid Date` and empty operator columns, because it was
+    // reading `createdAt`/`teacherId` off a row that only had `created_at`/`teacher_id`.
+    const data: AuditLogListItem[] = rows.map((row) => ({
+      id: row.id,
+      teacherId: row.teacher_id ?? null,
+      userId: row.user_id ?? null,
+      role: row.role ?? null,
+      action: row.action,
+      details: row.details ?? '',
+      ipAddress: row.ip_address ?? '',
+      createdAt: toIsoString(row.created_at),
+    }));
+
+    return { data, total };
   }
 
   // -- OpenAPI keys and schools --------------------------------------------
