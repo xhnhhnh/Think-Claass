@@ -36,9 +36,9 @@ import { useClassFeatures } from '@/hooks/queries/useClassFeatures';
 import { defaultClassFeatures, type ClassFeatures } from '@/lib/classFeatures';
 
 /** Where the features answer came from. */
-export type ClassFeatureSource = 'class' | 'login-snapshot' | 'empty' | 'unknown';
+type ClassFeatureSource = 'class' | 'login-snapshot' | 'empty' | 'unknown';
 
-export interface ResolvedClassFeatures {
+interface ResolvedClassFeatures {
   /** The flags to gate on. All-false when a class really has everything switched off. */
   features: ClassFeatures;
   /**

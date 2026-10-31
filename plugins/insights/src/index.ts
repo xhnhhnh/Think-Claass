@@ -26,8 +26,6 @@ import { InsightsService } from './insights.service.js';
 
 const providers: Provider[] = [];
 
-let service: InsightsService | null = null;
-
 export default definePlugin({
   controllers: [AnalyticsController],
   providers,
@@ -41,14 +39,12 @@ export default definePlugin({
       engagement: () => ctx.tryUse('engagement.public'),
     });
 
-    service = instance;
     providers.push({ provide: InsightsService, useValue: instance });
 
     ctx.log.info('insights service ready', { owns: ctx.plugin.slug, ownsTables: 0 });
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

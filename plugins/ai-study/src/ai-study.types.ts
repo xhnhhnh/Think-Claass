@@ -1,20 +1,4 @@
-/**
- * Row shapes and internal inputs for the ai-study domain.
- *
- * `*Row` interfaces are the SQLite shapes `ai-study.repository.ts` produces; the wire shapes the
- * routes answer with live in `@thinkclass/contracts/domains/ai-study`.
- *
- * Timestamps are ISO strings, written and read by the repository: these tables are created by this
- * plugin's own migration, so there is no Prisma projection to reproduce - the one place in this
- * repository where a plugin may choose its own storage format. ISO was chosen anyway, because a
- * debug session that has to remember two date formats is a bug waiting to be written.
- */
 
-/** The caller, as the controllers resolve it from the kernel request context. */
-export interface Actor {
-  id: number | null;
-  role: string | null;
-}
 
 export interface StudySetRow {
   id: number;

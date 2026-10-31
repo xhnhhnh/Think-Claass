@@ -105,14 +105,6 @@ export interface GroupRow {
   name: string;
 }
 
-/** The per-group aggregate `GET /api/team-quests/progress/groups` answers with. */
-export interface GroupProgressRow {
-  group_id: number | null;
-  group_name: string;
-  contribution_score: number;
-  target_score: number;
-}
-
 /** Validated filter for `listTeamQuests`. */
 export interface TeamQuestFilter {
   classId?: number;

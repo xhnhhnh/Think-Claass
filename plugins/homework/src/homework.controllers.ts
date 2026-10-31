@@ -60,12 +60,6 @@ function ok<T>(data: T) {
   return { success: true, data };
 }
 
-/** The list routes' query. `class_id` narrows; `student_id` is honoured only for staff. */
-interface HomeworkListQuery {
-  class_id?: string;
-  student_id?: string;
-}
-
 /** The student's own-question read/write, which staff call on a named pupil's behalf. */
 interface QaQuery {
   student_id?: string;

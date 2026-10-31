@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
  * The visible wrapper exists for the chevron: a native select cannot contain an
  * icon, so it is drawn beside one with `appearance-none`.
  */
-export interface SelectProps extends React.ComponentProps<'select'> {
+interface SelectProps extends React.ComponentProps<'select'> {
   /** Wrapper classes. The `<select>` itself takes `className`. */
   wrapperClassName?: string;
 }

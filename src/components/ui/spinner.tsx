@@ -15,7 +15,7 @@ const SIZES = {
   lg: 'size-6',
 } as const;
 
-export interface SpinnerProps extends React.ComponentProps<'span'> {
+interface SpinnerProps extends React.ComponentProps<'span'> {
   size?: keyof typeof SIZES;
   /** Announced to assistive tech; not rendered as visible text. */
   label?: string;

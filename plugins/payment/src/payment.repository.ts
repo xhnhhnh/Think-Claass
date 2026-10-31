@@ -40,7 +40,7 @@ export interface PaymentOrderRow {
   activated_at?: string | null;
 }
 
-export interface NewOrderInput {
+interface NewOrderInput {
   orderNo: string;
   userId: number;
   method: string;

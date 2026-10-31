@@ -41,7 +41,6 @@ import type {
   ActivationResult,
   AdminAuditEntry,
   AdminCredentialActor,
-  IdentityPort,
   SuperadminSnapshot,
   TeacherRow,
 } from '@thinkclass/contracts/domains/identity';
@@ -57,9 +56,9 @@ import type {
 import type { ActivationEventRow, LoginUserPayload, RequestActor, UserRow } from './identity.types.js';
 
 /** Resolved at call time, never captured in `setup()` - see HANDOFF section 9 (P4.3b.6a). */
-export type PortResolver<T> = () => T | null;
+type PortResolver<T> = () => T | null;
 
-export interface IdentityServiceDeps {
+interface IdentityServiceDeps {
   ctx: KernelContext;
   repository: IdentityRepository;
   classroom: ClassroomPort;
@@ -809,27 +808,4 @@ function mapTeacherUsernameConflict(error: unknown): unknown {
     return new ApiError(400, '用户名已存在');
   }
   return error;
-}
-
-/** Structural check used by the plugin entry to fail loudly on a mis-shaped port. */
-export function assertIdentityPort(service: IdentityService): IdentityPort {
-  return {
-    getUserById: (userId) => service.getUserById(userId),
-    getFirstUserIdByRole: (role) => service.getFirstUserIdByRole(role),
-    loginWithCredentials: async (credentials) => {
-      const result = await service.login(credentials);
-      return { user: result.user, classFeatures: result.classFeatures ?? null };
-    },
-    getLoginPayload: (userId) => service.getLoginPayload(userId),
-    activateUser: (input) => service.activateUser(input),
-    verifyAdminCredentials: (username, password) => service.verifyAdminCredentials(username, password),
-    listTeachers: () => service.listTeachers(),
-    createTeacher: (input, audit) => service.createTeacher(input, audit),
-    updateTeacher: (id, input, audit) => service.updateTeacher(id, input, audit),
-    findTeacher: (id) => service.findTeacher(id),
-    listActivationCodes: () => service.listActivationCodes(),
-    generateActivationCodes: (input, audit) => service.generateActivationCodes(input, audit),
-    listSuperadmins: () => service.listSuperadmins(),
-    restoreSuperadmins: (superadmins) => service.restoreSuperadmins(superadmins),
-  };
 }

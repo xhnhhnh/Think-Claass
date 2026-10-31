@@ -7,7 +7,7 @@ import {
   type SaveAttendancePayload,
 } from '../api/attendanceApi';
 
-export const attendanceQueryKeys = {
+const attendanceQueryKeys = {
   all: ['attendance'] as const,
   list: (query: AttendanceListQuery = {}) =>
     ['attendance', 'list', query.classId ?? null, query.studentId ?? null, query.date ?? null] as const,

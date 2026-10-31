@@ -25,7 +25,7 @@ import { homeworkApi } from '../api/homeworkApi';
  * refreshes the teacher list, the grade sheet and the counts in one call - which is what a
  * page that shows all three needs.
  */
-export const homeworkKeys = {
+const homeworkKeys = {
   all: ['homework'] as const,
   list: () => ['homework', 'list'] as const,
   mine: () => ['homework', 'mine'] as const,

@@ -20,7 +20,9 @@ import { describe, expect, it } from 'vitest';
 import { defaultEntryPoints, findDeadCode, findShimFiles } from '../../scripts/migration/lib/analysis.mjs';
 import { ROOT, formatRatchet, readAllowances } from './lib/paths.mjs';
 
-const APP_ENTRIES = defaultEntryPoints(ROOT);
+// `src/setupTests.ts` installs MSW for every application test; without it the two
+// `src/mocks` modules look unreachable even though the test project executes them.
+const APP_ENTRIES = [...defaultEntryPoints(ROOT), 'src/setupTests.ts'];
 
 /** Trees that are plugin-owned (or destined to be). */
 const PLUGIN_OWNED_DIRS = ['src/features', 'plugins', 'plugins-ext'];
@@ -43,12 +45,9 @@ describe('G3 no surface-only pluginization', () => {
     // Guard against someone "fixing" a regression by editing allowances.json upward.
     // Target reached in P5.2; a shim reappearing is a regression, not headroom.
     expect(allowances.shimPages).toBeLessThanOrEqual(0);
-    // P4.3b.6 deleted api/modules/pet, so the ceiling follows the measurement down to 64.
-    // Workspace cleanup deleted the orphaned hooks/components, lowering it to 58.
-    // P4.3b.10 raised it 58 -> 59: migrating engagement left
-    // `src/features/engagement/api/praisesApi.ts` without an importer. This ratchet is not
-    // monotonic during a migration - a domain move can strand a file that a later cleanup owns.
-    expect(allowances.deadCode).toBeLessThanOrEqual(59);
+    // P7 reached the target: the legacy src/api layer, its dead hooks/components and the
+    // orphaned Prisma client are gone. A non-zero count is now a regression, not headroom.
+    expect(allowances.deadCode).toBeLessThanOrEqual(0);
     // Target reached in P5.2b; a static plugin route reappearing is a regression.
     expect(allowances.staticPluginRoutes).toBeLessThanOrEqual(0);
     expect(allowances.legacyFeatureKeySurfaces).toBeLessThanOrEqual(2);

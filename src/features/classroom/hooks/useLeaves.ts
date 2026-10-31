@@ -8,7 +8,7 @@ import {
   type UpdateLeavePayload,
 } from '../api/leavesApi';
 
-export const leaveQueryKeys = {
+const leaveQueryKeys = {
   all: ['leaves'] as const,
   list: (query: LeaveListQuery = {}) => ['leaves', 'list', query.studentId ?? null, query.status ?? null] as const,
 };

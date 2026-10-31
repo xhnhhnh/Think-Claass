@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
  * point of keeping the buttons in this element's React tree rather than moving
  * the markup into the shell.
  */
-export interface PageHeaderProps {
+interface PageHeaderProps {
   title: ReactNode;
   description?: ReactNode;
   /** Buttons, usually. */

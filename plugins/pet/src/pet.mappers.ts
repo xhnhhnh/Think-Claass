@@ -19,7 +19,7 @@ import type { PetRow } from './pet.types.js';
  * without a zone, so the `Z` is appended before parsing. Dropping it would shift every
  * timestamp by the local offset and make the death clock wrong by hours.
  */
-export function isPetDead(pet: Pick<PetDto, 'last_fed_at'> | null, now = Date.now()): boolean {
+function isPetDead(pet: Pick<PetDto, 'last_fed_at'> | null, now = Date.now()): boolean {
   if (!pet?.last_fed_at) return false;
   const lastTime = new Date(`${pet.last_fed_at}Z`).getTime();
   return now - lastTime > 3 * 24 * 60 * 60 * 1000;

@@ -1,6 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 import type {
-  Auction,
   AuctionPayload,
   AuctionsResponse,
   BidPayload,

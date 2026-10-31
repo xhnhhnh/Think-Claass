@@ -4,7 +4,7 @@ import {
   Download,
   DollarSign,
   ExternalLink,
-  Info,
+
   PlugZap,
   RefreshCw,
   Save,

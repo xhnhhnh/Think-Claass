@@ -28,7 +28,7 @@ import { useAskQaMutation, useHomeworkQa } from '../hooks/useHomework';
  *
  * `composer={false}` is the result page's read-only view of the same thread.
  */
-export interface AiQaPanelProps {
+interface AiQaPanelProps {
   homeworkId: number;
   /** Offered as anchors: 「关于第 3 题」. */
   questions?: HomeworkQuestion[];

@@ -84,7 +84,7 @@ export default function AddStudent() {
     setError('');
 
     try {
-      const data = await studentsApi.createStudent({ ...newStudent, class_id: newStudent.class_id });
+      await studentsApi.createStudent({ ...newStudent, class_id: newStudent.class_id });
 
       // The dashboard's roster is `['students', classId]` with a five-minute staleTime, so without
       // this the pupil the teacher just added is missing from the list they land on.

@@ -31,7 +31,7 @@ const MAX_COUNT = 20;
  * list, and `tests/guardrails/homework-generate-types.test.ts` fails if the two ever drift, so the
  * console cannot offer a type the route would reject.
  */
-export const GENERATABLE_QUESTION_TYPES: Array<{ value: 'single' | 'multiple' | 'blank'; label: string }> = [
+const GENERATABLE_QUESTION_TYPES: Array<{ value: 'single' | 'multiple' | 'blank'; label: string }> = [
   { value: 'single', label: QUESTION_TYPE_LABEL.single },
   { value: 'multiple', label: QUESTION_TYPE_LABEL.multiple },
   { value: 'blank', label: QUESTION_TYPE_LABEL.blank },
@@ -73,7 +73,7 @@ export const GENERATABLE_QUESTION_TYPES: Array<{ value: 'single' | 'multiple' | 
  * rows, and one the teacher accepts is written by the dialog's ordinary 发布/保存 - so the AI still
  * cannot introduce a question the manual path would have refused.
  */
-export interface AiQuestionPanelProps {
+interface AiQuestionPanelProps {
   /** The paper's current questions, so a second run does not repeat the first. */
   questions: HomeworkQuestionPayload[];
   /** Called with the candidates the teacher accepted, in the order the paper should take them. */

@@ -355,7 +355,7 @@ describe('knowledge graph and subjects', () => {
   it('lists and creates subjects with the legacy coercions', () => {
     expect(service.listSubjects()).toEqual([]);
 
-    const created = service.createSubject(TEACHER, { name: '数学' });
+    const created = service.createSubject({ name: '数学' });
     expect(created).toMatchObject({ id: 1, name: '数学', stage: null, grade: null });
     expect(created.created_at).toMatch(ISO_MS);
 
@@ -363,7 +363,7 @@ describe('knowledge graph and subjects', () => {
     expect(typeof raw.created_at).toBe('number');
 
     // `grade: '3'` is coerced, exactly as `Number(grade)` did before the migration.
-    expect(service.createSubject(TEACHER, { name: '语文', stage: '初中', grade: '3' })).toMatchObject({
+    expect(service.createSubject({ name: '语文', stage: '初中', grade: '3' })).toMatchObject({
       stage: '初中',
       grade: 3,
     });
@@ -371,13 +371,13 @@ describe('knowledge graph and subjects', () => {
   });
 
   it('validates knowledge nodes and writes explicit nulls over the DDL defaults', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
 
     const invalidSubject = await apiErrorOf(() => service.listKnowledgeNodes(undefined));
     expect(invalidSubject.statusCode).toBe(400);
     expect(invalidSubject.message).toBe('Missing or invalid subject_id');
 
-    const root = service.createKnowledgeNode(TEACHER, { subject_id: '1', name: '函数' });
+    const root = service.createKnowledgeNode({ subject_id: '1', name: '函数' });
     expect(root).toMatchObject({ subject_id: 1, name: '函数', code: null, parent_id: null, importance: null });
     expect(root.created_at).toMatch(ISO_MS);
 
@@ -388,39 +388,39 @@ describe('knowledge graph and subjects', () => {
     };
     expect(raw.importance).toBeNull();
 
-    const child = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: '导数', parent_id: root.id });
-    const sibling = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: '极限' });
+    const child = service.createKnowledgeNode({ subject_id: subject.id, name: '导数', parent_id: root.id });
+    const sibling = service.createKnowledgeNode({ subject_id: subject.id, name: '极限' });
 
     // `orderBy: [{ parent_id: 'asc' }, { id: 'asc' }]`: NULLs first, then by id.
     expect(service.listKnowledgeNodes('1').map((node) => node.id)).toEqual([root.id, sibling.id, child.id]);
   });
 
   it('updates, clears and deletes nodes, and keeps the empty-patch no-op read', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
-    const node = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: '函数' });
+    const subject = service.createSubject({ name: '数学' });
+    const node = service.createKnowledgeNode({ subject_id: subject.id, name: '函数' });
 
-    const renamed = service.updateKnowledgeNode(ADMIN, String(node.id), { name: '导数', code: 'HS-01' });
+    const renamed = service.updateKnowledgeNode(String(node.id), { name: '导数', code: 'HS-01' });
     expect(renamed).toMatchObject({ id: node.id, name: '导数', code: 'HS-01', created_at: node.created_at });
 
     // `code: null` clears it; an empty patch is a no-op read that returns the row unchanged.
-    expect(service.updateKnowledgeNode(ADMIN, String(node.id), { code: null }).code).toBeNull();
-    expect(service.updateKnowledgeNode(ADMIN, String(node.id), {}).name).toBe('导数');
+    expect(service.updateKnowledgeNode(String(node.id), { code: null }).code).toBeNull();
+    expect(service.updateKnowledgeNode(String(node.id), {}).name).toBe('导数');
 
-    service.deleteKnowledgeNode(TEACHER, String(node.id));
+    service.deleteKnowledgeNode(String(node.id));
     expect(service.listKnowledgeNodes(subject.id)).toEqual([]);
 
-    const invalidId = await apiErrorOf(() => service.deleteKnowledgeNode(TEACHER, 'not-a-number'));
+    const invalidId = await apiErrorOf(() => service.deleteKnowledgeNode('not-a-number'));
     expect(invalidId.statusCode).toBe(400);
     expect(invalidId.message).toBe('Invalid id');
   });
 
   it('creates, lists and deletes edges, keeping the legacy weight handling', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
-    const from = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: '函数' });
-    const to = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: '导数' });
+    const subject = service.createSubject({ name: '数学' });
+    const from = service.createKnowledgeNode({ subject_id: subject.id, name: '函数' });
+    const to = service.createKnowledgeNode({ subject_id: subject.id, name: '导数' });
 
     // `weight: undefined` became an explicit NULL, overriding the DDL's `DEFAULT 1`.
-    const edge = service.createKnowledgeEdge(TEACHER, {
+    const edge = service.createKnowledgeEdge({
       subject_id: subject.id,
       from_node_id: from.id,
       to_node_id: to.id,
@@ -429,7 +429,7 @@ describe('knowledge graph and subjects', () => {
     expect(edge).toMatchObject({ subject_id: subject.id, from_node_id: from.id, to_node_id: to.id, weight: null });
     expect(edge.created_at).toMatch(ISO_MS);
 
-    const weighted = service.createKnowledgeEdge(TEACHER, {
+    const weighted = service.createKnowledgeEdge({
       subject_id: subject.id,
       from_node_id: to.id,
       to_node_id: from.id,
@@ -440,11 +440,11 @@ describe('knowledge graph and subjects', () => {
 
     expect(service.listKnowledgeEdges(String(subject.id)).map((row) => row.id)).toEqual([edge.id, weighted.id]);
 
-    service.deleteKnowledgeEdge(TEACHER, String(edge.id));
+    service.deleteKnowledgeEdge(String(edge.id));
     expect(service.listKnowledgeEdges(subject.id).map((row) => row.id)).toEqual([weighted.id]);
 
     const missing = await apiErrorOf(() =>
-      service.createKnowledgeEdge(TEACHER, { subject_id: subject.id, from_node_id: from.id, edge_type: 'requires' }),
+      service.createKnowledgeEdge({ subject_id: subject.id, from_node_id: from.id, edge_type: 'requires' }),
     );
     expect(missing.statusCode).toBe(400);
     expect(missing.message).toBe('Missing or invalid to_node_id');
@@ -454,7 +454,7 @@ describe('knowledge graph and subjects', () => {
   });
 
   it('answers 500 - not 404 - when an update or delete targets a missing row (Prisma P2025)', async () => {
-    const update = plainErrorOf(() => service.updateKnowledgeNode(TEACHER, '999', { name: 'x' }));
+    const update = plainErrorOf(() => service.updateKnowledgeNode('999', { name: 'x' }));
     expect(update.message).toBe('knowledge_nodes.update failed: no matching record');
 
     // The legacy translator rendered a plain driver error as a 500 envelope; the kernel renders
@@ -462,8 +462,8 @@ describe('knowledge graph and subjects', () => {
     // plugin.json `_known_debt` item 3.
     expect(renderError(update)).toEqual({ status: 500, body: { success: false, message: '服务器内部错误' } });
 
-    expect(renderError(plainErrorOf(() => service.deleteKnowledgeNode(TEACHER, '999'))).status).toBe(500);
-    expect(renderError(plainErrorOf(() => service.deleteKnowledgeEdge(TEACHER, '999'))).status).toBe(500);
+    expect(renderError(plainErrorOf(() => service.deleteKnowledgeNode('999'))).status).toBe(500);
+    expect(renderError(plainErrorOf(() => service.deleteKnowledgeEdge('999'))).status).toBe(500);
 
     // The read paths keep their 404, so the two statuses stay distinguishable.
     const readPath = await apiErrorOf(() => service.getPaper(TEACHER, '999'));
@@ -475,7 +475,7 @@ describe('knowledge graph and subjects', () => {
 
 describe('papers', () => {
   it('creates a paper with the legacy defaults and stores exam_date as epoch milliseconds', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = service.createPaper(TEACHER, {
       title: '周测',
       class_id: '3',
@@ -579,7 +579,7 @@ describe('papers', () => {
   });
 
   it('projects `subjects` as a present-but-null key, as Prisma include did', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const linked = service.createPaper(TEACHER, { title: '有科目', subject_id: subject.id, class_id: 1 });
     const unlinked = service.createPaper(TEACHER, { title: '无科目' });
 
@@ -605,7 +605,7 @@ describe('papers', () => {
   });
 
   it('projects paper detail with the legacy key order and ordered children', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = service.createPaper(TEACHER, { title: '结构', class_id: 1, subject_id: subject.id });
     const reused = addQuestion({ stem: '旧题', type: 'single', subject_id: subject.id });
 
@@ -705,7 +705,7 @@ describe('papers', () => {
   });
 
   it('validates publishing, updates in place, and keeps the empty-patch no-op read', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = addPaper({ title: '周测', class_id: 1, subject_id: subject.id, status: 'draft' });
 
     const cannotPublish = await apiErrorOf(() => service.updatePaper(TEACHER, String(paper), { status: 'published' }));
@@ -743,7 +743,7 @@ describe('papers', () => {
   });
 
   it('replaces the paper structure inside one transaction, ids and order included', () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = service.createPaper(TEACHER, { title: '结构', class_id: 1, subject_id: subject.id });
     const existing = addQuestion({ stem: '旧题', type: 'single', subject_id: subject.id });
 
@@ -798,7 +798,7 @@ describe('papers', () => {
   });
 
   it('rolls the whole structure back when a later write fails, and never deletes questions', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = service.createPaper(TEACHER, { title: '结构', class_id: 1, subject_id: subject.id });
     const existing = addQuestion({ stem: '旧题', type: 'single', subject_id: subject.id });
 
@@ -913,7 +913,7 @@ describe('papers', () => {
 
 describe('paper submissions', () => {
   function publishedPaper(): { paper: number; question: number; item: number } {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = addPaper({ title: '周测', class_id: 1, subject_id: subject.id, status: 'published' });
     const question = addQuestion({
       stem: '1+1',
@@ -1114,7 +1114,7 @@ describe('paper submissions', () => {
   });
 
   it('scores, records wrong questions and seeds the study plan in one transaction', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = addPaper({ title: '期末', class_id: 1, subject_id: subject.id, status: 'published' });
     const right = addQuestion({
       stem: '1+1',
@@ -1203,7 +1203,7 @@ describe('paper submissions', () => {
   });
 
   it('reuses the active plan and does not duplicate a pending practice item', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const question = addQuestion({
       stem: '2+2',
       type: 'single',
@@ -1242,7 +1242,7 @@ describe('paper submissions', () => {
   });
 
   it('keeps a manually graded subjective score and never counts it wrong', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const paper = addPaper({ title: '主观题', class_id: 1, subject_id: subject.id, status: 'published' });
     const question = addQuestion({
       stem: '论述',
@@ -1285,7 +1285,7 @@ describe('paper submissions', () => {
 
 describe('wrong questions', () => {
   it('lists only uncleared rows, newest first, with the question relation', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const first = addQuestion({ stem: 'q1', type: 'single', subject_id: subject.id });
     const second = addQuestion({ stem: 'q2', type: 'single', subject_id: subject.id });
     const cleared = addQuestion({ stem: 'q3', type: 'single', subject_id: subject.id });
@@ -1317,7 +1317,7 @@ describe('wrong questions', () => {
   });
 
   it('moves mastery, records the attempt and clears the question at the legacy threshold', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const question = addQuestion({ stem: 'q1', type: 'single', subject_id: subject.id });
     const second = addQuestion({ stem: 'q2', type: 'single', subject_id: subject.id });
 
@@ -1378,9 +1378,9 @@ describe('wrong questions', () => {
   });
 
   it('generates practice from linked nodes: excluding self, newest first, capped at five', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
-    const nodeA = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: 'A' });
-    const nodeB = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: 'B' });
+    const subject = service.createSubject({ name: '数学' });
+    const nodeA = service.createKnowledgeNode({ subject_id: subject.id, name: 'A' });
+    const nodeB = service.createKnowledgeNode({ subject_id: subject.id, name: 'B' });
 
     const target = addQuestion({ stem: '错题', type: 'single', subject_id: subject.id });
     const linked = Array.from({ length: 6 }, (_, index) =>
@@ -1403,8 +1403,8 @@ describe('wrong questions', () => {
   });
 
   it('falls back to subject+type, capped at five, when the question has no node links', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
-    const otherSubject = service.createSubject(TEACHER, { name: '语文' });
+    const subject = service.createSubject({ name: '数学' });
+    const otherSubject = service.createSubject({ name: '语文' });
 
     const target = addQuestion({ stem: '错题', type: 'single', subject_id: subject.id });
     const matches = Array.from({ length: 7 }, (_, index) =>
@@ -1423,7 +1423,7 @@ describe('wrong questions', () => {
   });
 
   it('drops the subject filter entirely when the wrong question has no subject', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const target = addQuestion({ stem: '无科目错题', type: 'single', subject_id: null });
     const alsoNoSubject = addQuestion({ stem: '无科目同型', type: 'single', subject_id: null });
     const withSubject = addQuestion({ stem: '有科目同型', type: 'single', subject_id: subject.id });
@@ -1469,9 +1469,9 @@ describe('study plans', () => {
   });
 
   it('returns the active plan with ordered items and their relations', async () => {
-    const subject = service.createSubject(TEACHER, { name: '数学' });
+    const subject = service.createSubject({ name: '数学' });
     const question = addQuestion({ stem: 'q1', type: 'single', subject_id: subject.id });
-    const node = service.createKnowledgeNode(TEACHER, { subject_id: subject.id, name: '函数' });
+    const node = service.createKnowledgeNode({ subject_id: subject.id, name: '函数' });
     const plan = await service.createStudyPlan(STUDENT, {});
 
     const firstItem = api.run(

@@ -114,7 +114,7 @@ function registerStaticAssets(server: Express, config: KernelConfig) {
 }
 
 /** True when the minimal kernel composition should be used. */
-export function isKernelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+function isKernelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return /^(1|true|yes|on)$/i.test(String(env.KERNEL_ENABLED ?? '').trim())
 }
 
@@ -276,7 +276,7 @@ function createLegacyRootModule(pluginModules: Type<unknown>[]): Type<unknown> {
  * Legacy composition: Nest assembled from statically imported modules, reading
  * the raw better-sqlite3 layer in `api/db.ts`.
  */
-export async function createLegacyApp(kernel: Kernel): Promise<Express> {
+async function createLegacyApp(kernel: Kernel): Promise<Express> {
   // Initialise the legacy schema (business tables) via the historical boot DDL.
   initDb()
 
@@ -424,7 +424,7 @@ function assertUsableComposition(config: KernelConfig, kernelEnabled: boolean): 
   }
 }
 
-export async function createApp(): Promise<Express> {
+async function createApp(): Promise<Express> {
   dotenv.config()
 
   const kernelEnabled = isKernelEnabled();

@@ -75,12 +75,6 @@ export interface AdminRepository {
   deleteSchool(id: string): void;
 }
 
-export interface AdminMaintenanceService {
-  exportDatabase(): Promise<{ filePath: string; fileName: string }>;
-  importDatabase(uploadedFilePath: string): Promise<{ message: string; reloaded: boolean; backupRestored: boolean }>;
-  resetDatabase(): Promise<void>;
-}
-
 export interface AdminRuntime {
   totalmem(): number;
   freemem(): number;

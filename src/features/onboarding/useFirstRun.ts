@@ -33,7 +33,7 @@ function alreadyDismissed(): boolean {
   }
 }
 
-export interface FirstRunState {
+interface FirstRunState {
   /**
    * Show the wizard.
    *
@@ -86,6 +86,3 @@ export function useFirstRun(): FirstRunState {
     dismiss,
   };
 }
-
-/** Test seam: clear the recorded decision. */
-export const FIRST_RUN_DISMISS_KEY = DISMISS_KEY;

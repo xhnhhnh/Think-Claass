@@ -62,14 +62,6 @@ export function requireActorRole(req: Request, allowedRoles: string[]): RequestA
   return actor;
 }
 
-/** The caller without a role gate, for the read routes that serve several roles differently. */
-export function requestActor(req: Request): RequestActor {
-  return actorOf(req);
-}
-
-/** Planning and grading staff: the roles that create, own and grade homework. */
-export const STAFF = ['teacher', 'admin', 'superadmin'];
-
 /**
  * `GET /api/homework` and `GET /api/homework/:id`: staff plus the student the work is set for.
  *

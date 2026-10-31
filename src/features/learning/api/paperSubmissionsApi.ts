@@ -2,7 +2,7 @@ import { apiPost, apiPut } from '@/lib/api';
 import type { PaperItem, PaperSubmission } from '@thinkclass/contracts/domains/learning';
 
 /** One saved answer row, as `start` returns it so a resumed attempt can be restored. */
-export interface PaperSavedAnswer {
+interface PaperSavedAnswer {
   paper_item_id: number;
   answer_json: string | null;
 }

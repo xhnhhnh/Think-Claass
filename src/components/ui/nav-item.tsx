@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
  * with the context bar's title for the same route.
  */
 
-export interface NavItemProps {
+interface NavItemProps {
   to: string;
   label: string;
   icon: LucideIcon;

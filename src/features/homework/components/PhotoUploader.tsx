@@ -32,7 +32,7 @@ function formatSize(bytes: number): string {
  * hides the one affordance the feature exists for. `FormData` + the api client's `apiPost` is
  * the upload, so the browser sets the multipart boundary itself.
  */
-export interface PhotoUploaderProps {
+interface PhotoUploaderProps {
   submissionId: number;
   /** The created row, so the caller can attach it to a question's answer. */
   onUploaded?: (photo: HomeworkPhoto) => void;

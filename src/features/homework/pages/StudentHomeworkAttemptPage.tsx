@@ -128,7 +128,6 @@ export default function StudentHomeworkAttempt() {
     };
     // `startAttempt` is intentionally not a dependency: a mutation object is a new identity on
     // every render, and the attempt must be started exactly once per homework id.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homeworkId]);
 
   /*
@@ -196,7 +195,6 @@ export default function StudentHomeworkAttempt() {
 
     return () => window.clearTimeout(timer);
     // `persist` is re-created every render on purpose: it closes over the mutation, not state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answersKey, editable, submission]);
 
   const saveNow = async () => {

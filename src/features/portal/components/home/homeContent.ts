@@ -22,7 +22,7 @@ import type { LucideIcon } from "lucide-react";
  * (`<item.icon />`), which an unannotated array literal widens into a union JSX cannot call.
  */
 
-export interface QuickLink {
+interface QuickLink {
   icon: LucideIcon;
   title: string;
   description: string;
@@ -31,7 +31,7 @@ export interface QuickLink {
   bg: string;
 }
 
-export interface LearningHighlight {
+interface LearningHighlight {
   icon: LucideIcon;
   title: string;
   description: string;
@@ -39,7 +39,7 @@ export interface LearningHighlight {
   bg: string;
 }
 
-export interface AudienceCard {
+interface AudienceCard {
   icon: LucideIcon;
   role: string;
   title: string;
@@ -49,14 +49,14 @@ export interface AudienceCard {
   bg: string;
 }
 
-export interface JourneyStep {
+interface JourneyStep {
   icon: LucideIcon;
   label: string;
   title: string;
   description: string;
 }
 
-export interface ClassroomMoment {
+interface ClassroomMoment {
   icon: LucideIcon;
   label: string;
   title: string;

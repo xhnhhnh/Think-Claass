@@ -39,7 +39,7 @@
 import { Body, Controller, Delete, Get, Inject, Param, Post, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 
-import { getRequestContext } from '@thinkclass/kernel';
+import {  } from '@thinkclass/kernel';
 
 import { requireActor, requireActorRole } from './challenge.authorization.js';
 import { ChallengeService } from './challenge.service.js';

@@ -228,7 +228,7 @@ describe('engagement: anonymous callers get 401 on every private route', () => {
     ).toBe(401);
 
     const res = fakeResponse();
-    await controller.draw(fakeRequest(null), { studentId: 7 }, res);
+    await controller.draw(fakeRequest(null), res);
     expect(res.statusCode).toBe(401);
     expect(res.body).toEqual({ success: false, message: '未登录或登录已过期' });
     expect(service.drawLuckyPrize).not.toHaveBeenCalled();
@@ -301,7 +301,7 @@ describe('engagement: the wrong role gets 403', () => {
     const controller = new LuckyDrawController(service as never);
 
     const res = fakeResponse();
-    await controller.draw(teacher, { studentId: 7 }, res);
+    await controller.draw(teacher, res);
     expect(res.statusCode).toBe(403);
 
     // Reading the prize grid is the class's own: a parent is refused, a student is scoped to their
@@ -364,7 +364,7 @@ describe('engagement: a refused gate answers its own status, never a flattened 5
     // The draw: the gate runs inside `drawLuckyPrize` and throws (it does not return a status).
     service.drawLuckyPrize.mockRejectedValueOnce(new ApiError(FEATURE_OFF.status, FEATURE_OFF.message));
     const res = fakeResponse();
-    await controller.draw(student, {}, res);
+    await controller.draw(student, res);
     expect(res.statusCode).toBe(403);
     expect(res.body).toEqual({ success: false, message: FEATURE_OFF.message });
 
@@ -587,7 +587,7 @@ describe('engagement: identity comes from the actor, never from the request', ()
     const controller = new LuckyDrawController(service as never);
 
     const res = fakeResponse();
-    await controller.draw(student, { studentId: 999 }, res);
+    await controller.draw(student, res);
 
     expect(service.ownStudentId).toHaveBeenCalledTimes(1);
     expect(service.drawLuckyPrize).toHaveBeenCalledWith(7);

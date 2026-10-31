@@ -23,7 +23,7 @@ import type { Request } from 'express';
 
 import { ApiError, getRequestContext } from '@thinkclass/kernel';
 
-export interface RequestActor {
+interface RequestActor {
   id: number | null;
   role: string | null;
   /** The student row this login owns; filled in by the host's scope resolver when it runs. */
@@ -39,7 +39,7 @@ function actorOf(req: Request): RequestActor {
 }
 
 /** The caller, or 401 when the request carries no verified actor. */
-export function requireActor(req: Request): RequestActor {
+function requireActor(req: Request): RequestActor {
   const actor = actorOf(req);
   if (!actor.role || actor.id === null) throw new ApiError(401, '未登录或登录已过期');
   return actor;

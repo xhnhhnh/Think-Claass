@@ -41,7 +41,7 @@ import type { KernelContext } from '@thinkclass/plugin-sdk';
 import { isStaffAdmin, type RequestActor } from './engagement.authorization.js';
 import type { EngagementRepository } from './engagement.repository.js';
 
-export const DEFAULT_LUCKY_DRAW_COST = 10;
+const DEFAULT_LUCKY_DRAW_COST = 10;
 
 /** Why a gate refused, as the legacy helpers' statuses. See the file header. */
 function gateError(refusal: ClassroomRefusal): ApiError {
@@ -50,7 +50,7 @@ function gateError(refusal: ClassroomRefusal): ApiError {
     : new ApiError(403, refusal.message);
 }
 
-export interface EngagementServiceDeps {
+interface EngagementServiceDeps {
   ctx: KernelContext;
   repository: EngagementRepository;
   classroom: ClassroomPort;
@@ -82,14 +82,6 @@ export class EngagementService {
     const snapshot = await this.classroom.getClassFeatureSnapshot(classId);
     if (snapshot === null) throw new ApiError(404, '班级未找到');
     const result = await this.classroom.checkClassFeature(classId, feature);
-    if (result.refusal) throw gateError(result.refusal);
-  }
-
-  /** `assertAnyClassFeatureEnabled`: the class passes when *any* of the flags is on. */
-  private async assertAnyClassFeature(classId: number, features: string[]): Promise<void> {
-    const snapshot = await this.classroom.getClassFeatureSnapshot(classId);
-    if (snapshot === null) throw new ApiError(404, '班级未找到');
-    const result = await this.classroom.checkAnyClassFeature(classId, features);
     if (result.refusal) throw gateError(result.refusal);
   }
 

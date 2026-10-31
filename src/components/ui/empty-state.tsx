@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
  * caller - a component that decides what "nothing here" means would have to know
  * every page.
  */
-export interface EmptyStateProps {
+interface EmptyStateProps {
   title: ReactNode;
   description?: ReactNode;
   icon?: LucideIcon;

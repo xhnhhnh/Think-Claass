@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
 
-import { createLogger, loadConfig, runMigrations, type Migration } from '@thinkclass/kernel';
+import { createLogger, loadConfig, runMigrations } from '@thinkclass/kernel';
 
 /**
  * The database file this layer opens.
@@ -177,7 +177,7 @@ export function migrateLegacyHomeSchoolSenderRoles(connection: { exec: (sql: str
 const INVITE_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const INVITE_CODE_LENGTH = 6;
 
-export function generateInviteCode(): string {
+function generateInviteCode(): string {
   let code = '';
   for (let i = 0; i < INVITE_CODE_LENGTH; i += 1) {
     code += INVITE_CODE_ALPHABET[crypto.randomInt(INVITE_CODE_ALPHABET.length)];

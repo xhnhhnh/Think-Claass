@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils';
  * reader should announce "listbox, 26 items, 考试与成绩 selected", which is the listbox
  * pattern and not something a row of buttons can produce.
  */
-export interface CommandPaletteProps {
+interface CommandPaletteProps {
   features: ClassFeatures;
   /** Destinations this console hides; see the note on `AppShellProps.hiddenPaths`. */
   hiddenPaths?: ReadonlySet<string>;

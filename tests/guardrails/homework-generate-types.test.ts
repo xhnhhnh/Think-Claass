@@ -44,7 +44,7 @@ const PANEL = path.join(
  */
 function panelTypes(): string[] {
   const source = fs.readFileSync(PANEL, 'utf8');
-  const declaration = /export const GENERATABLE_QUESTION_TYPES[^=]*=\s*\[([\s\S]*?)\n\];/.exec(source);
+  const declaration = /(?:export )?const GENERATABLE_QUESTION_TYPES[^=]*=\s*\[([\s\S]*?)\n\];/.exec(source);
   expect(declaration, 'AiQuestionPanel.tsx no longer declares GENERATABLE_QUESTION_TYPES').toBeTruthy();
 
   return [...declaration![1].matchAll(/value:\s*'([^']+)'/g)].map((match) => match[1]);

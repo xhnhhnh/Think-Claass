@@ -12,7 +12,7 @@ import { useStore } from '@/store/useStore';
  * expired session, and treating it as the latter used to show 「登录已过期」 to somebody who had
  * simply mistyped a password.
  */
-export type AuthFailure = 'session' | 'credential';
+type AuthFailure = 'session' | 'credential';
 
 interface ApiOptions extends AxiosRequestConfig {
   showError?: boolean;
@@ -207,15 +207,15 @@ axiosInstance.interceptors.response.use(
 
 export const api = async <T = any>(config: ApiOptions): Promise<T> => {
   const { showError = true, authFailure = 'session', ...axiosConfig } = config;
-  
+
   try {
     const response = await axiosInstance(axiosConfig);
     const data = response.data;
-    
+
     if (data && data.success === false) {
       throw new FetchError(response.status || 200, data);
     }
-    
+
     return data as T;
   } catch (error: any) {
     // 处理未授权错误 (401/403)
@@ -230,14 +230,14 @@ export const api = async <T = any>(config: ApiOptions): Promise<T> => {
 };
 
 // 提供向下兼容的快捷方法，返回值直接就是 response.data
-export const apiGet = <T = any>(url: string, options?: ApiOptions) => 
+export const apiGet = <T = any>(url: string, options?: ApiOptions) =>
   api<T>({ url, method: 'GET', ...options });
 
-export const apiPost = <T = any>(url: string, data?: any, options?: ApiOptions) => 
+export const apiPost = <T = any>(url: string, data?: any, options?: ApiOptions) =>
   api<T>({ url, method: 'POST', data, ...options });
 
-export const apiPut = <T = any>(url: string, data?: any, options?: ApiOptions) => 
+export const apiPut = <T = any>(url: string, data?: any, options?: ApiOptions) =>
   api<T>({ url, method: 'PUT', data, ...options });
 
-export const apiDelete = <T = any>(url: string, options?: ApiOptions) => 
+export const apiDelete = <T = any>(url: string, options?: ApiOptions) =>
   api<T>({ url, method: 'DELETE', ...options });

@@ -57,7 +57,7 @@ import {
 } from './providers/index.js';
 
 /** `paymentOrderPayload` from the pre-migration service, unchanged. */
-export interface PaymentOrderPayload {
+interface PaymentOrderPayload {
   orderNo: string;
   status: string;
   amount: number;
@@ -69,7 +69,7 @@ export interface PaymentOrderPayload {
   providerMode: string;
 }
 
-export interface PaymentServiceDeps {
+interface PaymentServiceDeps {
   ctx: KernelContext;
   repository: PaymentRepository;
   /** Resolved at call time: identity sorts first, but a lazy lookup keeps this honest. */

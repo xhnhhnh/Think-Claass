@@ -24,7 +24,7 @@ import type { Request } from 'express';
 
 import { ApiError, getRequestContext } from '@thinkclass/kernel';
 
-export interface RequestActor {
+interface RequestActor {
   id: number | null;
   role: string | null;
 }
@@ -35,7 +35,7 @@ function actorOf(req: Request): RequestActor {
 }
 
 /** The legacy `requireActorRole`: 401 when unknown, 403 when known but not allowed. */
-export function requireActorRole(req: Request, allowedRoles: string[]): RequestActor {
+function requireActorRole(req: Request, allowedRoles: string[]): RequestActor {
   const actor = actorOf(req);
   if (!actor.role || actor.id === null) throw new ApiError(401, '未登录或登录已过期');
   if (!allowedRoles.includes(actor.role)) throw new ApiError(403, '无权限执行该操作');

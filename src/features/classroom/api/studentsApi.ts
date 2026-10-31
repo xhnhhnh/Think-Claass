@@ -7,12 +7,12 @@ import type {
   StudentDto,
 } from '@thinkclass/contracts/domains/classroom';
 
-export interface StudentsResponse {
+interface StudentsResponse {
   success: true;
   students: StudentDto[];
 }
 
-export interface StudentResponse {
+interface StudentResponse {
   success: true;
   student: StudentDto;
 }
@@ -40,7 +40,7 @@ export interface StudentMotivationSummary {
  * Only the name exists in the response - `unlocked_at`/`description` are optional and must not
  * be invented.
  */
-export interface StudentAchievementDto {
+interface StudentAchievementDto {
   achievement_name: string;
   description?: string;
   unlocked_at?: string;

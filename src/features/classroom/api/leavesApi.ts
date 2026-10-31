@@ -13,7 +13,7 @@ export interface LeaveListQuery {
 }
 
 /** Body of `POST /api/leaves`. The parent is taken from the session, not from the body. */
-export interface CreateLeavePayload {
+interface CreateLeavePayload {
   student_id: number;
   start_date: string;
   end_date: string;
@@ -29,7 +29,7 @@ export interface UpdateLeavePayload {
   review_comment?: string | null;
 }
 
-export interface LeavesResponse {
+interface LeavesResponse {
   success: true;
   data: LeaveDto[];
 }

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { examsApi, type Exam, type ExamGrade } from '../api/examsApi';
 
-export const examKeys = {
+const examKeys = {
   list: (classId: number | null) => ['exams', classId] as const,
   grades: (examId: number | null) => ['exam-grades', examId] as const,
 };

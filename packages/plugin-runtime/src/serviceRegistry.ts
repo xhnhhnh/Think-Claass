@@ -32,7 +32,7 @@ export interface ServiceRegistry {
    */
   provide(pluginSlug: string, name: ServiceName, implementation: unknown): void;
   use<N extends ServiceName>(consumer: string, name: N): ServiceContracts[N];
-  tryUse<N extends ServiceName>(consumer: string, name: N): ServiceContracts[N] | null;
+  tryUse<N extends ServiceName>(name: N): ServiceContracts[N] | null;
   has(name: string): boolean;
   list(): ServiceRegistration[];
   /** Drop everything a plugin published; used when a plugin stops. */
@@ -81,7 +81,7 @@ export function createServiceRegistry(logger?: Logger): ServiceRegistry {
       return entry.implementation as ServiceContracts[typeof name];
     },
 
-    tryUse(consumer, name) {
+    tryUse(name) {
       const entry = registry.get(name);
       return entry ? (entry.implementation as ServiceContracts[typeof name]) : null;
     },

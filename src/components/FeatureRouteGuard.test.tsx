@@ -15,7 +15,7 @@
  * the feature is closed.
  */
 
-import React from 'react';
+
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

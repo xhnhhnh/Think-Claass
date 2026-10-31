@@ -150,37 +150,6 @@ export class ClassroomService {
     }
   }
 
-  /** `adjustStudentPoints` from `api/services/pointsService.ts`. */
-  private adjustStudentPoints(
-    studentId: unknown,
-    amount: number,
-    description: string,
-    options: { recordType?: string; revivePetOnPositive?: boolean } = {},
-  ): { total_points: number; available_points: number } {
-    if (!Number.isFinite(amount)) {
-      throw new ApiError(400, 'Invalid amount');
-    }
-
-    const student = this.getStudentOrThrow(studentId);
-    const newTotal = amount > 0 ? (student.total_points as number) + amount : (student.total_points as number);
-    const newAvailable = (student.available_points as number) + amount;
-    if (newAvailable < 0) throw new ApiError(400, '可用积分不足，不能扣分');
-
-    this.repository.setStudentPoints(student.id, newTotal, newAvailable);
-    this.repository.insertRecord(
-      student.id,
-      options.recordType ?? (amount > 0 ? 'ADD_POINTS' : 'DEDUCT_POINTS'),
-      amount,
-      description,
-    );
-
-    if (options.revivePetOnPositive && amount > 0) {
-      this.revivePetIfPresent(student.id);
-    }
-
-    return { total_points: newTotal, available_points: newAvailable };
-  }
-
   /** Teacher scoring is a single transaction: balance, ledger and rule event agree. */
   private scoreStudent(studentId: number, requested: number, reason: string, requestId?: string) {
     if (!Number.isInteger(requested) || requested === 0 || requested < -5 || requested > 5) {
@@ -216,27 +185,6 @@ export class ClassroomService {
     this.repository.insertPointEvent({ studentId, recordId, requestId, source: 'teacher_score', category: 'growth', growth: Math.max(0, base), credits: applied, requested, total, available });
     if (applied > 0) this.revivePetIfPresent(studentId);
     return { studentId, applied, bonus, total_points: total, available_points: available, replayed: false };
-  }
-
-  /** `addStudentPoints` from `api/services/pointsService.ts`. */
-  private addStudentPoints(
-    studentId: unknown,
-    amount: number,
-    recordType: string,
-    description: string,
-  ): { total_points: number; available_points: number } {
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new ApiError(400, 'Invalid amount');
-    }
-
-    const student = this.getStudentOrThrow(studentId);
-    const newTotal = (student.total_points as number) + amount;
-    const newAvailable = (student.available_points as number) + amount;
-
-    this.repository.setStudentPoints(student.id, newTotal, newAvailable);
-    this.repository.insertRecord(student.id, recordType, amount, description);
-
-    return { total_points: newTotal, available_points: newAvailable };
   }
 
   private ensureTeacherCanManageClass(req: ServiceRequest, classIdInput: unknown): number {

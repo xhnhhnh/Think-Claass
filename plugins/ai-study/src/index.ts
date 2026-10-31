@@ -51,8 +51,6 @@ import { AiStudyService } from './ai-study.service.js';
  */
 const providers: Provider[] = [];
 
-let service: AiStudyService | null = null;
-
 export default definePlugin({
   controllers: [AiStudyStudentController, AiStudyTeacherController],
   providers,
@@ -70,7 +68,6 @@ export default definePlugin({
       aiProvider: () => ctx.tryUse('homework.public'),
     });
 
-    service = instance;
     providers.push({ provide: AiStudyService, useValue: instance });
 
     ctx.cleanup.register(createAiStudyCleanupRule());
@@ -84,7 +81,6 @@ export default definePlugin({
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

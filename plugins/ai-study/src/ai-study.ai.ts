@@ -48,7 +48,7 @@ const RERANK_MAX_TOKENS_PER_ITEM = 80;
 /** How long a rewritten reason may be. The rule's own reasons are one sentence; so is this. */
 const REASON_MAX_LENGTH = 60;
 
-export const AI_STUDY_SYSTEM_PROMPT = [
+const AI_STUDY_SYSTEM_PROMPT = [
   '你是一位中小学老师的练习编排助手。',
   '你只输出一个 JSON 对象，不要输出任何解释性文字、Markdown 代码块或前后缀。',
   'JSON 结构为：{"items": [{"question_id": number, "reason": string}, ...]}。',
@@ -64,7 +64,7 @@ export const AI_STUDY_SYSTEM_PROMPT = [
  * not have supplied them anyway: a prompt is the easiest place for an answer key to leak, and there
  * is nothing about "which order and why" that needs one.
  */
-export function buildRerankPrompt(
+function buildRerankPrompt(
   ranked: RankedCandidate[],
   weakNodes: EngineWeakNode[],
   hint: string | null,
@@ -98,7 +98,7 @@ export function buildRerankPrompt(
  * Returns `null` when there is nothing usable at all, which the caller reports as "the rule order
  * was kept" rather than as a failure the student has to care about.
  */
-export function parseRerankReply(
+function parseRerankReply(
   raw: string,
   allowed: RankedCandidate[],
 ): { order: number[]; reasons: Map<number, string> } | null {
@@ -150,7 +150,7 @@ export function parseRerankReply(
   return { order, reasons };
 }
 
-export interface RerankOutcome {
+interface RerankOutcome {
   ranked: RankedCandidate[];
   ai: AiStudyOutcome;
   /** The items whose reason (and position) came from the model, for the UI's provenance label. */

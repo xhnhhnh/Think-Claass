@@ -123,7 +123,7 @@ export interface MigrationsApi {
   run(): { applied: string[]; skipped: string[] };
 }
 
-export interface AuthApi {
+interface AuthApi {
   /**
    * Register the credential verifier the kernel's own login route uses.
    *

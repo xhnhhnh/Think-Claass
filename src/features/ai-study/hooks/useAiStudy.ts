@@ -10,7 +10,7 @@ import { aiStudyApi } from '../api/aiStudyApi';
  * because that is what the API answers: "the one open set" is the identity here, which is also why a
  * second generate returns the same set instead of replacing it.
  */
-export const aiStudyKeys = {
+const aiStudyKeys = {
   all: ['ai-study'] as const,
   mySet: () => ['ai-study', 'my-set'] as const,
   classInsight: (classId: number | null) => ['ai-study', 'class-insight', classId] as const,

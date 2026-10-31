@@ -41,7 +41,7 @@ const MASK_SHADOW = 'shadow-[0_0_0_9999px_hsl(var(--fg-1)/0.6)]';
 
 const DIM_BACKGROUND = 'bg-fg-1/60';
 
-export interface TourSpotlightProps {
+interface TourSpotlightProps {
   rect: TargetRect | null;
   reduceMotion: boolean;
 }

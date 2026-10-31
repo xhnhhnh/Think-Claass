@@ -1,6 +1,5 @@
 /** Shared leaf geometry for the app mark and browser icon. */
 export const BRAND_GREEN = '#185A43';
-export const BRAND_INK = '#185A43';
 export const BRAND_LEAF_LEFT = 'M15.1 17.2C7.5 17.8 4.6 13.1 5.2 7.3c5.2.1 9.1 2.7 9.9 9.9Z';
 export const BRAND_LEAF_RIGHT = 'M16.6 14.9C16.8 7.6 21.1 4.6 27.6 4c-.2 6.5-3.7 10.5-11 10.9Z';
 export const BRAND_STEM = 'M16.2 28.2v-10c0-4.4 2.5-7.9 6.5-10.2';

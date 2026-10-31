@@ -44,7 +44,7 @@ export interface QuestionBankItem {
   created_at: string | null;
 }
 
-export interface UpsertQuestionBankInput {
+interface UpsertQuestionBankInput {
   title: string;
   type: string;
   options: string | null;

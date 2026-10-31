@@ -43,7 +43,7 @@ export interface RequestActor {
 }
 
 /** The caller as the kernel's verified request context resolved them, or null when anonymous. */
-export function actorOf(req: Request): RequestActor | null {
+function actorOf(req: Request): RequestActor | null {
   const actor = getRequestContext(req).actor;
   if (!actor) return null;
   return {
@@ -55,7 +55,7 @@ export function actorOf(req: Request): RequestActor | null {
 }
 
 /** 401 when the request carries no verified actor. */
-export function requireActor(req: Request): RequestActor {
+function requireActor(req: Request): RequestActor {
   const actor = actorOf(req);
   if (!actor) throw new ApiError(401, '未登录或登录已过期');
   return actor;

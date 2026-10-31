@@ -140,7 +140,7 @@ function missingRow(operation: string): Error {
   return new Error(`${operation} failed: no matching record`);
 }
 
-export interface PaperListFilter {
+interface PaperListFilter {
   teacherId?: number;
   classId?: number;
   status?: string;
@@ -158,7 +158,7 @@ export interface PaperListFilter {
  * teacher as "智学 is broken" rather than "your questions have no difficulty set" - and the scoring
  * engine treats `null` as the neutral 3 anyway, so admitting it changes the ranking, not its honesty.
  */
-export interface CandidateQuestionFilter {
+interface CandidateQuestionFilter {
   subjectId: number | null;
   nodeIds: number[];
   types: string[];
@@ -169,13 +169,13 @@ export interface CandidateQuestionFilter {
 }
 
 /** One `question_knowledge` row, projected to the two ids. */
-export interface QuestionKnowledgePair {
+interface QuestionKnowledgePair {
   question_id: number;
   node_id: number;
 }
 
 /** A student's record on one knowledge node, for the personalisation engine. */
-export interface KnowledgeProgressRow {
+interface KnowledgeProgressRow {
   node_id: number;
   name: string;
   importance: number | null;
@@ -184,7 +184,7 @@ export interface KnowledgeProgressRow {
   correct_count: number;
 }
 
-export interface PaperCreateInput {
+interface PaperCreateInput {
   teacher_id: number;
   class_id: number | null;
   subject_id: number | null;
@@ -194,7 +194,7 @@ export interface PaperCreateInput {
   exam_date: Date | null;
 }
 
-export interface PaperPatch {
+interface PaperPatch {
   title?: string;
   status?: string;
   class_id?: number | null;
@@ -203,7 +203,7 @@ export interface PaperPatch {
   exam_date?: Date | null;
 }
 
-export interface QuestionCreateInput {
+interface QuestionCreateInput {
   teacher_id: number | null;
   subject_id: number | null;
   stem: string;

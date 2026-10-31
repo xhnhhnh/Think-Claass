@@ -24,13 +24,6 @@ const toneClasses: Record<InsightTone, { icon: string; value: string; bar: strin
   destructive: { icon: 'bg-danger-soft text-danger-ink', value: 'text-danger-ink', bar: 'bg-danger' },
 };
 
-const TONE_CYCLE: InsightTone[] = ['primary', 'info', 'success', 'warning', 'destructive'];
-
-/** Deterministic tone for the nth card, for a grid that wants variety without a palette. */
-export function toneForIndex(index: number): InsightTone {
-  return TONE_CYCLE[index % TONE_CYCLE.length];
-}
-
 const metricSurfaceClasses: Record<InsightSurface, string> = {
   glass: 'rounded-card border border-line-1 bg-surface-2 p-6',
   paper: 'rounded-card border border-line-1 bg-surface-3/60 p-6',

@@ -97,7 +97,7 @@ function toApiError(refusal: ClassroomRefusal): ApiError {
   }
 }
 
-export function generateFloorChoices(floor: number, random = Math.random): FloorChoice[] {
+function generateFloorChoices(floor: number, random = Math.random): FloorChoice[] {
   if (floor % 5 === 0) {
     return [
       {

@@ -44,7 +44,7 @@ export const PET_ELEMENTS = [
   { id: 'dragon', name: '龙系', color: 'bg-chart-4', bg: 'bg-chart-4/10', icon: '🐉' },
 ] as const;
 
-export type PetElementId = (typeof PET_ELEMENTS)[number]['id'];
+type PetElementId = (typeof PET_ELEMENTS)[number]['id'];
 
 const defaultPetStageImages: Record<PetElementId, string[]> = {
   fire: [fireStage1, fireStage2, fireStage3, fireStage4, fireStage5, fireStage6],
@@ -86,15 +86,6 @@ export function getEvolutionStage(level: number) {
   if (level === 4) return '成熟期';
   if (level === 5) return '完全体';
   return '究极体';
-}
-
-export function getPetIcon(level: number) {
-  if (level === 1) return '🥚';
-  if (level === 2) return '🐣';
-  if (level === 3) return '🐥';
-  if (level === 4) return '🦅';
-  if (level === 5) return '🐉';
-  return '👑';
 }
 
 export function getPetElement(elementType: string) {

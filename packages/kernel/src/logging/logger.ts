@@ -47,7 +47,7 @@ const defaultSink: LogSink = (record) => {
   else process.stdout.write(line + '\n');
 };
 
-export interface CreateLoggerOptions {
+interface CreateLoggerOptions {
   level?: LogLevel;
   sink?: LogSink;
 }

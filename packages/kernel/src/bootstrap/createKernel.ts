@@ -28,7 +28,7 @@ import {
   createSqliteAssignmentStore,
 } from '../permissions/capabilityStore.js';
 import {
-  AUDIT_LOGS_MIGRATION_ID,
+
   auditLogsMigration,
   createAuditLog,
   createAuditRegistry,

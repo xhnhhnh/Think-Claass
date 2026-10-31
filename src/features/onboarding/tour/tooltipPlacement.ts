@@ -18,9 +18,9 @@
 
 import type { TargetRect } from './useTourTarget';
 
-export const TOOLTIP_MAX_WIDTH = 340;
-export const TOOLTIP_GAP = 14;
-export const TOOLTIP_MARGIN = 16;
+const TOOLTIP_MAX_WIDTH = 340;
+const TOOLTIP_GAP = 14;
+const TOOLTIP_MARGIN = 16;
 
 /**
  * Used to decide whether the tooltip fits above, below or beside the target *before* it is rendered.
@@ -32,7 +32,7 @@ export const TOOLTIP_MARGIN = 16;
  */
 export const TOOLTIP_ESTIMATED_HEIGHT = 232;
 
-export interface TooltipPosition {
+interface TooltipPosition {
   left: number;
   top: number;
   width: number;

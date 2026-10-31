@@ -50,7 +50,7 @@ export function isGeneratableType(value: unknown): value is GeneratableType {
   return typeof value === 'string' && (GENERATABLE_TYPES as readonly string[]).includes(value);
 }
 
-export interface QuestionTemplate {
+interface QuestionTemplate {
   type: GeneratableType;
   /** The name shown in the console's type select. */
   label: string;
@@ -91,13 +91,13 @@ export const QUESTION_TEMPLATES: Record<GeneratableType, QuestionTemplate> = {
 };
 
 /** The templates a request asks for: the chosen one, or all three when the console offers 混合. */
-export function templatesFor(type: GeneratableType | null): QuestionTemplate[] {
+function templatesFor(type: GeneratableType | null): QuestionTemplate[] {
   if (type) return [QUESTION_TEMPLATES[type]];
   return GENERATABLE_TYPES.map((entry) => QUESTION_TEMPLATES[entry]);
 }
 
 /** Kept out of the prompt: the model emits JSON, so its own labels may as well be short. */
-export function questionFieldSchema(): string {
+function questionFieldSchema(): string {
   return '每题只使用这些字段：type, stem, options, reference, points。不要输出 id、explanation 或其他字段。';
 }
 
@@ -136,7 +136,7 @@ function renderTemplate(template: QuestionTemplate): string {
   return [`[${template.type}] ${template.label}`, `模板：${template.skeleton}`, `要求：${template.rules.join('；')}`].join('\n');
 }
 
-export interface GeneratePromptInput {
+interface GeneratePromptInput {
   topic: string;
   type: GeneratableType | null;
   count: number;
@@ -173,5 +173,5 @@ export function renderGeneratePrompt(input: GeneratePromptInput): string {
 }
 
 /** How many existing stems are sent, and how much of each. Both are prompt-cost decisions. */
-export const AVOID_MAX_STEMS = 15;
-export const AVOID_STEM_MAX_LENGTH = 60;
+const AVOID_MAX_STEMS = 15;
+const AVOID_STEM_MAX_LENGTH = 60;

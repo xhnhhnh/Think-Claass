@@ -100,7 +100,7 @@ export function guideRole(role: User['role'] | string | undefined): GuideRole | 
   return null;
 }
 
-export interface TourContext {
+interface TourContext {
   /** Whether the account already owns a class. Only the teacher's core steps branch on it. */
   hasClass: boolean;
 }

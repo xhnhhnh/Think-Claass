@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
  * tells the operator what the first three actions are and how far they are. Each step is
  * a real destination, and the completed count is derived, not stored.
  */
-export interface OnboardingStep {
+interface OnboardingStep {
   title: ReactNode;
   description: ReactNode;
   done?: boolean;

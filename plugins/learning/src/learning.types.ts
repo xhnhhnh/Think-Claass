@@ -184,15 +184,6 @@ export interface WrongQuestionWithQuestion extends WrongQuestionRow {
   questions: QuestionRow | null;
 }
 
-export interface WrongQuestionAttemptRow {
-  id: number;
-  wrong_question_id: number;
-  practice_source: string;
-  is_correct: number | null;
-  spent_sec: number | null;
-  created_at: string | null;
-}
-
 export interface StudyPlanRow {
   id: number;
   student_id: number;
@@ -222,10 +213,4 @@ export interface StudyPlanItemWithRelations extends StudyPlanItemRow {
 
 export interface StudyPlanWithItems extends StudyPlanRow {
   study_plan_items: StudyPlanItemWithRelations[];
-}
-
-/** The two columns `savePaperStructure` needs from the paper row. */
-export interface PaperOwnership {
-  teacher_id: number;
-  subject_id: number | null;
 }

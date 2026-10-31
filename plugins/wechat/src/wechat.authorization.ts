@@ -21,13 +21,13 @@ import type { Request } from 'express';
 
 import { ApiError, getRequestContext } from '@thinkclass/kernel';
 
-export interface RequestActor {
+interface RequestActor {
   id: number | null;
   role: string | null;
 }
 
 /** The same actor, after the 401 gate - so a caller never has to re-assert `id !== null`. */
-export interface AuthenticatedActor {
+interface AuthenticatedActor {
   id: number;
   role: string;
 }

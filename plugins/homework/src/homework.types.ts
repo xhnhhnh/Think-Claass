@@ -11,17 +11,14 @@
 
 import type {
   Homework,
-  HomeworkAnswer,
   HomeworkAnswerValue,
   HomeworkOption,
   HomeworkPhoto,
   HomeworkQaMessage,
-  HomeworkQuestion,
   HomeworkQuestionType,
   HomeworkReferenceAnswer,
   HomeworkStatus,
   HomeworkSubmission,
-  HomeworkSubmissionStatus,
 } from '@thinkclass/contracts/domains/homework';
 
 /** Raw `p_homework_assignments` row. Every column is what SQLite returns. */
@@ -113,17 +110,6 @@ export interface HomeworkListRow extends HomeworkRow {
   legacy?: boolean;
 }
 
-/** A homework row with its questions parsed - the detail and attempt views both need this. */
-export interface HomeworkWithQuestions {
-  homework: HomeworkListRow;
-  questions: HomeworkQuestion[];
-}
-
-/** One answer as the service reads it back, with the JSON already parsed. */
-export interface HomeworkAnswerWithValue extends Omit<HomeworkAnswer, 'value'> {
-  value: HomeworkAnswerValue;
-}
-
 /**
  * Input to `createQuestion` / `updateQuestion`.
  *
@@ -146,9 +132,6 @@ export interface HomeworkAnswerInputInternal {
   question_id: number;
   value: HomeworkAnswerValue;
 }
-
-/** The statuses a student may still edit from. */
-export type HomeworkEditableStatus = Extract<HomeworkSubmissionStatus, 'draft' | 'returned'>;
 
 /**
  * A row read out of the deprecated `assignments` table by the read bridge.

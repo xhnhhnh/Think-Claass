@@ -52,7 +52,7 @@ const EVENT_TOPIC_RE = /^[a-z][a-z0-9]*(?:\.[a-z0-9]+)*(?:\.\*)?$/;
  */
 const PERMISSION_KEY_RE = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/;
 
-export const TIERS: PluginTier[] = ['foundation', 'feature', 'infrastructure'];
+const TIERS: PluginTier[] = ['foundation', 'feature', 'infrastructure'];
 const ISOLATIONS: PluginIsolation[] = ['in-process', 'restricted', 'worker'];
 const SCOPES: ScopeType[] = ['platform', 'school', 'class', 'student'];
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];

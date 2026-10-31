@@ -102,7 +102,7 @@ const AI_TOPIC_MAX_LENGTH = 500;
 const AI_GENERATE_MAX = 20;
 const AI_AVOID_MAX = 40;
 
-export interface HomeworkServiceOptions {
+interface HomeworkServiceOptions {
   repository: HomeworkRepository;
   /** Reverses at-rest encryption for `students.name`, injected by the host. */
   decryptName?: (value: string) => string;

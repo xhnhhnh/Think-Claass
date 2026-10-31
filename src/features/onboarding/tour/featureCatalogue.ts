@@ -133,7 +133,7 @@ function childPathOf(layoutPath: string, path: string): string {
 
 const CLOSING_HINT = '这是最后一步，点「完成」结束。';
 
-export interface OverviewStepsOptions {
+interface OverviewStepsOptions {
   role: GuideRole;
   layoutPath: string;
   /** Anchors the role's own steps already point at, so no feature is explained twice. */

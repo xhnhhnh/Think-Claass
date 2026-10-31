@@ -73,7 +73,7 @@ const WEAK_NODE_LIMIT = 5;
 /** The model's optional extra instruction. Long enough for a sentence, short enough to stay a prompt. */
 const HINT_MAX_LENGTH = 200;
 
-export interface AiStudyServiceDeps {
+interface AiStudyServiceDeps {
   repository: AiStudyRepository;
   classroom: ClassroomPort;
   learning: LearningPort;

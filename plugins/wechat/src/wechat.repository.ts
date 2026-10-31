@@ -17,14 +17,14 @@ import type { DbApi } from '@thinkclass/plugin-sdk';
 
 import type { WechatAccountRow, WechatTicketRow } from './wechat.types.js';
 
-export interface LinkAccountInput {
+interface LinkAccountInput {
   openid: string;
   unionid: string | null;
   userId: number;
   role: string;
 }
 
-export interface CreateTicketInput {
+interface CreateTicketInput {
   ticketHash: string;
   openid: string;
   unionid: string | null;

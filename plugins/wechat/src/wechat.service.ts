@@ -39,14 +39,14 @@ import type { WechatRepository } from './wechat.repository.js';
 import { toBindingSnapshot, type WechatAccountRow } from './wechat.types.js';
 
 /** Ten minutes: long enough to type a username and password, short enough to be uninteresting. */
-export const TICKET_TTL_MS = 10 * 60 * 1000;
+const TICKET_TTL_MS = 10 * 60 * 1000;
 
 export interface WechatRequestMeta {
   userAgent: string | null;
   ip: string | null;
 }
 
-export interface WechatServiceDeps {
+interface WechatServiceDeps {
   ctx: KernelContext;
   repository: WechatRepository;
   identity: IdentityPort;

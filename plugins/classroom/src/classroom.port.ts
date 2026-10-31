@@ -43,7 +43,7 @@ import type { ReportQueries } from './classroom.reports.js';
 import type { NameCipher } from './classroom.support.js';
 import type { StudentRow } from './classroom.types.js';
 
-export interface ClassroomPortDeps {
+interface ClassroomPortDeps {
   /** The port emits `classroom.student.points.changed`; the bus is the plugin's context. */
   ctx: KernelContext;
   repository: ClassroomRepository;

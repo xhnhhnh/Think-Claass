@@ -42,7 +42,7 @@ import { ApiError } from '@thinkclass/kernel';
 import type { KernelContext } from '@thinkclass/plugin-sdk';
 
 import type {
-  AdminMaintenanceService,
+
   AdminMutationActor,
   AdminRepository,
   AdminRuntime,
@@ -56,7 +56,7 @@ const defaultRuntime: AdminRuntime = {
   platform: () => os.platform(),
 };
 
-export interface AdminServiceOptions {
+interface AdminServiceOptions {
   ctx: KernelContext;
   repository: AdminRepository;
   /**

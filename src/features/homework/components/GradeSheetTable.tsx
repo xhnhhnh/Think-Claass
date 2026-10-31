@@ -48,7 +48,7 @@ export function submissionStatusVariant(
  *
  * `DataTable` owns the loading and empty states, and every cell is a token-coloured element.
  */
-export interface GradeSheetTableProps {
+interface GradeSheetTableProps {
   rows: HomeworkGradeRow[];
   isLoading?: boolean;
   selectedSubmissionId?: number | null;

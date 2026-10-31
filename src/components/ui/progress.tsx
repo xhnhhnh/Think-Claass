@@ -20,7 +20,7 @@ const TONES = {
   destructive: 'bg-danger',
 } as const;
 
-export interface ProgressProps {
+interface ProgressProps {
   value: number;
   min?: number;
   max?: number;

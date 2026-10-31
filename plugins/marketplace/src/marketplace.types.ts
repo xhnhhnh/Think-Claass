@@ -26,9 +26,9 @@ import type { Auction, BlindBox, ShopItem } from '@thinkclass/contracts/domains/
 import type { SqlParam } from '@thinkclass/plugin-sdk';
 
 /** Raw values the pre-migration service passed to better-sqlite3 unchanged. */
-export type RawParam = SqlParam;
+type RawParam = SqlParam;
 
-export interface NewShopItemRow {
+interface NewShopItemRow {
   name: RawParam;
   description: RawParam;
   price: RawParam;
@@ -40,7 +40,7 @@ export interface NewShopItemRow {
   holiday_end_time: RawParam;
 }
 
-export interface ShopItemUpdate {
+interface ShopItemUpdate {
   name: RawParam;
   description: RawParam;
   price: RawParam;
@@ -50,14 +50,14 @@ export interface ShopItemUpdate {
   holiday_end_time: RawParam;
 }
 
-export interface NewAuctionRow {
+interface NewAuctionRow {
   item_name: RawParam;
   description: RawParam;
   starting_price: RawParam;
   end_time: RawParam;
 }
 
-export interface AuctionUpdate {
+interface AuctionUpdate {
   item_name: RawParam;
   description: RawParam;
   starting_price: RawParam;
@@ -65,14 +65,14 @@ export interface AuctionUpdate {
   end_time: RawParam;
 }
 
-export interface NewBlindBoxRow {
+interface NewBlindBoxRow {
   name: RawParam;
   description: RawParam;
   price: RawParam;
   is_active: RawParam;
 }
 
-export interface BlindBoxUpdate {
+interface BlindBoxUpdate {
   name: RawParam;
   description: RawParam;
   price: RawParam;

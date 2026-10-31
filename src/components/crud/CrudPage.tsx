@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -53,12 +53,12 @@ export interface CrudField<TForm extends Record<string, unknown>> {
   options?: Array<{ label: string; value: string }>;
 }
 
-export interface CrudItemActions<TItem> {
+interface CrudItemActions<TItem> {
   openEdit: (item: TItem) => void;
   requestDelete: (item: TItem) => void;
 }
 
-export interface CrudPageProps<TItem, TForm extends Record<string, unknown>> {
+interface CrudPageProps<TItem, TForm extends Record<string, unknown>> {
   title: string;
   description: string;
   addLabel: string;

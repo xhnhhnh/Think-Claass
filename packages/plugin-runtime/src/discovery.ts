@@ -45,7 +45,7 @@ export interface DiscoveryResult {
   scannedDirs: string[];
 }
 
-export interface DiscoverOptions {
+interface DiscoverOptions {
   dirs: string[];
   kernelApiVersion: number;
   logger?: Logger;

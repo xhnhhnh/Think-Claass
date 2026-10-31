@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { Trophy, Star, Shield, Zap, Medal, Crown } from 'lucide-react';
+import { Trophy, Star, Shield, Zap, Medal } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 import { studentsApi } from '@/features/classroom/api/studentsApi';

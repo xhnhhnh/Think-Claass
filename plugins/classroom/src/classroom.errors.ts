@@ -21,7 +21,7 @@ import { HttpException } from '@nestjs/common';
 
 import { ApiError } from '@thinkclass/kernel';
 
-export type FallbackMessage = string | ((error: unknown) => string);
+type FallbackMessage = string | ((error: unknown) => string);
 
 export function throwClassroomError(error: unknown, fallbackMessage: FallbackMessage = 'Internal Server Error'): never {
   // Nest exceptions already carry their own envelope through the global filter.

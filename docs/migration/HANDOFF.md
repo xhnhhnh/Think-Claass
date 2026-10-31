@@ -133,8 +133,9 @@ legacy + `PLUGINS_ENABLED=0` 抛错，宿主开启却激活 0 个插件也抛错
 **棘轮**：`adoptedTables` 65 → **74**（给 7 张无主表找到主人 + admin 的 3 张，逐表写在 `allowances.json` 里），
 `deadCode` 59 → **55**（删掉随 `api/modules/admin` 一起失去最后消费者的 9 个文件）。
 
-**Prisma 在运行时已无消费者**：`api/prismaClient.ts` 只剩 P4.3b.9 那条路径围栏测试在引用它（P7 删）。
-`api/db.ts` 的**第二条连接**仍未收敛（`initDb()`、维护操作还在用它），这是下一轮的事，见 §1.1。
+**Prisma 在运行时已无消费者**：运行时 `api/prismaClient.ts` 已在 P7 删除，两条数据路径收敛为
+内核与 `api/db.ts` 两条；`prisma/schema.prisma` 仍用于 schema 漂移检查和部署时的 `prisma generate`。
+`api/db.ts` 的**第二条连接**仍未收敛（`initDb()`、维护操作还在用它），见 §1.1。
 
 **下一步 = §1.1 的那个目标**（P4.3c.3 + 连接收敛）。
 
@@ -192,8 +193,8 @@ npm run guard                 # 护栏全绿（当前 16 个文件，以输出�
 ### 明确不在本目标内
 
 - **P6 运行期安装**（`.tcplugin` 打包、`plugins-ext` 动态 import、`worker_threads` 隔离）；
-- **P7 清理**（`adoptedTables` 74 → 0 的表改名、19 个 `enable_*` 列、`blind_boxes.teacher_id`、
-  `api/prismaClient.ts`、`src/api/*` 31 个死文件、`deadCode` 55 → 0、`.tmp` 里被跟踪的文件）；
+- **P7 清理（死代码/兼容层子集已完成）**：`api/prismaClient.ts`、`src/api/*` 与死 hook/组件已删除，
+  `deadCode` 为 0；仍待单独处理的是表改名、19 个 `enable_*` 列、`blind_boxes.teacher_id` 与 `.tmp` 遗留；
 - **P5 前端收尾**（若还有）。
 
 它们各自是一轮或几轮。
@@ -283,7 +284,7 @@ npm run api:surface -- --check     # 297 条端点必须零漂移（含 plugins/
 | P5.3b | ~~4 个布局的硬编码菜单~~ ✅ 全部从路由表派生（`navRegistry.ts`，护栏 G16） | 见 `git log` | ✅ |
 | P5.3c | ~~`api/modules/settings`~~ ✅ 并入内核（`settings` 本就是内核自有表）；顺带发现扫描器**从不扫内核路由** | 见 `git log` | ✅ |
 | P6 | 运行期安装/升级/第三方隔离 | — | ⬜ |
-| P7 | 清理（死代码、19 列、兼容层、文档） | — | ⬜ |
+| P7 | 清理（死代码）✅ / schema 兼容层、19 列仍待单独处置 | — | 🔶 |
 
 逐阶段详细记录见 `docs/migration/00-baseline.md` … `04-capabilities-and-domains.md`。
 
@@ -413,7 +414,7 @@ api/maintenance.ts      P4.3b.14 新增：导出/导入/重置的**宿主实现*
 | 键 | 当前 | 目标 | 含义 |
 |---|---|---|---|
 | `shimPages` | **0** ✅（62 → 0）| 0 | 插件树里的一行转发 shim（"假插件化"） |
-| `deadCode` | **55** ✅（70 → … → 59 → **55**）| 0 | 应用不可达文件（P4.3b.14 **降** 4：`api/modules/admin` 是 9 个文件的最后一个消费者 —— `api/utils/apiError.ts`/`apiResponse.ts`/`classFeatures.ts`/`gameErrors.ts`/`password.ts`/`requestAuth.ts`/`response.ts`、`api/services/UserService.ts` 与它自己的测试 —— 一起删掉，沿用 P4.3b.6b 的规矩"最后一个消费者走了就删"。剩下的 55 个几乎全是 P7 清单里的 `src/api/*`(31) 与前端死 hook。`api/prismaClient.ts` 现在也在名单里：admin 是它在运行时的最后一个消费者，只剩 P4.3b.9 的路径围栏测试引用它） |
+| `deadCode` | **0** ✅（70 → … → 55 → **0**）| 0 | 应用不可达文件。P7 删除了整个 `src/api/*` 兼容层及其测试、14 个死 query wrapper、两个组件、两个 feature hook、`api/prismaClient.ts` 与测试探针；MSW 通过 `src/setupTests.ts` 入口保留。`npm run check:unused` 与 `npm run check:exports` 另行守住未用符号/导出 |
 | `staticPluginRoutes` | **0** ✅（76 → 0）| 0 | 路由表里静态 import 的插件页面 |
 | `legacyFeatureKeySurfaces` | **0** ✅（原 2 → 1 → 0）| 0 | 仍硬编码 19 个 `enable_*` 键的文件 |
 | `adoptedTables` | **74**（26 → … → 65 → **74**）| 0 | 仍带旧名的插件自有表（`records` 永久共享，不计入）。**P4.3b.14 的 +9 与前几轮性质不同**：不是"迁域带来的"，而是**给无主表找主人** —— 级联要删的 58 张表里有 7 张没有任何插件拥有，而"清理规则只能点名自己声明的表"（`+classroom 5` = attendance_records / leave_requests / parent_students / student_groups / point_presets，`+learning 2` = notes / rubric_point_scores），另外 admin 自己 adopt 3 张（`api_keys`/`schools` 无主 + `announcements` 从 engagement 移来，后者 -1/+1 净零）。逐表清单在 `allowances.json` 的注释里 |
@@ -1841,9 +1842,11 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 - **`in-process-restricted` 不是安全沙箱**，文档必须写明
 
 ### P7 · 清理
-- 删 `src/api/*`（31 个死文件）、15 个死 hook、7 个 `*.repository.prisma.ts`、`.tmp` 中被跟踪的 71 个文件
-- 删除 19 个 `enable_*` 列与兼容层、`api/services/featureService.ts`
-- 修正 `docs/modularization-boundary-audit.md` 里关于 `api/routes/registerModules.ts` 的失真描述
+- [x] 删 `src/api/*`（32 个模块及 19 个测试）、15 个死 hook、死组件 `AnnouncementBanner`/`TypewriterText`
+- [x] 删除 `api/prismaClient.ts` 与 `tests/kernel/fixtures/database-path-probe.mts`；数据库路径围栏保留两条真实写入路径
+- [x] `deadCode` 54 → 0；新增 `scripts/quality/{code-health,unused-exports}.mjs`、`npm run check:unused`、`npm run check:exports`、护栏 G25
+- [ ] 删除 19 个 `enable_*` 列与 schema 兼容层（需要新迁移，未在本轮做）
+- [ ] 修正 `docs/modularization-boundary-audit.md` 里关于 `api/routes/registerModules.ts` 的失真描述
 
 ---
 
@@ -1861,7 +1864,7 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | 8 | 定时任务（`provides.jobs`）在启动时被**明确拒绝**并给出原因 —— 不是静默忽略；调度器属 P6 |
 | 9 | ~~**`admin.repository.ts` 是跨域写者的最后一块**~~ → **P4.3b.14 已还**：17 个插件各一条 `ctx.cleanup` 规则，`api/modules/admin` 已删。剩下的是两处**刻意保留**的既有语义（`redemption_tickets` 只按 student 删、`blind_boxes.teacher_id` 不被清理）与一条新量出来的既有隐患（`shop_items` 与 `redemption_tickets` 的删除谓词不对称会让整笔事务失败），都在裁决文档与 `plugins/marketplace` 的注释里 |
 | 11 | **`api/db.ts` 的第二条连接**：admin 迁走后它只剩 `initDb()`（seed + 迁移）与 `api/maintenance.ts` 在用，但仍独立解析一次 `DATABASE_FILE`、独立开一条 better-sqlite3 连接。P4.3b.9 的路径围栏测试盯着"第四个读取者"，而 §1.1 的下一轮要把它收敛掉。同一处还有一个**未修的语义**：导入/重置轮换的是这条连接，内核自己那条仍然指向被替换的文件 —— `api/maintenance.ts` 的头注释写明了这个限制 |
-| 12 | **`api/prismaClient.ts` 已无运行时消费者**（只剩 `tests/kernel/database-path-alignment.test.ts`），但删它意味着同时处置那条 P4.3b.9 护栏 —— 归 P7 |
+| 12 | ~~`api/prismaClient.ts` 已无运行时消费者~~ → **P7 已删除**；`database-path-alignment.test.ts` 只保留内核与 legacy 两条真实写入路径的围栏 |
 | 10 | **`plugins/learning` 的 5 张同簇表无主**（`rubric_point_scores`/`knowledge_products`/`notes`/`note_assets`/`note_products`）：没有任何路由碰它们，所以刻意没进 `data.adopted`。P7 决定删除还是归属 |
 
 ---
@@ -1927,9 +1930,10 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 | `plugins/insights/src/insights.service.ts` | 表现层算术（四舍五入/两个比率/雷达 clamp 与阈值）；403/404 的顺序与 `praise_count` 的口径都在注释里写明 |
 | `tests/plugins/insights-service.test.ts` | 21 例；端口 fake 是**断言本身**（本域不该有自己的数据来源），覆盖每个 role 分支与雷达指标 |
 | `.tmp/engagement-smoke.mjs` | 真启动 HTTP 探针（11 条），抓到三个被"顺手修好"的状态码 |
-| `api/prismaClient.ts` | Prisma 客户端被钉在与内核相同的库文件上（显式 datasource 覆盖 `.env`），以及 `applicationDatabaseFile/Url` 两个函数 |
-| `tests/kernel/database-path-alignment.test.ts` | 两条数据路径必须同一库：规则一致性 + 真子进程验证 Prisma 实际打开的文件 + 「第四个 `DATABASE_FILE` 读取者」围栏 |
-| `tests/kernel/fixtures/database-path-probe.mts` | 上面那条子进程断言用的探针。**放在 `tests/` 而不是 `.tmp/`**：`.tmp/` 已 gitignore，第一版把它放在那里 —— 本机通过、新克隆必然失败。只在本机能跑的测试夹具不算测试 |
+| `scripts/quality/code-health.mjs` | P7 死代码/未用本地符号/无效 eslint 抑制审计；`npm run code:health[:check]` |
+| `scripts/quality/unused-exports.mjs` | 未用导出审计（排除 package 公开入口与显式测试缝）；`npm run check:exports` |
+| `tests/guardrails/no-dead-code.test.ts` | G25：不可达文件 0、`src/api` 不得重现、未用导出 0 |
+| `tests/kernel/database-path-alignment.test.ts` | 两条真实数据路径（内核 + legacy `api/db.ts`）的规则一致性与已知读取者围栏；Prisma 专用断言已随 P7 删除 |
 | `scripts/migration/probes/admin-cascade-inventory.mjs` | 量 admin 级联：58 张表 / 65 条语句 / **1 个事务** —— P4.3b.11 的原子性约束就是这么得出来的 |
 | `scripts/migration/probes/admin-cascade-fk-coverage.mjs` | 61 张表持有指向 users/classes/students 的外键，并列出级联**没**清理的那 1 张（`blind_boxes`） |
 | `scripts/migration/probes/schema-prisma-column-drift.mjs` | SQLite 有而 Prisma 模型没有的列（当前恰好 2 个）；G13 的第二个方向断言就用它的结果 |

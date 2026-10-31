@@ -38,7 +38,7 @@ function actorOf(req: Request): RequestActor {
 }
 
 /** The caller, or 401 when the request carries no verified actor. */
-export function requireActor(req: Request): RequestActor {
+function requireActor(req: Request): RequestActor {
   const actor = actorOf(req);
   if (!actor.role || actor.id === null) throw new ApiError(401, '未登录或登录已过期');
   return actor;

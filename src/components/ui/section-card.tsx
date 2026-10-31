@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  * be a hand-built `bg-white rounded-xl border p-6` box with its own heading size. The
  * `actions` slot is what makes it usable for a settings section with a save button.
  */
-export interface SectionCardProps {
+interface SectionCardProps {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;

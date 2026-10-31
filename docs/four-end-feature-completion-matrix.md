@@ -7,7 +7,7 @@ Updated: 2026-05-24 17:49 +08:00
 - Scope is the functionality already exposed by current routes, pages, API modules, and release docs.
 - Card-key activation is the production-ready account opening path for this round.
 - Payment provider configuration and service boundaries remain available for future real-channel integration, but live WeChat/Alipay collection is not part of this round.
-- Frontend business calls should enter through `src/features/*`; `src/api/*` remains a compatibility surface.
+- Frontend business calls enter through `src/features/*`; the legacy `src/api/*` compatibility surface was removed in P7.
 - Public HTTP paths remain compatible with the existing `/api/*` routes.
 
 ## Platform And Admin
@@ -53,7 +53,8 @@ Updated: 2026-05-24 17:49 +08:00
 
 ## Remaining Hardening Items
 
-- Production page/component imports from legacy `@/api/*` have been migrated to `src/features/*/api` facades; `src/api/*` now remains a compatibility surface for legacy callers and tests.
+- Production page/component imports from legacy `@/api/*` were migrated to `src/features/*/api`
+  facades; the old `src/api/*` compatibility tree and its tests were deleted in P7.
 - Keep all role guards using fresh class-feature data where a user belongs to a class.
 - Add smoke-style tests around activation, feature gating, and cross-role flows as behavior changes land.
 - Keep empty states, error states, and disabled feature states consistent across the four roles.

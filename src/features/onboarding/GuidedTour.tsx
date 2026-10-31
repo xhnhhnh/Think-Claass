@@ -54,7 +54,7 @@ const ACTION_EVENT: Partial<Record<TourAction, string>> = {
   select: 'change',
 };
 
-export function GuidedTour() {
+function GuidedTour() {
   const user = useStore((state) => state.user);
   const { shouldShow, finish } = useStartupGuide(user?.id);
 

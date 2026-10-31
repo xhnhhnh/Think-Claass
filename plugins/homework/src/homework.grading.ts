@@ -45,29 +45,6 @@ export function isObjectiveType(type: string): boolean {
   return OBJECTIVE_TYPES.has(type);
 }
 
-/** Stable string form of any answer value, as `plugins/learning` computes it. */
-export function normalizeAnswer(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value.trim();
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
-/** Parse a JSON column that may also hold plain text, as `plugins/learning` does. */
-export function parseJsonMaybe(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return trimmed;
-  }
-}
-
 /** Text comparison for blank answers: case-insensitive, whitespace-collapsed, trimmed. */
 function foldText(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -88,7 +65,7 @@ function textOf(value: HomeworkAnswerValue | undefined): string {
   return raw === undefined || raw === null ? '' : String(raw);
 }
 
-export interface GradeQuestionInput {
+interface GradeQuestionInput {
   type: HomeworkQuestionType | string;
   points: number;
   reference: HomeworkReferenceAnswer;
@@ -96,7 +73,7 @@ export interface GradeQuestionInput {
   rubric?: Array<{ label: string; points: number }>;
 }
 
-export interface GradeQuestionResult {
+interface GradeQuestionResult {
   /**
    * Null means "this grader declines to judge" - a short answer with no rubric, or an empty
    * answer that should be left to the teacher rather than silently scored 0.

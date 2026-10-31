@@ -42,7 +42,7 @@ const ENTER_OFFSET = { x: -150, y: 120 };
 /** Long enough to follow with your eye, short enough not to hold up the step. */
 const TRAVEL_SECONDS = 0.62;
 
-export interface TourCursorProps {
+interface TourCursorProps {
   rect: TargetRect | null;
   /** Changing this remounts the pointer, which is what replays the travel for the new step. */
   stepKey: string;

@@ -28,7 +28,7 @@ export interface TargetRect {
   height: number;
 }
 
-export interface TourTarget {
+interface TourTarget {
   element: HTMLElement | null;
   /** `null` until the element is found. The step renders unanchored while it is. */
   rect: TargetRect | null;
@@ -73,7 +73,7 @@ function isLaidOut(element: HTMLElement): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
-export interface UseTourTargetOptions {
+interface UseTourTargetOptions {
   /** Scroll a target into view smoothly, or instantly when the reader asked for less motion. */
   smoothScroll?: boolean;
 }

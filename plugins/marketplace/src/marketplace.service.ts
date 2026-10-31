@@ -642,14 +642,4 @@ export class MarketplaceService {
     if (gate.refusal) throw gateApiError(gate.refusal);
   }
 
-  /**
-   * Append to the shared point ledger.
-   *
-   * The pre-migration `pointsService` inserted into `records` directly; that write now
-   * goes through the port, which is the only sanctioned writer of the ledger. Types and
-   * descriptions are unchanged, so existing history and any reader keep working.
-   */
-  private async ledger(studentId: number, type: string, amount: number, description: string): Promise<void> {
-    await this.classroom.recordStudentLedgerEntry({ studentId, type, amount, description });
-  }
 }

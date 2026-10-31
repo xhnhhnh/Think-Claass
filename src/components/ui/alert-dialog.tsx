@@ -16,18 +16,7 @@ import { cn } from '@/lib/utils';
  * and moves focus to the least destructive action, which is the correct behaviour
  * for a confirmation and not something to re-implement by hand.
  */
-export const AlertDialog = {
-  Root: AlertDialogPrimitive.Root,
-  Trigger: AlertDialogPrimitive.Trigger,
-  Portal: AlertDialogPrimitive.Portal,
-  Backdrop: AlertDialogPrimitive.Backdrop,
-  Popup: AlertDialogPrimitive.Popup,
-  Title: AlertDialogPrimitive.Title,
-  Description: AlertDialogPrimitive.Description,
-  Close: AlertDialogPrimitive.Close,
-};
-
-export interface ConfirmDialogProps {
+interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: ReactNode;

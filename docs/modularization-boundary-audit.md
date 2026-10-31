@@ -2,8 +2,8 @@
 
 ## Current Module Boundary
 
-- Frontend business calls should enter through `src/features/*/api` and `src/features/*/hooks`.
-- `src/api/*` files are compatibility facades for old imports and tests; new page or component code should not add direct calls there.
+- Frontend business calls enter through `src/features/*/api` and `src/features/*/hooks`.
+- The legacy `src/api/*` compatibility facades were removed in P7; there is no second client layer.
 - Shared contracts live under `src/shared/*`; feature APIs own DTO normalization for their domain.
 
 ## Compatibility Surface

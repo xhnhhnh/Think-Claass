@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { knowledgeApi, type KnowledgeEdge, type KnowledgeNode, type Subject } from '../api/knowledgeApi';
 
-export const knowledgeKeys = {
+const knowledgeKeys = {
   subjects: ['knowledge-subjects'] as const,
   nodes: (subjectId: number | null) => ['knowledge-nodes', subjectId] as const,
   edges: (subjectId: number | null) => ['knowledge-edges', subjectId] as const,

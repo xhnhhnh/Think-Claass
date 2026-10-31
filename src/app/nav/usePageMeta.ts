@@ -45,7 +45,7 @@ export interface PageMeta {
  * the server per deployment; matching on a build-time constant is the defect that left a
  * renamed deployment's rail empty.
  */
-export function layoutPathFor(pathname: string): string | null {
+function layoutPathFor(pathname: string): string | null {
   if (pathname.startsWith('/teacher')) return '/teacher';
   if (pathname.startsWith('/student')) return '/student';
   if (pathname.startsWith('/parent')) return '/parent';

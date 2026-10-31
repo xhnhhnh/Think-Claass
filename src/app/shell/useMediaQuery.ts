@@ -27,7 +27,7 @@ import { useEffect, useState } from 'react';
  * The default is read synchronously in the initialiser, which is the one place a
  * render-time read is safe, and the effect then takes over.
  */
-export function useMediaQuery(query: string): boolean {
+function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => readMatch(query));
 
   useEffect(() => {
@@ -59,7 +59,7 @@ function readMatch(query: string): boolean {
  * screens are not importable from a config that is itself plain JavaScript, and a
  * shared constant that drifts from the config is worse than a literal next to a note.
  */
-export const DESKTOP_QUERY = '(min-width: 1024px)';
+const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /** True on a viewport where the shell draws the rail instead of the dock. */
 export function useIsDesktop(): boolean {

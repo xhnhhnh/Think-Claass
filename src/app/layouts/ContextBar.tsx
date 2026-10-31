@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
  *   putting it in the rail put it in the one place that disappears when the rail is
  *   collapsed.
  */
-export interface ContextBarProps {
+interface ContextBarProps {
   meta: PageMeta;
   /** The console's home, for the rail-collapse control's absence on mobile. */
   homePath: string;

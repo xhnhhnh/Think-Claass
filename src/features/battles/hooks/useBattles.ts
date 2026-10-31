@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { battlesApi } from '../api/battlesApi';
 
-export const battleKeys = {
+const battleKeys = {
   teacher: (classId: number | null) => ['teacher-battles', classId] as const,
   stats: (battleId: number | null) => ['battle-stats', battleId] as const,
 };

@@ -85,7 +85,7 @@ function count(db: DbApi, sql: string, params: Array<string | number> = []): num
   return row?.n ?? 0;
 }
 
-export interface AdminRepositoryOptions {
+interface AdminRepositoryOptions {
   ctx: KernelContext;
 }
 

@@ -84,7 +84,7 @@ export function MobileBar({
  * carrying four controls, and because "the rest of the menu" is a navigation action, not
  * a settings one.
  */
-export interface DockItem {
+interface DockItem {
   path: string;
   label: string;
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;

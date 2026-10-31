@@ -27,7 +27,7 @@ import type { DbApi, SqlParam } from '@thinkclass/plugin-sdk';
 
 import type { StudyAnswerRow, StudyItemRow, StudySetBundle, StudySetRow } from './ai-study.types.js';
 
-export interface NewItem {
+interface NewItem {
   questionId: number;
   orderNo: number;
   reason: string;
@@ -36,7 +36,7 @@ export interface NewItem {
   aiRanked: boolean;
 }
 
-export interface NewSet {
+interface NewSet {
   studentId: number;
   classId: number | null;
   subjectId: number | null;

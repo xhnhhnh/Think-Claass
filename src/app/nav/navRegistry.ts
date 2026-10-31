@@ -39,7 +39,7 @@ import { isFeatureRequirementEnabled, type FeatureRequirement } from '@/lib/feat
  * descending literal-segment count before the first match is taken.
  */
 
-export interface NavItem {
+interface NavItem {
   path: string;
   label: string;
   icon: LucideIcon;
@@ -86,7 +86,7 @@ function segments(path: string): string[] {
 }
 
 /** Does a route pattern match a concrete pathname? A parameter segment matches one segment. */
-export function matchesRoute(pattern: string, pathname: string): boolean {
+function matchesRoute(pattern: string, pathname: string): boolean {
   const patternSegments = segments(pattern);
   const pathSegments = segments(pathname);
 
@@ -231,21 +231,4 @@ export function matchNavItem(layoutPath: string, pathname: string): NavItem | un
   return navItems(layoutPath)
     .filter((item) => matchesRoute(item.path, pathname))
     .sort((a, b) => countLiterals(b.path) - countLiterals(a.path))[0];
-}
-
-/**
- * The page's own title for a pathname, or `undefined` when the page is not a
- * destination.
- *
- * The caller decides the fallback, because the honest fallback differs: a rail entry
- * for a detail view is the rail's own label, while the admin console's unlabelled
- * pages fall back to the console's name.
- */
-export function titleFor(layoutPath: string, pathname: string): string | undefined {
-  return matchNavItem(layoutPath, pathname)?.label;
-}
-
-/** The rail sections declared for a layout, before feature flags are applied. */
-export function navGroupDefinitions(layoutPath: string): NavGroup[] {
-  return groupsFor(layoutPath);
 }

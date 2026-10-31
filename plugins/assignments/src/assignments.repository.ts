@@ -47,7 +47,7 @@ export interface AssignmentScope {
  * score is a number attached to an id, and the page that renders it has to ask a staff-only
  * route what the exam was called.
  */
-export interface StudentExamRow {
+interface StudentExamRow {
   id: number;
   student_id: number;
   exam_id: number;

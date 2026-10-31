@@ -5,7 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
+
   type ReactNode,
 } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -60,7 +60,7 @@ export interface Command {
 }
 
 /** What a page registers. Narrower than `Command`: a page does not choose its own group. */
-export interface PageCommand {
+interface PageCommand {
   id: string;
   label: string;
   icon?: LucideIcon;
@@ -165,12 +165,6 @@ export function useCommandRunner(): (id: string) => void {
   );
 }
 
-/** The command a registered id currently resolves to. Used for the palette's disabled state. */
-export function useCommandLookup(): (id: string) => PageCommand | undefined {
-  const { pageCommands } = useContext(CommandRegistryContext);
-  return useCallback((id: string) => pageCommands().find((command) => command.id === id), [pageCommands]);
-}
-
 /**
  * Register a page's own commands with the palette.
  *
@@ -204,7 +198,6 @@ export function useRegisterPageCommands(commands: PageCommand[]): void {
     register(commands);
     return () => register([]);
     // `key` is the structural identity of `commands`; `register` is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, register]);
 }
 

@@ -25,7 +25,7 @@ import { ApiError, getRequestContext } from '@thinkclass/kernel';
 import type { Request } from 'express';
 
 /** The caller as this domain uses it. `studentId`/`classId` come from the host's scope resolver. */
-export interface PetActor {
+interface PetActor {
   id: number | null;
   role: string | null;
   studentId?: number;
@@ -35,7 +35,7 @@ export interface PetActor {
 const STAFF_ADMIN = ['admin', 'superadmin'];
 
 /** Read the verified actor. Never falls back to headers. */
-export function actorOf(req: Request): PetActor {
+function actorOf(req: Request): PetActor {
   const { actor } = getRequestContext(req);
   if (!actor) return { id: null, role: null };
   return { id: actor.userId, role: actor.role, studentId: actor.studentId, classId: actor.classId };

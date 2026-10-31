@@ -35,8 +35,6 @@ import { WechatService } from './wechat.service.js';
 
 const providers: Provider[] = [];
 
-let service: WechatService | null = null;
-
 export default definePlugin({
   controllers: [WechatController],
   providers,
@@ -52,7 +50,6 @@ export default definePlugin({
       gateway: () => createGatewayFromConfig(ctx),
     });
 
-    service = instance;
     providers.push({ provide: WechatService, useValue: instance });
 
     /**
@@ -77,7 +74,6 @@ export default definePlugin({
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

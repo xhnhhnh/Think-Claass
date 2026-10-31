@@ -44,7 +44,7 @@ function formatConfidence(confidence: number | null | undefined): string {
  * route exists but nothing on this page uses it, so a single 判分 click can only ever touch the
  * paper in front of the teacher.
  */
-export interface AiGradePanelProps {
+interface AiGradePanelProps {
   homeworkId: number;
   submissionId: number;
   /** For 第 N 题 labels. Without it a line falls back to the raw question id. */

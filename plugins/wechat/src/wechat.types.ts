@@ -37,12 +37,6 @@ export interface WechatCodeSession {
   unionid: string | null;
 }
 
-/** A freshly minted ticket, before it is handed to the client. */
-export interface IssuedTicket {
-  ticket: string;
-  expiresAt: string;
-}
-
 export function toBindingSnapshot(row: WechatAccountRow): WechatBindingSnapshot {
   return {
     openid: row.openid,

@@ -19,7 +19,7 @@ const TONES = {
   danger: 'bg-danger-soft text-danger-ink',
 } as const;
 
-export interface KpiItem {
+interface KpiItem {
   label: ReactNode;
   value: ReactNode;
   icon?: LucideIcon;

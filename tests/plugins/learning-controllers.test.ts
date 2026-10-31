@@ -171,8 +171,8 @@ describe('learning controllers: the data envelope', () => {
 
     // ...and each one really did reach its service method.
     expect(service.savePaperAnswers).toHaveBeenCalledTimes(1);
-    expect(service.deleteKnowledgeNode).toHaveBeenCalledWith({ id: 7, role: 'teacher' }, '11');
-    expect(service.deleteKnowledgeEdge).toHaveBeenCalledWith({ id: 7, role: 'teacher' }, '21');
+    expect(service.deleteKnowledgeNode).toHaveBeenCalledWith('11');
+    expect(service.deleteKnowledgeEdge).toHaveBeenCalledWith('21');
     expect(service.attemptWrongQuestion).toHaveBeenCalledTimes(1);
   });
 });
@@ -466,10 +466,10 @@ describe('learning controllers: errors', () => {
     const nodeError = await apiErrorOf(() => knowledge.deleteNode(staff, '999'));
     expect(nodeError.statusCode).toBe(500);
     expect(nodeError.message).toBe('knowledge_nodes.delete failed: no matching record');
-    expect(service.deleteKnowledgeNode).toHaveBeenCalledWith({ id: 7, role: 'teacher' }, '999');
+    expect(service.deleteKnowledgeNode).toHaveBeenCalledWith('999');
 
     const edgeError = await apiErrorOf(() => knowledge.deleteEdge(staff, '999'));
     expect(edgeError.statusCode).toBe(500);
-    expect(service.deleteKnowledgeEdge).toHaveBeenCalledWith({ id: 7, role: 'teacher' }, '999');
+    expect(service.deleteKnowledgeEdge).toHaveBeenCalledWith('999');
   });
 });

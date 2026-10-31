@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
  * control feel like one control rather than N buttons.
  */
 
-export interface SegmentedOption<T extends string> {
+interface SegmentedOption<T extends string> {
   value: T;
   label: React.ReactNode;
   /** Optional count badge - a tag count, a pending count. */
@@ -29,7 +29,7 @@ export interface SegmentedOption<T extends string> {
   disabled?: boolean;
 }
 
-export interface SegmentedProps<T extends string> {
+interface SegmentedProps<T extends string> {
   options: Array<SegmentedOption<T>>;
   value: T;
   onChange: (value: T) => void;

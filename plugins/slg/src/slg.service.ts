@@ -263,14 +263,4 @@ export class SlgService {
     if (gate.refusal) throw toApiError(gate.refusal);
   }
 
-  /**
-   * Append to the shared point ledger.
-   *
-   * Not fatal: the balance has already moved, and a missing history row is a smaller
-   * problem than a contribution reporting failure after it succeeded. It is logged by
-   * the boundary, so a failure is visible rather than silent.
-   */
-  private async ledger(studentId: number, type: string, amount: number, description: string): Promise<void> {
-    await this.classroom.recordStudentLedgerEntry({ studentId, type, amount, description });
-  }
 }

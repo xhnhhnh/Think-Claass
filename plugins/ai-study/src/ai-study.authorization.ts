@@ -31,9 +31,6 @@ export interface AiStudyActor {
   classId?: number;
 }
 
-/** Roles that own a class's teaching surface. */
-export const STAFF = ['teacher', 'admin', 'superadmin'];
-
 /** The admin console, which reaches every class. */
 const STAFF_ADMIN = ['admin', 'superadmin'];
 
@@ -44,7 +41,7 @@ const STAFF_ADMIN = ['admin', 'superadmin'];
  * the port maps it to the `classroom.enable_ai_study` capability and falls back to the
  * `classes.enable_ai_study` column.
  */
-export const FEATURE_KEY = 'enable_ai_study';
+const FEATURE_KEY = 'enable_ai_study';
 
 /**
  * The port's refusal codes, mapped to the statuses the rest of the API answers with.
@@ -54,7 +51,7 @@ export const FEATURE_KEY = 'enable_ai_study';
  * the classroom domain already uses, so a class with the feature switched off reads the same here as
  * it does in every other feature plugin.
  */
-export function refusalToApiError(refusal: ClassroomRefusal): ApiError {
+function refusalToApiError(refusal: ClassroomRefusal): ApiError {
   switch (refusal?.code) {
     case 'feature-disabled':
       return new ApiError(403, '该功能当前已关闭');
@@ -68,14 +65,14 @@ export function refusalToApiError(refusal: ClassroomRefusal): ApiError {
 }
 
 /** Read the verified actor. Never falls back to headers. */
-export function actorOf(req: Request): AiStudyActor {
+function actorOf(req: Request): AiStudyActor {
   const { actor } = getRequestContext(req);
   if (!actor) return { id: null, role: null };
   return { id: actor.userId, role: actor.role, studentId: actor.studentId, classId: actor.classId };
 }
 
 /** 401 unless the request carries a verified actor. */
-export function requireActor(req: Request): AiStudyActor {
+function requireActor(req: Request): AiStudyActor {
   const actor = actorOf(req);
   if (!actor.role || actor.id === null) throw new ApiError(401, '未登录或登录已过期');
   return actor;

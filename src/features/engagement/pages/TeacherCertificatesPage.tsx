@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useStore } from '@/store/useStore';
 import { Award, Plus, Calendar, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -54,7 +53,6 @@ interface Certificate {
  * so the close button, the focus trap and the entrance animation are not re-invented.
  */
 export default function TeacherCertificates() {
-  const user = useStore((state) => state.user);
   const [students, setStudents] = useState<Student[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +133,7 @@ export default function TeacherCertificates() {
     }
   };
 
-  const filteredCerts = certificates.filter(cert => 
+  const filteredCerts = certificates.filter(cert =>
     cert.student_name.includes(searchTerm) || cert.title.includes(searchTerm)
   );
 

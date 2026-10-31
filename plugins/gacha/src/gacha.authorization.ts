@@ -40,7 +40,7 @@ export interface RequestActor {
 }
 
 /** The caller as the kernel's verified request context resolved them, or null when anonymous. */
-export function actorOf(req: Request): RequestActor | null {
+function actorOf(req: Request): RequestActor | null {
   const actor = getRequestContext(req).actor;
   if (!actor) return null;
   return {

@@ -23,7 +23,7 @@ import type { DbApi, SqlParam } from '@thinkclass/plugin-sdk';
 import type { ActivationCodeRow, ActivationEventRow, UserRow } from './identity.types.js';
 
 /** A `users` row as the admin console's credential check reads it (`admin.repository.ts:598-610`). */
-export interface AdminCredentialRow {
+interface AdminCredentialRow {
   id: number;
   role: string;
   username: string;
@@ -62,7 +62,7 @@ export interface ActivationEventSummaryRow {
 }
 
 /** A superadmin row preserved across a database reset (`admin.repository.ts:1009-1027`). */
-export interface SuperadminRow {
+interface SuperadminRow {
   id: number;
   username: string;
   password_hash: string;

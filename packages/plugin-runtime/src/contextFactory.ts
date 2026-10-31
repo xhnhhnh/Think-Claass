@@ -15,7 +15,7 @@ import childProcess from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 
-import type { EventTopic, PermissionDeclaration, ServiceContracts, ServiceName } from '@thinkclass/contracts';
+import type { EventTopic, PermissionDeclaration } from '@thinkclass/contracts';
 import type {
   Database,
   KernelConfig,
@@ -97,13 +97,6 @@ export interface ContextFactoryDeps {
   mountedRouters: MountedRouter[];
   /** Topic pattern matcher for declared event subscriptions. */
   strict: boolean;
-}
-
-/** Does `pattern` (possibly a `prefix.*` wildcard) cover `topic`? */
-function topicMatches(pattern: string, topic: string): boolean {
-  if (pattern === '*' || pattern === topic) return true;
-  if (pattern.endsWith('.*')) return topic.startsWith(pattern.slice(0, -1));
-  return false;
 }
 
 function pathMatchesBase(path: string, base: string): boolean {
@@ -444,7 +437,7 @@ export function createPluginContext(plugin: DiscoveredPlugin, deps: ContextFacto
     },
 
     tryUse(name) {
-      return deps.services.tryUse(manifest.id, name);
+      return deps.services.tryUse(name);
     },
 
     onStop(callback) {

@@ -39,7 +39,7 @@ export interface PluginMigrationOutcome {
   error: string | null;
 }
 
-export interface RunPluginMigrationsOptions {
+interface RunPluginMigrationsOptions {
   db: Database;
   plugin: DiscoveredPlugin;
   logger?: Logger;

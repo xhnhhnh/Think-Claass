@@ -11,7 +11,7 @@ import type { HomeworkAnswerValue, HomeworkQuestion } from '@thinkclass/contract
 import { QUESTION_TYPE_LABEL } from './QuestionEditor';
 
 /** The text of one option id, or the id itself when it no longer exists. */
-export function optionText(question: HomeworkQuestion, optionId: string): string {
+function optionText(question: HomeworkQuestion, optionId: string): string {
   return question.options.find((option) => option.id === optionId)?.text || optionId;
 }
 
@@ -48,7 +48,7 @@ export function summariseAnswer(question: HomeworkQuestion, value: HomeworkAnswe
  * `short` is a `Textarea`. Nothing here writes its own input element, and no colour is named
  * outside the tokens.
  */
-export interface QuestionRendererProps {
+interface QuestionRendererProps {
   question: HomeworkQuestion;
   value?: HomeworkAnswerValue;
   onChange?: (value: HomeworkAnswerValue) => void;

@@ -26,7 +26,7 @@ export interface Crumb {
   to?: string;
 }
 
-export interface BreadcrumbsProps {
+interface BreadcrumbsProps {
   items: Crumb[];
   className?: string;
   /** Rendered before the trail - the "back to the area" affordance. */

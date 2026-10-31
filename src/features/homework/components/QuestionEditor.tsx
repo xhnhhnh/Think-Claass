@@ -15,7 +15,7 @@ import type {
 } from '@thinkclass/contracts/domains/homework';
 
 /** The four types, in the order the editor offers them. */
-export const QUESTION_TYPE_OPTIONS: Array<{ value: HomeworkQuestionType; label: string }> = [
+const QUESTION_TYPE_OPTIONS: Array<{ value: HomeworkQuestionType; label: string }> = [
   { value: 'single', label: '单选' },
   { value: 'multiple', label: '多选' },
   { value: 'blank', label: '填空' },
@@ -56,17 +56,17 @@ function defaultOptions(): HomeworkOption[] {
 }
 
 /** A blank question, for the 添加题目 button. */
-export function emptyQuestion(): HomeworkQuestionPayload {
+function emptyQuestion(): HomeworkQuestionPayload {
   return { type: 'single', stem: '', options: defaultOptions(), reference: { choice: [] }, points: 5, explanation: null };
 }
 
 /** 参考答案 stored for a `blank` question, as the composer asks for it: one string. */
-export function formatAcceptList(accept: string[] | undefined): string {
+function formatAcceptList(accept: string[] | undefined): string {
   return (accept ?? []).join('、');
 }
 
 /** `、`, `,` and `，` all separate accepted answers; empty entries are dropped. */
-export function parseAcceptList(text: string): string[] {
+function parseAcceptList(text: string): string[] {
   return text
     .split(/[、,，]/)
     .map((entry) => entry.trim())
@@ -84,7 +84,7 @@ export function parseAcceptList(text: string): string[] {
  * The controls are the kit's throughout: `Select` for the type, `Input`/`Textarea` for the text,
  * `Checkbox` for the correct answers of a multi-select, `Button` for every action.
  */
-export interface QuestionEditorProps {
+interface QuestionEditorProps {
   questions: HomeworkQuestionPayload[];
   onChange: (questions: HomeworkQuestionPayload[]) => void;
   /** A `legacy: true` homework is read-only: the backend 404s a write to it. */

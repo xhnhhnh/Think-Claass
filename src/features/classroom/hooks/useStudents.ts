@@ -6,7 +6,7 @@ import type { StudentDto } from '@thinkclass/contracts/domains/classroom';
 
 export type Student = StudentDto;
 
-export const classroomQueryKeys = {
+const classroomQueryKeys = {
   students: (classId: number | string | null) => ['students', classId] as const,
   student: (studentId: number | null) => ['student', studentId] as const,
   records: (params: { studentId?: number; teacherId?: number }) => ['student-records', params] as const,
@@ -56,18 +56,6 @@ export function useStudentAchievements(studentId: number | null) {
       if (!studentId) return [];
       const data = await studentsApi.getAchievements(studentId);
       return data.achievements;
-    },
-    enabled: !!studentId,
-  });
-}
-
-export function usePendingPeerReviews(studentId: number | null) {
-  return useQuery({
-    queryKey: classroomQueryKeys.pendingPeerReviews(studentId),
-    queryFn: async () => {
-      if (!studentId) return [];
-      const data = await studentsApi.getPendingPeerReviews(studentId);
-      return data.pending;
     },
     enabled: !!studentId,
   });

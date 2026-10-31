@@ -416,16 +416,6 @@ export class EconomyService {
     if (gate.refusal) throw toApiError(gate.refusal);
   }
 
-  /**
-   * Append to the shared point ledger.
-   *
-   * Not fatal: the balance has already moved, and a missing history row is a smaller
-   * problem than a money operation reporting failure after it succeeded. It is logged
-   * by the boundary, so a failure is visible rather than silent.
-   */
-  private async ledger(studentId: number, type: string, amount: number, description: string): Promise<void> {
-    await this.classroom.recordStudentLedgerEntry({ studentId, type, amount, description });
-  }
 
   private getStockOrThrow(stockId: number) {
     const stock = this.repository.getStock(stockId);

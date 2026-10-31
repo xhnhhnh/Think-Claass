@@ -17,5 +17,3 @@ export const CELEBRATION = {
   blaze: ['#ff0000', '#ff7700', '#ffff00'],
   cool: ['#38bdf8', '#34d399', '#a78bfa'],
 } as const;
-
-export type CelebrationPalette = keyof typeof CELEBRATION;

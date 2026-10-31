@@ -37,8 +37,6 @@ import { IdentityService } from './identity.service.js';
 
 const providers: Provider[] = [];
 
-let service: IdentityService | null = null;
-
 export default definePlugin({
   controllers: [IdentityController],
   providers,
@@ -54,7 +52,6 @@ export default definePlugin({
       parentBuff: () => ctx.tryUse('parent_buff.public'),
     });
 
-    service = instance;
     providers.push({ provide: IdentityService, useValue: instance });
 
     /**
@@ -159,7 +156,6 @@ export default definePlugin({
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

@@ -44,7 +44,7 @@ const ALIGN = {
   right: 'text-right',
 } as const;
 
-export interface DataTableProps<T> {
+interface DataTableProps<T> {
   columns: Array<DataTableColumn<T>>;
   rows: T[];
   getRowKey: (row: T, index: number) => string | number;

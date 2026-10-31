@@ -39,7 +39,7 @@ import type { KernelContext } from '@thinkclass/plugin-sdk';
 
 import type { ReportActor } from './insights.types.js';
 
-export interface InsightsServiceDeps {
+interface InsightsServiceDeps {
   ctx: KernelContext;
   classroom: ClassroomPort;
   /**

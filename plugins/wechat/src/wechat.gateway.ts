@@ -25,7 +25,7 @@ export interface WechatGateway {
   exchangeCode(code: string): Promise<WechatCodeSession>;
 }
 
-export interface WechatGatewayCredentials {
+interface WechatGatewayCredentials {
   appId: string;
   secret: string;
 }

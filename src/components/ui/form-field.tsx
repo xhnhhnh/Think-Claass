@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
  * and turn `getByLabelText('股票名称')` into a miss. The visual affordance stays,
  * the accessible name does not move.
  */
-export interface FormFieldProps {
+interface FormFieldProps {
   label: ReactNode;
   children: ReactNode;
   required?: boolean;

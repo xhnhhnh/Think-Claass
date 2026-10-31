@@ -54,7 +54,7 @@ export interface SessionService {
   prune(now?: Date): number;
 }
 
-export interface SessionServiceOptions {
+interface SessionServiceOptions {
   db: Database;
   logger?: Logger;
 }

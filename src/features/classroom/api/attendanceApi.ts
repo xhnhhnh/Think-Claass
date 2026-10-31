@@ -37,7 +37,7 @@ export interface SaveAttendancePayload {
   records: SaveAttendanceRecordPayload[];
 }
 
-export interface AttendanceResponse {
+interface AttendanceResponse {
   success: true;
   data: AttendanceRow[];
 }

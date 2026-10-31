@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  * shapes are supported here, and the input gets an accessible name instead of relying on
  * the button that happens to trigger it.
  */
-export interface FileInputProps extends Omit<React.ComponentProps<'input'>, 'type'> {
+interface FileInputProps extends Omit<React.ComponentProps<'input'>, 'type'> {
   /** Required: a hidden input has no visible label to borrow a name from. */
   label: string;
 }

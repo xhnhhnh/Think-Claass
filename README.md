@@ -211,8 +211,9 @@ ran before the default changed, and the only symptom was the business surface: `
 entry) goes through the same `createApp()`, so a serverless deployment was exposed the same way.
 
 `DATABASE_URL` is **not** the runtime switch. The Prisma CLI reads it from `.env`; the application
-resolves `DATABASE_FILE` ([`packages/kernel/src/config/loadConfig.ts`](packages/kernel/src/config/loadConfig.ts)),
-and `api/prismaClient.ts` passes that same file to Prisma explicitly so the two cannot diverge.
+resolves `DATABASE_FILE` ([`packages/kernel/src/config/loadConfig.ts`](packages/kernel/src/config/loadConfig.ts)).
+The Prisma runtime client was removed in P7, so there is no second data path. `prisma/schema.prisma`
+is kept for the schema-drift guardrail and for `prisma generate` during deployment.
 
 ## Scripts
 
@@ -231,6 +232,9 @@ and `api/prismaClient.ts` passes that same file to Prisma explicitly so the two 
 | `npm run test:backend` | Kernel and server-side suites (node), including a real plugin host |
 | `npm run test:e2e` | The composed application over real HTTP: every endpoint, by role |
 | `npm run guard` | Guardrail suite only |
+| `npm run check:unused` | Fail on unused locals/imports/parameters, dead app files or unused suppressions |
+| `npm run check:exports` | Fail on an exported declaration with no consumer |
+| `npm run code:health` | Full code-health report (dead files, unused locals, unused eslint suppressions) |
 | `npm run auth:audit` | Per-controller authorization inventory, reconciled against the endpoint snapshot |
 | `npm run api:surface:check` | Fail if the HTTP surface drifted |
 | `npm run measure` | Migration ratchets: endpoints, dead code, adopted tables |
@@ -368,8 +372,8 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 
 ## Development guidelines
 
-- New frontend business code enters through `src/features/<domain>`. Legacy `src/api/*` files remain
-  as compatibility facades.
+- New frontend business code enters through `src/features/<domain>`. The old `src/api/*`
+  compatibility layer was deleted in P7; there is one client path per domain now.
 - A new backend domain is a new `plugins/<slug>` with a manifest, not a new directory under `api/`.
 - Keep cross-domain access on published ports (`ctx.use` / `ctx.tryUse`), and keep public HTTP paths
   stable.
@@ -382,8 +386,8 @@ downloads the archive, verifies the checksum, restarts the PM2 service and appen
 
 ## Compatibility notes
 
-- Legacy backend paths remain available as fallbacks, and legacy frontend imports through
-  `src/api/*` keep working.
+- Legacy backend paths remain available as fallbacks and as a published HTTP contract. The frontend
+  no longer imports `src/api/*`; that compatibility layer and its tests were removed in P7.
 - Payment flows stay compatible with the existing provider and mock behaviour.
 - The known non-blocking build warning is Vite's large-chunk warning; route-level code splitting is
   deliberately a separate performance project.

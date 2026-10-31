@@ -590,7 +590,7 @@ export class LearningService {
     return this.repository.listSubjects();
   }
 
-  createSubject(actor: Actor, input: Record<string, any>) {
+  createSubject(input: Record<string, any>) {
     const { name, stage, grade } = input ?? {};
     if (!name || typeof name !== 'string') throw new ApiError(400, 'Missing name');
 
@@ -608,7 +608,7 @@ export class LearningService {
     return this.repository.listKnowledgeNodes(subjectIdNum);
   }
 
-  createKnowledgeNode(actor: Actor, input: Record<string, any>) {
+  createKnowledgeNode(input: Record<string, any>) {
     const { subject_id, name, code, parent_id, importance } = input ?? {};
     const subjectIdNum = Number(subject_id);
     if (!Number.isFinite(subjectIdNum)) throw new ApiError(400, 'Missing or invalid subject_id');
@@ -623,7 +623,7 @@ export class LearningService {
     });
   }
 
-  updateKnowledgeNode(actor: Actor, idInput: string, input: Record<string, any>) {
+  updateKnowledgeNode(idInput: string, input: Record<string, any>) {
     const idNum = Number(idInput);
     if (!Number.isFinite(idNum)) throw new ApiError(400, 'Invalid id');
     const { name, code, parent_id, importance } = input ?? {};
@@ -636,7 +636,7 @@ export class LearningService {
     });
   }
 
-  deleteKnowledgeNode(actor: Actor, idInput: string) {
+  deleteKnowledgeNode(idInput: string) {
     const idNum = Number(idInput);
     if (!Number.isFinite(idNum)) throw new ApiError(400, 'Invalid id');
     this.repository.deleteKnowledgeNode(idNum);
@@ -649,7 +649,7 @@ export class LearningService {
     return this.repository.listKnowledgeEdges(subjectIdNum);
   }
 
-  createKnowledgeEdge(actor: Actor, input: Record<string, any>) {
+  createKnowledgeEdge(input: Record<string, any>) {
     const { subject_id, from_node_id, to_node_id, edge_type, weight } = input ?? {};
 
     const subjectIdNum = Number(subject_id);
@@ -669,7 +669,7 @@ export class LearningService {
     });
   }
 
-  deleteKnowledgeEdge(actor: Actor, idInput: string) {
+  deleteKnowledgeEdge(idInput: string) {
     const idNum = Number(idInput);
     if (!Number.isFinite(idNum)) throw new ApiError(400, 'Invalid id');
     this.repository.deleteKnowledgeEdge(idNum);

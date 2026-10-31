@@ -20,7 +20,7 @@ const TONES = {
   destructive: 'bg-danger-soft text-danger-ink',
 } as const;
 
-export interface StatCardProps {
+interface StatCardProps {
   label: ReactNode;
   value: ReactNode;
   icon?: LucideIcon;

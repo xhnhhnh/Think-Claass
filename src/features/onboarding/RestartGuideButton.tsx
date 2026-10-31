@@ -21,7 +21,7 @@ import { requestReplay } from './startupGuideStore';
  * know whose account it is - which also keeps it renderable from a test that mocks the store with a
  * different shape.
  */
-export interface RestartGuideButtonProps extends VariantProps<typeof buttonVariants> {
+interface RestartGuideButtonProps extends VariantProps<typeof buttonVariants> {
   className?: string;
 }
 

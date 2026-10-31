@@ -49,7 +49,7 @@ export function isInsideRoleShell(pathname: string): boolean {
   );
 }
 
-export interface StartupGuideState {
+interface StartupGuideState {
   /** Render the guide. */
   shouldShow: boolean;
   /** Close it: record the account as having seen it, and drop any pending replay request. */

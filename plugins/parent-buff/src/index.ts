@@ -28,8 +28,6 @@ import { ParentBuffService } from './parentBuff.service.js';
 
 const providers: Provider[] = [];
 
-let service: ParentBuffService | null = null;
-
 export default definePlugin({
   controllers: [ParentBuffController],
   providers,
@@ -43,7 +41,6 @@ export default definePlugin({
     const classroom = ctx.use('classroom.public');
 
     const instance = new ParentBuffService(createParentBuffRepository(ctx.db), classroom);
-    service = instance;
     providers.push({ provide: ParentBuffService, useValue: instance });
 
     /**
@@ -75,7 +72,6 @@ export default definePlugin({
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

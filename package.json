@@ -53,7 +53,11 @@
     "homework:migrate": "node scripts/migration/homework-migrate.mjs",
     "homework:migrate:dry": "node scripts/migration/homework-migrate.mjs --dry-run",
     "sweep:verify": "node scripts/verification/sweep-browser.mjs",
-    "miniprogram:check": "tsc --noEmit -p miniprogram/tsconfig.json"
+    "miniprogram:check": "tsc --noEmit -p miniprogram/tsconfig.json",
+    "code:health": "node scripts/quality/code-health.mjs",
+    "code:health:check": "node scripts/quality/code-health.mjs --check",
+    "check:unused": "node scripts/quality/code-health.mjs --skip-eslint --check",
+    "check:exports": "node scripts/quality/unused-exports.mjs --check"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

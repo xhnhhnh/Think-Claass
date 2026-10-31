@@ -27,8 +27,6 @@ import { PaymentService } from './payment.service.js';
 
 const providers: Provider[] = [];
 
-let service: PaymentService | null = null;
-
 export default definePlugin({
   controllers: [PaymentController],
   providers,
@@ -42,7 +40,6 @@ export default definePlugin({
       identity: () => ctx.tryUse('identity.public'),
     });
 
-    service = instance;
     providers.push({ provide: PaymentService, useValue: instance });
 
     // Account deletion: this plugin deletes its own rows when a teacher account is erased
@@ -62,7 +59,6 @@ export default definePlugin({
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

@@ -13,7 +13,7 @@ import type { Request } from 'express';
 import type { ApiSuccessResponse } from '@thinkclass/contracts/domains/admin';
 import { ApiError, type RequestContext } from '@thinkclass/kernel';
 
-export interface RequestActor {
+interface RequestActor {
   id: number | null;
   role: string | null;
 }
@@ -34,7 +34,7 @@ export function ok<T>(data: T, message?: string): ApiSuccessResponse<T> {
  * anonymous. When the middleware *did* run its verdict is final - including "anonymous" - which is
  * what stops a forged header from working on the routes the bridge was switched off for.
  */
-export function actorOf(req: Request): RequestActor {
+function actorOf(req: Request): RequestActor {
   const context = (req as Request & { context?: RequestContext }).context;
 
   if (context) {

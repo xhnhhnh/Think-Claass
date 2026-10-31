@@ -42,8 +42,6 @@ import { EngagementService } from './engagement.service.js';
 
 const providers: Provider[] = [];
 
-let service: EngagementService | null = null;
-
 export default definePlugin({
   controllers: [
     AnnouncementsController,
@@ -70,7 +68,6 @@ export default definePlugin({
       pet: () => ctx.tryUse('pet.public'),
     });
 
-    service = instance;
     providers.push({ provide: EngagementService, useValue: instance });
 
     /**
@@ -105,7 +102,6 @@ export default definePlugin({
   },
 
   async onStop() {
-    service = null;
     providers.length = 0;
   },
 });

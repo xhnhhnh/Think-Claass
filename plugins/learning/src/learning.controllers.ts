@@ -175,8 +175,8 @@ export class KnowledgeController {
 
   @Post('subjects')
   async createSubject(@Req() req: Request, @Body() body: Record<string, any>) {
-    const actor = requireActorRole(req, STAFF);
-    return ok(this.learningService.createSubject(actor, body));
+    requireActorRole(req, STAFF);
+    return ok(this.learningService.createSubject(body));
   }
 
   @Get('nodes')
@@ -187,20 +187,20 @@ export class KnowledgeController {
 
   @Post('nodes')
   async createNode(@Req() req: Request, @Body() body: Record<string, any>) {
-    const actor = requireActorRole(req, STAFF);
-    return ok(this.learningService.createKnowledgeNode(actor, body));
+    requireActorRole(req, STAFF);
+    return ok(this.learningService.createKnowledgeNode(body));
   }
 
   @Put('nodes/:id')
   async updateNode(@Req() req: Request, @Param('id') id: string, @Body() body: Record<string, any>) {
-    const actor = requireActorRole(req, STAFF);
-    return ok(this.learningService.updateKnowledgeNode(actor, id, body));
+    requireActorRole(req, STAFF);
+    return ok(this.learningService.updateKnowledgeNode(id, body));
   }
 
   @Delete('nodes/:id')
   async deleteNode(@Req() req: Request, @Param('id') id: string) {
-    const actor = requireActorRole(req, STAFF);
-    this.learningService.deleteKnowledgeNode(actor, id);
+    requireActorRole(req, STAFF);
+    this.learningService.deleteKnowledgeNode(id);
     return { success: true };
   }
 
@@ -212,14 +212,14 @@ export class KnowledgeController {
 
   @Post('edges')
   async createEdge(@Req() req: Request, @Body() body: Record<string, any>) {
-    const actor = requireActorRole(req, STAFF);
-    return ok(this.learningService.createKnowledgeEdge(actor, body));
+    requireActorRole(req, STAFF);
+    return ok(this.learningService.createKnowledgeEdge(body));
   }
 
   @Delete('edges/:id')
   async deleteEdge(@Req() req: Request, @Param('id') id: string) {
-    const actor = requireActorRole(req, STAFF);
-    this.learningService.deleteKnowledgeEdge(actor, id);
+    requireActorRole(req, STAFF);
+    this.learningService.deleteKnowledgeEdge(id);
     return { success: true };
   }
 }

@@ -12,7 +12,7 @@
  * classroom is absent, for no reason.
  */
 
-import type { KernelContext } from '@thinkclass/plugin-sdk';
+import type {  } from '@thinkclass/plugin-sdk';
 
 import type { ArticleQuery, LegacyResult, PortalRepository } from './portal.types.js';
 

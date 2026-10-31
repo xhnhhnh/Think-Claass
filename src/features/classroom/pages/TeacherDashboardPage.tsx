@@ -9,7 +9,6 @@ import {
   Dice5,
   Edit2,
   Minus,
-  Network,
   Plus,
   PlusCircle,
   Search,
@@ -60,7 +59,7 @@ import { EditStudentsModal } from '@/pages/Teacher/components/EditStudentsModal'
 import { AIRadarModal } from '@/pages/Teacher/components/AIRadarModal';
 import ClassFeaturePanel from '@/pages/Teacher/components/ClassFeaturePanel';
 import { IncentivePolicyPanel } from '@/features/classroom/components/IncentivePolicyPanel';
-import { cn } from '@/lib/utils';
+import {  } from '@/lib/utils';
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
@@ -222,7 +221,6 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     void loadPraises();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClassId]);
 
   const triggerConfetti = () => {

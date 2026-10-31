@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { teamQuestsApi, type StudentCurrentTeamQuestResponse, type TeamQuest, type TeamQuestGroupProgress } from '../api/teamQuestsApi';
 
-export const teamQuestKeys = {
+const teamQuestKeys = {
   list: (classId: number | null) => ['team-quests', classId] as const,
   groupProgress: (questId: number | null, classId: number | null) => ['team-quest-group-progress', questId, classId] as const,
   studentCurrent: (studentId: number | null) => ['student-current-team-quest', studentId] as const,

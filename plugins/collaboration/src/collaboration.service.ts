@@ -60,7 +60,7 @@ import type {
   CollaborationRepository,
   PeerReviewFilter,
   PeerReviewInsert,
-  PeerReviewRow,
+
   PeerReviewView,
   TeacherNodeInsert,
   TeacherNodeUpdate,
@@ -837,14 +837,4 @@ export class CollaborationService {
     if (gate.refusal) throw toApiError(gate.refusal);
   }
 
-  /**
-   * Append to the shared point ledger.
-   *
-   * The balance has already moved when this runs, so a ledger failure is reported by
-   * the boundary rather than rolled back - a missing history row is a smaller problem
-   * than a completed node reporting failure after it succeeded.
-   */
-  private async ledger(studentId: number, type: string, amount: number, description: string): Promise<void> {
-    await this.classroom.recordStudentLedgerEntry({ studentId, type, amount, description });
-  }
 }

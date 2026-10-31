@@ -1,7 +1,7 @@
 import { apiGet, apiPut } from '@/lib/api';
 import type { PublicSettingsDto } from '@thinkclass/contracts/domains/platform';
 
-export type PublicSettings = Partial<PublicSettingsDto>;
+type PublicSettings = Partial<PublicSettingsDto>;
 
 export const settingsApi = {
   getSettings: () => apiGet<{ success: true; data: PublicSettings }>('/api/settings'),

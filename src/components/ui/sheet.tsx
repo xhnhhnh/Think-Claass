@@ -1,4 +1,4 @@
-import * as React from 'react';
+
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
 
@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
  * the thing it is about to navigate to.
  */
 
-export type SheetSide = 'bottom' | 'left' | 'right' | 'top';
+type SheetSide = 'bottom' | 'left' | 'right' | 'top';
 
 const ENTER: Record<SheetSide, string> = {
   bottom: 'data-[open]:animate-sheet-in',
@@ -55,15 +55,7 @@ export function Sheet({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="sheet" {...props} />;
 }
 
-export function SheetTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
-}
-
-export function SheetClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="sheet-close" {...props} />;
-}
-
-export interface SheetContentProps extends DialogPrimitive.Popup.Props {
+interface SheetContentProps extends DialogPrimitive.Popup.Props {
   side?: SheetSide;
   /** Hide the corner close button when the sheet provides its own dismiss affordance. */
   showCloseButton?: boolean;

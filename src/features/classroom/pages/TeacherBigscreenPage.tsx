@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CELEBRATION } from '@/lib/celebrationPalette';
-import { useStore } from '@/store/useStore';
-import { Maximize, Users, Award, Star, TrendingUp, ShieldAlert, Clock } from 'lucide-react';
+import { Maximize, Award, Star, TrendingUp, ShieldAlert, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
@@ -51,7 +50,6 @@ interface ClassItem {
  */
 export default function TeacherBigscreen() {
   const navigate = useNavigate();
-  const user = useStore((state) => state.user);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [bigscreenData, setBigscreenData] = useState<any>(null);

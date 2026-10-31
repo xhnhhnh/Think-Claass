@@ -14,22 +14,17 @@ export type {
   UpdatePetInput,
 } from '@thinkclass/contracts/domains/pet';
 
-export interface AdoptPetMutationInput {
+interface AdoptPetMutationInput {
   type: 'adopt';
   elementType: string;
 }
 
-export interface InteractPetMutationInput {
+interface InteractPetMutationInput {
   type: 'interact';
   actionType: string;
   cost: number;
   expGain: number;
   actionLogType?: string;
-}
-
-export interface UpdatePetMutationInput {
-  type: 'update';
-  data: Record<string, unknown>;
 }
 
 export type StudentPetMutationInput = AdoptPetMutationInput | InteractPetMutationInput;

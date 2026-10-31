@@ -38,7 +38,7 @@ import { useTeacherHomeworkQa } from '../hooks/useHomework';
  * ai_source)` - the anchor is prompt context, not a persisted column. Printing a per-turn 「第 3 题」
  * label would therefore be a guess dressed as data, so this panel shows the thread as it is stored.
  */
-export interface TeacherQaThreadProps {
+interface TeacherQaThreadProps {
   homeworkId: number;
   /** Whose thread. `null` before a row is selected, which keeps the query disabled. */
   studentId: number | null;

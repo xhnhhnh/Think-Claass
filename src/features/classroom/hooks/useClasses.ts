@@ -9,7 +9,7 @@ export type ClassItem = ClassDto;
 export type Group = GroupDto;
 export type Preset = PresetDto;
 
-export const classQueryKeys = {
+const classQueryKeys = {
   classes: (userId?: number, role?: string) => ['classes', userId, role] as const,
   groups: (classId: number | null) => ['groups', classId] as const,
   presets: (userId?: number, role?: string) => ['presets', userId, role] as const,

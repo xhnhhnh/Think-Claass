@@ -16,7 +16,7 @@
 
 import type { NextFunction, Request, Response } from 'express';
 
-import { createAuditMiddleware, getActiveKernel, getRequestContext, type AuditRegistry, type AuditLog } from '@thinkclass/kernel';
+import { createAuditMiddleware, getActiveKernel, getRequestContext, type AuditRegistry } from '@thinkclass/kernel';
 
 interface AuditMiddleware {
   (req: Request, res: Response, next: NextFunction): void;
@@ -55,18 +55,4 @@ export function operationLogger(req: Request, res: Response, next: NextFunction)
   if (!middleware) middleware = build();
   if (!middleware) return next();
   middleware(req, res, next);
-}
-
-/** Register descriptors declared by the core. Safe to call more than once. */
-export function registerAuditDescriptors(
-  registry: AuditRegistry,
-  descriptors: Parameters<AuditRegistry['register']>[0],
-  owner: string,
-): void {
-  registry.register(descriptors, owner);
-}
-
-/** The audit log, for callers that want to record an entry directly. */
-export function getAuditLog(): AuditLog | null {
-  return getActiveKernel()?.audit ?? null;
 }

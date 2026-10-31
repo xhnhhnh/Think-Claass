@@ -34,7 +34,7 @@ import BrandMark from '@/components/BrandMark';
  *   context bar's account menu; the rail keeps only the primary identity line.
  */
 
-export interface SidebarNavProps {
+interface SidebarNavProps {
   sections: NavSection[];
   activePath?: string;
   brand: { label: string; meta: string; icon: LucideIcon };

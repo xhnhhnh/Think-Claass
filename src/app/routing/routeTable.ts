@@ -88,7 +88,7 @@ import {
 } from 'lucide-react';
 
 /** One flag, or any one of several - matching `FeatureRequirement` in featureRoutes.ts. */
-export type RouteFeatureRequirement =
+type RouteFeatureRequirement =
   | { key: ClassFeatureKey }
   | { anyOf: ClassFeatureKey[] };
 
@@ -158,7 +158,7 @@ export interface LayoutRoute {
   children: PageRoute[];
 }
 
-export type RouteTableEntry = PageRoute | LayoutRoute;
+type RouteTableEntry = PageRoute | LayoutRoute;
 
 const isLayout = (entry: RouteTableEntry): entry is LayoutRoute => 'layout' in entry;
 
@@ -169,7 +169,7 @@ const isLayout = (entry: RouteTableEntry): entry is LayoutRoute => 'layout' in e
  * `src/pages` tree. They are still resolved through the same map, so moving one into
  * a feature plugin later is a one-line change here.
  */
-export const flatRoutes: PageRoute[] = [
+const flatRoutes: PageRoute[] = [
   { path: '/', component: '@/features/portal/pages/HomePage' },
   { path: '/login', component: '@/features/auth/pages/LoginPage' },
   { path: '/activate', component: '@/features/auth/pages/ActivatePage' },

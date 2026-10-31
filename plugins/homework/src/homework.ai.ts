@@ -89,7 +89,7 @@ export interface AiAnswerInput {
   photoCount: number;
 }
 
-export interface AiGradeRequest {
+interface AiGradeRequest {
   questions: AiQuestionInput[];
   answers: AiAnswerInput[];
 }
@@ -101,7 +101,7 @@ export interface AiGradeRequest {
  * worth nothing") and is rendered differently. `confidence` is 0..1 and is what the UI sorts on:
  * the teacher's attention should go to the low-confidence lines first.
  */
-export interface AiGradeLine {
+interface AiGradeLine {
   question_id: number;
   score: number | null;
   comment: string;
@@ -110,7 +110,7 @@ export interface AiGradeLine {
   matched: string[];
 }
 
-export interface AiGradeOutcome {
+interface AiGradeOutcome {
   lines: AiGradeLine[];
   /** A whole-paper remark, or null when the provider has nothing useful to add. */
   feedback: string | null;
@@ -119,7 +119,7 @@ export interface AiGradeOutcome {
   message: string;
 }
 
-export interface AiAskRequest {
+interface AiAskRequest {
   homeworkTitle: string;
   /** The question the pupil's own question is anchored to, when there is one. */
   focus: AiQuestionInput | null;
@@ -139,7 +139,7 @@ export interface AiAskRequest {
   studentQuestion: string;
 }
 
-export interface AiAskOutcome {
+interface AiAskOutcome {
   text: string;
   confidence: number | null;
   message: string;
@@ -153,7 +153,7 @@ export interface AiAskOutcome {
  * narrowed in exactly one place - `normaliseCandidateQuestion` - so there is one definition of what
  * a usable generated question is.
  */
-export interface CandidateQuestion {
+interface CandidateQuestion {
   type?: unknown;
   stem?: unknown;
   options?: unknown;
@@ -191,14 +191,14 @@ export interface AiGenerateRequest {
  * reference) stays where it belongs: the service's `normaliseQuestions`, through which every
  * candidate then passes, so AI-written and human-written questions are held to one rule.
  */
-export interface AiGenerateOutcome {
+interface AiGenerateOutcome {
   questions: HomeworkQuestionPayload[];
   /** Candidates the model offered and the parser could not turn into a question. */
   skipped: number;
   message: string;
 }
 
-export interface HomeworkAiProvider {
+interface HomeworkAiProvider {
   /** `mock` | `http` - written into `p_homework_answers.ai_source` for provenance. */
   readonly source: string;
   /** False when the provider is configured but unusable; the caller reports why. */
@@ -273,7 +273,7 @@ export function describeAnswer(value: HomeworkAnswerValue | undefined, options: 
 // ---------------------------------------------------------------------------
 // Prompt construction - shared by the HTTP provider and by its tests
 
-export const AI_SYSTEM_PROMPT = [
+const AI_SYSTEM_PROMPT = [
   '你是一位中小学老师的批改助手。',
   '你只输出一个 JSON 对象，不要输出任何解释性文字、Markdown 代码块或前后缀。',
   'JSON 结构为：{"score": number|null, "confidence": number, "comment": string, "matched_points": string[]}。',
@@ -303,7 +303,7 @@ export function buildGradePrompt(question: AiQuestionInput, answer: AiAnswerInpu
   return lines.join('\n');
 }
 
-export const AI_ASK_SYSTEM_PROMPT = [
+const AI_ASK_SYSTEM_PROMPT = [
   '你是一位耐心、鼓励学生的中小学老师。',
   '回答要简短、口语化、面向学生本人，用「你」称呼学生。',
   '不要直接给出与作业无关的答案；如果学生问的是最后的结论，先引导思路再给结论。',
@@ -475,7 +475,7 @@ export function parseGenerateReply(
   return { questions, skipped, unparsed: false };
 }
 
-export function buildAskPrompt(request: AiAskRequest): string {
+function buildAskPrompt(request: AiAskRequest): string {
   const lines: string[] = [`作业：${request.homeworkTitle}`];
   if (request.focus) {
     lines.push(`题目：${request.focus.stem}`);
@@ -523,7 +523,6 @@ export function createMockProvider(): HomeworkAiProvider {
 
       for (const question of request.questions) {
         const answer = request.answers.find((entry) => entry.question_id === question.question_id);
-        const answerText = describeAnswer(answer?.value, question.options);
 
         // A photograph is the pupil's answer, and this provider cannot read it. Declining is the only
         // honest response - and it is the *same* predicate `HomeworkService.autoScoreObjective` skips
@@ -657,7 +656,7 @@ export function createMockProvider(): HomeworkAiProvider {
 // ---------------------------------------------------------------------------
 // HTTP provider
 
-export interface HttpProviderConfig {
+interface HttpProviderConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -928,11 +927,11 @@ export function parseGradeReply(question: AiQuestionInput, raw: string): AiGrade
  * so it is declared optional here too and every read is null-safe. A host without a settings store
  * therefore degrades to the mock provider rather than throwing at boot.
  */
-export interface AiSettingsReader {
+interface AiSettingsReader {
   getPlatform?<T = unknown>(key: string): T | undefined;
 }
 
-export interface ResolvedAiProvider {
+interface ResolvedAiProvider {
   provider: HomeworkAiProvider;
   /** Why the provider could not be built, when `provider` is the mock fallback. */
   reason: string | null;

@@ -348,13 +348,4 @@ export class GachaService {
     return results;
   }
 
-  /**
-   * Append to the shared point ledger.
-   *
-   * The pre-migration repository inserted into `records` directly; that write now goes
-   * through the port, which is the only sanctioned writer of the ledger.
-   */
-  private async ledger(studentId: number, type: string, amount: number, description: string): Promise<void> {
-    await this.classroom.recordStudentLedgerEntry({ studentId, type, amount, description });
-  }
 }

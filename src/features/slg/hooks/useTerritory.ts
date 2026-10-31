@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { slgApi, type CreateTerritoryPayload } from '../api/slgApi';
 
-export const territoryKeys = {
+const territoryKeys = {
   map: (classId: number | null) => ['territory-map', classId] as const,
 };
 

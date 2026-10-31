@@ -17,7 +17,7 @@
  * served without the injection (a static preview, or the test environment).
  */
 
-export interface RuntimeConfig {
+interface RuntimeConfig {
   adminPath?: string;
   apiBase?: string;
   pluginRuntime?: boolean;
@@ -45,13 +45,6 @@ export function adminPath(): string {
   const injected = runtimeConfig().adminPath;
   if (typeof injected === 'string' && injected.trim() !== '') return injected;
   return import.meta.env.VITE_ADMIN_PATH || '/beiadmin';
-}
-
-/** Whether this deployment runs the plugin runtime, as reported by the server. */
-export function pluginRuntimeEnabled(): boolean {
-  const injected = runtimeConfig().pluginRuntime;
-  if (typeof injected === 'boolean') return injected;
-  return false;
 }
 
 /**

@@ -41,9 +41,9 @@ import { cn } from '@/lib/utils';
  *   its way.
  */
 
-export type PageVariant = 'dashboard' | 'list' | 'detail' | 'form' | 'immersive';
+type PageVariant = 'dashboard' | 'list' | 'detail' | 'form' | 'immersive';
 
-export interface PageScaffoldProps {
+interface PageScaffoldProps {
   variant?: PageVariant;
   /**
    * The page's primary and secondary actions.
@@ -221,42 +221,6 @@ export function PageScaffold({
         </>
       ) : null}
     </div>
-  );
-}
-
-/**
- * A section inside a page.
- *
- * Deliberately thinner than `SectionCard`: this one has no surface of its own,
- * only a heading and a rhythm, for content that is already inside a card or that
- * should not look like one (a form's field groups, a detail column).
- */
-export function PageSection({
-  title,
-  description,
-  actions,
-  className,
-  children,
-}: {
-  title?: ReactNode;
-  description?: ReactNode;
-  actions?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section data-slot="page-section" className={cn('space-y-3', className)}>
-      {title || actions ? (
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            {title ? <h2 className="text-sm font-semibold text-fg-1">{title}</h2> : null}
-            {description ? <p className="mt-0.5 text-xs text-fg-3">{description}</p> : null}
-          </div>
-          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-        </div>
-      ) : null}
-      {children}
-    </section>
   );
 }
 

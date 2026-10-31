@@ -28,7 +28,7 @@ const LEGACY_FEATURE_PREFIX = 'enable_';
 const CAPABILITY_OWNER = 'classroom';
 
 /** Capability key backing a legacy flag, e.g. `enable_shop` -> `classroom.enable_shop`. */
-export function capabilityKeyFor(legacyKey: string): string {
+function capabilityKeyFor(legacyKey: string): string {
   return `${CAPABILITY_OWNER}.${legacyKey}`;
 }
 
@@ -38,14 +38,14 @@ export function capabilityKeyFor(legacyKey: string): string {
  * Derived rather than declared: the schema is the list, so a column added by a future
  * migration is picked up without touching this file.
  */
-export function legacyKeysOf(row: Record<string, unknown>): string[] {
+function legacyKeysOf(row: Record<string, unknown>): string[] {
   return Object.keys(row)
     .filter((column) => column.startsWith(LEGACY_FEATURE_PREFIX))
     .sort();
 }
 
 /** Values from a class row alone, ignoring any assignment overlay. */
-export function pickClassFeatures(source: Record<string, unknown> | null | undefined): ClassFeatures {
+function pickClassFeatures(source: Record<string, unknown> | null | undefined): ClassFeatures {
   const features: ClassFeatures = {};
   if (!source) return features;
   for (const key of legacyKeysOf(source)) features[key] = Boolean(source[key]);

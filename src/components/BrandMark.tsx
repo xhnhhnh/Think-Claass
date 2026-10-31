@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 import { BRAND_GREEN, BRAND_LEAF_LEFT, BRAND_LEAF_RIGHT, BRAND_STEM } from '@/lib/brandIcon';
 
-export type BrandMarkVariant = 'badge' | 'glyph';
-export interface BrandMarkProps {
+type BrandMarkVariant = 'badge' | 'glyph';
+interface BrandMarkProps {
   variant?: BrandMarkVariant;
   className?: string;
   style?: CSSProperties;

@@ -52,13 +52,13 @@ import { cn } from '@/lib/utils';
  * next to each other.
  */
 
-export interface ShellBrand {
+interface ShellBrand {
   label: string;
   meta: string;
   icon: LucideIcon;
 }
 
-export interface AppShellProps {
+interface AppShellProps {
   role: 'teacher' | 'student' | 'parent' | 'admin';
   brand: ShellBrand;
   /** Fallback heading for a page that is not a nav destination (an editor, a detail view). */
@@ -150,9 +150,7 @@ export function AppShell({
     [meta.layoutPath, features, hidden],
   );
 
-  const paletteFeatures = features;
-
-    const immersive = meta.mode === 'immersive';
+  const immersive = meta.mode === 'immersive';
   const page = children ?? <Outlet />;
   const layoutKey = meta.layoutPath ?? role;
 

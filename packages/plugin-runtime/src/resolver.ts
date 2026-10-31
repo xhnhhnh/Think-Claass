@@ -24,7 +24,7 @@ export type RejectReason =
   | 'cycle'
   | 'disabled';
 
-export interface RejectedPlugin {
+interface RejectedPlugin {
   id: string;
   directory: string;
   reason: RejectReason;
@@ -89,8 +89,6 @@ export function resolvePlugins(plugins: DiscoveredPlugin[], options: ResolveOpti
     }
     return true;
   });
-
-  const byId = new Map(candidates.map((plugin) => [plugin.manifest.id, plugin]));
 
   // -- kernel compatibility ------------------------------------------------
   /** @type {Map<string, DiscoveredPlugin>} */

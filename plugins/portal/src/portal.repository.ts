@@ -8,7 +8,7 @@
 
 import type { DbApi, SqlParam } from '@thinkclass/plugin-sdk';
 
-import type { ArticleQuery, ArticleRow, ArticleSummaryRow, PortalRepository } from './portal.types.js';
+import type { ArticleRow, ArticleSummaryRow, PortalRepository } from './portal.types.js';
 
 export function createPortalRepository(db: DbApi): PortalRepository {
   return {

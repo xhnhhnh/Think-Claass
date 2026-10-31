@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { dungeonApi, type DungeonChoicePayload } from '../api/dungeonApi';
 
-export const dungeonKeys = {
+const dungeonKeys = {
   run: (studentId: number | null) => ['dungeon-run', studentId] as const,
 };
 

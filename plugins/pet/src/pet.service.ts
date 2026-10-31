@@ -58,7 +58,7 @@ function assertPositiveId(value: unknown, label: string): number {
   return id;
 }
 
-export class DefaultPetRandom implements PetRandom {
+class DefaultPetRandom implements PetRandom {
   roll(maxInclusive: number) {
     return Math.floor(Math.random() * maxInclusive) + 1;
   }

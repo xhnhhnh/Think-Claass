@@ -33,13 +33,7 @@
  */
 
 import type { DbApi, SqlParam } from '@thinkclass/plugin-sdk';
-import type {
-  HomeworkAnswerValue,
-  HomeworkOption,
-  HomeworkQuestionType,
-  HomeworkReferenceAnswer,
-  HomeworkStatus,
-} from '@thinkclass/contracts/domains/homework';
+import type { HomeworkStatus } from '@thinkclass/contracts/domains/homework';
 
 import type {
   HomeworkAnswerInputInternal,
@@ -56,7 +50,7 @@ import type {
   LegacyAssignmentRow,
 } from './homework.types.js';
 
-export interface HomeworkRepositoryOptions {
+interface HomeworkRepositoryOptions {
   /** Reverses at-rest encryption for `students.name`. Absent means identity. */
   decryptName?: (value: string) => string;
 }

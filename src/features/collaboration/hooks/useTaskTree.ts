@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { taskTreeApi, type TaskNodePayload } from '../api/taskTreeApi';
 
-export const taskTreeKeys = {
+const taskTreeKeys = {
   teacher: (classId: number | null) => ['teacher-task-nodes', classId] as const,
   student: (studentId: number | null) => ['student-task-nodes', studentId] as const,
 };

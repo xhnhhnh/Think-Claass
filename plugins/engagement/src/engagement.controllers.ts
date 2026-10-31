@@ -633,7 +633,7 @@ export class LuckyDrawController {
 
   @Post('draw')
   @HttpCode(HttpStatus.OK)
-  async draw(@Req() req: Request, @Body() body: Record<string, any>, @Res() res: Response) {
+  async draw(@Req() req: Request, @Res() res: Response) {
     // @Res() bypasses the global filter: the refusal is written here, in the handler's own shape.
     let actor: Actor;
     try {

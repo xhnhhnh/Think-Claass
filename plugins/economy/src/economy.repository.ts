@@ -14,7 +14,7 @@
 import type { BankAccountDto, PortfolioItemDto, StockDto } from '@thinkclass/contracts/domains/economy';
 import type { DbApi } from '@thinkclass/plugin-sdk';
 
-import type { EconomyHoldingRow, EconomyRepository, StockPayload, StockPricePayload } from './economy.types.js';
+import type { EconomyHoldingRow, EconomyRepository } from './economy.types.js';
 
 /** `trend_history` is a JSON string; a malformed one must not break the chart. */
 function parseTrendHistory(history: string | null | undefined, fallbackPrice: number): number[] {

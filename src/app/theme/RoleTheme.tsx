@@ -43,7 +43,7 @@ import { useShellStore } from '@/app/shell/shellStore';
  * confused with the old class-based skins that pages used to branch on.
  */
 
-export type AppRole = 'teacher' | 'student' | 'parent' | 'admin';
+type AppRole = 'teacher' | 'student' | 'parent' | 'admin';
 
 /**
  * Which role scope a path belongs to, or `null` for the public surface.
@@ -52,7 +52,7 @@ export type AppRole = 'teacher' | 'student' | 'parent' | 'admin';
  * `adminPath()` rather than importing a constant: a constant is evaluated once
  * at module load, before the injection is guaranteed to be readable.
  */
-export function resolveRole(pathname: string): AppRole | null {
+function resolveRole(pathname: string): AppRole | null {
   if (pathname.startsWith('/student')) return 'student';
   if (pathname.startsWith('/teacher')) return 'teacher';
   if (pathname.startsWith('/parent')) return 'parent';
@@ -65,20 +65,7 @@ export function resolveRole(pathname: string): AppRole | null {
   return null;
 }
 
-/**
- * Resolve the effective colour scheme.
- *
- * `system` is the default and is resolved here rather than in CSS on purpose:
- * the `.dark` palette is a class, and an OS preference that flips at runtime
- * has to be observed to re-apply it. Returning a boolean also lets the toggle
- * tell the reader what it is about to do.
- */
-export function prefersDark(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-export function RoleTheme({ children }: { children: ReactNode }) {
+function RoleTheme({ children }: { children: ReactNode }) {
   const location = useLocation();
   const theme = useShellStore((state) => state.theme);
 

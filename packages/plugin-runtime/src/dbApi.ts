@@ -50,7 +50,7 @@ const TARGET_RE =
  * `SET` did) and a *false negative* would let a plugin write outside its declaration.
  * The keyword filter is what makes the permissive pattern safe.
  */
-export function extractTargets(sql: string): string[] {
+function extractTargets(sql: string): string[] {
   const found = new Set<string>();
   for (const match of sql.matchAll(TARGET_RE)) {
     const name = match[1];

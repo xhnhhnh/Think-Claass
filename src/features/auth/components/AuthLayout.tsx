@@ -18,7 +18,7 @@ import BrandMark from '@/components/BrandMark';
  * asset and not an external URL - the login page and the marketing page should look like
  * the same product.
  */
-export interface AuthLayoutProps {
+interface AuthLayoutProps {
   /** Admin uses a security-first voice; public uses the product's teaching voice. */
   variant: 'public' | 'admin';
   title: ReactNode;
@@ -29,7 +29,7 @@ export interface AuthLayoutProps {
 const PUBLIC_POINTS = ['成长记录看得见', '合作任务一起做', '家校沟通更顺畅'];
 const ADMIN_POINTS = ['教师与班级统一管理', '激活码与权限可追溯', '系统配置即时生效'];
 
-export function AuthLayout({ variant, title, subtitle, children }: AuthLayoutProps) {
+function AuthLayout({ variant, title, subtitle, children }: AuthLayoutProps) {
   const admin = variant === 'admin';
   const points = admin ? ADMIN_POINTS : PUBLIC_POINTS;
 

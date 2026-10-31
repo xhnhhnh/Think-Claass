@@ -19,12 +19,12 @@
  * failing, and every adjustment is reported so the teacher can see what will be created.
  */
 
-export interface RosterEntry {
+interface RosterEntry {
   name: string;
   username: string;
 }
 
-export interface ParsedRoster {
+interface ParsedRoster {
   entries: RosterEntry[];
   /** Lines that were skipped, with the reason, so the UI can explain what it ignored. */
   problems: string[];

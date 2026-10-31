@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
  * gets an accessible name from `searchLabel` rather than a placeholder alone, so a
  * test (or a screen reader) can find it without depending on the copy.
  */
-export interface ToolbarProps {
+interface ToolbarProps {
   search?: {
     value: string;
     onChange: (value: string) => void;
