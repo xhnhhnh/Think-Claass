@@ -79,7 +79,7 @@ export function SheetContent({
       <DialogPrimitive.Backdrop
         data-slot="sheet-overlay"
         className={cn(
-          'fixed inset-0 z-50 bg-black/30 duration-fast',
+          'fixed inset-0 z-[70] bg-black/30 duration-fast',
           'data-[open]:animate-fade-in data-[closed]:animate-fade-out',
           'supports-[backdrop-filter]:backdrop-blur-sm',
         )}
@@ -88,7 +88,7 @@ export function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          'fixed z-50 flex flex-col border-line-1 bg-surface-4 text-fg-1 shadow-raised outline-none',
+          'fixed z-[70] flex flex-col border-line-1 bg-surface-4 text-fg-1 shadow-raised outline-none',
           PLACEMENT[side],
           ENTER[side],
           EXIT[side],

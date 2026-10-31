@@ -32,6 +32,10 @@ describe('ConfirmDialog', () => {
     expect(screen.getByText('确认删除')).toBeInTheDocument();
     expect(screen.getByText('确定要删除“期末盲盒”吗？')).toBeInTheDocument();
 
+    const popup = screen.getByRole('alertdialog');
+    expect(popup.closest('[data-slot="confirm-dialog-positioner"]')).not.toBeNull();
+    expect(popup.className).toContain('!transform-none');
+
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
