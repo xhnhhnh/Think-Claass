@@ -24,6 +24,11 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: mocks.toastError } 
 
 vi.mock('@/app/commands/registry', () => ({ useRegisterPageCommands: vi.fn() }));
 
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => vi.fn() };
+});
+
 vi.mock('@/components/DanmakuOverlay', () => ({ default: () => null }));
 
 vi.mock('@/features/classroom/api/classesApi', () => ({
@@ -74,6 +79,15 @@ describe('TeacherBigscreen fullscreen state', () => {
   });
 
   const renderPage = () => render(<TeacherBigscreen />);
+
+  it('shows the setup summary before going fullscreen', async () => {
+    renderPage();
+
+    expect(await screen.findByText('把这一节课，投到大屏上。')).toBeInTheDocument();
+    expect(screen.getByText('课堂光荣榜')).toBeInTheDocument();
+    expect(screen.getByText('大屏相关功能')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /进入大屏模式/ })).toBeInTheDocument();
+  });
 
   it('only shows the stage as fullscreen while the document really is', async () => {
     renderPage();

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CELEBRATION } from '@/lib/celebrationPalette';
 import { useStore } from '@/store/useStore';
 import { Maximize, Users, Award, Star, TrendingUp, ShieldAlert, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import DanmakuOverlay from '@/components/DanmakuOverlay';
-import ClassFeaturePanel from '@/pages/Teacher/components/ClassFeaturePanel';
 
 import { classroomApi } from '@/features/classroom/api/classesApi';
 import { useResolvedClassFeatures } from '@/features/classroom/hooks/useResolvedClassFeatures';
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { PageScaffold } from '@/components/ui/page-scaffold';
+import { Select } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +50,7 @@ interface ClassItem {
  * unchanged.
  */
 export default function TeacherBigscreen() {
+  const navigate = useNavigate();
   const user = useStore((state) => state.user);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -243,45 +245,89 @@ export default function TeacherBigscreen() {
         </div>
       )}
       {!isFullscreen && (
-        <div className="flex items-center justify-between rounded-card border border-line-1 bg-surface-2/80 p-4 shadow-card backdrop-blur-xl">
-          <div className="flex items-center space-x-2 overflow-x-auto">
-            <span className="mr-2 flex-shrink-0 text-sm font-bold text-fg-3">选择班级:</span>
-            {classes.map((cls) => (
-              <Button
-                key={cls.id}
-                type="button"
-                onClick={() => setSelectedClassId(cls.id)}
-                className={cn(
-                  'flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                  selectedClassId === cls.id
-                    ? 'bg-role text-role-contrast shadow-card'
-                    : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/50',
-                )}
-              >
-                {cls.name}
+        <div className="mx-auto w-full max-w-3xl space-y-4 p-5 sm:p-8">
+          <section className="surface-hero rounded-card border border-line-1 p-6 sm:p-8">
+            <p className="text-caption font-semibold tracking-[0.18em] text-fg-3">CLASSROOM STAGE</p>
+            <h1 className="mt-2 text-page-title text-fg-1">把这一节课，投到大屏上。</h1>
+            <p className="mt-2 max-w-xl text-body text-fg-3">
+              光荣榜、课堂弹幕、世界 Boss 和积分动画会同步展示在大屏上。选择班级后进入大屏模式即可开始。
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex flex-col gap-1 text-caption text-fg-3">
+                选择班级
+                <Select
+                  value={selectedClassId ?? ''}
+                  onChange={(event) => setSelectedClassId(Number(event.target.value))}
+                  className="h-10 w-52"
+                >
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                  ))}
+                </Select>
+              </label>
+              <Button onClick={() => void toggleFullscreen()} disabled={!selectedClassId}>
+                <Maximize data-icon="inline-start" />
+                进入大屏模式
               </Button>
+            </div>
+          </section>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { icon: Award, title: '课堂光荣榜', description: '按成长值展示本班学生排名' },
+              { icon: Star, title: '即时表扬', description: '新的表扬会实时出现' },
+              { icon: ShieldAlert, title: '世界 Boss', description: '全班协作挑战，进度实时同步' },
+            ].map((item) => (
+              <div key={item.title} className="rounded-card border border-line-1 bg-surface-2 p-4">
+                <span className="flex size-9 items-center justify-center rounded-card bg-role-soft text-role-ink">
+                  <item.icon aria-hidden="true" className="size-4" />
+                </span>
+                <h2 className="mt-3 text-body font-semibold text-fg-1">{item.title}</h2>
+                <p className="mt-1 text-caption text-fg-3">{item.description}</p>
+              </div>
             ))}
           </div>
-          <Button
-            type="button"
-            onClick={toggleFullscreen}
-            className="ml-4 flex-shrink-0"
-          >
-            <Maximize data-icon="inline-start" />
-            进入大屏模式
-          </Button>
+
+          <section className="rounded-card border border-line-1 bg-surface-2 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-section-title text-fg-1">大屏相关功能</h2>
+                <p className="mt-1 text-body-sm text-fg-3">
+                  这些开关决定大屏上会出现哪些内容；修改后立即同步。
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate('/teacher/features')}>
+                去功能设置
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {[
+                { label: '弹幕互动', enabled: classFeatures.enable_danmaku },
+                { label: '世界 Boss', enabled: classFeatures.enable_world_boss },
+                { label: '课堂聊天', enabled: classFeatures.enable_chat_bubble },
+              ].map((feature) => (
+                <div
+                  key={feature.label}
+                  className="flex items-center justify-between rounded-card border border-line-1 bg-surface-3/40 px-3 py-2.5"
+                >
+                  <span className="text-body-sm font-medium text-fg-2">{feature.label}</span>
+                  <span className={cn('text-caption font-medium', feature.enabled ? 'text-success-ink' : 'text-fg-3')}>
+                    {feature.enabled ? '已开启' : '已关闭'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       )}
 
-      {!isFullscreen && selectedClassId && (
-        <div className="rounded-card border border-line-1 bg-surface-2/80 p-5 shadow-card backdrop-blur-xl">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-fg-1">大屏功能摘要</h2>
-              <p className="text-sm text-fg-3">关闭弹幕后将停止展示课堂弹幕，关闭世界 Boss 后大屏也会同步隐藏相关区块</p>
-            </div>
-          </div>
-          <ClassFeaturePanel classId={selectedClassId} compact />
+      {!isFullscreen && (
+        <div className="mx-auto w-full max-w-6xl px-5 pb-2 sm:px-8">
+          <h2 className="text-section-title text-fg-1">实时预览</h2>
+          <p className="mt-1 text-body-sm text-fg-3">
+            下面是当前班级的大屏内容；进入大屏模式后会铺满整个投影画面。
+          </p>
         </div>
       )}
 
