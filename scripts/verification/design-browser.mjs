@@ -27,6 +27,7 @@ const BASE = (process.env.DESIGN_BASE_URL || 'http://localhost:5174').replace(/\
 const OUT = path.resolve(ROOT, '.tmp', 'design-review');
 const CHECK = process.argv.includes('--check');
 const ALL = process.argv.includes('--all');
+const DARK = process.env.DESIGN_DARK === '1' || process.argv.includes('--dark');
 
 const ROUTES = [
   { role: 'admin', name: 'admin-dashboard', path: '/beiadmin' },
@@ -162,6 +163,10 @@ function loginExpression(role, env) {
         version: 0,
       }));
       localStorage.setItem('thinkclass-startup-guide-seen-' + user.id, '1');
+      localStorage.setItem('thinkclass-shell', JSON.stringify({
+        state: { theme: ${JSON.stringify(DARK ? 'dark' : 'light')} },
+        version: 0,
+      }));
       return 'ok';
     })()
   `;
@@ -241,7 +246,7 @@ async function reviewRole(role, routes, env, report) {
         await wait(4500);
         const metrics = await measure(send);
         const screenshot = await send('Page.captureScreenshot', { format: 'png' });
-        const file = path.join(OUT, role, `${route.name}-${viewport.name}.png`);
+        const file = path.join(OUT, role, `${route.name}-${viewport.name}${DARK ? '-dark' : ''}.png`);
         fs.mkdirSync(path.dirname(file), { recursive: true });
         fs.writeFileSync(file, Buffer.from(screenshot.data, 'base64'));
         const page = { ...route, viewport: viewport.name, file: path.relative(ROOT, file), ...metrics };
@@ -259,7 +264,7 @@ async function reviewRole(role, routes, env, report) {
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const env = loadEnv();
-  const report = { base: BASE, startedAt: new Date().toISOString(), pages: [] };
+  const report = { base: BASE, dark: DARK, startedAt: new Date().toISOString(), pages: [] };
 
   try {
     await fetch(`${BASE}/login`);

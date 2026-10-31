@@ -66,4 +66,24 @@ describe('AdminTeachersPage', () => {
     await waitFor(() => expect(mocks.getTeachers).toHaveBeenCalledTimes(2));
     expect(mocks.toastSuccess).toHaveBeenCalledWith('教师创建成功');
   });
+
+  it('filters by username and shows each account’s activation state', async () => {
+    mocks.getTeachers.mockResolvedValue([
+      { id: 1, username: 'alice', role: 'teacher', isActivated: true },
+      { id: 2, username: 'bob', role: 'teacher', isActivated: false },
+    ]);
+
+    render(<AdminTeachers />);
+
+    expect(await screen.findByText('alice')).toBeInTheDocument();
+    expect(screen.getAllByText('已激活').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('待激活').length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索教师用户名' }), {
+      target: { value: 'bob' },
+    });
+
+    expect(screen.queryByText('alice')).not.toBeInTheDocument();
+    expect(screen.getByText('bob')).toBeInTheDocument();
+  });
 });

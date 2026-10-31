@@ -70,7 +70,7 @@ export default function StudentOverviewPage() {
   const summary = summaryQuery.data?.summary;
   const homework = (homeworkQuery.data ?? []).filter((entry) => entry.homework.status === 'published');
   const pendingHomework = homework.filter(
-    (entry) => !entry.submission || entry.submission.status === 'draft',
+    (entry) => !entry.homework.legacy && (!entry.submission || entry.submission.status === 'draft'),
   );
   const exams = ((examsQuery.data ?? []) as Array<Record<string, unknown>>).slice(0, 3);
   const pet = petQuery.data?.pet ?? null;

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Edit, Plus, Trash2, Users } from 'lucide-react';
+import { Edit, Plus, Search, Trash2, Users } from 'lucide-react';
 
 import { adminClient } from '@/features/admin/api/adminClient';
 import { useRegisterPageCommands } from '@/app/commands/registry';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
@@ -19,12 +20,14 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { KpiStrip } from '@/components/ui/kpi-strip';
 import { PageScaffold } from '@/components/ui/page-scaffold';
 
 interface Teacher {
   id: number;
   username: string;
   role: string;
+  isActivated?: boolean;
 }
 
 /**
@@ -51,6 +54,7 @@ export default function AdminTeachers() {
   /** One save at a time: a double click on 创建教师 used to create two accounts. */
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({ username: '', password: '' });
+  const [search, setSearch] = useState('');
 
   const fetchTeachers = async () => {
     setLoading(true);
@@ -149,27 +153,82 @@ export default function AdminTeachers() {
     },
   ]);
 
+  const query = search.trim().toLowerCase();
+  const visibleTeachers = query
+    ? teachers.filter((teacher) => teacher.username.toLowerCase().includes(query))
+    : teachers;
+  const activatedCount = teachers.filter((teacher) => teacher.isActivated).length;
+
   return (
     <PageScaffold
       variant="list"
       title="教师管理"
-      description="管理系统中的所有教师账号"
+      description="管理教师账号、登录状态与班级归属"
       actions={
         <Button onClick={() => handleOpenModal()}>
           <Plus data-icon="inline-start" />
           添加教师
         </Button>
       }
+      toolbar={
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:w-72">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3"
+            />
+            <Input
+              type="search"
+              aria-label="搜索教师用户名"
+              placeholder="搜索教师用户名"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-9 pl-9"
+            />
+          </div>
+          <p className="text-caption text-fg-3">
+            共 {teachers.length} 位教师 · 已激活 {activatedCount} 位
+          </p>
+        </div>
+      }
     >
+      <KpiStrip
+        items={[
+          { label: '教师总数', value: teachers.length, icon: Users, tone: 'role' },
+          { label: '已激活', value: activatedCount, icon: Users, tone: 'success' },
+          { label: '待激活', value: Math.max(0, teachers.length - activatedCount), icon: Users, tone: 'warning' },
+        ]}
+      />
+
       <DataTable<Teacher>
         columns={[
-          { key: 'id', header: 'ID', className: 'text-fg-2' },
-          { key: 'username', header: '用户名', className: 'font-medium text-fg-1' },
+          {
+            key: 'username',
+            header: '教师',
+            render: (teacher) => (
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Avatar name={teacher.username} size="sm" />
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-fg-1">{teacher.username}</div>
+                  <div className="text-caption text-fg-3">#{teacher.id}</div>
+                </div>
+              </div>
+            ),
+          },
           {
             key: 'role',
             header: '角色',
             render: (teacher) => (
               <Badge variant="info">{teacher.role === 'teacher' ? '教师' : teacher.role}</Badge>
+            ),
+          },
+          {
+            key: 'status',
+            header: '状态',
+            render: (teacher) => (
+              <Badge variant={teacher.isActivated ? 'success' : 'secondary'}>
+                {teacher.isActivated ? '已激活' : '待激活'}
+              </Badge>
             ),
           },
           {
@@ -201,7 +260,7 @@ export default function AdminTeachers() {
             ),
           },
         ]}
-        rows={teachers}
+        rows={visibleTeachers}
         getRowKey={(teacher) => teacher.id}
         isLoading={loading}
         error={loadError}
@@ -209,8 +268,8 @@ export default function AdminTeachers() {
         empty={
           <EmptyState
             icon={Users}
-            title="暂无教师"
-            description="点击上方按钮添加第一位教师"
+            title={query ? '没有匹配的教师' : '暂无教师'}
+            description={query ? '换一个用户名试试。' : '点击右上角「添加教师」创建第一位教师。'}
             className="bg-surface-2"
           />
         }
