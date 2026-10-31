@@ -141,10 +141,15 @@ describe('one database file, two access paths', () => {
     // `api/**` and the un-migrated modules. It resolves the same file with its own copy of the rule,
     // which is why it is on this list instead of being invisible: the moment a fourth reader
     // appears, the two data paths can disagree again with nothing to catch it.
+    //
+    // (4) is the design-review demo instance. It does not implement the resolution rule: it copies
+    // the database and sets DATABASE_FILE for its two child processes so they open the copy. It is
+    // named here because it is the one tool allowed to point the app at a different file.
     const KNOWN_PATH_READERS = [
       'packages/kernel/src/config/loadConfig.ts',
       'api/prismaClient.ts',
       'api/db.ts',
+      'scripts/dev/demo-instance.mjs',
     ];
 
     for (const rel of KNOWN_PATH_READERS) {
@@ -197,7 +202,7 @@ describe('one database file, two access paths', () => {
 
     expect(
       offenders,
-      `These files read DATABASE_FILE outside the three known owners; a fourth reader is how the two data paths drift apart again:\n  ${offenders.join('\n  ')}`,
+      `These files read DATABASE_FILE outside the known owners; a new reader is how the two data paths drift apart again:\n  ${offenders.join('\n  ')}`,
     ).toEqual([]);
   });
 });
