@@ -187,10 +187,24 @@ async function measure(send) {
     const externalImages = [...document.querySelectorAll('img')]
       .map((img) => img.currentSrc || img.src)
       .filter((src) => src && !src.startsWith(location.origin) && !src.startsWith('data:') && !src.startsWith('blob:'));
+    const interactive = [...document.querySelectorAll('button, a[href], input, select, textarea')]
+      .filter((el) => !el.closest('[class*="tsqd"]') && el.getAttribute('aria-hidden') !== 'true');
+    const unnamed = interactive.filter((el) => {
+      const label = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.getAttribute('title');
+      const text = (el.textContent || '').trim();
+      const alt = el.getAttribute('alt');
+      const labelled = el.labels && el.labels.length > 0;
+      const placeholder = el.getAttribute('placeholder');
+      return !label && !text && !alt && !labelled && !placeholder;
+    }).length;
     return {
       url: location.pathname,
       title: document.title,
       h1: document.querySelectorAll('h1').length,
+      main: document.querySelectorAll('main').length,
+      lang: document.documentElement.lang,
+      unnamedInteractive: unnamed,
+      imagesWithoutAlt: [...document.querySelectorAll('img:not([alt])')].length,
       overflowPx: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
       externalImages: [...new Set(externalImages)],
       distinctRadii: radii.length,
@@ -207,6 +221,10 @@ function failuresFor(metric) {
   const failures = [];
   if (metric.overflowPx > LIMITS.overflowPx) failures.push(`horizontal overflow ${metric.overflowPx}px`);
   if (metric.h1 > LIMITS.h1) failures.push(`${metric.h1} h1 elements`);
+  if (metric.main !== 1) failures.push(`${metric.main} main landmarks`);
+  if (!String(metric.lang || '').startsWith('zh')) failures.push(`document language is ${metric.lang || 'unset'}`);
+  if (metric.unnamedInteractive > 0) failures.push(`${metric.unnamedInteractive} interactive elements without a name`);
+  if (metric.imagesWithoutAlt > 0) failures.push(`${metric.imagesWithoutAlt} images without alt`);
   if (metric.externalImages.length > LIMITS.externalImages) failures.push(`external images: ${metric.externalImages.join(', ')}`);
   if (metric.distinctRadii > LIMITS.distinctRadii) failures.push(`${metric.distinctRadii} distinct radii`);
   if (metric.distinctFontSizes > LIMITS.distinctFontSizes) failures.push(`${metric.distinctFontSizes} distinct font sizes`);

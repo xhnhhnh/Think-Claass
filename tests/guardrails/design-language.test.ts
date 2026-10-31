@@ -21,6 +21,8 @@
  * This file covers what the source can prove without a browser.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { blankComments, findOccurrences, uiSourceFiles } from '../../scripts/migration/lib/ui-audit.mjs';
@@ -104,6 +106,12 @@ describe('design language ratchets', () => {
       ).toBeLessThanOrEqual(metric.ceiling);
     });
   }
+
+  it('declares the product language on the document', () => {
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    expect(html).toMatch(/<html lang="zh-CN">/);
+    expect(html).toContain('name="description"');
+  });
 
   it('does not count a pattern inside a comment', () => {
     // The guardrail has to be able to explain itself without adding to its own number.
