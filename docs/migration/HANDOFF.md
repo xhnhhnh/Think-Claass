@@ -1845,6 +1845,7 @@ kernel 组装下那个外键还在。它被 G17 逐条枚举着，收编它就�
 - [x] 删 `src/api/*`（32 个模块及 19 个测试）、15 个死 hook、死组件 `AnnouncementBanner`/`TypewriterText`
 - [x] 删除 `api/prismaClient.ts` 与 `tests/kernel/fixtures/database-path-probe.mts`；数据库路径围栏保留两条真实写入路径
 - [x] `deadCode` 54 → 0；新增 `scripts/quality/{code-health,unused-exports}.mjs`、`npm run check:unused`、`npm run check:exports`、护栏 G25
+- [x] 防御性代码只删除可证明冗余的部分：死兼容垫片、无效 `eslint-disable`、未用 helper/参数；鉴权、输入校验、加密、迁移和 API 错误提示保持不动。剩余 8 处空 catch 是存储/JSON/API 提示的真实边界，保留而不是静默删除
 - [ ] 删除 19 个 `enable_*` 列与 schema 兼容层（需要新迁移，未在本轮做）
 - [ ] 修正 `docs/modularization-boundary-audit.md` 里关于 `api/routes/registerModules.ts` 的失真描述
 

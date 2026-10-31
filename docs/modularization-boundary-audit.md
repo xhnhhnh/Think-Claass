@@ -8,8 +8,8 @@
 
 ## Compatibility Surface
 
-- Legacy backend routes remain registered as fallback after module registration in `api/routes/registerModules.ts`.
-- `api/modules/auth` and `api/modules/marketplace` currently wrap the legacy auth and shop routes to preserve behavior while marking the module boundary.
+- The legacy backend fallback registrar (`api/routes/registerModules.ts`) was retired with the plugin migration; there is no second registration path.
+- The former `api/modules/auth` and `api/modules/marketplace` wrappers are also gone; those routes are plugin-owned now.
 - Existing public HTTP paths remain stable; this audit does not remove or version any endpoint.
 
 ## Cleanup Completed
