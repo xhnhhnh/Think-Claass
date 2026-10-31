@@ -65,7 +65,7 @@ describe('TeacherLayout', () => {
         logout: vi.fn(),
       }),
     );
-    mocks.useClasses.mockReturnValue({ data: undefined, isLoading: true });
+    mocks.useClasses.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false });
     mocks.useResolvedClassFeatures.mockReturnValue({
       features: defaultClassFeatures,
       canDecide: false,
@@ -76,7 +76,7 @@ describe('TeacherLayout', () => {
   });
 
   it('decides nothing while the class list is loading: no redirect, nothing hidden, all features on', () => {
-    mocks.useClasses.mockReturnValue({ data: undefined, isLoading: true });
+    mocks.useClasses.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false });
     mocks.useResolvedClassFeatures.mockReturnValue({
       features: defaultClassFeatures,
       canDecide: false,
@@ -98,6 +98,7 @@ describe('TeacherLayout', () => {
     mocks.useClasses.mockReturnValue({
       data: [{ id: 1, name: '一班' }],
       isLoading: false,
+      isSuccess: true,
       isFetching: false,
     });
     mocks.useResolvedClassFeatures.mockReturnValue({
@@ -120,6 +121,7 @@ describe('TeacherLayout', () => {
     mocks.useClasses.mockReturnValue({
       data: undefined,
       isLoading: false,
+      isSuccess: false,
       isError: true,
       isFetching: false,
       refetch,
@@ -139,10 +141,34 @@ describe('TeacherLayout', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
+  it('does not redirect a menu-gated route whose flag is off', () => {
+    mocks.location.pathname = '/teacher/certificates';
+    mocks.useClasses.mockReturnValue({
+      data: [{ id: 1, name: '一班' }],
+      isLoading: false,
+      isSuccess: true,
+      isFetching: false,
+    });
+    mocks.useResolvedClassFeatures.mockReturnValue({
+      features: { ...defaultClassFeatures, enable_achievements: false },
+      canDecide: true,
+      isError: false,
+      refetch: vi.fn(),
+      source: 'class',
+    });
+
+    render(<TeacherLayout />);
+
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(mocks.shell.props?.hiddenPaths).toContain('/teacher/certificates');
+    expect(screen.getByTestId('outlet-content')).toBeInTheDocument();
+  });
+
   it('hides only the entries whose flag is really off once both answers are known', () => {
     mocks.useClasses.mockReturnValue({
       data: [{ id: 1, name: '一班' }],
       isLoading: false,
+      isSuccess: true,
       isFetching: false,
     });
     mocks.useResolvedClassFeatures.mockReturnValue({
@@ -163,8 +189,8 @@ describe('TeacherLayout', () => {
     expect(mocks.shell.props?.hiddenPaths).not.toContain('/teacher/shop');
     expect(mocks.shell.props?.hiddenPaths).not.toContain('/teacher/verification');
     expect(mocks.shell.props?.features).toEqual(featuresWithShop);
-    // The selected class is known and the features answer is off for the current page, so the
-    // redirect happens (with `enable_shop` on, `/teacher/shop` itself is allowed; the shop is on).
+    // Menu visibility is not route permission: a hidden entry stays reachable by URL. The
+    // selected class and feature answer are known, and `/teacher/shop` is allowed.
     expect(mocks.navigate).not.toHaveBeenCalled();
   });
 });

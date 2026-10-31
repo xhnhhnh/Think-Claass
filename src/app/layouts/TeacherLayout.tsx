@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
 
 import { AppShell } from '@/app/layouts/AppShell';
@@ -78,10 +78,18 @@ export default function TeacherLayout() {
   const user = useStore((state) => state.user);
   const logout = useStore((state) => state.logout);
   const navigate = useNavigate();
-  const location = useLocation();
 
   const classesQuery = useClasses();
-  const classesReady = !classesQuery.isLoading && !classesQuery.isError;
+  /**
+   * `isSuccess`, not `!isLoading && !isError`.
+   *
+   * A query that has not started yet is neither loading nor errored, so the old predicate made
+   * `classesReady` true while the list was still undefined. The layout then treated "no class id"
+   * as a decided all-off answer and redirected gated destinations to `/teacher` before the class
+   * list had answered. Waiting for `isSuccess` makes the class id (and therefore the feature read)
+   * either real or still unknown - never a guessed empty answer.
+   */
+  const classesReady = classesQuery.isSuccess;
   const classes = useMemo(() => (classesReady ? classesQuery.data ?? [] : []), [classesReady, classesQuery.data]);
   const classesError = Boolean(classesQuery.isError);
   const defaultClassId = useMemo(() => (classesReady ? classes[0]?.id ?? null : null), [classesReady, classes]);
@@ -89,12 +97,13 @@ export default function TeacherLayout() {
   /**
    * The same resolver the student, parent and guard use.
    *
-   * This layout used to read `classFeatureData?.features ?? defaultClassFeatures`, i.e. "every flag
-   * off" until the request answered - and then act on it. On a hard refresh of a gated page
-   * (`/teacher/shop`, `/teacher/economy`, the twelve others in `teacherMenuGates`) the effect below
-   * ran against the all-false default and replaced the page with `/teacher` before the answer
-   * arrived: refresh lost your place, and the back button lost it again. `canDecide` is the fix -
-   * "we cannot answer yet" is not "the teacher turned it off".
+   * It drives menu visibility only. It used to also redirect a gated destination to `/teacher`,
+   * which turned a "this entry is not useful in the rail right now" decision into a route
+   * permission: `/teacher/certificates`, `/teacher/communication`, `/teacher/ai-study`,
+   * `/teacher/verification` and the other menu-gated pages became unreachable by URL whenever
+   * their feature was off, even though the route table deliberately leaves them ungated.
+   * The redirect is gone; an unknown answer still hides nothing, and a known answer only hides
+   * the rail entry.
    */
   const { features: classFeatures, canDecide } = useResolvedClassFeatures(defaultClassId, {
     refetchInterval: 5000,
@@ -124,32 +133,6 @@ export default function TeacherLayout() {
     [canResolveGates, classFeatures],
   );
 
-  const fallbackPath = useMemo(() => {
-    // The first destination the teacher can actually use, in the fallback order below. While the
-    // answer is pending there is no "unusable" entry to skip, so the console's own home is used and
-    // the effect below does nothing until the flags arrive.
-    if (!canResolveGates) return '/teacher';
-    for (const path of GATE_ORDERED_PATHS) {
-      if (isFeatureRequirementEnabled(classFeatures, teacherMenuGates[path])) return path;
-    }
-    return '/teacher';
-  }, [canResolveGates, classFeatures]);
-
-  useEffect(() => {
-    // Never decide on "we cannot answer": that is what made a refresh of a gated page bounce.
-    if (!canResolveGates) return;
-
-    if (location.pathname === '/teacher' && fallbackPath !== '/teacher') {
-      navigate(fallbackPath, { replace: true });
-      return;
-    }
-
-    const requirement = teacherMenuGates[location.pathname];
-    if (requirement && !isFeatureRequirementEnabled(classFeatures, requirement)) {
-      navigate(fallbackPath, { replace: true });
-    }
-  }, [canResolveGates, fallbackPath, classFeatures, location.pathname, navigate]);
-
   if (!user) return null;
 
   return (
@@ -157,7 +140,7 @@ export default function TeacherLayout() {
       role="teacher"
       brand={{ label: '教师工作台', meta: '让每个课堂都发光', icon: GraduationCap }}
       fallbackTitle="教师工作台"
-      homePath={fallbackPath}
+      homePath="/teacher"
       settingsPath="/teacher/settings"
       features={features}
       hiddenPaths={hiddenPaths}
@@ -203,31 +186,6 @@ function ClassesUnavailableCard({ onRetry, isRetrying }: { onRetry: () => void; 
     </div>
   );
 }
-
-/**
- * The order the teacher console falls back through, matching the route table's own order.
- *
- * Written out rather than derived from the table because it is the *fallback* order, which
- * is a product decision: a teacher whose class has the shop switched off should land on
- * 考勤与请假 rather than on whatever happens to sort first alphabetically.
- */
-const GATE_ORDERED_PATHS = [
-  '/teacher',
-  '/teacher/attendance',
-  '/teacher/records',
-  '/teacher/communication',
-  '/teacher/assignments',
-  '/teacher/exams',
-  '/teacher/shop',
-  '/teacher/economy',
-  '/teacher/lucky-draw-config',
-  '/teacher/verification',
-  '/teacher/brawl',
-  '/teacher/territory',
-  '/teacher/auction',
-  '/teacher/blind-box',
-  '/teacher/certificates',
-] as const;
 
 /** How many classes the teacher has, in the rail's footer. */
 function ClassContextCount({ count }: { count: number }) {
