@@ -98,7 +98,7 @@ export default function TeacherAnalysis() {
                   className={cn(
                     'flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
                     selectedClassId === cls.id
-                      ? 'bg-gradient-to-r from-role to-role-ink text-role-contrast shadow-card'
+                      ? 'bg-role text-role-contrast shadow-card'
                       : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/50',
                   )}
                 >
@@ -160,7 +160,7 @@ export default function TeacherAnalysis() {
                         <div className="font-bold text-fg-1">{exam.title}</div>
                         <div className="text-sm text-fg-3">{exam.exam_date || '未设置考试日期'}</div>
                       </div>
-                      <div className="text-xl font-black text-warning">{Math.round(exam.average_score)} 分</div>
+                      <div className="text-xl font-bold text-warning">{Math.round(exam.average_score)} 分</div>
                     </div>
                   </div>
                 )}
@@ -185,7 +185,7 @@ export default function TeacherAnalysis() {
                         <div className="text-sm text-fg-3">{assignment.due_date || '未设置截止时间'}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-black text-success">{assignment.completion_rate}%</div>
+                        <div className="text-lg font-bold text-success">{assignment.completion_rate}%</div>
                         <div className="text-xs text-fg-3">
                           {assignment.submitted_students}/{assignment.total_students}
                         </div>
@@ -207,12 +207,12 @@ export default function TeacherAnalysis() {
                 renderItem={(student, index) => (
                   <div key={student.id} className="flex items-center justify-between rounded-card border border-line-1 bg-surface-3/50 p-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-role/10 font-black text-role">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-role/10 font-bold text-role">
                         {index + 1}
                       </div>
                       <div className="font-bold text-fg-1">{student.name}</div>
                     </div>
-                    <div className="text-lg font-black text-role">{student.total_points} 分</div>
+                    <div className="text-lg font-bold text-role">{student.total_points} 分</div>
                   </div>
                 )}
               />

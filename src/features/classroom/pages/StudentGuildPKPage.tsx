@@ -99,7 +99,7 @@ export default function StudentGuildPK() {
   if (loading) {
     return (
       <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center">
-        <div className="animate-pulse text-center text-2xl font-black text-fg-3">魔法雷达扫描中...</div>
+        <div className="animate-pulse text-center text-2xl font-bold text-fg-3">魔法雷达扫描中...</div>
       </PageScaffold>
     );
   }
@@ -133,7 +133,7 @@ export default function StudentGuildPK() {
           <div className="mb-6 inline-flex items-center justify-center rounded-full bg-surface-3 p-8 shadow-inset">
             <ShieldAlert className="h-16 w-16 text-fg-3" />
           </div>
-          <p className="text-3xl font-black text-fg-3">魔法小队 PK 暂未开启</p>
+          <p className="text-3xl font-bold text-fg-3">魔法小队 PK 暂未开启</p>
           <p className="mt-4 text-xl font-bold text-fg-3">请等待老师开启全班公会战</p>
         </div>
       </PageScaffold>
@@ -148,14 +148,14 @@ export default function StudentGuildPK() {
         {/* Header */}
         <motion.div
           {...bannerEntrance}
-          className="relative overflow-hidden rounded-panel bg-gradient-to-r from-danger to-warning p-10 text-fg-inverse shadow-raised"
+          className="relative overflow-hidden rounded-panel bg-danger p-10 text-fg-inverse shadow-raised"
         >
           <div className="absolute inset-0 pattern-noise opacity-30 mix-blend-overlay"></div>
           <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-warning mix-blend-screen opacity-40 blur-[80px]"></div>
 
           <div className="relative z-10 flex flex-col items-center justify-between text-center md:flex-row md:text-left">
             <div>
-              <h2 className="mb-3 flex items-center justify-center text-4xl font-black drop-shadow-md md:justify-start">
+              <h2 className="mb-3 flex items-center justify-center text-3xl font-bold drop-shadow-md md:justify-start">
                 <Swords className="mr-4 h-10 w-10" />
                 魔法小队 PK 榜
               </h2>
@@ -163,7 +163,7 @@ export default function StudentGuildPK() {
             </div>
             <div className="mt-6 rounded-card border border-fg-inverse/30 bg-surface-2/20 px-6 py-4 text-center backdrop-blur-md md:mt-0">
               <div className="mb-1 text-sm font-bold opacity-90">参战小队</div>
-              <div className="flex items-center justify-center text-4xl font-black">
+              <div className="flex items-center justify-center text-3xl font-bold">
                 {rankings.length}
               </div>
             </div>
@@ -193,7 +193,7 @@ export default function StudentGuildPK() {
                     transition={{ delay: index * 0.1 }}
                     className={`relative flex items-center gap-6 rounded-card border-2 p-6 transition-all ${
                       isFirst
-                        ? 'border-warning/40 bg-gradient-to-r from-warning-soft to-warning-soft shadow-card'
+                        ? 'border-warning/40 bg-warning-soft shadow-card'
                         : 'border-line-1 bg-surface-2 hover:border-line-strong'
                     }`}
                   >
@@ -206,17 +206,17 @@ export default function StudentGuildPK() {
                       ) : isThird ? (
                         <Medal className="h-10 w-10 text-warning drop-shadow-sm" />
                       ) : (
-                        <span className="text-2xl font-black text-fg-3/70">{index + 1}</span>
+                        <span className="text-2xl font-bold text-fg-3/70">{index + 1}</span>
                       )}
                     </div>
 
                     {/* Name and Progress */}
                     <div className="flex-1">
                       <div className="mb-2 flex items-end justify-between">
-                        <h3 className={`text-xl font-black ${isFirst ? 'text-warning-ink' : 'text-fg-2'}`}>
+                        <h3 className={`text-xl font-bold ${isFirst ? 'text-warning-ink' : 'text-fg-2'}`}>
                           {rank.name}
                         </h3>
-                        <div className={`flex items-baseline text-2xl font-black ${isFirst ? 'text-warning' : 'text-fg-2'}`}>
+                        <div className={`flex items-baseline text-2xl font-bold ${isFirst ? 'text-warning' : 'text-fg-2'}`}>
                           <Flame className={`mr-1 h-5 w-5 ${isFirst ? 'animate-pulse text-danger' : 'text-warning'}`} />
                           {rank.total_score}
                           <span className="ml-1 text-sm font-bold text-fg-3">战力</span>
@@ -230,12 +230,12 @@ export default function StudentGuildPK() {
                           transition={shouldReduceMotion ? { duration: 0 } : { duration: 1, type: 'spring' }}
                           className={`relative h-full overflow-hidden ${
                             isFirst
-                              ? 'bg-gradient-to-r from-warning to-warning-ink'
+                              ? 'bg-warning'
                               : isSecond
-                                ? 'bg-gradient-to-r from-line-strong to-fg-3'
+                                ? 'bg-line-strong'
                                 : isThird
-                                  ? 'bg-gradient-to-r from-warning/70 to-warning'
-                                  : 'bg-gradient-to-r from-info to-role'
+                                  ? 'bg-warning'
+                                  : 'bg-info'
                           }`}
                         >
                           <div className="absolute inset-0 pattern-stripes opacity-20"></div>

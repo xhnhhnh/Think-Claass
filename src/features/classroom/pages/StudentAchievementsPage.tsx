@@ -23,10 +23,10 @@ const ACHIEVEMENT_ICONS: Record<string, any> = {
 };
 
 const ACHIEVEMENT_COLORS: Record<string, string> = {
-  '初出茅庐': 'from-info to-role',
-  '自律骑士': 'from-success to-success-ink',
-  '非酋附体': 'from-role-ink to-danger',
-  'DEFAULT': 'from-warning to-warning-ink'
+  '初出茅庐': 'bg-info',
+  '自律骑士': 'bg-success',
+  '非酋附体': 'bg-role-ink',
+  'DEFAULT': 'bg-warning'
 };
 
 const KNOWN_ACHIEVEMENTS = [
@@ -77,14 +77,14 @@ export default function StudentAchievements() {
         <motion.div
           initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: -20 }) }}
           animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
-          className="relative overflow-hidden rounded-panel border border-fg-2 bg-gradient-to-br from-fg-1 to-fg-2 p-10 text-fg-inverse shadow-raised"
+          className="relative overflow-hidden rounded-panel border border-fg-2 bg-fg-1 p-10 text-fg-inverse shadow-raised"
         >
           <div className="absolute inset-0 pattern-stars opacity-40 mix-blend-overlay"></div>
           <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-warning opacity-40 mix-blend-screen blur-[100px] filter"></div>
 
           <div className="relative z-10 flex flex-col items-center justify-between text-center md:flex-row md:text-left">
             <div>
-              <h2 className="mb-3 flex items-center justify-center text-4xl font-black text-fg-inverse md:justify-start">
+              <h2 className="mb-3 flex items-center justify-center text-3xl font-bold text-fg-inverse md:justify-start">
                 <Trophy className="mr-4 h-10 w-10 text-warning drop-shadow-md" />
                 我的荣誉墙
               </h2>
@@ -92,7 +92,7 @@ export default function StudentAchievements() {
             </div>
             <div className="mt-6 rounded-card border border-fg-inverse/20 bg-fg-inverse/10 px-6 py-4 backdrop-blur-md md:mt-0">
               <div className="mb-1 text-sm font-bold text-fg-inverse/70">已解锁成就</div>
-              <div className="text-3xl font-black text-warning">
+              <div className="text-3xl font-bold text-warning">
                 {loadError ? '—' : achievements.length}{' '}
                 <span className="text-lg text-fg-inverse/60">/ {KNOWN_ACHIEVEMENTS.length}</span>
               </div>
@@ -102,7 +102,7 @@ export default function StudentAchievements() {
 
         {/* Grid */}
         {loading ? (
-          <div className="animate-pulse py-20 text-center text-2xl font-black text-fg-3">加载中...</div>
+          <div className="animate-pulse py-20 text-center text-2xl font-bold text-fg-3">加载中...</div>
         ) : loadError ? (
           /**
            * A failed read is not "you have unlocked nothing".
@@ -133,13 +133,13 @@ export default function StudentAchievements() {
                   key={known.name}
                   className={`relative overflow-hidden rounded-panel border-2 p-6 transition-all duration-500 ${
                     isUnlocked
-                      ? 'border-line-1 bg-surface-2 shadow-raised hover:-translate-y-2 hover:shadow-floating'
+                      ? 'border-line-1 bg-surface-2 shadow-raised hover:-translate-y-2 hover:shadow-raised'
                       : 'border-line-2 bg-surface-3/50 shadow-inset grayscale opacity-60'
                   }`}
                 >
                   {/* Shine effect for unlocked */}
                   {isUnlocked && (
-                    <div className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-gradient-to-r from-transparent via-role-contrast/40 to-transparent"></div>
+                    <div className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-role-contrast/15"></div>
                   )}
 
                   <div className="relative z-10 flex flex-col items-center text-center">
@@ -147,14 +147,14 @@ export default function StudentAchievements() {
                       isUnlocked ? 'shadow-raised' : 'bg-surface-3 shadow-inset'
                     }`}>
                       {isUnlocked && (
-                        <div className={`absolute inset-0 animate-[spin_10s_linear_infinite] rounded-full bg-gradient-to-br ${colorGradient}`}></div>
+                        <div className={`absolute inset-0 animate-[spin_10s_linear_infinite] rounded-full ${colorGradient}`}></div>
                       )}
                       <div className={`absolute inset-1 flex items-center justify-center rounded-full ${isUnlocked ? 'bg-surface-2' : 'bg-transparent'}`}>
                         <Icon className={`h-12 w-12 ${isUnlocked ? 'text-fg-1' : 'text-fg-3'}`} />
                       </div>
                     </div>
 
-                    <h3 className={`mb-2 text-2xl font-black ${isUnlocked ? 'text-fg-1' : 'text-fg-3'}`}>
+                    <h3 className={`mb-2 text-2xl font-bold ${isUnlocked ? 'text-fg-1' : 'text-fg-3'}`}>
                       {known.name}
                     </h3>
                     <p className={`text-sm font-medium leading-relaxed ${isUnlocked ? 'text-fg-3' : 'text-fg-3'}`}>

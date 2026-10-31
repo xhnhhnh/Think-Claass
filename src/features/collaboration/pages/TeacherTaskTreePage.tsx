@@ -229,7 +229,7 @@ export default function TeacherTaskTree() {
             transition={{ type: 'spring', bounce: 0.35 }}
             className="group absolute z-10 flex flex-col items-center"
           >
-            <div className="relative flex size-16 items-center justify-center rounded-full border-4 border-role/40 bg-role font-bold text-role-contrast shadow-glow-primary transition-transform group-hover:scale-110">
+            <div className="relative flex size-16 items-center justify-center rounded-full border-4 border-role/40 bg-role font-bold text-role-contrast shadow-raised transition-transform group-hover:scale-110">
               {node.id}
 
               {/* Quick Actions */}

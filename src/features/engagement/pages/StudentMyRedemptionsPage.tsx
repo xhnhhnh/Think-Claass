@@ -132,7 +132,7 @@ export default function StudentMyRedemptions() {
                         className={'size-6 ' + (used ? 'text-fg-3' : 'text-role-ink')}
                       />
                     </div>
-                    <h3 className="text-xl font-black text-fg-1">{ticket.item_name}</h3>
+                    <h3 className="text-xl font-bold text-fg-1">{ticket.item_name}</h3>
                   </div>
                   {used ? (
                     <Badge variant="secondary" className="h-auto gap-1.5 px-3 py-1.5 text-sm">
@@ -155,7 +155,7 @@ export default function StudentMyRedemptions() {
                 >
                   {used && (
                     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                      <div className="rotate-[-12deg] select-none rounded-card border-4 border-danger/50 px-6 py-2 text-4xl font-black text-danger/50">
+                      <div className="rotate-[-12deg] select-none rounded-card border-4 border-danger/50 px-6 py-2 text-3xl font-bold text-danger/50">
                         已使用
                       </div>
                     </div>
@@ -163,7 +163,7 @@ export default function StudentMyRedemptions() {
                   <p className="mb-2 text-base font-bold text-fg-3">向老师出示此核销码</p>
                   <p
                     className={
-                      'font-mono text-4xl font-black tracking-[0.25em] ' +
+                      'font-mono text-3xl font-bold tracking-[0.25em] ' +
                       (used ? 'text-fg-3 line-through decoration-danger/50' : 'text-info')
                     }
                   >

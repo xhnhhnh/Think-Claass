@@ -187,7 +187,7 @@ export default function StudentEconomy() {
           {/* Bank Widget */}
           <motion.div
             {...riseIn()}
-            className="relative flex-1 overflow-hidden rounded-panel border border-role-ink bg-gradient-to-br from-role to-role-ink p-8 shadow-raised"
+            className="relative flex-1 overflow-hidden rounded-panel border border-role-ink bg-role p-8 shadow-raised"
           >
             <div className="pointer-events-none absolute right-0 top-0 p-8 opacity-10">
               <Building2 className="size-48 text-role-contrast" />
@@ -198,7 +198,7 @@ export default function StudentEconomy() {
                 <PiggyBank className="mr-2 size-4 text-warning" />
                 当前存款余额
               </div>
-              <div className="flex items-baseline text-5xl font-black text-role-contrast">
+              <div className="flex items-baseline text-3xl font-bold text-role-contrast">
                 <Coins className="mr-2 size-8 text-warning" />
                 {bank?.deposit_amount || 0}
               </div>
@@ -240,7 +240,7 @@ export default function StudentEconomy() {
 
             <div className="mb-8">
               <div className="mb-1 text-sm font-medium text-fg-3">总持仓市值 (积分)</div>
-              <div className="text-5xl font-black tracking-tight text-fg-1">{totalPortfolioValue}</div>
+              <div className="text-3xl font-bold tracking-tight text-fg-1">{totalPortfolioValue}</div>
             </div>
 
             <div className="space-y-3">
@@ -313,7 +313,7 @@ export default function StudentEconomy() {
                   const changePercent = points.length > 1 ? (change / points[points.length - 2]) * 100 : 0;
                   return (
                     <div>
-                      <div className={`text-2xl font-black ${isUp ? 'text-success' : 'text-danger'}`}>
+                      <div className={`text-2xl font-bold ${isUp ? 'text-success' : 'text-danger'}`}>
                         {s.current_price}
                       </div>
                       <div className={`text-xs font-bold ${isUp ? 'text-success' : 'text-danger'}`}>

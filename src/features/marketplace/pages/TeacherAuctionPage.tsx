@@ -126,7 +126,7 @@ function renderAuctionCard(
               <Coins />
               当前最高
             </span>
-            <span className="text-lg font-black text-warning">{auction.current_price} 积分</span>
+            <span className="text-lg font-bold text-warning">{auction.current_price} 积分</span>
           </div>
         </div>
       </CardContent>

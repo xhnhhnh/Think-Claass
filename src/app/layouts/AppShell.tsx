@@ -216,7 +216,7 @@ export function AppShell({
         >
         <a
           href="#main-content"
-          className="sr-only z-50 rounded-card bg-surface-4 px-4 py-2 text-body font-semibold text-fg-1 shadow-floating focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+          className="sr-only z-50 rounded-card bg-surface-4 px-4 py-2 text-body font-semibold text-fg-1 shadow-raised focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
         >
           跳到主要内容
         </a>

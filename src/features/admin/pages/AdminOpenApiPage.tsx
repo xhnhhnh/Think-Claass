@@ -375,7 +375,7 @@ export default function AdminOpenApi() {
                 className: 'font-bold text-fg-1',
                 render: (school) => (
                   <div className="flex items-center">
-                    <span className="mr-3 flex size-8 items-center justify-center rounded-full bg-role/10 text-xs font-black text-role">
+                    <span className="mr-3 flex size-8 items-center justify-center rounded-full bg-role/10 text-xs font-bold text-role">
                       {school.name.substring(0, 1)}
                     </span>
                     {school.name}

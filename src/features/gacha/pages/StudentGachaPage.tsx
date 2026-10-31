@@ -64,10 +64,10 @@ export default function StudentGacha() {
    */
   const getRarityColor = (rarity: string) => {
     switch(rarity) {
-      case 'SSR': return 'from-warning to-warning/60 text-fg-inverse shadow-warning/50 border-warning';
-      case 'SR': return 'from-role-ink to-info text-fg-inverse shadow-info/50 border-role-ink';
-      case 'R': return 'from-info to-info/60 text-fg-inverse shadow-info/50 border-info';
-      default: return 'from-fg-3 to-fg-2 text-fg-inverse shadow-fg-2/50 border-fg-3';
+      case 'SSR': return 'bg-warning text-fg-inverse border-warning';
+      case 'SR': return 'bg-role-ink text-fg-inverse border-role-ink';
+      case 'R': return 'bg-info text-fg-inverse border-info';
+      default: return 'bg-fg-3 text-fg-inverse border-fg-3';
     }
   };
 
@@ -129,7 +129,7 @@ export default function StudentGacha() {
                   className="group relative overflow-hidden rounded-panel border border-fg-inverse/20 bg-fg-inverse/10 p-8 shadow-raised backdrop-blur-xl"
                 >
                   {/* Card Glint Effect */}
-                  <div className="absolute inset-0 translate-x-[-100%] bg-gradient-to-tr from-fg-inverse/0 via-fg-inverse/10 to-fg-inverse/0 transition-transform duration-1000 group-hover:translate-x-[100%]" />
+                  <div className="absolute inset-0 translate-x-[-100%] bg-fg-inverse/10 transition-transform duration-1000 group-hover:translate-x-[100%]" />
 
                   <h3 className="mb-2 text-2xl font-bold text-fg-inverse">{pool.name}</h3>
 
@@ -160,7 +160,7 @@ export default function StudentGacha() {
                     <Button
                       onClick={() => handleDraw(pool.id, 10)}
                       disabled={drawMutation.isPending}
-                      className="h-auto flex-col rounded-card border border-role-ink bg-gradient-to-br from-role to-role-ink p-4 hover:from-role/90 hover:to-role-ink/90"
+                      className="h-auto flex-col rounded-card border border-role-ink bg-role p-4 hover:from-role/90 hover:to-role-ink/90"
                     >
                       <span className="mb-1 text-lg font-bold text-role-contrast">十连召唤</span>
                       <span className="flex items-center text-sm text-role-soft">
@@ -193,7 +193,7 @@ export default function StudentGacha() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-fg-1/90 p-4 backdrop-blur-md"
           >
             <div className="w-full max-w-5xl">
-              <h2 className="mb-12 text-center text-4xl font-black text-fg-inverse drop-shadow-md">召唤结果</h2>
+              <h2 className="mb-12 text-center text-3xl font-bold text-fg-inverse drop-shadow-md">召唤结果</h2>
 
               <div className="flex flex-wrap justify-center gap-6">
                 {results.map((pet, i) => (
@@ -202,11 +202,11 @@ export default function StudentGacha() {
                     initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0, rotateY: 180 }) }}
                     animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1, rotateY: 0 }) }}
                     transition={{ delay: i * 0.1, type: 'spring', bounce: 0.4 }}
-                    className={`group relative h-48 w-32 overflow-hidden rounded-card bg-gradient-to-br p-1 shadow-raised sm:h-56 sm:w-40 ${getRarityColor(pet.rarity)}`}
+                    className={`group relative h-48 w-32 overflow-hidden rounded-card p-1 shadow-raised sm:h-56 sm:w-40 ${getRarityColor(pet.rarity)}`}
                   >
                     <div className="absolute inset-1 flex flex-col items-center justify-between rounded-card border border-fg-inverse/20 bg-fg-1/40 p-3 backdrop-blur-sm">
                       <div className="flex w-full items-start justify-between">
-                        <span className="text-lg font-black drop-shadow-md">{pet.rarity}</span>
+                        <span className="text-lg font-bold drop-shadow-md">{pet.rarity}</span>
                         {pet.rarity === 'SSR' && <Star className="size-5 animate-pulse fill-warning text-warning" />}
                       </div>
 

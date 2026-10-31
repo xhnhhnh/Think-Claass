@@ -69,7 +69,7 @@ export default function ContactPage() {
   return (
     <PortalShell title="联系我们" icon={MessageSquare} mainClassName="max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-4xl">与我们取得联系</h1>
+        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-3xl">与我们取得联系</h1>
         <p className="mx-auto max-w-xl text-base text-fg-3">
           如果您有任何问题、建议或合作意向，欢迎随时与我们联系。
         </p>

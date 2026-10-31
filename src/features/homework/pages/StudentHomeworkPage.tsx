@@ -180,7 +180,7 @@ export default function StudentHomework() {
                   {state === 'graded' ? (
                     <div className="rounded-card border border-success/30 bg-success-soft px-4 py-2 text-center">
                       <span className="block text-xs font-semibold text-success-ink">得分</span>
-                      <span className="text-2xl font-black text-success-ink">
+                      <span className="text-2xl font-bold text-success-ink">
                         {submission?.score ?? '—'}
                       </span>
                       <span className="text-xs text-success-ink"> / {homework.total_points}</span>

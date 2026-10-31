@@ -35,7 +35,7 @@ export default function ServicesPage() {
   return (
     <PortalShell title="产品服务" icon={Layout} mainClassName="max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-4xl">全方位的智慧班级解决方案</h1>
+        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-3xl">全方位的智慧班级解决方案</h1>
         <p className="mx-auto max-w-2xl text-base leading-relaxed text-fg-3">
           我们提供了一套完整的教育管理工具，旨在减轻教师负担，促进家校合作，助力学生全面发展。
         </p>
@@ -65,7 +65,7 @@ export default function ServicesPage() {
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.4 }}
-        className="relative mt-20 overflow-hidden rounded-panel border border-role/10 bg-gradient-to-br from-role/5 to-role-soft p-12 text-center md:p-14"
+        className="relative mt-20 overflow-hidden rounded-panel border border-role/10 bg-role-soft/50 p-12 text-center md:p-14"
       >
         <h2 className="mb-4 text-2xl font-bold text-fg-1 md:text-3xl">准备好开启您的教育故事了吗？</h2>
         <p className="mx-auto mb-8 max-w-xl text-fg-3">

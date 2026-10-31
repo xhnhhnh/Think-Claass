@@ -56,9 +56,9 @@ export default function AboutPage() {
         animate={{ opacity: 1, y: 0 }}
         className="overflow-hidden rounded-panel border border-line-1 bg-surface-2 shadow-card"
       >
-        <div className="relative overflow-hidden bg-gradient-to-br from-role/5 to-role-soft px-8 py-16 text-center">
+        <div className="relative overflow-hidden bg-role-soft/50 px-8 py-16 text-center">
           <div className="relative z-10">
-            <h1 className="mb-3 text-3xl font-bold text-fg-1 md:text-4xl">
+            <h1 className="mb-3 text-3xl font-bold text-fg-1 md:text-3xl">
               {aboutData?.title || "致力于更好的教育管理"}
             </h1>
             <p className="mx-auto max-w-2xl text-base text-fg-3">

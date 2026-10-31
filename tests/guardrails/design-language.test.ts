@@ -11,7 +11,7 @@
  *   1. Hard invariant metrics must be 0 forever. The 16 `transparenttextures.com`
  *      backgrounds, the last legacy token aliases and the two console emoji are removed
  *      in the same change that introduces the check.
- *   2. Counted metrics start at today's measurement and may only go down. The target is
+ *   2. Counted metrics are ratchets: every wave lowers the ceiling. The student/pet sweep took\n *      raw gradients and heavy shadows to zero and the display ceiling to the two public-hero\n *      headings; any page that adds one back fails here. The target is
  *      recorded in the metric definition so the next wave knows what it is buying, but
  *      the assertion uses the ceiling that is true now. A guardrail that is red on day
  *      one teaches everyone to ignore it.
@@ -47,21 +47,21 @@ const METRICS: Metric[] = [
     key: 'rawGradientBackgrounds',
     label: 'raw `bg-gradient-to-*` utilities',
     pattern: /\bbg-gradient-to-[a-z]+\b/g,
-    ceiling: 62,
+    ceiling: 0,
     target: 0,
   },
   {
     key: 'displayType',
     label: '`text-4xl`+ / `font-black` in application code',
     pattern: /\b(?:text-(?:4xl|5xl|6xl|7xl|8xl|9xl)|font-black)\b/g,
-    ceiling: 145,
+    ceiling: 2,
     target: 12,
   },
   {
     key: 'heavyShadows',
     label: '`shadow-xl/2xl/floating/glow-*` utilities',
     pattern: /\bshadow-(?:xl|2xl|floating|glow-[a-z-]+)\b/g,
-    ceiling: 27,
+    ceiling: 0,
     target: 8,
   },
   {

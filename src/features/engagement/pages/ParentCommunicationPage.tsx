@@ -176,7 +176,7 @@ export default function ParentCommunication() {
       <div className="relative mx-auto flex h-[calc(100vh-8rem)] max-w-4xl flex-col overflow-hidden rounded-panel border border-line-1 bg-surface-3 shadow-raised">
         {/* Messages Area */}
         <div className="relative flex-1 overflow-y-auto pattern-paper p-8">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface-3/80 to-surface-3/40"></div>
+          <div className="pointer-events-none absolute inset-0 bg-surface-3/60"></div>
 
           <div className="relative z-10 h-full">
             {loading ? (

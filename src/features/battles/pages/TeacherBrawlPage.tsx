@@ -200,14 +200,14 @@ export default function TeacherBrawl() {
                 <div className="mb-2 text-xl font-bold text-danger">
                   {activeBattle.initiator_class_id === classId ? '本班 (红方)' : '敌班 (红方)'}
                 </div>
-                <div className="text-3xl font-black text-role-contrast">{activeBattle.initiator_class_name}</div>
-                <div className="mt-4 text-5xl font-black text-danger drop-shadow-raised">
+                <div className="text-3xl font-bold text-role-contrast">{activeBattle.initiator_class_name}</div>
+                <div className="mt-4 text-3xl font-bold text-danger drop-shadow-raised">
                   {activeStats.initiatorScore}
                 </div>
               </div>
 
               <div className="w-1/3 text-center">
-                <div className="text-6xl font-black italic text-warning drop-shadow-raised">VS</div>
+                <div className="text-3xl font-bold italic text-warning drop-shadow-raised">VS</div>
                 <div className="mt-4 flex items-center justify-center font-mono text-sm text-role-contrast/70">
                   <RefreshCw className="mr-2 size-4 animate-spin" /> 战况实时同步中
                 </div>
@@ -217,8 +217,8 @@ export default function TeacherBrawl() {
                 <div className="mb-2 text-xl font-bold text-info">
                   {activeBattle.target_class_id === classId ? '本班 (蓝方)' : '敌班 (蓝方)'}
                 </div>
-                <div className="text-3xl font-black text-role-contrast">{activeBattle.target_class_name}</div>
-                <div className="mt-4 text-5xl font-black text-info drop-shadow-raised">
+                <div className="text-3xl font-bold text-role-contrast">{activeBattle.target_class_name}</div>
+                <div className="mt-4 text-3xl font-bold text-info drop-shadow-raised">
                   {activeStats.targetScore}
                 </div>
               </div>
@@ -227,7 +227,7 @@ export default function TeacherBrawl() {
             {/* Progress Bar */}
             <div className="flex h-6 w-full overflow-hidden rounded-full bg-fg-1 shadow-inner">
               <motion.div 
-                className="h-full bg-gradient-to-r from-danger to-danger/60"
+                className="h-full bg-danger"
                 initial={{ width: '50%' }}
                 animate={{ 
                   width: `${activeStats.initiatorScore + activeStats.targetScore === 0 ? 50 : (activeStats.initiatorScore / (activeStats.initiatorScore + activeStats.targetScore)) * 100}%` 
@@ -235,7 +235,7 @@ export default function TeacherBrawl() {
                 transition={{ type: 'spring', bounce: 0.2 }}
               />
               <motion.div 
-                className="h-full bg-gradient-to-l from-info to-info/60"
+                className="h-full bg-info"
                 initial={{ width: '50%' }}
                 animate={{ 
                   width: `${activeStats.initiatorScore + activeStats.targetScore === 0 ? 50 : (activeStats.targetScore / (activeStats.initiatorScore + activeStats.targetScore)) * 100}%` 

@@ -64,7 +64,7 @@ export function ConfirmDialog({
         <AlertDialogPrimitive.Popup
           data-slot="confirm-dialog-popup"
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-sheet border border-line-1 bg-surface-4 p-4 text-body text-fg-1 shadow-floating outline-none sm:max-w-md',
+            'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-sheet border border-line-1 bg-surface-4 p-4 text-body text-fg-1 shadow-raised outline-none sm:max-w-md',
             'data-[open]:animate-zoom-in data-[closed]:animate-zoom-out',
           )}
         >

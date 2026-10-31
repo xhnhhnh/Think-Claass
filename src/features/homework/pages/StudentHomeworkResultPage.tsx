@@ -219,7 +219,7 @@ export default function StudentHomeworkResult() {
                   {graded ? '最终得分' : '等待批改'}
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className={graded ? 'text-4xl font-black text-success-ink' : 'text-4xl font-black text-info-ink'}>
+                  <span className={graded ? 'text-3xl font-bold text-success-ink' : 'text-3xl font-bold text-info-ink'}>
                     {row.score ?? '—'}
                   </span>
                   <span className={graded ? 'text-lg font-bold text-success-ink' : 'text-lg font-bold text-info-ink'}>

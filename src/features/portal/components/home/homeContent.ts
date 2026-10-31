@@ -88,8 +88,8 @@ export const audienceCards: AudienceCard[] = [
     title: "把学习变成一场愿意继续的探索",
     description: "用任务、奖励和成长记录，把看不见的努力变成可以被感受到的小成就。",
     points: ["目标更清楚", "反馈更及时", "成长更有仪式感"],
-    color: "from-info to-info-ink",
-    bg: "from-info-soft to-info-soft",
+    color: "bg-info",
+    bg: "bg-info-soft",
   },
   {
     icon: ClipboardCheck,
@@ -97,8 +97,8 @@ export const audienceCards: AudienceCard[] = [
     title: "把课堂管理变得更轻、更有秩序",
     description: "把任务推进、学生状态和课堂激励集中起来，减少重复记录，让注意力回到教学本身。",
     points: ["任务可追踪", "表现可沉淀", "激励可持续"],
-    color: "from-success to-info",
-    bg: "from-success-soft to-info-soft",
+    color: "bg-success",
+    bg: "bg-success-soft",
   },
   {
     icon: MessageCircle,
@@ -106,8 +106,8 @@ export const audienceCards: AudienceCard[] = [
     title: "看见孩子在课堂里的真实成长",
     description: "用更温和的方式了解孩子的学习状态，不只看结果，也能看到每一次尝试。",
     points: ["变化更直观", "沟通更轻松", "陪伴更有方向"],
-    color: "from-warning to-warning-ink",
-    bg: "from-warning-soft to-warning-soft",
+    color: "bg-warning",
+    bg: "bg-warning-soft",
   },
 ];
 

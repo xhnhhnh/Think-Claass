@@ -403,7 +403,7 @@ Recorded rather than hidden. Each is a real gap, and none of them is a surprise 
 | The student game pages still contain hand-built gradients, display type and heavy shadows | The v2 design-language ratchet records the ceiling in `tests/guardrails/design-language.test.ts`; the student wave lowers it rather than hiding it. |
 | `HomeClosingCta`'s desktop state is `text-fg-1` on `bg-role` | A contrast defect inherited verbatim (it was `ink-1` on `primary`) and preserved rather than redesigned mid-migration. One `md:text-role-contrast` fixes it. |
 | The `prose` palette on `NewsPage` | Re-pointing the typography plugin at the tokens needs `theme.typography` in the config. |
-| A pixel-diff visual regression baseline | Still deferred: the project does not add dependencies. `npm run design:capture` records screenshots and computed-style counts, and `npm run design:verify` fails on layout defects (overflow, duplicate `h1`, external images) but does not compare pixels. |
+| A pixel-diff visual regression baseline | Still deferred: the project does not add dependencies. `npm run design:capture` records screenshots and computed-style counts, and `npm run design:verify` fails on layout and style-count regressions (overflow, duplicate `h1`, external images, distinct radii/sizes/shadows/weights) but does not compare pixels. |
 
 ## 12. Product design language v2
 
@@ -439,7 +439,10 @@ teacher workbench is the first page built against it.
 `surface-console`, `surface-brand`, `surface-hero`, `surface-immersive`,
 `surface-celebration`, `surface-danger`, plus local `pattern-grid`, `pattern-grid-light`,
 `pattern-stars`, `pattern-paper`, `pattern-noise` and `pattern-stripes`. Pages do not write
-`bg-gradient-to-*`; the design-language guardrail counts any that remain.
+`bg-gradient-to-*`; the design-language guardrail counts any that remain. After the student
+sweep that count is 0: the game pages use flat token surfaces plus the local patterns, the
+only display-type exception is the two public-hero headings, and every elevation is
+`shadow-raised` (cards use a border, overlays keep one step of depth).
 
 ### Component vocabulary added in v2
 
@@ -463,11 +466,15 @@ teacher workbench is the first page built against it.
 ```bash
 npm run demo            # isolated seeded instance in .tmp/demo (web 5174, API 3002)
 npm run design:capture  # screenshots + computed-style report in .tmp/design-review
-npm run design:verify   # hard layout checks (overflow, duplicate h1, external images)
+npm run design:verify   # layout + style-check assertions on the 12 key routes
+node scripts/verification/design-browser.mjs --all --check   # 36 pages at 1440/768/390
+DESIGN_DARK=1 npm run design:capture                         # dark-mode pass
 npx vitest run --config vitest.guardrails.config.ts tests/guardrails/design-language.test.ts
 ```
 
 `design:capture` needs headless Chrome on CDP port 9222, the same dependency as
-`shell:verify` and `tour:verify`. It is a review tool, not a pixel baseline: it records
-the number of distinct radii, font sizes, shadows and weights on each reviewed screen so
-the next wave can lower them without guessing.
+`shell:verify` and `tour:verify`. It is a review tool, not a pixel baseline: it records the
+number of distinct radii, font sizes, shadows and weights on each reviewed screen and
+`--check` fails when a page exceeds the current ceilings, so the next wave lowers them
+without guessing. The TanStack Query devtools launcher is hidden during capture; it is a
+development-only overlay, not part of the shipped page.

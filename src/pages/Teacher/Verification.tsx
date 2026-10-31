@@ -88,7 +88,7 @@ export default function TeacherVerification() {
           <Button
             type="submit"
             disabled={loading || !code.trim()}
-            className="w-full flex justify-center py-4 px-4 border border-transparent rounded-card shadow-card text-lg font-bold text-role-contrast bg-gradient-to-r from-role to-role-ink hover:from-role/90 hover:to-role-ink/90 disabled:opacity-50 transition-colors"
+            className="w-full flex justify-center py-4 px-4 border border-transparent rounded-card shadow-card text-lg font-bold text-role-contrast bg-role hover:from-role/90 hover:to-role-ink/90 disabled:opacity-50 transition-colors"
           >
             {loading ? '核销中...' : '确认核销'}
           </Button>
@@ -103,7 +103,7 @@ export default function TeacherVerification() {
       {result && (
         <div className="bg-role/5 border-2 border-role/20 p-8 rounded-panel shadow-card animate-slide-in-bottom">
           <div className="flex items-center justify-center mb-6">
-            <div className="bg-gradient-to-r from-role to-role-ink rounded-full p-2 mr-3">
+            <div className="bg-role rounded-full p-2 mr-3">
               <CheckCircle className="size-6 text-role-contrast" />
             </div>
             <h3 className="text-2xl font-bold text-role">核销成功</h3>

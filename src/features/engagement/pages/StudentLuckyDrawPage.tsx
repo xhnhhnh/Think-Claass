@@ -134,7 +134,7 @@ export default function StudentLuckyDraw() {
           animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
           className="relative overflow-hidden rounded-panel border-b-8 border-role/30 bg-surface-2 p-10 shadow-card"
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-role to-role-ink opacity-10" />
+          <div className="pointer-events-none absolute inset-0 bg-role opacity-10" />
           {/* Two slow drifting washes: `animate-blob` was defined nowhere, so these
               replace classes that compiled to nothing with animation that plays. */}
           <motion.div
@@ -166,7 +166,7 @@ export default function StudentLuckyDraw() {
               icon={Star}
               tone="warning"
               value={
-                <span className="text-4xl font-black text-role">
+                <span className="text-3xl font-bold text-role">
                   {balanceError ? '—' : balanceLoading ? '…' : (availablePoints ?? 0)}{' '}
                   <span className="text-xl font-bold">币</span>
                 </span>
@@ -215,7 +215,7 @@ export default function StudentLuckyDraw() {
         ) : (
           <div className="rounded-panel border-8 border-role/20 bg-surface-2 p-10 shadow-raised">
             <div className="mb-10 text-center">
-              <span className="inline-flex items-center rounded-card border-b-4 border-role/30 bg-role/5 px-6 py-3 text-xl font-black text-role shadow-card">
+              <span className="inline-flex items-center rounded-card border-b-4 border-role/30 bg-role/5 px-6 py-3 text-xl font-bold text-role shadow-card">
                 每次抽奖消耗 {costPoints} 积分
               </span>
             </div>
@@ -244,7 +244,7 @@ export default function StudentLuckyDraw() {
                   } ${flippedIndex !== null && flippedIndex !== index ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                   {/* Front of card */}
-                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-panel border-4 border-b-8 border-role-ink bg-gradient-to-br from-role-ink to-info shadow-raised [backface-visibility:hidden]">
+                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-panel border-4 border-b-8 border-role-ink bg-role-ink shadow-raised [backface-visibility:hidden]">
                     <div className="absolute inset-0 pattern-grid opacity-20 mix-blend-overlay"></div>
                     <Sparkles className="size-16 animate-pulse text-fg-inverse/80 drop-shadow-md" />
                   </div>
@@ -258,7 +258,7 @@ export default function StudentLuckyDraw() {
                         transition={{ delay: 0.3, type: "spring" }}
                       >
                         <Gift className="mx-auto mb-4 size-16 text-warning drop-shadow-md" />
-                        <p className="text-2xl font-black leading-tight text-fg-1">
+                        <p className="text-2xl font-bold leading-tight text-fg-1">
                           {result.prize_name}
                         </p>
                       </motion.div>
@@ -281,11 +281,11 @@ export default function StudentLuckyDraw() {
                   className="mt-16 text-center"
                 >
                   <div className="inline-block rounded-panel border-8 border-warning/40 bg-warning/10 p-8 shadow-raised">
-                    <h3 className="mb-4 text-4xl font-black text-warning drop-shadow-sm">翻牌结果</h3>
+                    <h3 className="mb-4 text-3xl font-bold text-warning drop-shadow-sm">翻牌结果</h3>
                     <p className="mb-8 text-2xl font-bold text-fg-1">{result.message}</p>
                     <Button
                       onClick={resetDraw}
-                      className="h-auto rounded-panel border-b-8 border-role-ink bg-gradient-to-r from-role to-role-ink px-12 py-4 text-2xl font-black hover:-translate-y-1"
+                      className="h-auto rounded-panel border-b-8 border-role-ink bg-role px-12 py-4 text-2xl font-bold hover:-translate-y-1"
                     >
                       再翻一次
                     </Button>

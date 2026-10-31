@@ -114,7 +114,7 @@ export default function HomeNews({ loading, articles, onOpenNews, error = false,
           ))}
         </div>
       ) : (
-        <div className="relative overflow-hidden rounded-2xl border border-line-1 bg-gradient-to-br from-surface-2 via-surface-2 to-info/5 px-8 py-10 shadow-sm md:px-12">
+        <div className="relative overflow-hidden rounded-2xl border border-line-1 bg-surface-2 px-8 py-10 shadow-sm md:px-12">
           <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-info/10 blur-3xl" />
           <div className="relative flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
             <div className="max-w-md">

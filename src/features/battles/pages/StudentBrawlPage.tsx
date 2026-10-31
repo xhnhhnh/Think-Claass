@@ -103,12 +103,12 @@ export default function StudentBrawl() {
             <motion.div
               animate={{ width: `${myPercentage}%` }}
               transition={springTransition}
-              className="h-full bg-gradient-to-r from-danger to-danger/60"
+              className="h-full bg-danger"
             />
             <motion.div
               animate={{ width: `${enemyPercentage}%` }}
               transition={springTransition}
-              className="h-full bg-gradient-to-l from-info to-info/60"
+              className="h-full bg-info"
             />
           </div>
           <div className="absolute inset-0 pattern-stars opacity-20 mix-blend-overlay" />
@@ -121,7 +121,7 @@ export default function StudentBrawl() {
             animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1 }) }}
             className="text-center"
           >
-            <div className="mb-8 inline-flex items-center rounded-pill border border-danger/30 bg-fg-1/50 px-4 py-2 font-bold text-danger shadow-glow-role backdrop-blur-md">
+            <div className="mb-8 inline-flex items-center rounded-pill border border-danger/30 bg-fg-1/50 px-4 py-2 font-bold text-danger shadow-raised backdrop-blur-md">
               <Flame className="mr-2 size-5 animate-pulse" />
               跨班大乱斗正在进行中
             </div>
@@ -137,14 +137,14 @@ export default function StudentBrawl() {
               className="w-5/12 text-center"
             >
               <div className="mb-2 text-lg font-bold text-danger drop-shadow-md">本班阵营</div>
-              <div className="truncate text-3xl font-black text-fg-inverse drop-shadow-lg sm:text-4xl">
+              <div className="truncate text-3xl font-bold text-fg-inverse drop-shadow-lg sm:text-3xl">
                 {isInitiator ? activeBattle.initiator_class_name : activeBattle.target_class_name}
               </div>
               <motion.div
                 key={myScore}
                 initial={shouldReduceMotion ? undefined : { scale: 1.5 }}
                 animate={shouldReduceMotion ? undefined : { scale: 1 }}
-                className="mt-6 text-6xl font-black text-danger drop-shadow-lg sm:text-8xl"
+                className="mt-6 text-3xl font-bold text-danger drop-shadow-lg sm:text-3xl"
               >
                 {myScore}
               </motion.div>
@@ -156,7 +156,7 @@ export default function StudentBrawl() {
               transition={{ repeat: Infinity, duration: 2 }}
               className="z-20 flex w-2/12 justify-center"
             >
-              <div className="flex size-20 -rotate-12 transform items-center justify-center rounded-full border-4 border-surface-2 bg-gradient-to-br from-warning to-warning/70 text-3xl font-black italic text-fg-inverse shadow-glow-role sm:size-28 sm:text-5xl">
+              <div className="flex size-20 -rotate-12 transform items-center justify-center rounded-full border-4 border-surface-2 bg-warning text-3xl font-bold italic text-fg-inverse shadow-raised sm:size-28 sm:text-3xl">
                 VS
               </div>
             </motion.div>
@@ -168,14 +168,14 @@ export default function StudentBrawl() {
               className="w-5/12 text-center"
             >
               <div className="mb-2 text-lg font-bold text-info drop-shadow-md">敌方阵营</div>
-              <div className="truncate text-3xl font-black text-fg-inverse drop-shadow-lg sm:text-4xl">
+              <div className="truncate text-3xl font-bold text-fg-inverse drop-shadow-lg sm:text-3xl">
                 {enemyName}
               </div>
               <motion.div
                 key={enemyScore}
                 initial={shouldReduceMotion ? undefined : { scale: 1.5 }}
                 animate={shouldReduceMotion ? undefined : { scale: 1 }}
-                className="mt-6 text-6xl font-black text-info drop-shadow-lg sm:text-8xl"
+                className="mt-6 text-3xl font-bold text-info drop-shadow-lg sm:text-3xl"
               >
                 {enemyScore}
               </motion.div>
@@ -187,26 +187,26 @@ export default function StudentBrawl() {
           <div className="relative mt-12 w-full max-w-3xl px-8">
             <div className="relative flex h-10 w-full overflow-hidden rounded-pill border-2 border-fg-inverse/10 bg-fg-1/80 shadow-raised backdrop-blur-md sm:h-14">
               <motion.div
-                className="relative h-full bg-gradient-to-r from-danger via-danger/80 to-danger/60"
+                className="relative h-full bg-danger"
                 initial={{ width: '50%' }}
                 animate={{ width: `${myPercentage}%` }}
                 transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', bounce: 0.3 }}
               >
                 {myPercentage > 50 && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 font-black italic text-fg-inverse/80">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 font-bold italic text-fg-inverse/80">
                     压制!
                   </div>
                 )}
               </motion.div>
 
               <motion.div
-                className="relative h-full bg-gradient-to-l from-info via-info/80 to-info/60"
+                className="relative h-full bg-info"
                 initial={{ width: '50%' }}
                 animate={{ width: `${enemyPercentage}%` }}
                 transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', bounce: 0.3 }}
               >
                  {enemyPercentage > 50 && (
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 font-black italic text-fg-inverse/80">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold italic text-fg-inverse/80">
                     反击!
                   </div>
                 )}

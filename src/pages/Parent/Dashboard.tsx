@@ -180,7 +180,7 @@ export default function ParentDashboard() {
             </div>
             <div className="relative z-10 flex items-start justify-between">
               <div>
-                <h2 className="mb-3 text-4xl font-bold">{student.name}</h2>
+                <h2 className="mb-3 text-3xl font-bold">{student.name}</h2>
                 <div className="mt-5 flex items-center space-x-4">
                   <div className="rounded-card border border-line-1 bg-surface-3 px-5 py-2.5">
                     <p className="text-sm font-medium text-fg-2">成长阶段</p>
@@ -196,11 +196,11 @@ export default function ParentDashboard() {
             <div className="mt-8 grid grid-cols-2 gap-4 border-t border-line-1 pt-6">
               <div>
                 <p className="mb-1 font-medium text-fg-2">累计成长值</p>
-                <p className="text-4xl font-bold">{student.total_points}</p>
+                <p className="text-3xl font-bold">{student.total_points}</p>
               </div>
               <div>
                 <p className="mb-1 font-medium text-fg-2">可用积分</p>
-                <p className="text-4xl font-bold text-success">{student.available_points}</p>
+                <p className="text-3xl font-bold text-success">{student.available_points}</p>
               </div>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function ParentDashboard() {
                   className={`flex min-h-[3.5rem] w-full items-center justify-center space-x-2 rounded-card py-3.5 font-bold shadow-card transition-all ${
                     !parentBuffEnabled || buffActive
                       ? 'border border-warning/30 bg-warning-soft text-warning-ink'
-                      : 'bg-gradient-to-r from-role to-role-ink text-role-contrast hover:shadow-raised hover:shadow-role/30'
+                      : 'bg-role text-role-contrast hover:shadow-raised hover:shadow-role/30'
                   }`}
                 >
                   <Wand2 className="size-5" />

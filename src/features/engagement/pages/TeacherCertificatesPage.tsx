@@ -158,7 +158,7 @@ export default function TeacherCertificates() {
       actions={
         <Button
           onClick={() => setIsModalOpen(true)}
-          className="bg-gradient-to-r from-role to-warning text-role-contrast hover:from-role hover:to-warning"
+          className="bg-role text-role-contrast hover:from-role hover:to-warning"
         >
           <Plus data-icon="inline-start" />
           颁发新奖状
@@ -213,11 +213,11 @@ export default function TeacherCertificates() {
               key={cert.id}
               className="overflow-hidden rounded-card border border-line-1 bg-surface-2 shadow-card transition-all hover:shadow-raised"
             >
-              <div className="relative border-b border-warning/20 bg-gradient-to-br from-warning/15 to-warning/5 p-6 text-center">
+              <div className="relative border-b border-warning/20 bg-warning-soft/40 p-6 text-center">
                 <div className="absolute top-4 right-4 opacity-20">
                   <Award className="size-16 text-warning" />
                 </div>
-                <h3 className="relative z-10 mb-1 text-xl font-black text-warning">{cert.title}</h3>
+                <h3 className="relative z-10 mb-1 text-xl font-bold text-warning">{cert.title}</h3>
                 <p className="relative z-10 text-sm font-medium text-warning/80">授予：{cert.student_name}</p>
               </div>
               <div className="p-6">
@@ -300,7 +300,7 @@ export default function TeacherCertificates() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-gradient-to-r from-role to-info text-role-contrast hover:from-role hover:to-info"
+                className="bg-role text-role-contrast hover:from-role hover:to-info"
               >
                 {submitting ? (
                   <>

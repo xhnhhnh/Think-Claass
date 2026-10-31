@@ -90,7 +90,7 @@ export default function NewsPage() {
   return (
     <PortalShell title="新闻动态" icon={Newspaper} mainClassName="max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-14 text-center">
-        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-4xl">最新动态</h1>
+        <h1 className="mb-4 text-3xl font-bold text-fg-1 md:text-3xl">最新动态</h1>
         <p className="mx-auto max-w-xl text-base text-fg-3">
           了解系统的最新功能发布、教育资讯和成功案例分享。
         </p>

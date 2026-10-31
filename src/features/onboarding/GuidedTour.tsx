@@ -195,7 +195,7 @@ function TourRun({ steps, onFinish }: { steps: TourStep[]; onFinish: () => void 
         aria-live="polite"
         aria-labelledby="guided-tour-title"
         data-slot="tour-tooltip"
-        className="pointer-events-auto fixed left-0 top-0 z-[63] rounded-panel border border-line-1 bg-surface-4 p-4 shadow-floating"
+        className="pointer-events-auto fixed left-0 top-0 z-[63] rounded-panel border border-line-1 bg-surface-4 p-4 shadow-raised"
         initial={false}
         animate={{
           x: position.left,

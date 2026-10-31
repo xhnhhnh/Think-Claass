@@ -476,7 +476,7 @@ export default function TeacherCommunication() {
                       <Button
                         onClick={() => void handleReply(msg.sender_id)}
                         disabled={sendingReply || !replyContent.trim()}
-                        className="bg-gradient-to-r from-role to-info text-role-contrast hover:from-role hover:to-info"
+                        className="bg-role text-role-contrast hover:from-role hover:to-info"
                       >
                         <Send className="mr-1 size-4" />
                         {sendingReply ? '发送中...' : '发送'}

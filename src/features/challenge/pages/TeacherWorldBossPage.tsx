@@ -126,7 +126,7 @@ export default function TeacherWorldBoss() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-panel border border-danger/20 bg-surface-2 shadow-card"
       >
-        <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-danger to-warning" />
+        <div className="absolute top-0 left-0 h-1 w-full bg-danger" />
         <div className="p-6">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="flex items-center text-lg font-bold text-fg-1">
@@ -158,7 +158,7 @@ export default function TeacherWorldBoss() {
             <div className="rounded-card border border-danger/20 bg-danger/10 p-6">
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h4 className="flex items-center text-2xl font-black text-danger">
+                  <h4 className="flex items-center text-2xl font-bold text-danger">
                     {activeBoss.name}
                     <Badge variant="destructive" className="ml-3 font-bold">Lv.{activeBoss.level}</Badge>
                   </h4>

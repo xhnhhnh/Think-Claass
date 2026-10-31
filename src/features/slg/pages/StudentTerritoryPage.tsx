@@ -156,12 +156,12 @@ export default function StudentTerritory() {
 
   const getTypeColor = (type: string) => {
     switch(type) {
-      case 'forest': return 'bg-success border-success/40 shadow-glow-role';
+      case 'forest': return 'bg-success border-success/40 shadow-raised';
       // The mine is the neutral node; `fg-2`/`fg-3` are the token set's greys.
-      case 'mine': return 'bg-fg-2 border-fg-3 shadow-glow-role';
-      case 'city': return 'bg-warning border-warning/40 shadow-glow-role';
-      case 'magic_spring': return 'bg-info border-info/40 shadow-glow-role';
-      default: return 'bg-role border-role/40 shadow-glow-role';
+      case 'mine': return 'bg-fg-2 border-fg-3 shadow-raised';
+      case 'city': return 'bg-warning border-warning/40 shadow-raised';
+      case 'magic_spring': return 'bg-info border-info/40 shadow-raised';
+      default: return 'bg-role border-role/40 shadow-raised';
     }
   };
 
@@ -309,7 +309,7 @@ export default function StudentTerritory() {
                   )}>
                     {getTypeIcon(selectedNode.type)}
                   </div>
-                  <DialogTitle className="text-2xl font-black text-fg-1">{selectedNode.name}</DialogTitle>
+                  <DialogTitle className="text-2xl font-bold text-fg-1">{selectedNode.name}</DialogTitle>
                   <Badge
                     variant={
                       selectedNode.status === 'owned' ? 'success' :

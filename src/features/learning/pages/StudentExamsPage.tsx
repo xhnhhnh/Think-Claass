@@ -170,7 +170,7 @@ export default function StudentExamsPage() {
                       <span className="text-sm text-fg-3">待录入</span>
                     ) : (
                       <>
-                        <div className="text-2xl font-black text-role">
+                        <div className="text-2xl font-bold text-role">
                           {row.score}
                           <span className="text-sm font-normal text-fg-3">
                             {' '}

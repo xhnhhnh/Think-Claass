@@ -306,7 +306,7 @@ export default function StudentPeerReview() {
                   <div className="mb-4 inline-flex items-center justify-center rounded-card bg-role-soft p-2">
                     <UserCircle2 aria-hidden="true" className="size-16 text-role-ink" />
                   </div>
-                  <h3 className="text-2xl font-black text-fg-1">
+                  <h3 className="text-2xl font-bold text-fg-1">
                     正在评价: <span className="text-role-ink">{selectedPeer.name}</span>
                   </h3>
                   <p className="mt-2 text-fg-3">打分越高，TA获得的奖励积分就越多哦！</p>
@@ -402,7 +402,7 @@ export default function StudentPeerReview() {
                   <Button
                     onClick={handleSubmit}
                     disabled={submitting || score === 0}
-                    className="h-auto w-full rounded-card px-8 py-4 text-lg font-black sm:w-auto"
+                    className="h-auto w-full rounded-card px-8 py-4 text-lg font-bold sm:w-auto"
                   >
                     <Send aria-hidden="true" className="mr-2 size-5" />
                     发送评价并领奖

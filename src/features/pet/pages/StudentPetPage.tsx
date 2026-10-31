@@ -262,7 +262,7 @@ export default function StudentPet() {
               <p className="text-3xl font-bold text-warning">{availablePoints} <span className="text-lg font-bold">币</span></p>
             </div>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => setShowRecords(true)}

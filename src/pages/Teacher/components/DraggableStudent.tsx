@@ -95,7 +95,7 @@ export function DraggableStudent({
           >
             <MoreHorizontal aria-hidden="true" className="size-4" />
           </summary>
-          <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-card border border-line-1 bg-surface-4 p-1 shadow-floating">
+          <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-card border border-line-1 bg-surface-4 p-1 shadow-raised">
             <Button
               type="button"
               variant="ghost"

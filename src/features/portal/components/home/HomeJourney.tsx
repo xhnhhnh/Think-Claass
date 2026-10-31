@@ -41,7 +41,7 @@ export default function HomeJourney() {
         viewport={{ once: true }}
         className="relative grid gap-4 md:grid-cols-4"
       >
-        <div className="pointer-events-none absolute left-[12%] right-[12%] top-12 hidden h-px bg-gradient-to-r from-transparent via-line-strong to-transparent md:block" />
+        <div className="pointer-events-none absolute left-[12%] right-[12%] top-12 hidden h-px bg-line-strong md:block" />
         {journeySteps.map((step, index) => (
           <div
             key={step.title}

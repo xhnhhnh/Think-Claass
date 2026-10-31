@@ -232,7 +232,7 @@ export default function TeacherTools() {
             className={cn(
               'flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
               selectedClassId === cls.id
-                ? 'bg-gradient-to-r from-role to-role-ink text-role-contrast shadow-card'
+                ? 'bg-role text-role-contrast shadow-card'
                 : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/50',
             )}
           >
@@ -252,7 +252,7 @@ export default function TeacherTools() {
             </h2>
             <div className="flex flex-1 flex-col items-center justify-center">
               <div className="mb-8 flex h-32 w-full items-center justify-center rounded-card border border-line-1 bg-surface-3/50 shadow-inner">
-                <span className="text-4xl font-bold text-fg-1">{rollCallState.currentName}</span>
+                <span className="text-3xl font-bold text-fg-1">{rollCallState.currentName}</span>
               </div>
               <div className="flex w-full space-x-4">
                 <Button
@@ -285,7 +285,7 @@ export default function TeacherTools() {
             </h2>
             <div className="flex flex-1 flex-col items-center justify-center">
               <div className="mb-6 flex h-32 w-full items-center justify-center rounded-card border border-line-1 bg-fg-1 shadow-inner">
-                <span className="font-mono text-6xl font-bold tracking-wider text-success">
+                <span className="font-mono text-3xl font-bold tracking-wider text-success">
                   {formatTime(timerState.timeLeft > 0 ? timerState.timeLeft : timerState.inputMinutes * 60)}
                 </span>
               </div>
@@ -348,7 +348,7 @@ export default function TeacherTools() {
             </h2>
             <div className="flex flex-1 flex-col items-center justify-center">
               <div className="mb-8 flex h-32 w-full items-center justify-center rounded-card border border-line-1 bg-fg-1 shadow-inner">
-                <span className="font-mono text-6xl font-bold tracking-wider text-warning">
+                <span className="font-mono text-3xl font-bold tracking-wider text-warning">
                   {formatTime(stopwatchState.time)}
                 </span>
               </div>

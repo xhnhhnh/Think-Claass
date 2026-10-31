@@ -254,7 +254,7 @@ export default function TeacherBigscreen() {
                 className={cn(
                   'flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors',
                   selectedClassId === cls.id
-                    ? 'bg-gradient-to-r from-role to-role-ink text-role-contrast shadow-card'
+                    ? 'bg-role text-role-contrast shadow-card'
                     : 'border border-line-1 bg-surface-3/50 text-fg-2 hover:bg-surface-3/50',
                 )}
               >
@@ -287,7 +287,7 @@ export default function TeacherBigscreen() {
 
       {isFullscreen && (
         <div className="relative z-10 mb-8 flex items-center justify-between">
-          <h1 className="bg-gradient-to-r from-role to-role-ink bg-clip-text text-5xl font-black tracking-tight text-transparent drop-shadow-raised">
+          <h1 className="bg-role bg-clip-text text-3xl font-bold tracking-tight text-transparent drop-shadow-raised">
             {bigscreenData?.class?.name} <span className="font-normal text-fg-3">|</span> 光荣榜
           </h1>
           <div className="flex items-center space-x-4">
@@ -300,7 +300,7 @@ export default function TeacherBigscreen() {
                   type="button"
                   onClick={() => setCountdown(null)}
                   aria-label="点击取消倒计时"
-                  className={`flex cursor-pointer items-center rounded-card border-2 px-6 py-3 font-mono text-3xl font-black shadow-raised transition-all ${
+                  className={`flex cursor-pointer items-center rounded-card border-2 px-6 py-3 font-mono text-3xl font-bold shadow-raised transition-all ${
                     countdown <= 60
                       ? 'animate-pulse border-danger/50 bg-danger/20 text-danger'
                       : 'border-role/50 bg-role/20 text-role-contrast hover:bg-role/30'
@@ -329,7 +329,7 @@ export default function TeacherBigscreen() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute right-0 top-full z-50 mt-4 w-64 rounded-card border border-line-1 bg-surface-2 p-4 shadow-floating backdrop-blur-xl"
+                    className="absolute right-0 top-full z-50 mt-4 w-64 rounded-card border border-line-1 bg-surface-2 p-4 shadow-raised backdrop-blur-xl"
                   >
                     <label htmlFor="countdown-minutes" className="mb-2 block text-sm font-medium text-fg-3">设置倒计时 (分钟)</label>
                     <div className="flex space-x-2">
@@ -387,7 +387,7 @@ export default function TeacherBigscreen() {
             animate={{ opacity: 1, height: 'auto', scale: 1 }}
             exit={{ opacity: 0, height: 0, scale: 0.9 }}
             transition={{ type: 'spring', bounce: 0.4 }}
-            className={`relative z-10 mb-8 w-full overflow-hidden rounded-panel shadow-floating ${
+            className={`relative z-10 mb-8 w-full overflow-hidden rounded-panel shadow-raised ${
               isFullscreen ? 'border-2 border-danger/50 bg-surface-2/80 backdrop-blur-xl' : 'border border-danger/30 bg-danger/10'
             }`}
           >
@@ -400,14 +400,14 @@ export default function TeacherBigscreen() {
                 <div className="w-full flex-1">
                   <div className="mb-2 flex items-end justify-between">
                     <div>
-                      <h2 className={`text-3xl font-black tracking-tight text-danger ${isFullscreen ? 'drop-shadow-raised' : ''}`}>
+                      <h2 className={`text-3xl font-bold tracking-tight text-danger ${isFullscreen ? 'drop-shadow-raised' : ''}`}>
                         <ShieldAlert aria-hidden="true" className="mr-2 inline size-6" />世界BOSS降临：{bigscreenData.activeBoss.name}
                       </h2>
                       <p className="mt-1 text-sm font-medium text-danger/80">
                         Lv.{bigscreenData.activeBoss.level} - {bigscreenData.activeBoss.description || '请全班同学前往挑战！'}
                       </p>
                     </div>
-                    <div className="font-mono text-2xl font-black text-danger">
+                    <div className="font-mono text-2xl font-bold text-danger">
                       {bigscreenData.activeBoss.hp} / {bigscreenData.activeBoss.max_hp}
                     </div>
                   </div>
@@ -417,7 +417,7 @@ export default function TeacherBigscreen() {
                       initial={{ width: '100%' }}
                       animate={{ width: `${Math.max(0, (bigscreenData.activeBoss.hp / bigscreenData.activeBoss.max_hp) * 100)}%` }}
                       transition={{ type: 'spring', bounce: 0 }}
-                      className="relative h-full overflow-hidden bg-gradient-to-r from-danger to-warning"
+                      className="relative h-full overflow-hidden bg-danger"
                     >
                       <div className="absolute inset-0 animate-[slideRight_2s_linear_infinite] pattern-stripes opacity-30"></div>
                     </motion.div>
@@ -446,9 +446,9 @@ export default function TeacherBigscreen() {
                 <div
                   key={student.id}
                   className={`flex items-center rounded-card p-4 ${
-                    index === 0 ? 'border border-warning/30 bg-gradient-to-r from-warning-soft to-surface-2' :
-                    index === 1 ? 'border border-line-1 bg-gradient-to-r from-surface-steel to-surface-3' :
-                    index === 2 ? 'border border-warning/40 bg-gradient-to-r from-warning/20 to-warning-soft' :
+                    index === 0 ? 'border border-warning/30 bg-warning-soft/50' :
+                    index === 1 ? 'border border-line-1 bg-surface-3' :
+                    index === 2 ? 'border border-warning/40 bg-warning-soft/30' :
                     isFullscreen ? 'border border-line-strong bg-surface-3' : 'border border-line-1 bg-surface-3/50'
                   }`}
                 >
@@ -466,7 +466,7 @@ export default function TeacherBigscreen() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-2xl font-black ${
+                    <div className={`text-2xl font-bold ${
                       index === 0 ? 'text-warning-ink' :
                       index === 1 ? 'text-fg-2' :
                       index === 2 ? 'text-warning' :

@@ -37,10 +37,10 @@ export default function HomeAudience() {
             transition={{ delay: index * 0.08 }}
             className="group relative overflow-hidden rounded-3xl border border-line-1 bg-surface-2 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
           >
-            <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-br ${card.bg} opacity-80`} />
+            <div className={`absolute inset-x-0 top-0 h-24 ${card.bg} opacity-80`} />
             <div className="relative">
               <div className="mb-8 flex items-start justify-between gap-4">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${card.color} text-role-contrast shadow-lg shadow-role/10`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.color} text-role-contrast shadow-lg shadow-role/10`}>
                   <card.icon className="h-6 w-6" />
                 </div>
                 <span className="rounded-full border border-role-contrast/30 bg-surface-2/80 px-3 py-1 text-xs font-bold text-fg-3 shadow-sm backdrop-blur">

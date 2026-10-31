@@ -131,23 +131,23 @@ export default function StudentDungeon() {
   if (!run) {
     return (
       <PageScaffold variant="immersive" className="flex min-h-dvh items-center justify-center p-4 pt-16 sm:p-8">
-        <div className="relative mx-auto flex min-h-[600px] w-full max-w-4xl flex-col justify-center overflow-hidden rounded-panel p-4 shadow-floating sm:p-8">
+        <div className="relative mx-auto flex min-h-[600px] w-full max-w-4xl flex-col justify-center overflow-hidden rounded-panel p-4 shadow-raised sm:p-8">
           <div className="absolute inset-0 z-0 overflow-hidden bg-fg-1">
             <div className="absolute inset-0 pattern-noise opacity-30 mix-blend-overlay" />
-            <div className="absolute bottom-0 h-1/2 w-full bg-gradient-to-t from-danger/50 to-transparent" />
+            <div className="absolute bottom-0 h-1/2 w-full bg-danger/20" />
           </div>
 
           <div className="relative z-10 space-y-8 text-center">
             <motion.div
               initial={{ opacity: 0, ...(shouldReduceMotion ? {} : { scale: 0.8 }) }}
               animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { scale: 1 }) }}
-              className="mx-auto flex size-32 items-center justify-center rounded-full border-4 border-danger/30 bg-danger/20 shadow-glow-role"
+              className="mx-auto flex size-32 items-center justify-center rounded-full border-4 border-danger/30 bg-danger/20 shadow-raised"
             >
               <Skull className="size-16 animate-pulse text-danger" />
             </motion.div>
 
             <div>
-              <h1 className="mb-4 bg-gradient-to-b from-fg-inverse to-fg-inverse/40 bg-clip-text text-4xl font-black tracking-tighter text-transparent sm:text-6xl">
+              <h1 className="mb-4 text-3xl font-bold tracking-tight text-fg-inverse sm:text-3xl">
                 深渊无尽塔
               </h1>
               <p className="mx-auto max-w-lg text-lg text-fg-inverse/70">
@@ -158,7 +158,7 @@ export default function StudentDungeon() {
             <div className="flex flex-col items-center gap-6">
               <div className="rounded-card border border-fg-inverse/10 bg-fg-1/40 px-6 py-3 backdrop-blur-md">
                 <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-fg-inverse/70">历史最高层数</span>
-                <span className="text-3xl font-black text-warning drop-shadow-lg">
+                <span className="text-3xl font-bold text-warning drop-shadow-lg">
                   {bestFloor} <span className="text-lg text-warning/50">F</span>
                 </span>
               </div>
@@ -166,9 +166,9 @@ export default function StudentDungeon() {
               <Button
                 onClick={startRun}
                 disabled={processing}
-                className="group relative h-auto overflow-hidden rounded-card border-b-4 border-fg-1/20 bg-danger px-12 py-4 text-xl font-black text-fg-inverse shadow-glow-role transition-all hover:scale-105 hover:bg-danger/90"
+                className="group relative h-auto overflow-hidden rounded-card border-b-4 border-fg-1/20 bg-danger px-12 py-4 text-xl font-bold text-fg-inverse shadow-raised transition-all hover:scale-105 hover:bg-danger/90"
               >
-                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-fg-inverse/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+                <span className="absolute inset-0 -translate-x-full bg-fg-inverse/10 transition-transform duration-1000 group-hover:translate-x-full" />
                 {processing ? '连接深渊中...' : '踏入深渊'}
               </Button>
             </div>
@@ -188,13 +188,13 @@ export default function StudentDungeon() {
 
   return (
     <PageScaffold variant="immersive" className="min-h-dvh p-4 pt-16 sm:p-8">
-      <div className="relative mx-auto flex min-h-[800px] max-w-6xl flex-col overflow-hidden rounded-panel border border-danger/30 p-4 shadow-floating sm:p-8">
+      <div className="relative mx-auto flex min-h-[800px] max-w-6xl flex-col overflow-hidden rounded-panel border border-danger/30 p-4 shadow-raised sm:p-8">
         {/* Immersive Dungeon Background */}
         <div className="absolute inset-0 z-0 overflow-hidden bg-fg-1">
           <div className="absolute inset-0 pattern-noise opacity-40 mix-blend-overlay" />
 
           {/* Floor Indicator Depth Effect */}
-          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none text-[30vw] font-black text-fg-inverse/5">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none text-[30vw] font-bold text-fg-inverse/5">
             {run.current_floor}
           </div>
 
@@ -207,7 +207,7 @@ export default function StudentDungeon() {
           <div className="mb-12 flex flex-col items-start justify-between gap-4 rounded-panel border border-fg-inverse/10 bg-fg-1/50 p-6 backdrop-blur-xl sm:flex-row sm:items-center">
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <span className="text-4xl font-black text-danger drop-shadow-lg">{run.current_floor}</span>
+                <span className="text-3xl font-bold text-danger drop-shadow-lg">{run.current_floor}</span>
                 <span className="mt-1 block text-xs font-bold uppercase tracking-widest text-fg-inverse/60">当前层数</span>
               </div>
 
@@ -276,14 +276,14 @@ export default function StudentDungeon() {
                       disabled={processing}
                       className="group relative h-full w-full flex-col items-center gap-0 whitespace-normal rounded-panel border border-fg-inverse/10 bg-fg-inverse/5 p-8 text-left shadow-raised backdrop-blur-md transition-all hover:border-danger/50 hover:bg-fg-inverse/10"
                     >
-                      <span className="pointer-events-none absolute inset-0 rounded-panel bg-gradient-to-b from-transparent to-fg-1/60" />
+                      <span className="pointer-events-none absolute inset-0 rounded-panel bg-fg-1/30" />
 
                       <div className="relative z-10 flex w-full flex-col items-center">
                         <div className="mb-6 flex size-20 items-center justify-center rounded-card border border-fg-inverse/10 bg-fg-inverse/10 shadow-inner transition-transform group-hover:scale-110">
                           {getChoiceIcon(choice.type)}
                         </div>
 
-                        <h3 className="mb-2 text-xl font-black text-fg-inverse">{choice.title}</h3>
+                        <h3 className="mb-2 text-xl font-bold text-fg-inverse">{choice.title}</h3>
                         <p className="mb-6 h-10 text-center text-sm text-fg-inverse/70">{choice.description}</p>
 
                         <div className="w-full space-y-2 border-t border-fg-inverse/10 pt-6">

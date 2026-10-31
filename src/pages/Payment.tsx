@@ -173,7 +173,7 @@ export default function Payment() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-1 p-4">
       <div className="w-full max-w-md overflow-hidden rounded-panel border border-line-1 bg-surface-2 shadow-card">
-        <div className="bg-gradient-to-r from-success-soft via-surface-2 to-warning-soft p-8 text-center">
+        <div className="bg-surface-3/60 p-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-surface-2 text-role shadow-card">
             <ScanLine className="h-8 w-8" />
           </div>

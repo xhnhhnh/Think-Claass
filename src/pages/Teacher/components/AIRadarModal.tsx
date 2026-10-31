@@ -22,7 +22,7 @@ export function AIRadarModal({ isOpen, onClose, student, stage, report }: AIRada
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg bg-fg-1/95 backdrop-blur-2xl border-role/30 shadow-glow-role">
+      <DialogContent className="sm:max-w-lg bg-fg-1/95 backdrop-blur-2xl border-role/30 shadow-raised">
         <DialogHeader>
           <DialogTitle className="text-fg-inverse text-xl font-bold flex justify-between items-center w-full">
             <div className="flex items-center">
@@ -93,7 +93,7 @@ export function AIRadarModal({ isOpen, onClose, student, stage, report }: AIRada
           <div className="mt-4 flex justify-center pb-4">
             <Button 
               onClick={onClose}
-              className="bg-role hover:bg-role/90 text-role-contrast shadow-glow-role transition-all hover:shadow-floating"
+              className="bg-role hover:bg-role/90 text-role-contrast shadow-raised transition-all hover:shadow-raised"
             >
               分析完毕，关闭面板
             </Button>

@@ -96,7 +96,7 @@ export function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          'fixed z-50 flex flex-col border-line-1 bg-surface-4 text-fg-1 shadow-floating outline-none',
+          'fixed z-50 flex flex-col border-line-1 bg-surface-4 text-fg-1 shadow-raised outline-none',
           PLACEMENT[side],
           ENTER[side],
           EXIT[side],

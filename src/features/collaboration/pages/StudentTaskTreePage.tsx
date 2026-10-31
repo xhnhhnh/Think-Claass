@@ -154,9 +154,9 @@ export default function StudentTaskTree() {
                 className={cn(
                   'size-16 rounded-full border-4 p-0',
                   node.status === 'completed'
-                    ? 'border-success/40 bg-success text-fg-inverse shadow-glow-role'
+                    ? 'border-success/40 bg-success text-fg-inverse shadow-raised'
                     : node.status === 'unlocked'
-                      ? 'animate-pulse border-info/40 bg-info text-fg-inverse shadow-glow-role'
+                      ? 'animate-pulse border-info/40 bg-info text-fg-inverse shadow-raised'
                       : 'border-fg-inverse/20 bg-fg-inverse/10 text-fg-inverse/40',
                 )}
               >

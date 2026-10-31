@@ -186,7 +186,7 @@ export default function StudentChallenge() {
               >
                 <div className="text-center">
                   <Trophy aria-hidden="true" className="mx-auto size-24 text-warning" />
-                  <h2 className="mt-4 text-3xl font-black text-fg-1">挑战结果</h2>
+                  <h2 className="mt-4 text-3xl font-bold text-fg-1">挑战结果</h2>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <StatCard icon={Trophy} label="正确" tone="success" value={result.correctCount} />
@@ -208,7 +208,7 @@ export default function StudentChallenge() {
                   exit={{ opacity: 0, ...(shouldReduceMotion ? {} : { y: -16 }) }}
                 >
                   <div className="mb-8 flex items-center justify-between gap-3 rounded-card border border-line-1 bg-surface-3 p-4">
-                    <h3 className="flex items-center text-xl font-black text-fg-1">
+                    <h3 className="flex items-center text-xl font-bold text-fg-1">
                       <span className="mr-3 flex size-9 items-center justify-center rounded-full bg-role text-role-contrast">
                         {currentQIndex + 1}
                       </span>
@@ -221,7 +221,7 @@ export default function StudentChallenge() {
                   </div>
 
                   <div className="mb-8">
-                    <h4 className="mb-6 text-2xl font-black leading-tight text-fg-1">
+                    <h4 className="mb-6 text-2xl font-bold leading-tight text-fg-1">
                       {currentQuestion.title}
                     </h4>
                     <div className="space-y-3">
@@ -352,7 +352,7 @@ export default function StudentChallenge() {
                 >
                   <Flame aria-hidden="true" className="size-20 text-danger" />
                 </motion.div>
-                <h2 className="text-3xl font-black text-fg-1">{boss.name}</h2>
+                <h2 className="text-3xl font-bold text-fg-1">{boss.name}</h2>
                 <p className="mx-auto max-w-lg text-lg font-medium text-fg-2">{boss.description}</p>
 
                 <div className="mx-auto mt-6 w-full max-w-2xl space-y-2">
@@ -361,7 +361,7 @@ export default function StudentChallenge() {
                     label={`首领血量 ${boss.hp} / ${boss.max_hp}`}
                     tone="destructive"
                   />
-                  <div className="text-lg font-black text-fg-1">
+                  <div className="text-lg font-bold text-fg-1">
                     HP: {boss.hp} / {boss.max_hp}
                   </div>
                 </div>

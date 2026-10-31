@@ -76,10 +76,10 @@ const LIMITS = {
   overflowPx: 1,
   h1: 1,
   externalImages: 0,
-  distinctRadii: 12,
-  distinctFontSizes: 14,
-  distinctShadows: 8,
-  distinctWeights: 6,
+  distinctRadii: 8,
+  distinctFontSizes: 10,
+  distinctShadows: 5,
+  distinctWeights: 5,
 };
 
 function loadEnv() {
@@ -244,6 +244,21 @@ async function reviewRole(role, routes, env, report) {
         });
         await send('Page.navigate', { url: `${BASE}${route.path}` });
         await wait(4500);
+        // TanStack Query's devtools mount a floating launcher in development only; at 390px it
+        // can be the widest element on the page. It is not part of the shipped product, so hide
+        // it before measuring and screenshotting rather than reporting it as page overflow.
+        await send('Runtime.evaluate', {
+          expression: `(() => {
+            const id = 'design-review-hide-devtools';
+            if (document.getElementById(id)) return 'ok';
+            const style = document.createElement('style');
+            style.id = id;
+            style.textContent = '[class*="tsqd"] { display: none !important; }';
+            document.head.appendChild(style);
+            return 'ok';
+          })()`,
+          returnByValue: true,
+        });
         const metrics = await measure(send);
         const screenshot = await send('Page.captureScreenshot', { format: 'png' });
         const file = path.join(OUT, role, `${route.name}-${viewport.name}${DARK ? '-dark' : ''}.png`);
@@ -277,13 +292,10 @@ async function main() {
     await reviewRole(role, routes, env, report);
   }
 
-  const hardFailures = report.pages.filter((page) =>
-    page.failures.some((failure) =>
-      failure.startsWith('horizontal overflow') ||
-      failure.includes('h1 elements') ||
-      failure.startsWith('external images'),
-    ),
-  );
+  // `--check` fails on every measured regression, not only layout ones. The thresholds are the
+  // ones the current product meets; a page that adds a ninth radius or a sixth shadow is exactly
+  // the drift this tool exists to catch.
+  const hardFailures = report.pages.filter((page) => page.failures.length > 0);
 
   fs.writeFileSync(path.join(OUT, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`\n${report.pages.length} pages reviewed -> ${path.relative(ROOT, OUT)}`);

@@ -308,7 +308,7 @@ export default function StudentInteractiveWall() {
                       <div className="absolute left-0 top-0 h-full w-3 bg-role" />
                       <div className="pl-6">
                         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                          <h3 className="flex items-center text-2xl font-black text-fg-1">
+                          <h3 className="flex items-center text-2xl font-bold text-fg-1">
                             <div className="mr-4 rounded-card bg-role/10 p-3 shadow-inner">
                               <Megaphone className="size-6 text-role" />
                             </div>

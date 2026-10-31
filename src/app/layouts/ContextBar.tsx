@@ -211,7 +211,7 @@ export function AccountMenu({
         <span className="hidden max-w-24 truncate font-medium text-fg-2 sm:inline">{userLabel}</span>
       </summary>
 
-      <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-panel border border-line-1 bg-surface-4 p-1 shadow-floating">
+      <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-panel border border-line-1 bg-surface-4 p-1 shadow-raised">
         <Link
           to={settingsPath}
           className="flex h-control items-center gap-2 rounded-md px-2 text-sm text-fg-2 transition-colors hover:bg-surface-3 hover:text-fg-1"

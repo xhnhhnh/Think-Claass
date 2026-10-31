@@ -71,10 +71,10 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-gradient-to-br from-role/5 to-surface-2 rounded-card p-4 border border-role/10 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
+      <div className="bg-role-soft/40 rounded-card p-4 border border-role/10 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
         <Dice5 className="absolute -right-4 -bottom-4 w-24 h-24 text-role/20" />
         <h4 className="text-sm font-bold text-fg-3 mb-2 relative z-10">随机点名</h4>
-        <div className="text-2xl font-black text-role mb-4 relative z-10">
+        <div className="text-2xl font-bold text-role mb-4 relative z-10">
           {rollCallState.currentName}
         </div>
         <Button
@@ -89,10 +89,10 @@ export function ClassroomTools({ students }: { students: { id: number; name: str
         </Button>
       </div>
 
-      <div className="bg-gradient-to-br from-info-soft to-surface-2 rounded-card p-4 border border-info/30 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
+      <div className="bg-info-soft/40 rounded-card p-4 border border-info/30 shadow-card flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
         <Timer className="absolute -right-4 -bottom-4 w-24 h-24 text-info/30" />
         <h4 className="text-sm font-bold text-fg-3 mb-2 relative z-10">课堂倒计时</h4>
-        <div className="text-3xl font-black text-info mb-4 tracking-wider font-mono relative z-10">
+        <div className="text-3xl font-bold text-info mb-4 tracking-wider font-mono relative z-10">
           {formatTimer(timerState.timeLeft)}
         </div>
         <div className="flex space-x-2 relative z-10">

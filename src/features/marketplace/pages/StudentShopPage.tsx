@@ -149,9 +149,9 @@ export default function StudentShop() {
           tone="warning"
           value={
             balanceFailed ? (
-              <span className="text-3xl font-black text-fg-3">读取失败</span>
+              <span className="text-3xl font-bold text-fg-3">读取失败</span>
             ) : (
-              <span className="text-3xl font-black text-warning">
+              <span className="text-3xl font-bold text-warning">
                 {availablePoints} <span className="text-lg font-bold">币</span>
               </span>
             )
@@ -162,7 +162,7 @@ export default function StudentShop() {
       {loading ? (
         <div className="flex items-center justify-center gap-3 py-20 text-fg-3">
           <Spinner size="lg" label="正在加载商品" />
-          <span className="text-xl font-black">加载中...</span>
+          <span className="text-xl font-bold">加载中...</span>
         </div>
       ) : balanceFailed ? (
         /**
@@ -210,10 +210,10 @@ export default function StudentShop() {
                       : 'border-line-1 opacity-80',
                   )}
                 >
-                  <div className="group relative flex h-44 items-center justify-center border-b border-line-1 bg-gradient-to-br from-warning-soft to-surface-3 p-6">
+                  <div className="group relative flex h-44 items-center justify-center border-b border-line-1 bg-warning-soft/50 p-6">
                     <Badge
                       variant={isOutOfStock ? 'destructive' : 'outline'}
-                      className="absolute right-4 top-4 h-auto bg-surface-2/90 px-3 py-1.5 text-sm font-black shadow-card"
+                      className="absolute right-4 top-4 h-auto bg-surface-2/90 px-3 py-1.5 text-sm font-bold shadow-card"
                     >
                       库存: {item.stock === -1 ? '无限' : item.stock}
                     </Badge>
@@ -227,12 +227,12 @@ export default function StudentShop() {
                   </div>
 
                   <div className="flex flex-1 flex-col p-6">
-                    <CardTitle className="mb-2 text-xl font-black text-fg-1">{item.name}</CardTitle>
+                    <CardTitle className="mb-2 text-xl font-bold text-fg-1">{item.name}</CardTitle>
                     <p className="mb-6 flex-1 text-sm leading-relaxed text-fg-2">{item.description}</p>
 
                     <div className="mt-auto flex items-center justify-between border-t border-dashed border-line-1 pt-4">
                       <div className="flex items-baseline">
-                        <span className={cn('text-3xl font-black', canAfford ? 'text-warning' : 'text-fg-3')}>
+                        <span className={cn('text-3xl font-bold', canAfford ? 'text-warning' : 'text-fg-3')}>
                           {item.price}
                         </span>
                         <span className="ml-1 text-base font-bold text-fg-3">币</span>
@@ -287,7 +287,7 @@ export default function StudentShop() {
                       : 'border-line-1 opacity-80',
                   )}
                 >
-                  <div className="group relative flex h-44 items-center justify-center overflow-hidden border-b border-role-ink bg-gradient-to-br from-role-ink to-info p-6">
+                  <div className="group relative flex h-44 items-center justify-center overflow-hidden border-b border-role-ink bg-role-ink p-6">
                     <div className="absolute inset-0 pattern-stars opacity-30 mix-blend-overlay" />
                     <motion.div
                       animate={shouldReduceMotion ? undefined : { rotate: [0, 5, -5, 0] }}
@@ -303,12 +303,12 @@ export default function StudentShop() {
                   </div>
 
                   <div className="relative flex flex-1 flex-col p-6">
-                    <CardTitle className="mb-2 text-xl font-black text-fg-1">{box.name}</CardTitle>
+                    <CardTitle className="mb-2 text-xl font-bold text-fg-1">{box.name}</CardTitle>
                     <p className="mb-6 flex-1 text-sm leading-relaxed text-fg-2">{box.description}</p>
 
                     <div className="mt-auto flex items-center justify-between border-t border-dashed border-line-1 pt-4">
                       <div className="flex items-baseline">
-                        <span className={cn('text-3xl font-black', canAfford ? 'text-role-ink' : 'text-fg-3')}>
+                        <span className={cn('text-3xl font-bold', canAfford ? 'text-role-ink' : 'text-fg-3')}>
                           {box.price}
                         </span>
                         <span className="ml-1 text-base font-bold text-fg-3">币</span>
@@ -375,7 +375,7 @@ export default function StudentShop() {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-black text-fg-1">
+            <DialogTitle className="text-center text-2xl font-bold text-fg-1">
               {unboxingResult.isConsolation ? '再接再厉' : '恭喜你！'}
             </DialogTitle>
           </DialogHeader>
@@ -399,7 +399,7 @@ export default function StudentShop() {
           >
             {unboxingResult.reward}
           </p>
-          <Button onClick={closeUnboxingResult} className="w-full py-3 text-lg font-black">
+          <Button onClick={closeUnboxingResult} className="w-full py-3 text-lg font-bold">
             收下奖励
           </Button>
         </DialogContent>

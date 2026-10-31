@@ -75,7 +75,7 @@ export default function HomeHero({ shouldReduceMotion }: HomeHeroProps) {
             alt="书本、望远镜、积木与星星构成的探索学习世界"
             className="w-full aspect-[16/7] object-cover"
           />
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-surface-2/80 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-surface-2/80 pointer-events-none" />
         </div>
         <motion.div
           animate={shouldReduceMotion ? undefined : { y: [0, -8, 0] }}

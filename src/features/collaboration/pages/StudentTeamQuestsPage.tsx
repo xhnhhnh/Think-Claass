@@ -175,13 +175,13 @@ export default function StudentTeamQuests() {
               className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card md:p-8"
             >
               <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <h2 className="flex items-center text-2xl font-black text-fg-1">
+                <h2 className="flex items-center text-2xl font-bold text-fg-1">
                   <Target aria-hidden="true" className="mr-3 size-8 text-info" />
                   当前任务: {quest.title}
                 </h2>
                 <Badge
                   variant={quest.status === 'active' ? 'success' : 'secondary'}
-                  className="h-auto self-start px-4 py-1.5 text-base font-black sm:self-auto"
+                  className="h-auto self-start px-4 py-1.5 text-base font-bold sm:self-auto"
                 >
                   {quest.status === 'active' ? '进行中' : '已完成'}
                 </Badge>
@@ -193,7 +193,7 @@ export default function StudentTeamQuests() {
 
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-card border border-info/20 bg-info-soft/50 p-5">
-                  <div className="mb-3 flex justify-between text-base font-black text-fg-2">
+                  <div className="mb-3 flex justify-between text-base font-bold text-fg-2">
                     <span>团队进度</span>
                     <span className="text-info-ink">{teamProgressPercent}%</span>
                   </div>
@@ -209,7 +209,7 @@ export default function StudentTeamQuests() {
 
                 <div className="rounded-card border border-success/20 bg-success-soft/60 p-5">
                   <p className="mb-2 text-sm font-bold text-success-ink">我的贡献</p>
-                  <p className="text-3xl font-black text-success-ink">
+                  <p className="text-3xl font-bold text-success-ink">
                     {data?.progress?.my_contribution_score ?? 0}
                   </p>
                   <p className="mt-3 text-sm text-success-ink">
@@ -229,7 +229,7 @@ export default function StudentTeamQuests() {
               animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { y: 0 }) }}
               className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card md:p-8"
             >
-              <h2 className="mb-3 flex items-center text-2xl font-black text-fg-1">
+              <h2 className="mb-3 flex items-center text-2xl font-bold text-fg-1">
                 <CheckSquare aria-hidden="true" className="mr-3 size-7 text-role-ink" />
                 组内互评
               </h2>
@@ -248,11 +248,11 @@ export default function StudentTeamQuests() {
                   >
                     <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-card border-b-2 border-role/20 bg-role-soft text-xl font-black text-role-ink">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-card border-b-2 border-role/20 bg-role-soft text-xl font-bold text-role-ink">
                           {member.name[0]}
                         </div>
                         <div>
-                          <span className="block text-lg font-black text-fg-1">{member.name}</span>
+                          <span className="block text-lg font-bold text-fg-1">{member.name}</span>
                           <span className="mt-1 inline-block rounded-pill bg-surface-3 px-3 py-1 text-xs font-bold text-fg-3">
                             👤 组员
                           </span>
@@ -300,7 +300,7 @@ export default function StudentTeamQuests() {
               <Button
                 onClick={submitPeerReview}
                 disabled={reviewMutation.isPending}
-                className="mt-6 w-full py-4 text-lg font-black"
+                className="mt-6 w-full py-4 text-lg font-bold"
               >
                 <MessageCircle aria-hidden="true" className="mr-2 size-5" />
                 {reviewMutation.isPending ? '提交中...' : '提交互评'}
@@ -314,7 +314,7 @@ export default function StudentTeamQuests() {
               animate={{ opacity: 1, ...(shouldReduceMotion ? {} : { x: 0 }) }}
               className="rounded-panel border border-line-1 bg-surface-2 p-6 shadow-card lg:sticky lg:top-4 lg:self-start"
             >
-              <h3 className="mb-4 flex items-center text-xl font-black text-fg-1">
+              <h3 className="mb-4 flex items-center text-xl font-bold text-fg-1">
                 <span className="mr-3 flex size-9 shrink-0 items-center justify-center rounded-card bg-success-soft text-success-ink">
                   <Users aria-hidden="true" className="size-5" />
                 </span>
@@ -332,7 +332,7 @@ export default function StudentTeamQuests() {
                     <div className="flex items-center gap-3">
                       <div
                         className={cn(
-                          'flex size-10 shrink-0 items-center justify-center rounded-card border-b-2 text-lg font-black',
+                          'flex size-10 shrink-0 items-center justify-center rounded-card border-b-2 text-lg font-bold',
                           member.id === myStudentId
                             ? 'border-role/30 bg-role-soft text-role-ink'
                             : 'border-line-1 bg-surface-2 text-fg-2',
@@ -342,7 +342,7 @@ export default function StudentTeamQuests() {
                       </div>
                       <span
                         className={cn(
-                          'text-base font-black',
+                          'text-base font-bold',
                           member.id === myStudentId ? 'text-role-ink' : 'text-fg-1',
                         )}
                       >

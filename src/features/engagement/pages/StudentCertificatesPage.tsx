@@ -101,13 +101,13 @@ export default function StudentCertificates() {
               className="overflow-hidden rounded-panel border border-warning/40 bg-surface-2 shadow-card"
             >
               {/* The gold wash is the token scale, not a fixed `yellow-*` gradient. */}
-              <div className="bg-gradient-to-br from-warning-soft via-surface-3 to-warning-soft/70 p-8">
+              <div className="bg-warning-soft/40 p-8">
                 <div className="flex flex-col items-center text-center">
-                  <div className="mb-5 flex size-20 items-center justify-center rounded-full border-4 border-surface-2 bg-gradient-to-br from-warning to-warning-ink shadow-raised">
+                  <div className="mb-5 flex size-20 items-center justify-center rounded-full border-4 border-surface-2 bg-warning shadow-raised">
                     <Award aria-hidden="true" className="size-10 text-warning-soft" />
                   </div>
 
-                  <h3 className="text-2xl font-black leading-tight text-warning-ink">
+                  <h3 className="text-2xl font-bold leading-tight text-warning-ink">
                     {cert.title}
                   </h3>
 
