@@ -72,6 +72,33 @@ function exactChild(layoutPath: string, pathname: string) {
     );
 }
 
+/**
+ * The table entry for a concrete pathname, including parameterised detail routes.
+ *
+ * Aliases and detail routes deliberately have no menu label (they must not appear
+ * twice in the rail), so the context bar reads their optional `title` instead of
+ * falling back to the console name.
+ */
+function matchedChild(layoutPath: string, pathname: string) {
+  const children = layoutRoutes().find((route) => route.path === layoutPath)?.children ?? [];
+  const pathSegments = pathname.split('/').filter(Boolean);
+  const matches = children
+    .map((child) => {
+      const pattern = child.path === '' ? layoutPath : `${layoutPath}/${child.path}`;
+      const patternSegments = pattern.split('/').filter(Boolean);
+      if (patternSegments.length !== pathSegments.length) return null;
+      const ok = patternSegments.every(
+        (segment, index) => segment.startsWith(':') || segment === pathSegments[index],
+      );
+      return ok
+        ? { child, literalScore: patternSegments.filter((segment) => !segment.startsWith(':')).length }
+        : null;
+    })
+    .filter((entry) => entry !== null)
+    .sort((a, b) => b.literalScore - a.literalScore);
+  return matches[0]?.child;
+}
+
 export function usePageMeta(fallbackTitle: string, fallbackMode: LayoutMode = 'workbench'): PageMeta {
   const { pathname } = useLocation();
 
@@ -89,6 +116,7 @@ export function usePageMeta(fallbackTitle: string, fallbackMode: LayoutMode = 'w
     }
 
     const item = matchNavItem(layoutPath, pathname);
+    const route = exactChild(layoutPath, pathname) ?? matchedChild(layoutPath, pathname);
     const groups = navGroupsFor(layoutPath, layoutModuleFor(layoutPath));
 
     const group = item?.group ? groups.find((candidate) => candidate.key === item.group) : undefined;
@@ -109,15 +137,15 @@ export function usePageMeta(fallbackTitle: string, fallbackMode: LayoutMode = 'w
       ...(firstOfSection && item && firstOfSection.path !== item.path
         ? [{ label: firstOfSection.label, to: firstOfSection.path }]
         : []),
-      ...(item ? [{ label: item.label }] : []),
+      ...(item ? [{ label: item.label }] : route?.title ? [{ label: route.title }] : []),
     ];
 
     return {
       item: item
         ? { path: item.path, label: item.label, ...(item.group ? { group: item.group } : {}) }
         : undefined,
-      title: item?.label ?? fallbackTitle,
-      mode: exactChild(layoutPath, pathname)?.mode ?? fallbackMode,
+      title: item?.label ?? route?.title ?? fallbackTitle,
+      mode: route?.mode ?? fallbackMode,
       breadcrumbs,
       groups,
       layoutPath,

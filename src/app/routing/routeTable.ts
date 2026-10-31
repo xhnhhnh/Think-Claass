@@ -120,6 +120,14 @@ export interface PageRoute {
    * row, an editor opened from a list, a redirect target.
    */
   label?: string;
+  /**
+   * Context-bar title for a page that is not a menu destination.
+   *
+   * Aliases and detail routes have no `label` so they do not appear twice in the
+   * rail, but the context bar still has to name them. Without this the title fell
+   * back to the console name (for example "教师工作台" over the homework list).
+   */
+  title?: string;
   /** The rail icon. Required whenever `label` is present; a guardrail asserts it. */
   icon?: LucideIcon;
   /** Which rail section this destination belongs to. */
@@ -319,12 +327,14 @@ const roleLayoutRoutes: LayoutRoute[] = [
         // what makes it reachable-but-not-a-destination.
         path: 'assignments',
         component: '@/features/homework/pages/TeacherHomeworkPage',
+        title: '作业管理',
         aliases: ['作业', 'homework'],
       },
       {
         // Not in the menu: opened from a row on the list above.
         path: 'homework/:id/grade',
         component: '@/features/homework/pages/TeacherHomeworkGradePage',
+        title: '批改作业',
       },
       {
         path: 'exams',
@@ -509,8 +519,8 @@ const roleLayoutRoutes: LayoutRoute[] = [
       // Reachable, never a menu entry: an editor opened from a list and the add-student flow
       // opened from the dashboard. (`task-tree` used to be here too, but nothing navigated to it -
       // it is a menu entry now, declared with 团队任务.)
-      { path: 'add-student', component: '@/features/classroom/pages/TeacherAddStudentPage' },
-      { path: 'papers/:id/edit', component: '@/features/learning/pages/TeacherPaperEditorPage' },
+      { path: 'add-student', component: '@/features/classroom/pages/TeacherAddStudentPage', title: '添加学生' },
+      { path: 'papers/:id/edit', component: '@/features/learning/pages/TeacherPaperEditorPage', title: '编辑试卷' },
     ],
   },
   {
@@ -716,16 +726,19 @@ const roleLayoutRoutes: LayoutRoute[] = [
         // Same screen as above, reached by the old path. No label, so no second menu entry.
         path: 'assignments',
         component: '@/features/homework/pages/StudentHomeworkPage',
+        title: '我的作业',
         aliases: ['作业', '学业'],
       },
       {
         // Not in the menu: the attempt and result views are opened from a row on the list above.
         path: 'homework/:id',
         component: '@/features/homework/pages/StudentHomeworkAttemptPage',
+        title: '作业作答',
       },
       {
         path: 'homework/:id/result',
         component: '@/features/homework/pages/StudentHomeworkResultPage',
+        title: '作业结果',
       },
       {
         path: 'team-quests',
@@ -810,7 +823,7 @@ const roleLayoutRoutes: LayoutRoute[] = [
       },
 
       // Not in the menu: reached by navigating to a specific paper.
-      { path: 'papers/:id', component: '@/features/learning/pages/StudentPaperAttemptPage' },
+      { path: 'papers/:id', component: '@/features/learning/pages/StudentPaperAttemptPage', title: '试卷练习' },
     ],
   },
   {
