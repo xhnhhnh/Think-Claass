@@ -179,7 +179,7 @@ npm run local:reinitialize
 - 需要 Node.js >= 24（[`package.json`](package.json)）。
 - Windows 是受支持的开发环境。Shell 脚本是 Bash；通过 Git Bash/WSL 运行。Windows 部署有 `update.ps1`。
 - `uploads/`、`logs/`、`dist/`、`.tmp/` 与 `database.sqlite*` 是本地状态，不能提交。
-- 小程序源码是 [`miniprogram/`](miniprogram)；[`wechat/`](wechat) 是给微信开发者工具用的、被 git 忽略的副本。用 [`scripts/wechat/sync-miniprogram.mjs`](scripts/wechat/sync-miniprogram.mjs) 重新生成，不要直接改副本。
+- 小程序源码是 [`miniprogram/`](miniprogram)；`wechat/` 是给微信开发者工具用的、被 git 忽略的副本。用 [`scripts/wechat/sync-miniprogram.mjs`](scripts/wechat/sync-miniprogram.mjs) 重新生成，不要直接改副本。
 
 ## 5. 什么改动跑什么检查
 

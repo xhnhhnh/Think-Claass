@@ -177,7 +177,7 @@ npm run local:reinitialize
 - Node.js >= 24 is required ([`package.json`](package.json)).
 - Windows is a supported development environment. Shell scripts are Bash; run them through Git Bash/WSL. `update.ps1` exists for Windows deployments.
 - `uploads/`, `logs/`, `dist/`, `.tmp/` and `database.sqlite*` are local state and must not be committed.
-- The mini program source is [`miniprogram/`](miniprogram); [`wechat/`](wechat) is a gitignored copy for the WeChat developer tools. Regenerate it with [`scripts/wechat/sync-miniprogram.mjs`](scripts/wechat/sync-miniprogram.mjs), never by editing the copy.
+- The mini program source is [`miniprogram/`](miniprogram); `wechat/` is a gitignored copy for the WeChat developer tools. Regenerate it with [`scripts/wechat/sync-miniprogram.mjs`](scripts/wechat/sync-miniprogram.mjs), never by editing the copy.
 
 ## 5. What to run for which change
 

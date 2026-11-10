@@ -17,6 +17,7 @@
  * two versions navigable together.
  */
 
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -127,6 +128,27 @@ function relativeLinkList(fromFile: string): string[] {
 
 function relativeLinks(fromFile: string): string[] {
   return [...new Set(relativeLinkList(fromFile))].sort();
+}
+
+/**
+ * Paths a clean checkout omits. `existsSync` is not enough: a gitignored working
+ * copy such as `wechat/` is on a developer machine and absent from the release
+ * runner, so the same link is green locally and a dead link in CI.
+ */
+function gitignored(rels: string[]): Set<string> {
+  const unique = [...new Set(rels)];
+  if (unique.length === 0) return new Set();
+  const result = spawnSync('git', ['check-ignore', '--stdin', '-z'], {
+    cwd: ROOT,
+    input: unique.join('\0'),
+    encoding: 'utf8',
+  });
+  if (result.error) throw result.error;
+  const ignored = new Set<string>();
+  for (const entry of (result.stdout ?? '').split('\0')) {
+    if (entry) ignored.add(entry.replace(/\\/g, '/'));
+  }
+  return ignored;
 }
 
 function headingLevels(text: string): number[] {
@@ -241,12 +263,15 @@ describe('documentation standards', () => {
     ];
 
     const problems: string[] = [];
+    const linked: { file: string; target: string }[] = [];
     for (const file of files) {
-      for (const target of relativeLinks(file)) {
-        const full = path.join(ROOT, target);
-        if (!fs.existsSync(full)) {
-          problems.push(`${file}: ${target}`);
-        }
+      for (const target of relativeLinks(file)) linked.push({ file, target });
+    }
+    const ignored = gitignored(linked.map((item) => item.target));
+    for (const { file, target } of linked) {
+      const full = path.join(ROOT, target);
+      if (ignored.has(target) || !fs.existsSync(full)) {
+        problems.push(`${file}: ${target}`);
       }
     }
     expect(problems).toEqual([]);
