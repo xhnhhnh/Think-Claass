@@ -58,7 +58,7 @@ themselves:
 
 | Document | What it is |
 | --- | --- |
-| [README.md](../README.md) ([简体中文](../README.zh-CN.md)) | The entry document: product overview, status, architecture, quick start, configuration, scripts, validation and deployment |
+| [README.md](../README.md) ([简体中文](../README.zh-CN.md)) | The entry document: product overview, quick start, then status, architecture, configuration, scripts, validation and deployment |
 | [VERSIONING.md](../VERSIONING.md) ([简体中文](../VERSIONING.zh-CN.md)) | The version numbering and release specification: semver rules, tags, plugin and kernel versions, the single source of truth |
 | [AGENTS.md](../AGENTS.md) ([简体中文](../AGENTS.zh-CN.md)) | The working agreement for AI agents and maintainers: authority order, non-negotiables, commands, change workflow, definition of done |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) ([简体中文](../CONTRIBUTING.zh-CN.md)) | Local setup, workflow, test commands and the pull-request process |

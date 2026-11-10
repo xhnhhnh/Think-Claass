@@ -50,7 +50,7 @@ npm run guard          # 护栏与棘轮数字
 
 | 文档 | 它是什么 |
 | --- | --- |
-| [README.md](../README.md) ([简体中文](../README.zh-CN.md)) | 入口文档：产品概览、状态、架构、快速开始、配置、脚本、验收与部署 |
+| [README.md](../README.md) ([简体中文](../README.zh-CN.md)) | 入口文档：产品概览、快速开始，然后是状态、架构、配置、脚本、验收与部署 |
 | [VERSIONING.md](../VERSIONING.md)（[简体中文](../VERSIONING.zh-CN.md)） | 版本序列号与发布规范：semver 规则、tag、插件与内核版本、唯一事实源 |
 | [AGENTS.md](../AGENTS.md) ([简体中文](../AGENTS.zh-CN.md)) | AI 智能体与维护者的工作约定：权威顺序、红线、命令、改动流程、完成定义 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) ([简体中文](../CONTRIBUTING.zh-CN.md)) | 本地环境、工作流、测试命令与 PR 流程 |

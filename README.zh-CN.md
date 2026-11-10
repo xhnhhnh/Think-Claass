@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Think-Class" width="96">
+</p>
+
 <h1 align="center">Think-Class</h1>
 
 <p align="center">
@@ -15,87 +19,26 @@ Think-Class 把日常的班级管理事务和 RPG 式的激励绑在一起：积
 HTTP 外壳；每一个业务域都以插件形式交付，由插件自己声明它**拥有**的表、路由、权限与端口。内核里
 不出现任何业务表名，插件之间也从不直接 import 彼此。
 
-## Status
+上面的叶子是产品标志（[`docs/assets/logo.svg`](docs/assets/logo.svg)，本页画成
+[`docs/assets/logo.png`](docs/assets/logo.png)）。它的路径和颜色与
+[`src/lib/brandIcon.ts`](src/lib/brandIcon.ts) 相同，浏览器标签也用这一枚，除非超管另外上传了图标。
 
-| | |
-| --- | --- |
-| 版本 | [`package.json`](package.json) → `version` 是唯一事实源，[CHANGELOG.md](CHANGELOG.md) 顶部条目必须与它一致。见 [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)） |
-| 运行时 | Node.js >= 24（[`engines`](package.json)） |
-| 前端 | React 18、TypeScript、Vite 6、Tailwind CSS 3、TanStack Query 5、Zustand |
-| 后端 | NestJS 11 + Express 4、TypeScript，通过 `tsx` 运行 |
-| 数据库 | SQLite（`better-sqlite3`）；迁移只前进且带校验和 |
-| 插件 | [`plugins/`](plugins) 下 23 个 —— 见下方列表 |
-| 分支 | 只有一条长期分支 `main`：Web 端、共享后端与 [`miniprogram/`](miniprogram) 里的小程序客户端在同一个提交上。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
-
-README 刻意不重复版本号：项目已经往前走了两个大版本，它还在写着 `1.6.7`。那是 `package.json` 的职责。
-
-## Architecture
-
-```text
-packages/
-  kernel/           内核：存储 + 迁移、设置、审计、HTTP 外壳、认证原语
-  plugin-runtime/   从 manifest 发现插件并启动它们
-  plugin-sdk/       插件编译所依赖的 API（ctx.db、ctx.audit、ctx.cleanup……）
-  contracts/        跨插件边界共享的纯类型（无运行时代码）
-
-plugins/
-  <slug>/           一个业务域：plugin.json manifest 加 src/ —— 控制器、
-                    service/repository、支撑文件，以及 index.ts（插件在其中注册
-                    自己的路由、端口（ctx.provide）与跨域清理规则）。
-
-api/                组装根：server.ts、app.ts、app.module.ts、db.ts、maintenance.ts
-src/
-  features/         前端领域模块（API 客户端、hooks、页面导出）
-  components/       共享 UI，含 BrandMark / WebsiteIcon
-  pages/            面向路由的旧页面位置
-  hooks/ lib/ store/ mocks/ app/    横切前端基础设施
-tests/              Vitest 套件：app、backend、e2e、guardrails、miniprogram
-docs/              设计记录、迁移档案与微信指南
-miniprogram/       微信小程序客户端（独立 TypeScript 项目，与 Web/后端同一条主干）
-```
-
-微信小程序是第二个客户端，不是第二套部署：源码在 [`miniprogram/`](miniprogram)，调用同一套
-`/api/**`，云托管镜像也由同一个 `main` 提交构建；不存在独立的小程序分支，详见
-[docs/branch-strategy.md](docs/branch-strategy.md)。
-
-23 个插件域：
-
-```text
-admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
-engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
-pet  portal  slg  system  wechat
-```
-
-`wechat` 是微信小程序的身份面：把 `wx.login` 的一次性 code 换成 openid、把 openid 绑到已有账号并签发
-内核会话，拥有 `p_wechat_accounts` / `p_wechat_login_tickets` 两张表，凭据校验与登录体组装都走
-`identity.public`。它是可选插件（`required: false`）：没有 `WECHAT_APPID` / `WECHAT_SECRET` 的部署照常
-启动，两条登录路由回答 503。部署与发布教程见 [docs/wechat/](docs/wechat/README.md)。
-
-`api/modules/` 已不存在 —— 现在每个域都是插件。
-
-`ai-study`（AI 智学）是个性化引擎：一条确定性规则从题库里选出该学生的练习组，并说明每道题为什么
-在那里；学生在页面内作答，交卷后通过 `learning.public` 把掌握度写回。已配置的模型可以重排规则的
-选择并改写理由；默认部署没有模型，规则独当一面。
-
-### The rules the architecture is held to
-
-这些由护栏套件（[`tests/guardrails/`](tests/guardrails)）强制，而不是靠约定：
-
-- **插件之间只通过已发布的端口通信。** 一个域用 `ctx.provide('<slug>.public', ...)` 发布端口，
-  另一个域用 `ctx.use(...)` 消费它 —— 可选依赖则用 `ctx.tryUse(...)`，让它降级而不是失败。跨插件的
-  裸 import 只允许经由该插件的 `public.ts`；目前没有任何地方需要这么做。
-- **内核从不 import 插件**，也不含任何业务知识 —— 一个表名、一个功能键都没有。
-- **`packages/contracts` 只有类型。**
-- **Schema 只存在于迁移里。** `api/db.ts` 不得出现 `ADD COLUMN` / `CREATE INDEX`。
-- **HTTP 面由快照冻结。** `npm run api:surface:check` 会在出现意外漂移时失败，因此重构可以换掉一条
-  路由的实现者而不改动这条路由。
-- **每个 `plugin.json` 都合规** —— 必填字段齐全、不自依赖、`dependsOn` 使用 semver 范围。
-- **`ENCRYPTION_KEY` 在源码里任何地方都没有默认值。**
-
-迁移一个域意味着在**一个**提交里把它的路由、表和端口搬进 `plugins/<slug>`，这样端点快照和路由冲突
-护栏都不会看到中间状态。
+要跑起来，从 [快速开始](#quick-start) 往下做。可选的环境变量、架构规则和部署说明都排在它后面。
 
 ## Quick Start
+
+一套 API、一个数据库，服务四个控制台。`npm run dev` 起来之后：
+
+| 控制台 | 地址 |
+| --- | --- |
+| Web 应用 | `http://localhost:5173` |
+| 登录 | `http://localhost:5173/login` |
+| 教师 | `http://localhost:5173/teacher` |
+| 学生 | `http://localhost:5173/student` |
+| 家长 | `http://localhost:5173/parent` |
+| 超管 | `http://localhost:5173/beiadmin` |
+
+[`miniprogram/`](miniprogram) 里的小程序是这套 API 的第二个客户端，不是第二台服务器。
 
 要求：Node.js >= 24 与 npm。不需要任何全局工具。
 
@@ -162,7 +105,7 @@ npm run start        # 只有 API
 学生与家长由他们的教师添加。启动过程不写入任何示例教师、班级、商品或积分预设，也不存在固定的学生
 密码或家长密码。
 
-### Configuration
+### 配置
 
 其余全部可选，从环境变量读取：
 
@@ -200,8 +143,91 @@ npm run start        # 只有 API
 （Vercel 入口）走的是同一个 `createApp()`，所以无服务器部署当时暴露在完全相同的问题下。
 
 `DATABASE_URL` **不是**运行时开关。Prisma CLI 从 `.env` 读它；应用解析的是 `DATABASE_FILE`
-（[`packages/kernel/src/config/loadConfig.ts`](packages/kernel/src/config/loadConfig.ts)），而
-`api/prismaClient.ts` 把同一个文件显式传给 Prisma，好让两者无法分叉。
+（[`packages/kernel/src/config/loadConfig.ts`](packages/kernel/src/config/loadConfig.ts)）。
+Prisma 运行时客户端已在 P7 删除，不再有第二条数据路径。`prisma/schema.prisma` 留下来，是给
+schema 漂移护栏和部署时的 `prisma generate` 用的。
+
+## Status
+
+| | |
+| --- | --- |
+| 版本 | [`package.json`](package.json) → `version` 是唯一事实源，[CHANGELOG.md](CHANGELOG.md) 顶部条目必须与它一致。见 [VERSIONING.md](VERSIONING.md)（[简体中文](VERSIONING.zh-CN.md)） |
+| 运行时 | Node.js >= 24（[`engines`](package.json)） |
+| 前端 | React 18、TypeScript、Vite 6、Tailwind CSS 3、TanStack Query 5、Zustand |
+| 后端 | NestJS 11 + Express 4、TypeScript，通过 `tsx` 运行 |
+| 数据库 | SQLite（`better-sqlite3`）；迁移只前进且带校验和 |
+| 插件 | [`plugins/`](plugins) 下一个目录一个域。默认启动必须激活下方列出的 id |
+| 分支 | 只有一条长期分支 `main`：Web 端、共享后端与 [`miniprogram/`](miniprogram) 里的小程序客户端在同一个提交上。见 [docs/branch-strategy.md](docs/branch-strategy.md) |
+
+README 刻意不重复版本号：项目已经往前走了两个大版本，它还在写着 `1.6.7`。那是 `package.json` 的职责。
+
+## Architecture
+
+```text
+packages/
+  kernel/           内核：存储 + 迁移、设置、审计、HTTP 外壳、认证原语
+  plugin-runtime/   从 manifest 发现插件并启动它们
+  plugin-sdk/       插件编译所依赖的 API（ctx.db、ctx.audit、ctx.cleanup……）
+  contracts/        跨插件边界共享的纯类型（无运行时代码）
+
+plugins/
+  <slug>/           一个业务域：plugin.json manifest 加 src/ —— 控制器、
+                    service/repository、支撑文件，以及 index.ts（插件在其中注册
+                    自己的路由、端口（ctx.provide）与跨域清理规则）。
+
+api/                组装根：server.ts、app.ts、app.module.ts、db.ts、maintenance.ts
+src/
+  features/         前端领域模块（API 客户端、hooks、页面导出）
+  components/       共享 UI，含 BrandMark / WebsiteIcon
+  pages/            面向路由的旧页面位置
+  hooks/ lib/ store/ mocks/ app/    横切前端基础设施
+tests/              Vitest 套件：app、backend、e2e、guardrails、miniprogram
+docs/              设计记录、迁移档案与微信指南
+miniprogram/       微信小程序客户端（独立 TypeScript 项目，与 Web/后端同一条主干）
+```
+
+微信小程序是第二个客户端，不是第二套部署：源码在 [`miniprogram/`](miniprogram)，调用同一套
+`/api/**`，云托管镜像也由同一个 `main` 提交构建；不存在独立的小程序分支，详见
+[docs/branch-strategy.md](docs/branch-strategy.md)。
+
+默认启动必须激活的域，就是
+[`tests/plugins/legacy-default-composition.test.ts`](tests/plugins/legacy-default-composition.test.ts)
+里的那些 id：
+
+```text
+admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
+engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
+pet  portal  slg  system  wechat
+```
+
+`wechat` 是微信小程序的身份面：把 `wx.login` 的一次性 code 换成 openid、把 openid 绑到已有账号并签发
+内核会话，拥有 `p_wechat_accounts` / `p_wechat_login_tickets` 两张表，凭据校验与登录体组装都走
+`identity.public`。它是可选插件（`required: false`）：没有 `WECHAT_APPID` / `WECHAT_SECRET` 的部署照常
+启动，两条登录路由回答 503。部署与发布教程见 [docs/wechat/](docs/wechat/README.md)。
+
+`api/modules/` 已不存在 —— 现在每个域都是插件。
+
+`ai-study`（AI 智学）是个性化引擎：一条确定性规则从题库里选出该学生的练习组，并说明每道题为什么
+在那里；学生在页面内作答，交卷后通过 `learning.public` 把掌握度写回。已配置的模型可以重排规则的
+选择并改写理由；默认部署没有模型，规则独当一面。
+
+### 架构守则
+
+这些由护栏套件（[`tests/guardrails/`](tests/guardrails)）强制，而不是靠约定：
+
+- **插件之间只通过已发布的端口通信。** 一个域用 `ctx.provide('<slug>.public', ...)` 发布端口，
+  另一个域用 `ctx.use(...)` 消费它 —— 可选依赖则用 `ctx.tryUse(...)`，让它降级而不是失败。跨插件的
+  裸 import 只允许经由该插件的 `public.ts`；目前没有任何地方需要这么做。
+- **内核从不 import 插件**，也不含任何业务知识 —— 一个表名、一个功能键都没有。
+- **`packages/contracts` 只有类型。**
+- **Schema 只存在于迁移里。** `api/db.ts` 不得出现 `ADD COLUMN` / `CREATE INDEX`。
+- **HTTP 面由快照冻结。** `npm run api:surface:check` 会在出现意外漂移时失败，因此重构可以换掉一条
+  路由的实现者而不改动这条路由。
+- **每个 `plugin.json` 都合规** —— 必填字段齐全、不自依赖、`dependsOn` 使用 semver 范围。
+- **`ENCRYPTION_KEY` 在源码里任何地方都没有默认值。**
+
+迁移一个域意味着在**一个**提交里把它的路由、表和端口搬进 `plugins/<slug>`，这样端点快照和路由冲突
+护栏都不会看到中间状态。
 
 ## Scripts
 
@@ -220,10 +246,13 @@ npm run start        # 只有 API
 | `npm run test:backend` | 内核与服务端套件（node），含一个真实的插件宿主 |
 | `npm run test:e2e` | 组装后的应用跑在真实 HTTP 上：按角色遍历每个端点 |
 | `npm run guard` | 只跑护栏套件 |
+| `npm run check:unused` | 未使用的局部变量、import、参数、死文件或无用的抑制注释就失败 |
+| `npm run check:exports` | 没有任何调用方的导出会失败 |
+| `npm run code:health` | 完整的代码健康报告（死文件、未使用局部变量、无用的 eslint 抑制） |
 | `npm run auth:audit` | 逐控制器的授权清单，并与端点快照对账 |
 | `npm run api:surface:check` | HTTP 面发生漂移就失败 |
 | `npm run measure` | 迁移棘轮：端点、死代码、已接管表 |
-| `npm run release` | 切一个版本 —— 除非 `--push`，否则是 dry-run |
+| `npm run release` | 切一个版本：跑验收门，然后在本地提交并打 tag。`--dry-run` 只打印计划；`--push` 才会发布 |
 | `bash pack.sh` | 构建生产 zip |
 
 ## Validation
@@ -239,7 +268,7 @@ npm test                # 现在包含 e2e 项目
 npm run lint            # 仅本地；不在发布工作流里
 ```
 
-### The four test projects
+### 四个测试项目
 
 `npm test` 会跑全部四个；每个也都能单独运行。
 
@@ -258,7 +287,7 @@ npm run lint            # 仅本地；不在发布工作流里
 
 它立刻就证明了自己的价值：第一次运行就发现，legacy 组装里 actor 作用域**从未**被解析
 （`mountKernelInfrastructure` 又装了一个不带 resolver 的 request-context 中间件，而它最后执行）——
-这就是为什么在一个已部署实例里学生从宠物路由那里一律拿到 403，而 1128 个用例的套件一直全绿。
+这就是为什么在一个已部署实例里学生从宠物路由那里一律拿到 403，而其余套件一直全绿。
 
 `npm run auth:audit` 打印 [`docs/security/route-authorization-matrix.md`](docs/security/route-authorization-matrix.md)
 背后的逐控制器清单，并在任何端点无法被这棵树归因时失败。它把自己的性质说得很直白：一份清单，不是
@@ -271,7 +300,7 @@ npm run lint            # 仅本地；不在发布工作流里
 被 `backend` 项目收集（[`vitest.backend.config.ts:29`](vitest.backend.config.ts)），因此受 `npm test`
 强制；它会启动一个真实子进程来钉住默认值**以及它的两个边界**：在子进程环境里同时删掉
 `KERNEL_ENABLED` 与 `PLUGINS_ENABLED` 时，`/api/kernel/info` 必须报告 `pluginsEnabled: true`、
-`/api/kernel/plugins` 必须列出 23 个插件、`/api/website/home` 必须回 200，且 `/api/pets/999` 必须走到
+`/api/kernel/plugins` 必须列出该测试点名的那些 id、`/api/website/home` 必须回 200，且 `/api/pets/999` 必须走到
 宠物控制器自己的 `Student not found` 而不是 Nest 的 `Cannot GET` 兜底；legacy + `PLUGINS_ENABLED=0`
 必须**启动失败**，并在消息里点名该变量；而 `KERNEL_ENABLED=1 PLUGINS_ENABLED=0`（纯内核）仍须启动，
 用 `kernel.plugins.total === 0` 回应 `/api/health`，且 `/api/students` 回的是内核自己的 `NOT_FOUND`
@@ -348,7 +377,7 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 
 ## Development guidelines
 
-- 新的前端业务代码从 `src/features/<domain>` 进入。legacy `src/api/*` 文件保留为兼容门面。
+- 新的前端业务代码从 `src/features/<domain>` 进入。旧的 `src/api/*` 兼容层已在 P7 删除；现在每个域只有一条客户端路径。
 - 新的后端域是带 manifest 的 `plugins/<slug>`，不是 `api/` 下新开一个目录。
 - 跨域访问保持走已发布的端口（`ctx.use` / `ctx.tryUse`），并保持公开 HTTP 路径稳定。
 - 复用共享的内核与运行时服务 —— 密码处理、学生查询、积分、功能门、审计、清理 —— 而不是重新实现。
@@ -357,7 +386,7 @@ wget -O install.sh https://ghproxy.net/https://raw.githubusercontent.com/xhnhhnh
 
 ## Compatibility notes
 
-- legacy 后端路径继续作为回落可用，前端经 `src/api/*` 的旧 import 也继续工作。
+- legacy 后端路径继续作为回落、也作为已发布的 HTTP 契约存在。前端不再 import `src/api/*`；那层兼容代码和它的测试已在 P7 删除。
 - 支付流程与既有服务商及 mock 行为保持兼容。
 - 已知的非阻塞构建警告是 Vite 的大 chunk 警告；路由级代码分割刻意留给单独的性能项目。
 

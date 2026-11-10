@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Think-Class" width="96">
+</p>
+
 <h1 align="center">Think-Class</h1>
 
 <p align="center">
@@ -17,90 +21,28 @@ storage, migrations, settings, audit, auth primitives and the HTTP shell; every 
 ships as a plugin that declares the tables, routes, permissions and ports *it* owns. The kernel
 contains no business table names, and plugins never import each other directly.
 
-## Status
+The leaf above is the product mark ([`docs/assets/logo.svg`](docs/assets/logo.svg), drawn on this
+page as [`docs/assets/logo.png`](docs/assets/logo.png)). Its paths and colour are the ones in
+[`src/lib/brandIcon.ts`](src/lib/brandIcon.ts), which is also what the browser tab uses unless a
+superadmin uploads a different icon.
 
-| | |
-| --- | --- |
-| Version | [`package.json`](package.json) → `version` is the single source of truth, and the top [CHANGELOG.md](CHANGELOG.md) entry must match it. See [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) |
-| Runtime | Node.js >= 24 ([`engines`](package.json)) |
-| Frontend | React 18, TypeScript, Vite 6, Tailwind CSS 3, TanStack Query 5, Zustand |
-| Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
-| Database | SQLite via `better-sqlite3`; migrations are forward-only and checksummed |
-| Plugins | 23 under [`plugins/`](plugins) — see the list below |
-| Branch | One trunk, `main`: the Web app, the shared backend and the mini program client in [`miniprogram/`](miniprogram) ship from the same commit. See [docs/branch-strategy.md](docs/branch-strategy.md) |
-
-The README deliberately does not repeat the version number: it said `1.6.7` for two major
-releases after the project had moved on. That is what `package.json` is for.
-
-## Architecture
-
-```text
-packages/
-  kernel/           Core: storage + migrations, settings, audit, HTTP shell, auth primitives
-  plugin-runtime/   Discovers plugins from manifests and boots them
-  plugin-sdk/       The API a plugin compiles against (ctx.db, ctx.audit, ctx.cleanup, ...)
-  contracts/        Pure types shared across the plugin boundary (no runtime code)
-
-plugins/
-  <slug>/           One business domain: a plugin.json manifest plus src/ — controllers,
-                    service/repository, support, and an index.ts where the plugin registers
-                    its routes, ports (ctx.provide) and cross-domain cleanup rules.
-
-api/                Composition root: server.ts, app.ts, app.module.ts, db.ts, maintenance.ts
-src/
-  features/         Frontend domain modules (API clients, hooks, page exports)
-  components/       Shared UI, including BrandMark / WebsiteIcon
-  pages/            Route-facing legacy page locations
-  hooks/ lib/ store/ mocks/ app/    Cross-cutting frontend infrastructure
-tests/              Vitest suites: app, backend, e2e, guardrails, miniprogram
-docs/               Design records, the migration archive and the WeChat guides
-miniprogram/        WeChat mini program client (separate TypeScript project, same trunk)
-```
-
-The WeChat mini program is a second client, not a second deployment: its source is
-[`miniprogram/`](miniprogram), it calls the same `/api/**` endpoints, and the same `main` commit
-builds the Cloud Run image. There is no separate mini-program branch; see
-[docs/branch-strategy.md](docs/branch-strategy.md).
-
-The 22 plugin domains:
-
-```text
-admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
-engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
-pet  portal  slg  system  wechat
-```
-
-`api/modules/` no longer exists — every domain is a plugin now.
-
-`ai-study` (AI 智学) is the personalisation engine: a deterministic rule picks a student's practice set
-from the question bank and states why each question is there, the student answers it in the page, and
-submitting writes mastery back through `learning.public`. A configured model may re-rank the rule's
-choices and rewrite their reasons; the default deployment has none and the rule stands alone.
-
-### The rules the architecture is held to
-
-These are enforced by the guardrail suite ([`tests/guardrails/`](tests/guardrails)), not by
-convention:
-
-- **Plugins talk to each other only through published ports.** A domain publishes one with
-  `ctx.provide('<slug>.public', ...)` and another consumes it with `ctx.use(...)` — or
-  `ctx.tryUse(...)` for an optional dependency that degrades instead of failing. A raw import
-  across plugins is allowed only through that plugin's `public.ts`; nothing needs one today.
-- **The kernel never imports a plugin**, and contains zero business knowledge — not a table name,
-  not a feature key.
-- **`packages/contracts` is types only.**
-- **Schema lives only in migrations.** `api/db.ts` may not contain `ADD COLUMN` / `CREATE INDEX`.
-- **The HTTP surface is frozen by a snapshot.** `npm run api:surface:check` fails on unintended
-  drift, so a refactor can change who implements a route without changing the route.
-- **Every `plugin.json` conforms** — required fields, no self-dependency, semver ranges on
-  `dependsOn`.
-- **`ENCRYPTION_KEY` has no default anywhere in the source.**
-
-Migrating a domain means moving its routes, tables and ports into `plugins/<slug>` in a single
-commit, so the endpoint snapshot and the route-collision guardrail never see an intermediate
-state.
+To run the app, follow [Quick Start](#quick-start). Optional environment variables, the architecture
+rules and deployment come after it.
 
 ## Quick Start
+
+One API and one database serve four consoles. Once `npm run dev` is up:
+
+| Console | URL |
+| --- | --- |
+| Web app | `http://localhost:5173` |
+| Sign in | `http://localhost:5173/login` |
+| Teacher | `http://localhost:5173/teacher` |
+| Student | `http://localhost:5173/student` |
+| Parent | `http://localhost:5173/parent` |
+| Superadmin | `http://localhost:5173/beiadmin` |
+
+The mini program in [`miniprogram/`](miniprogram) is a second client of that same API, not a second server.
 
 Requirements: Node.js >= 24 and npm. No global tooling.
 
@@ -215,6 +157,97 @@ resolves `DATABASE_FILE` ([`packages/kernel/src/config/loadConfig.ts`](packages/
 The Prisma runtime client was removed in P7, so there is no second data path. `prisma/schema.prisma`
 is kept for the schema-drift guardrail and for `prisma generate` during deployment.
 
+## Status
+
+| | |
+| --- | --- |
+| Version | [`package.json`](package.json) → `version` is the single source of truth, and the top [CHANGELOG.md](CHANGELOG.md) entry must match it. See [VERSIONING.md](VERSIONING.md) ([简体中文](VERSIONING.zh-CN.md)) |
+| Runtime | Node.js >= 24 ([`engines`](package.json)) |
+| Frontend | React 18, TypeScript, Vite 6, Tailwind CSS 3, TanStack Query 5, Zustand |
+| Backend | NestJS 11 + Express 4, TypeScript, run through `tsx` |
+| Database | SQLite via `better-sqlite3`; migrations are forward-only and checksummed |
+| Plugins | One directory per domain under [`plugins/`](plugins). The default boot must activate the ids listed below |
+| Branch | One trunk, `main`: the Web app, the shared backend and the mini program client in [`miniprogram/`](miniprogram) ship from the same commit. See [docs/branch-strategy.md](docs/branch-strategy.md) |
+
+The README deliberately does not repeat the version number: it said `1.6.7` for two major
+releases after the project had moved on. That is what `package.json` is for.
+
+## Architecture
+
+```text
+packages/
+  kernel/           Core: storage + migrations, settings, audit, HTTP shell, auth primitives
+  plugin-runtime/   Discovers plugins from manifests and boots them
+  plugin-sdk/       The API a plugin compiles against (ctx.db, ctx.audit, ctx.cleanup, ...)
+  contracts/        Pure types shared across the plugin boundary (no runtime code)
+
+plugins/
+  <slug>/           One business domain: a plugin.json manifest plus src/ — controllers,
+                    service/repository, support, and an index.ts where the plugin registers
+                    its routes, ports (ctx.provide) and cross-domain cleanup rules.
+
+api/                Composition root: server.ts, app.ts, app.module.ts, db.ts, maintenance.ts
+src/
+  features/         Frontend domain modules (API clients, hooks, page exports)
+  components/       Shared UI, including BrandMark / WebsiteIcon
+  pages/            Route-facing legacy page locations
+  hooks/ lib/ store/ mocks/ app/    Cross-cutting frontend infrastructure
+tests/              Vitest suites: app, backend, e2e, guardrails, miniprogram
+docs/               Design records, the migration archive and the WeChat guides
+miniprogram/        WeChat mini program client (separate TypeScript project, same trunk)
+```
+
+The WeChat mini program is a second client, not a second deployment: its source is
+[`miniprogram/`](miniprogram), it calls the same `/api/**` endpoints, and the same `main` commit
+builds the Cloud Run image. There is no separate mini-program branch; see
+[docs/branch-strategy.md](docs/branch-strategy.md).
+
+The domains the default boot must activate are the ids in
+[`tests/plugins/legacy-default-composition.test.ts`](tests/plugins/legacy-default-composition.test.ts):
+
+```text
+admin  ai-study  assignments  battles  challenge  classroom  collaboration  dungeon  economy
+engagement  gacha  homework  identity  insights  learning  marketplace  parent-buff  payment
+pet  portal  slg  system  wechat
+```
+
+`wechat` is the mini program's identity surface: it exchanges a one-time `wx.login` code for an
+openid, binds that openid to an existing account and issues a kernel session. It owns
+`p_wechat_accounts` and `p_wechat_login_tickets`, and it checks credentials and builds the login
+body through `identity.public`. It is optional (`required: false`): a deployment without
+`WECHAT_APPID` / `WECHAT_SECRET` still boots, and the two login routes answer 503. Deployment and
+release notes are in [docs/wechat/](docs/wechat/README.md).
+
+`api/modules/` no longer exists — every domain is a plugin now.
+
+`ai-study` (AI 智学) is the personalisation engine: a deterministic rule picks a student's practice set
+from the question bank and states why each question is there, the student answers it in the page, and
+submitting writes mastery back through `learning.public`. A configured model may re-rank the rule's
+choices and rewrite their reasons; the default deployment has none and the rule stands alone.
+
+### The rules the architecture is held to
+
+These are enforced by the guardrail suite ([`tests/guardrails/`](tests/guardrails)), not by
+convention:
+
+- **Plugins talk to each other only through published ports.** A domain publishes one with
+  `ctx.provide('<slug>.public', ...)` and another consumes it with `ctx.use(...)` — or
+  `ctx.tryUse(...)` for an optional dependency that degrades instead of failing. A raw import
+  across plugins is allowed only through that plugin's `public.ts`; nothing needs one today.
+- **The kernel never imports a plugin**, and contains zero business knowledge — not a table name,
+  not a feature key.
+- **`packages/contracts` is types only.**
+- **Schema lives only in migrations.** `api/db.ts` may not contain `ADD COLUMN` / `CREATE INDEX`.
+- **The HTTP surface is frozen by a snapshot.** `npm run api:surface:check` fails on unintended
+  drift, so a refactor can change who implements a route without changing the route.
+- **Every `plugin.json` conforms** — required fields, no self-dependency, semver ranges on
+  `dependsOn`.
+- **`ENCRYPTION_KEY` has no default anywhere in the source.**
+
+Migrating a domain means moving its routes, tables and ports into `plugins/<slug>` in a single
+commit, so the endpoint snapshot and the route-collision guardrail never see an intermediate
+state.
+
 ## Scripts
 
 | Command | Purpose |
@@ -238,7 +271,7 @@ is kept for the schema-drift guardrail and for `prisma generate` during deployme
 | `npm run auth:audit` | Per-controller authorization inventory, reconciled against the endpoint snapshot |
 | `npm run api:surface:check` | Fail if the HTTP surface drifted |
 | `npm run measure` | Migration ratchets: endpoints, dead code, adopted tables |
-| `npm run release` | Cut a version — dry-run unless `--push` |
+| `npm run release` | Cut a version: gates, then a local commit and tag. `--dry-run` prints the plan; `--push` publishes |
 | `bash pack.sh` | Build the production zip |
 
 ## Validation
@@ -275,7 +308,7 @@ paths the frontend actually calls answer without a 5xx.
 It earned its place immediately: the first run found that the actor scope was never resolved in the
 legacy composition at all (`mountKernelInfrastructure` installed a second request-context middleware
 without the resolver, and it ran last), which is why every student got 403 from the pet routes in a
-deployed instance while the 1128-test suite stayed green.
+deployed instance while the rest of the suite stayed green.
 
 `npm run auth:audit` prints the per-controller inventory behind
 [`docs/security/route-authorization-matrix.md`](docs/security/route-authorization-matrix.md) and fails
@@ -289,7 +322,7 @@ whole business surface 404s. [`tests/plugins/legacy-default-composition.test.ts`
 which the `backend` project collects ([`vitest.backend.config.ts:29`](vitest.backend.config.ts)) and so
 `npm test` enforces, boots a real subprocess to pin the default **and** both edges of it: with `KERNEL_ENABLED` and
 `PLUGINS_ENABLED` both deleted from the child environment, `/api/kernel/info` must report
-`pluginsEnabled: true`, `/api/kernel/plugins` must list the 23 plugins, `/api/website/home` must answer
+`pluginsEnabled: true`, `/api/kernel/plugins` must list the ids named in that test, `/api/website/home` must answer
 200, and `/api/pets/999` must reach the pet controller's own `Student not found` rather than Nest's
 `Cannot GET` catch-all; legacy + `PLUGINS_ENABLED=0` must **fail to start** with a message naming the
 variable; and `KERNEL_ENABLED=1 PLUGINS_ENABLED=0` (kernel-only) must still start and answer
