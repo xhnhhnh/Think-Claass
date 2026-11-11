@@ -88,6 +88,13 @@
         </view>
 
         <view class="sheet" wx:if="{{item.expanded}}">
+          <view
+            wx:if="{{item.questionCount}}"
+            class="btn btn--ghost sheet__grade {{item.grading ? 'btn--disabled' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onAiGrade"
+          >{{item.grading ? '正在判分…' : 'AI 判分'}}</view>
+
           <loading-block wx:if="{{item.sheetLoading}}" mode="skeleton" rows="{{2}}" text="正在加载提交情况…" />
 
           <block wx:elif="{{item.rows.length}}">

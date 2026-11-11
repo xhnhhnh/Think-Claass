@@ -101,6 +101,10 @@
   background: #FBFAF6;
 }
 
+.sheet__grade {
+  margin-bottom: 12rpx;
+}
+
 .grade {
   display: flex;
   align-items: center;

@@ -104,4 +104,26 @@ export async function listSubmissions(homeworkId: number): Promise<HomeworkGrade
   return body.data || []
 }
 
+export interface HomeworkAiGradeOutcome {
+  source: string
+  available: boolean
+  message: string
+}
+
+/**
+ * POST /api/homework/:id/ai-grade - grade every submitted attempt.
+ *
+ * The body is empty on purpose: omitting `submission_ids` grades the whole sheet, and omitting
+ * `overwrite_teacher` keeps a mark the teacher already wrote. Objective questions are still
+ * scored when no model is configured; the outcome message says which of the two happened.
+ */
+export async function aiGradeHomework(homeworkId: number): Promise<HomeworkAiGradeOutcome[]> {
+  const body = await post<{ success: true; data: Array<{ ai: HomeworkAiGradeOutcome }> }>(
+    `/api/homework/${homeworkId}/ai-grade`,
+    {},
+    { timeout: AI_REQUEST_TIMEOUT },
+  )
+  return (body.data || []).map((row) => row.ai)
+}
+
 export type { HomeworkDetail, HomeworkGradeRow, HomeworkListEntry, HomeworkPublishPayload }

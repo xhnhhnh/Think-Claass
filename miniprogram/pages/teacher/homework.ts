@@ -7,7 +7,9 @@
  * questions (with options, reference answers, an answer key and AI 出题) is a long, keyboard-heavy
  * form that the web console owns - a phone is the wrong place for it, and a half-capable question
  * editor here would produce papers the web could not fix. A teacher on a phone can still set the
- * task and the deadline, which is the part that has to happen today.
+ * task and the deadline, which is the part that has to happen today. Judging a paper that already
+ * has questions is the other half, and that does belong here: 「AI 判分」 calls the same route as
+ * the web grade sheet and leaves a score the teacher already wrote alone.
  *
  * ## The grade sheet is inline
  *
@@ -17,7 +19,7 @@
  */
 
 import { requireSession } from '../../services/auth'
-import { createHomework, listClasses, listHomework, listSubmissions } from '../../services/teacher'
+import { aiGradeHomework, createHomework, listClasses, listHomework, listSubmissions } from '../../services/teacher'
 import type { HomeworkGradeRow, HomeworkListEntry } from '../../services/homework'
 import { ensureClassId } from '../../utils/classContext'
 import { syncTabBar } from '../../utils/feature'
@@ -37,6 +39,8 @@ interface HomeworkView {
   /** True while this row's grade sheet is rendered underneath it. */
   expanded: boolean
   sheetLoading: boolean
+  /** True while this paper's AI grade request is in flight. */
+  grading: boolean
   rows: GradeRowView[]
 }
 
@@ -119,7 +123,7 @@ Page({
         // Keep an expanded row expanded (and its already-loaded sheet) across a refresh: the teacher
         // is reading it, and collapsing it under them would lose their place.
         const open = previous.filter((item) => item.id === entry.id)[0]
-        return toView(entry, open ? open.expanded : false, open ? open.rows : [])
+        return toView(entry, open ? open.expanded : false, open ? open.rows : [], open ? open.grading : false)
       })
       this.setData({ loading: false, error: '', list })
     } catch (error) {
@@ -154,6 +158,51 @@ Page({
       this.setData({ list })
     } catch (error) {
       target.sheetLoading = false
+      this.setData({ list })
+      toastError(errorMessage(error))
+    }
+  },
+
+  /**
+   * Grade every submitted attempt of this paper.
+   *
+   * No `overwrite_teacher`: a mark already written by a person stays. Papers with no questions
+   * are refused by the server, so the button is not rendered for them.
+   */
+  async onAiGrade(event: { currentTarget: { dataset: Record<string, string> } }) {
+    const id = Number(event.currentTarget.dataset.id)
+    const list = this.data.list
+    const target = list.filter((item) => item.id === id)[0]
+    if (!target || target.grading || target.questionCount === 0) {
+      return
+    }
+
+    const confirmed = await confirm({
+      title: 'AI 判分',
+      content: '为已经提交的作业判一次分。老师已经打过的分数会保留。没有接入模型时，客观题仍按规则判，简答题会说明需要老师复核。',
+      confirmText: '开始判分',
+    })
+    if (!confirmed) {
+      return
+    }
+
+    target.grading = true
+    this.setData({ list })
+    try {
+      const outcomes = await aiGradeHomework(id)
+      const rows = await listSubmissions(id)
+      target.rows = rows.map(toGradeRow)
+      target.grading = false
+      target.expanded = true
+      this.setData({ list })
+      if (outcomes.length === 0) {
+        toastError('没有已提交的作业可以判分')
+        return
+      }
+      const message = outcomes[0].message
+      toastSuccess(message || '判分完成')
+    } catch (error) {
+      target.grading = false
       this.setData({ list })
       toastError(errorMessage(error))
     }
@@ -248,7 +297,7 @@ Page({
 
 // ---------------------------------------------------------------------------
 
-function toView(entry: HomeworkListEntry, expanded: boolean, rows: GradeRowView[]): HomeworkView {
+function toView(entry: HomeworkListEntry, expanded: boolean, rows: GradeRowView[], grading = false): HomeworkView {
   const due = formatDueLabel(entry.due_at)
   return {
     id: entry.id,
@@ -262,6 +311,7 @@ function toView(entry: HomeworkListEntry, expanded: boolean, rows: GradeRowView[
     rewardPoints: entry.reward_points,
     expanded,
     sheetLoading: false,
+    grading,
     rows,
   }
 }

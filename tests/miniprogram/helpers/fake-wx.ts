@@ -17,6 +17,7 @@ export interface RecordedRequest {
   method: string
   data: unknown
   header: Record<string, string>
+  timeout?: number
 }
 
 /**
@@ -103,6 +104,7 @@ export function installFakeWx(options: FakeWxOptions): FakeWx {
       method: string
       data?: unknown
       header?: Record<string, string>
+      timeout?: number
       success?: (res: { statusCode: number; data: unknown; header: Record<string, string> }) => void
       fail?: (err: { errMsg: string }) => void
     }): void {
@@ -111,6 +113,7 @@ export function installFakeWx(options: FakeWxOptions): FakeWx {
         method: config.method,
         data: config.data,
         header: config.header ?? {},
+        timeout: config.timeout,
       }
       requests.push(recorded)
 

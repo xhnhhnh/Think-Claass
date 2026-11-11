@@ -154,6 +154,49 @@
           bindtap="onAddPhoto"
         >{{uploading ? '上传中…' : '拍照 / 从相册选择'}}</view>
       </view>
+
+      <view class="card">
+        <view class="card__title">AI 问答</view>
+        <view class="card__sub">就这份作业问一句。没有接入模型时，回答会写明原因。</view>
+
+        <loading-block wx:if="{{qaLoading && !qaMessages.length}}" mode="skeleton" rows="{{2}}" text="正在加载问答…" />
+        <view class="qa-error" wx:elif="{{qaError}}">
+          <view class="tiny">{{qaError}}</view>
+          <view class="btn btn--sm btn--ghost mt-16" bindtap="onQaRetry">重新加载</view>
+        </view>
+        <block wx:else>
+          <view class="tiny mt-16" wx:if="{{!qaMessages.length}}">{{isParent ? '孩子还没有向 AI 提问。' : '还没有提问。可以选一题，问问这一步为什么。'}}</view>
+          <view class="qa-msg qa-msg--{{item.role}}" wx:for="{{qaMessages}}" wx:key="id">
+            <view class="qa-msg__role">{{item.roleText}}</view>
+            <view class="qa-msg__text">{{item.content}}</view>
+          </view>
+          <view class="notice mt-16" wx:if="{{qaNotice}}"><view class="tiny">{{qaNotice}}</view></view>
+        </block>
+
+        <block wx:if="{{!isParent}}">
+          <view class="qa-focus">
+            <view class="chip {{qaQuestionId === 0 ? 'chip--brand' : ''}}" data-id="0" bindtap="onPickQuestion">整份作业</view>
+            <view
+              class="chip {{qaQuestionId === item.id ? 'chip--brand' : ''}}"
+              wx:for="{{questions}}"
+              wx:key="id"
+              data-id="{{item.id}}"
+              bindtap="onPickQuestion"
+            >第{{item.order}}题</view>
+          </view>
+          <textarea
+            class="answer-textarea qa-input"
+            value="{{qaDraft}}"
+            placeholder="例如：第 2 题的第二步，我为什么算错了？"
+            placeholder-class="answer-placeholder"
+            maxlength="500"
+            bindinput="onQaInput"
+          />
+          <view class="btn btn--primary mt-16 {{qaAsking ? 'btn--disabled' : ''}}" bindtap="onAsk">
+            {{qaAsking ? '正在回答…' : '提问'}}
+          </view>
+        </block>
+      </view>
     </block>
   </block>
 

@@ -42,8 +42,15 @@ export const CLOUD_SERVICE = ''
 /** Per-request ceiling. 15s matches the web client; AI generation passes a longer one. */
 export const REQUEST_TIMEOUT = 15000
 
-/** The ceiling for the two AI routes that may wait on a model server-side. */
-export const AI_REQUEST_TIMEOUT = 25000
+/**
+ * Ceiling for a call that may wait on a model.
+ *
+ * A reasoning model spends most of its budget before it writes the answer. One homework
+ * question has been measured at about five seconds, and a short paper is several calls, so
+ * the 15-second page timeout made a working model look like a dropped request. 60 seconds
+ * matches the server-side `AI_TIMEOUT_MS` the deployment notes recommend.
+ */
+export const AI_REQUEST_TIMEOUT = 60000
 
 /** Storage key for the session blob (token + user + login-time feature snapshot). */
 export const AUTH_STORAGE_KEY = 'thinkclass-mp-auth'

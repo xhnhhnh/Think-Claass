@@ -36,16 +36,29 @@
  * A parent session never opens an attempt (`POST .../attempt` is student-only) - it reads the
  * attempt the list handed it (`GET /api/homework/submissions/:id`), which is the server's documented
  * parent path and is scoped to their own child.
+ *
+ * ## Asking
+ *
+ * The thread is `GET/POST /api/homework/:id/qa`, the same one the web attempt page writes. A parent
+ * can read it (the server pins them to their child) but cannot add a question: the composer is the
+ * pupil's. A model that is off still answers 200, and the reply says so.
  */
 
 import { requireSession } from '../../services/auth'
-import { photoUrl, saveAnswers, startAttempt, submissionDetail, submitAttempt, uploadPhoto } from '../../services/homework'
-import type { HomeworkAnswer, HomeworkAnswerInput, HomeworkAttemptDetail, HomeworkOption, HomeworkQuestionType } from '../../services/homework'
+import { askQa, listQa, photoUrl, saveAnswers, startAttempt, submissionDetail, submitAttempt, uploadPhoto } from '../../services/homework'
+import type { HomeworkAnswer, HomeworkAnswerInput, HomeworkAttemptDetail, HomeworkOption, HomeworkQaMessage, HomeworkQuestionType } from '../../services/homework'
 import { confirm, errorMessage, toastError, toastSuccess } from '../../utils/toast'
 import { formatDueLabel, formatScore, questionTypeText, submissionStatusText } from '../../utils/format'
 
 interface OptionView extends HomeworkOption {
   selected: boolean
+}
+
+interface QaView {
+  id: number
+  role: 'student' | 'assistant'
+  roleText: string
+  content: string
 }
 
 interface QuestionView {
@@ -101,6 +114,14 @@ Page({
     nothingSubmitted: false,
     /** True once this page has handed the paper in, so the footer explains what happens next. */
     justSubmitted: false,
+    qaLoading: false,
+    qaError: '',
+    qaMessages: [] as QaView[],
+    qaDraft: '',
+    qaAsking: false,
+    /** `0` asks about the whole paper; otherwise a question id. */
+    qaQuestionId: 0,
+    qaNotice: '',
   },
 
   /** Held outside `data`: only the code uses it, and it never needs to reach WXML. */
@@ -192,6 +213,60 @@ Page({
       photos: (detail.photos || []).map((photo) => ({ id: photo.id, url: photoUrl(photo.storage_path) })),
       editable,
     })
+    void this.loadQa(detail.homework.id)
+  },
+
+  async loadQa(homeworkId: number) {
+    this.setData({ qaLoading: true, qaError: '' })
+    try {
+      const result = await listQa(homeworkId)
+      this.setData({ qaLoading: false, qaMessages: (result.messages || []).map(toQaView) })
+    } catch (error) {
+      this.setData({ qaLoading: false, qaError: errorMessage(error) })
+    }
+  },
+
+  onQaRetry() {
+    void this.loadQa(this.data.homeworkId)
+  },
+
+  onPickQuestion(event: { currentTarget: { dataset: Record<string, string> } }) {
+    if (this.data.isParent) {
+      return
+    }
+    this.setData({ qaQuestionId: Number(event.currentTarget.dataset.id) || 0 })
+  },
+
+  onQaInput(event: { detail: { value: string } }) {
+    this.setData({ qaDraft: event.detail.value })
+  },
+
+  async onAsk() {
+    if (this.data.isParent || this.data.qaAsking) {
+      return
+    }
+    const content = this.data.qaDraft.trim()
+    if (!content) {
+      toastError('请先写下你的问题')
+      return
+    }
+    this.setData({ qaAsking: true, qaNotice: '' })
+    try {
+      const payload = this.data.qaQuestionId
+        ? { content, question_id: this.data.qaQuestionId }
+        : { content }
+      const result = await askQa(this.data.homeworkId, payload)
+      const notice = result.ai && result.ai.available === false ? result.ai.message : ''
+      this.setData({
+        qaAsking: false,
+        qaDraft: '',
+        qaMessages: (result.messages || []).map(toQaView),
+        qaNotice: notice,
+      })
+    } catch (error) {
+      this.setData({ qaAsking: false })
+      toastError(errorMessage(error))
+    }
   },
 
   /**
@@ -370,6 +445,16 @@ Page({
 
 // ---------------------------------------------------------------------------
 // Pure helpers (no `this`, so they stay testable and out of the page object)
+
+function toQaView(message: HomeworkQaMessage): QaView {
+  const assistant = message.role === 'assistant'
+  return {
+    id: message.id,
+    role: assistant ? 'assistant' : 'student',
+    roleText: assistant ? 'AI' : '我',
+    content: message.content,
+  }
+}
 
 function toQuestionView(
   question: {

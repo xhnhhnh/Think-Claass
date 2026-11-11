@@ -232,6 +232,48 @@ export async function uploadPhoto(submissionId: number, filePath: string): Promi
  * `storage_path` is `/uploads/homework/<file>`; an `<image>` tag is not subject to the request-domain
  * allowlist, but it does need an absolute URL.
  */
+export interface HomeworkQaMessage {
+  id: number
+  role: 'student' | 'assistant'
+  content: string
+  created_at?: string | null
+}
+
+export interface HomeworkQaOutcome {
+  source: string
+  available: boolean
+  confidence: number | null
+  message: string
+}
+
+export interface HomeworkQaResult {
+  messages: HomeworkQaMessage[]
+  /** `null` on a plain read: listing the thread does not call a model. */
+  ai: HomeworkQaOutcome | null
+}
+
+/** GET /api/homework/:id/qa - this pupil's thread. A parent is pinned to their own child. */
+export async function listQa(homeworkId: number): Promise<HomeworkQaResult> {
+  const body = await get<DataEnvelope<HomeworkQaResult>>(`/api/homework/${homeworkId}/qa`)
+  return body.data
+}
+
+/**
+ * POST /api/homework/:id/qa - ask about this homework.
+ *
+ * The server stores the question even when the model is off, and answers 200 with
+ * `ai.available: false` plus the reason. A transport failure is the only throw.
+ */
+export async function askQa(
+  homeworkId: number,
+  payload: { content: string; question_id?: number },
+): Promise<HomeworkQaResult> {
+  const body = await post<DataEnvelope<HomeworkQaResult>>(`/api/homework/${homeworkId}/qa`, payload, {
+    timeout: AI_REQUEST_TIMEOUT,
+  })
+  return body.data
+}
+
 export function photoUrl(storagePath: string): string {
   if (/^https?:\/\//i.test(storagePath)) {
     return storagePath
