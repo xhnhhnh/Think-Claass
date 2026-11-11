@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Think-Class" width="96">
+  <img src="docs/assets/concept.jpg" alt="Think-Class" width="720">
 </p>
 
 <h1 align="center">Think-Class</h1>
@@ -21,8 +21,9 @@ storage, migrations, settings, audit, auth primitives and the HTTP shell; every 
 ships as a plugin that declares the tables, routes, permissions and ports *it* owns. The kernel
 contains no business table names, and plugins never import each other directly.
 
-The leaf above is the product mark ([`docs/assets/logo.svg`](docs/assets/logo.svg), drawn on this
-page as [`docs/assets/logo.png`](docs/assets/logo.png)). Its paths and colour are the ones in
+The picture above is the product concept ([`docs/assets/concept.jpg`](docs/assets/concept.jpg)).
+The leaf in it is the product mark ([`docs/assets/logo.svg`](docs/assets/logo.svg), also
+[`docs/assets/logo.png`](docs/assets/logo.png)). Its paths and colour are the ones in
 [`src/lib/brandIcon.ts`](src/lib/brandIcon.ts), which is also what the browser tab uses unless a
 superadmin uploads a different icon.
 

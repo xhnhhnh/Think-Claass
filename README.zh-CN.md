@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Think-Class" width="96">
+  <img src="docs/assets/concept.jpg" alt="Think-Class 概念图" width="720">
 </p>
 
 <h1 align="center">Think-Class</h1>
@@ -19,7 +19,8 @@ Think-Class 把日常的班级管理事务和 RPG 式的激励绑在一起：积
 HTTP 外壳；每一个业务域都以插件形式交付，由插件自己声明它**拥有**的表、路由、权限与端口。内核里
 不出现任何业务表名，插件之间也从不直接 import 彼此。
 
-上面的叶子是产品标志（[`docs/assets/logo.svg`](docs/assets/logo.svg)，本页画成
+上面这张是产品概念图（[`docs/assets/concept.jpg`](docs/assets/concept.jpg)）。
+图里的叶子是产品标志（[`docs/assets/logo.svg`](docs/assets/logo.svg)，另有
 [`docs/assets/logo.png`](docs/assets/logo.png)）。它的路径和颜色与
 [`src/lib/brandIcon.ts`](src/lib/brandIcon.ts) 相同，浏览器标签也用这一枚，除非超管另外上传了图标。
 
